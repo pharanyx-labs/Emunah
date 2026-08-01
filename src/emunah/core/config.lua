@@ -20,7 +20,7 @@ local PATH = getMudletHomeDir() .. "/emunah-config.lua"
 --- reload does not even get that far -- config.data is restored wholesale from
 --- emunah._persist. So a bad default, once written or once carried across a reload, is
 --- permanent until something rewrites it. That is what MIGRATIONS is for.
-local SCHEMA = 1
+local SCHEMA = 2
 
 local MIGRATIONS = {
    -- bashing.balance shipped as "bal" long after smite was confirmed to need balance AND
@@ -31,6 +31,30 @@ local MIGRATIONS = {
       if data.bashing and data.bashing.balance == "bal" then
          data.bashing.balance = "both"
          return "bashing.balance: bal -> both (smite needs equilibrium too)"
+      end
+   end,
+
+   -- The healing thresholds were raised from 65/40 to 80/85, and a saved config kept the
+   -- old numbers -- fill() only supplies keys that are ABSENT, and any command that calls
+   -- config.save() writes the whole table, so almost every profile has them stored.
+   --
+   -- The symptom is specific and quiet: sitting at 73% health with nothing happening,
+   -- because 73 is above the 65 that is actually in force while the documentation, the
+   -- README and the code all say 80. Only values that still match the old shipped defaults
+   -- are moved; anything else was chosen and is left alone.
+   [2] = function(data)
+      if not data.curing then return end
+      local moved = {}
+      if data.curing.healthThreshold == 65 then
+         data.curing.healthThreshold = 80
+         moved[#moved + 1] = "health 65 -> 80"
+      end
+      if data.curing.manaThreshold == 40 then
+         data.curing.manaThreshold = 85
+         moved[#moved + 1] = "mana 40 -> 85"
+      end
+      if #moved > 0 then
+         return "healing thresholds: " .. table.concat(moved, ", ")
       end
    end,
 }

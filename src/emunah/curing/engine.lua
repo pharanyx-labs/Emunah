@@ -780,6 +780,27 @@ end, "curing.engine")
 
 event.register("emunah.rift.list", function() M.restockNow() end, "curing.engine")
 
+-- CHAIN THE PULLS. Restocking is driven by the engine tick, and the engine ticks on
+-- Char.Vitals -- which Achaea sends with a prompt, and an idle character produces no
+-- prompts. Standing still after login, `outr 3 bloodroot` at 18:14:50 was followed by
+-- `outr 3 pear` at 18:15:05: fifteen seconds of nothing, waiting for something to happen
+-- that would produce the tick that issued the next pull.
+--
+-- The game confirming one pull is the natural moment to send the next, and it arrives in
+-- about a fifth of a second. That turns restocking from "one item per prompt" into a chain
+-- that drains at the speed of the round trip.
+--- How long after a confirmed pull before the next one goes out.
+---
+--- Not zero. The confirmation arrives inside a trigger, and sending the next command from
+--- there would re-enter the queue while it is still finishing the previous one. A short
+--- timer keeps the chain fast while leaving each pull a complete, separate transaction.
+M.RESTOCK_CHAIN = 0.05
+
+event.register("emunah.balance.recovered", function(_, vector)
+   if vector ~= "rift" then return end
+   emunah.timers.start("restock.chain", M.RESTOCK_CHAIN, function() M.restockNow() end)
+end, "curing.engine")
+
 event.register("sysDisconnectionEvent", function()
    M.clear()
    queue.reset()

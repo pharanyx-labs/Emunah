@@ -750,6 +750,48 @@ ok(table.concat(mock.sent, " | "):find("focus"),
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 
 -- ===========================================================================
+suite("restocking chains rather than waiting for prompts")
+
+-- Restocking runs on the engine tick, and the engine ticks on Char.Vitals -- which arrives
+-- with a prompt. An idle character produces no prompts, so after login `outr 3 bloodroot`
+-- at 18:14:50 was followed by `outr 3 pear` at 18:15:05: fifteen seconds spent waiting for
+-- something to happen that would issue the next pull. The game confirming one pull is the
+-- natural moment to send the next, and it arrives in about a fifth of a second.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = true
+engine.forgetStock()
+-- An earlier suite switches restocking off for its own isolation and a later one switches
+-- it back on; this suite sits between them, so it says what it needs and puts it back.
+local restockWas = emunah.config.get("curing.restock", true)
+emunah.config.set("curing.restock", true)
+mock.feed("IRE.Rift.List", {
+   { name = "moss", desc = "irid", amount = 400 },
+   { name = "bloodroot", amount = 700 },
+})
+-- Learning what the rift holds is itself a reason to restock, so it will have taken the
+-- vector already. Clear it before the listing this case is actually about.
+queue.reset(); emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+ok(table.concat(mock.sent, " | "):find("outr 3 bloodroot"),
+   "the first pull goes out on the listing", table.concat(mock.sent, " | "))
+
+-- No prompt, no tick -- and yet the next pull follows, because the confirmation drives it.
+mock.feed("Char.Items.Add", { location = "inv",
+   item = { id = "1", name = "a group of 3 pieces of bloodroot", attrib = "gre" } })
+mock.sent = {}
+mock.line("You remove 3 bloodroot, bringing the total in the rift to 697.")
+eq(#mock.sent, 0, "the chain is not sent from inside the trigger itself")
+mock.advance(engine.RESTOCK_CHAIN + 0.01)
+ok(table.concat(mock.sent, " | "):find("outr 3 irid"),
+   "...it follows the confirmation, without waiting for a prompt",
+   table.concat(mock.sent, " | "))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+engine.forgetStock()
+emunah.config.set("curing.restock", restockWas)
+
+-- ===========================================================================
 suite("loki: DIAG for the ground truth")
 
 -- Char.Afflictions can be relied on for every affliction in player combat except two.
@@ -3028,6 +3070,19 @@ ok(not emunah.config.migrate(stale), "migration is idempotent -- a second pass d
 local chosen = { bashing = { balance = "eq" } }
 emunah.config.migrate(chosen)
 eq(chosen.bashing.balance, "eq", "a value nobody shipped as a default is left alone")
+
+-- The healing thresholds moved the same way, and with the same symptom: a saved config kept
+-- 65/40 while the code, the README and the docs all said 80/85, so a character sat at 73%
+-- health with nothing happening.
+local oldThresholds = { curing = { healthThreshold = 65, manaThreshold = 40 } }
+ok(emunah.config.migrate(oldThresholds), "a config with the old healing thresholds migrates")
+eq(oldThresholds.curing.healthThreshold, 80, "health 65 -> 80")
+eq(oldThresholds.curing.manaThreshold, 85, "mana 40 -> 85")
+
+local tuned = { curing = { healthThreshold = 70, manaThreshold = 50 } }
+emunah.config.migrate(tuned)
+eq(tuned.curing.healthThreshold, 70, "a threshold someone chose is left alone")
+eq(tuned.curing.manaThreshold, 50, "...both of them")
 
 mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "0" })
 emunah.timers.stopAll()
