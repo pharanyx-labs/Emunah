@@ -1,0 +1,201 @@
+--- Balance-gated action queue.
+---
+--- Achaea does not have one queue, it has several independent ones. Eating a herb, applying
+--- a salve and smoking a pipe consume three different balances and can all happen in the
+--- same second; two herbs cannot. So this is not a single FIFO -- it is one slot per
+--- "vector", where a vector is any resource that gates an action.
+---
+--- Each slot holds at most one command. Pushing a higher-priority action onto an occupied
+--- slot replaces it, which is what you want in combat: if paralysis lands while a queued
+--- cure for anorexia is still waiting on herb balance, the paralysis cure should take that
+--- balance instead. Lower-priority pushes onto an occupied slot are dropped rather than
+--- stacked, because a backlog of stale cures is worse than none.
+
+local queue = {}
+
+local log = emunah.log
+
+--- Known vectors. `free` is for actions with no cost at all.
+--- `rift` is not a balance at all -- OUTR costs nothing. It is a vector so that one pull
+--- can be in flight at a time: the item does not appear in Char.Items instantly, and
+--- without a slot to hold, every tick in that window pulls another one.
+queue.VECTORS = {
+   "free", "balance", "equilibrium",
+   "herb", "salve", "elixir", "smoke", "focus", "tree", "writhe", "special",
+   "moss", "rift",
+}
+
+local slots     = {}   -- vector -> pending action
+local inFlight  = {}   -- vector -> action awaiting confirmation
+
+--- Can this vector be used right now? Delegates to the capability layer, which knows
+--- about both GMCP-reported balances (bal/eq) and timed ones (herb/salve/...).
+--- Resolved at call time rather than load time because have/ loads after core/.
+local function vectorReady(vector)
+   if inFlight[vector] then return false end
+   local have = emunah.have
+   if have and have.balance then return have.balance(vector) end
+   -- Before the capability layer exists, only untimed actions are safe to send.
+   return vector == "free"
+end
+
+--- Queue an action.
+--- @param vector string one of queue.VECTORS
+--- @param command string the game command to send
+--- @param opts table|nil { priority = number (lower wins, default 100),
+---                         tag = string (what this is for, e.g. an affliction name),
+---                         confirm = number (seconds to wait for confirmation),
+---                         needs = table passed to act.blocked(), e.g. { standing = true },
+---                         onSent = function, onTimeout = function }
+--- @return boolean queued
+function queue.push(vector, command, opts)
+   opts = opts or {}
+   if type(command) ~= "string" or command == "" then return false end
+
+   local existing = slots[vector]
+   local priority = opts.priority or 100
+
+   if existing and existing.priority <= priority then
+      -- Only worth saying when something DIFFERENT lost the slot. The engine re-pushes the
+      -- same cure on every tick while the condition holds, so logging each identical
+      -- rejection produced dozens of "keeping drink health over drink health" lines in one
+      -- fight -- noise that buried every line worth reading.
+      if existing.command ~= command then
+         log.debug("Queue %s: keeping %q (p%d) over %q (p%d)",
+            vector, existing.command, existing.priority, command, priority)
+      end
+      return false
+   end
+
+   if existing then
+      log.debug("Queue %s: %q (p%d) pre-empts %q (p%d)",
+         vector, command, priority, existing.command, existing.priority)
+   end
+
+   slots[vector] = {
+      vector    = vector,
+      command   = command,
+      priority  = priority,
+      tag       = opts.tag,
+      confirm   = opts.confirm,
+      needs     = opts.needs,
+      onSent    = opts.onSent,
+      onTimeout = opts.onTimeout,
+      queuedAt  = emunah.util.now(),
+   }
+   return true
+end
+
+--- Send whatever is pending on any vector that is currently free.
+--- Called once per tick (per Char.Vitals update), never per line.
+---
+--- Every send goes through core/act.lua, the one place that knows when the game will refuse
+--- a command outright. Two layers, and they answer different questions: vectorReady() is
+--- "has THIS resource come back", act is "can the character act at all right now".
+---
+--- Note what cures deliberately do NOT declare: a standing requirement. An earlier version
+--- blocked the whole flush while prone, which is both wrong (eating a herb and drinking an
+--- elixir work perfectly well lying down) and actively dangerous -- being knocked flat in a
+--- fight is precisely when refusing to heal gets the character killed. Only actions that
+--- genuinely need you upright pass `needs = { standing = true }` to push().
+--- @return number actions sent
+function queue.flush()
+   -- Cheap early out: stun refuses everything, so there is no point walking the vectors.
+   if not emunah.act.can() then return 0 end
+
+   local sent = 0
+   for _, vector in ipairs(queue.VECTORS) do
+      local action = slots[vector]
+      -- act.send() returning false means the game would refuse it for a reason unrelated to
+      -- this vector (see act). The action stays queued rather than being dropped, so the
+      -- next tick tries again -- which is why this is one condition and not an early exit.
+      if action and vectorReady(vector) and emunah.act.send(action.command, action.needs) then
+         slots[vector] = nil
+         action.sentAt = emunah.util.now()
+         sent = sent + 1
+
+         log.debug("Sent [%s] %s%s", vector, action.command,
+            action.tag and (" (" .. action.tag .. ")") or "")
+
+         if action.confirm and action.confirm > 0 then
+            inFlight[vector] = action
+            -- Re-arm if the game never confirms. A cure that was swallowed by a
+            -- rejection message would otherwise wedge the vector forever.
+            action.timeoutId = tempTimer(action.confirm, function()
+               if inFlight[vector] ~= action then return end
+               inFlight[vector] = nil
+               log.debug("No confirmation for [%s] %s -- re-arming.", vector, action.command)
+               if action.onTimeout then
+                  local ok, err = pcall(action.onTimeout, action)
+                  if not ok then log.error("Queue timeout callback failed: %s", tostring(err)) end
+               end
+            end)
+         end
+
+         if action.onSent then
+            local ok, err = pcall(action.onSent, action)
+            if not ok then log.error("Queue onSent callback failed: %s", tostring(err)) end
+         end
+      end
+   end
+   return sent
+end
+
+--- Mark the in-flight action on a vector as confirmed by the game.
+--- @return table|nil the action that was confirmed
+function queue.confirm(vector)
+   local action = inFlight[vector]
+   if not action then return nil end
+   if action.timeoutId then killTimer(action.timeoutId) end
+   inFlight[vector] = nil
+   return action
+end
+
+--- What is waiting on a vector, if anything.
+function queue.pending(vector)
+   return slots[vector]
+end
+
+--- What has been sent on a vector but not yet confirmed.
+function queue.awaiting(vector)
+   return inFlight[vector]
+end
+
+--- Drop the pending action on one vector, or all of them.
+function queue.clear(vector)
+   if vector then
+      slots[vector] = nil
+      return
+   end
+   slots = {}
+end
+
+--- Drop everything, pending and in-flight. Used on disconnect and when curing is
+--- switched off mid-fight -- leaving in-flight entries around would block the vectors
+--- when curing is switched back on.
+function queue.reset()
+   for _, action in pairs(inFlight) do
+      if action.timeoutId then killTimer(action.timeoutId) end
+   end
+   slots, inFlight = {}, {}
+end
+
+--- Snapshot for the UI and for `emunah debug queue`.
+function queue.snapshot()
+   local out = {}
+   for _, vector in ipairs(queue.VECTORS) do
+      if slots[vector] or inFlight[vector] then
+         out[vector] = {
+            pending  = slots[vector] and slots[vector].command,
+            inFlight = inFlight[vector] and inFlight[vector].command,
+         }
+      end
+   end
+   return out
+end
+
+emunah.event.register("sysDisconnectionEvent", function()
+   queue.reset()
+end, "queue")
+
+return queue

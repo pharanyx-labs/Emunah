@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Getting Started — Emunah</title>
+<style>
+:root{
+  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
+  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
+  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
+  --yellow:#facc15; --purple:#c084fc;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:16px; line-height:1.65;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code, pre, kbd{font-family:var(--font-mono)}
+code{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
+  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
+}
+pre{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
+  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
+}
+pre code{border:none; padding:0; background:none; color:var(--text)}
+h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
+h1{font-size:2.1em; margin:0 0 .3em}
+h2{font-size:1.5em; margin:1.8em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
+h3{font-size:1.15em; margin:1.5em 0 .5em; color:var(--accent)}
+h4{font-size:1em; margin:1.2em 0 .4em}
+p{margin:.8em 0}
+ul,ol{margin:.8em 0; padding-left:1.4em}
+li{margin:.3em 0}
+.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
+nav.sidebar{
+  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
+  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
+}
+.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
+.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
+.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
+.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
+nav.sidebar ul{list-style:none; margin:0; padding:0}
+nav.sidebar li{margin:0}
+nav.sidebar a{
+  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
+  font-size:.92em; margin-bottom:2px;
+}
+nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
+nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
+.nav-group-title{
+  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
+  margin:20px 0 6px; padding:0 10px;
+}
+.nav-group-title:first-child{margin-top:0}
+main{flex:1; min-width:0; padding:40px 48px 100px}
+.content{max-width:840px}
+table{width:100%; border-collapse:collapse; margin:1.2em 0; font-size:.92em}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
+tr:last-child td{border-bottom:none}
+.callout{
+  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
+  padding:12px 18px; margin:1.2em 0;
+}
+.callout p{margin:.4em 0}
+.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
+.callout-warn{border-left-color:var(--red)}
+.callout-warn .callout-title{color:var(--red)}
+.callout-tip{border-left-color:var(--green)}
+.callout-tip .callout-title{color:var(--green)}
+.callout-note .callout-title{color:var(--accent)}
+.step{display:flex; gap:16px; margin:24px 0}
+.step-num{
+  flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--bg-panel);
+  border:1px solid var(--accent); color:var(--accent); display:flex; align-items:center;
+  justify-content:center; font-family:var(--font-mono); font-weight:700; font-size:.95em;
+}
+.step-body{flex:1; padding-top:2px}
+.step-body h3{margin-top:0}
+footer{
+  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
+  color:var(--text-dim); font-size:.85em;
+}
+.page-nav{
+  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
+  border-top:1px solid var(--border); gap:20px;
+}
+.page-nav a{font-size:.92em}
+.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
+.page-nav .next{text-align:right}
+@media (max-width:900px){
+  .layout{flex-direction:column}
+  nav.sidebar{
+    width:100%; height:auto; position:relative; border-right:none;
+    border-bottom:1px solid var(--border); padding:18px;
+  }
+  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
+  .nav-group-title{display:none}
+  main{padding:28px 20px 60px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="getting-started.html" class="active">Getting Started</a></li>
+    <li><a href="commands.html">Command Reference</a></li>
+    <li><a href="api.html">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main>
+<div class="content">
+
+<h1>Getting Started</h1>
+<p>Three steps: clone the repo, import the package into Mudlet, point the bootstrap at your checkout. Nothing gets copied into your Mudlet profile — Emunah runs directly from the git checkout.</p>
+
+<div class="callout callout-note">
+<div class="callout-title">Prerequisites</div>
+<p><a href="https://www.mudlet.org" target="_blank" rel="noopener">Mudlet</a> installed, a Mudlet profile connected to Achaea, and <code>git</code> available on the command line.</p>
+</div>
+
+<h2>Install</h2>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <h3>Clone the repo somewhere outside your Mudlet profile</h3>
+<pre><code>git clone &lt;this-repo&gt; ~/src/Emunah</code></pre>
+    <div class="callout callout-warn">
+      <div class="callout-title">Do not put this inside your profile directory named "Emunah"</div>
+      <p>
+      Mudlet's package manager <strong>deletes a package's own directory</strong> on
+      uninstall or reinstall, and it follows symlinks — pointing or symlinking your working
+      checkout there will delete it. If you want the checkout inside the profile directory
+      anyway, name it <code>EmunahSrc</code> instead: the bootstrap looks for that name too,
+      and the package manager never touches it.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <h3>Import <code>Emunah.xml</code></h3>
+    <p>In Mudlet: <strong>Package Manager &rarr; Install</strong>, and select <code>Emunah.xml</code> from the repo root. This installs the small bootstrap script that loads everything else from your checkout — it is not the system itself.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <h3>Point the bootstrap at your checkout</h3>
+    <p>Run this once — Mudlet remembers it per profile:</p>
+<pre><code>lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()</code></pre>
+    <p>You should see:</p>
+<pre><code>[emunah] v0.1.0 loaded -- 41 modules.</code></pre>
+    <p>That's it — Emunah is running. Try <code>emunah</code> in Mudlet's command line to see the full command list.</p>
+  </div>
+</div>
+
+<h2>First steps</h2>
+<table>
+<thead><tr><th>Command</th><th>What it shows you</th></tr></thead>
+<tbody>
+<tr><td><code>emunah</code></td><td>the full command list</td></tr>
+<tr><td><code>emunah status</code></td><td>character, class, curing state, tracked afflictions, skills indexed, inventory count</td></tr>
+<tr><td><code>emunah ui show</code></td><td>turns the interface on if it isn't already — vitals strip, affliction panel, chat, room panel, map</td></tr>
+<tr><td><code>emunah have</code></td><td>a full capability report: which cure vectors are ready, blocked, or recovering</td></tr>
+<tr><td><code>emunah gmcp</code></td><td>a raw dump of everything Emunah currently knows from GMCP</td></tr>
+</tbody>
+</table>
+
+<p>See the full <a href="commands.html">Command Reference</a> for everything else.</p>
+
+<h2>Settings</h2>
+<p>
+Settings persist per Mudlet profile in <code>emunah-config.lua</code> (in your Mudlet home
+directory), so two characters in the same Mudlet installation keep separate priorities,
+defence lists, and UI layout without any extra work. Read or write any setting directly
+with <code>emunah set</code> — see the <a href="commands.html#config">Configuration</a>
+section of the command reference.
+</p>
+<div class="callout callout-note">
+<div class="callout-title">Nothing runs until it is enabled</div>
+<p>The curing engine and defence keep-up never auto-enable on a fresh install; they are turned on explicitly with <code>emunah cure on</code> and <code>emunah defs on</code>. The same applies to the walker, hunting and PvP.</p>
+</div>
+
+<h3>Healing thresholds</h3>
+<p>
+The settings most worth reviewing are the healing thresholds. Four sources draw on three
+independent balances, so they overlap rather than compete, and each engages at its own
+percentage.
+</p>
+<table>
+<thead><tr><th>Setting</th><th>Default</th><th>Balance</th></tr></thead>
+<tbody>
+<tr><td><code>curing.manaThreshold</code></td><td>85%</td><td>Sip — shared with health, which takes priority</td></tr>
+<tr><td><code>curing.healthThreshold</code></td><td>80%</td><td>Sip</td></tr>
+<tr><td><code>curing.iridThreshold</code></td><td>68%</td><td>Moss</td></tr>
+<tr><td><code>curing.handsThreshold</code></td><td>50%</td><td>Equilibrium</td></tr>
+</tbody>
+</table>
+<pre><code>emunah set curing.healthThreshold 75</code></pre>
+<p>
+The configuration file carries a schema version. When a shipped default is found to be
+wrong, a migration corrects the stored value on load — a stored setting otherwise outlives
+the fix for it, since only absent keys take a new default.
+</p>
+
+<h2>Development loop</h2>
+<p>
+Edit any file under <code>src/</code> in a real text editor, then run <code>emreload</code>
+in Mudlet. The whole module tree — core, GMCP tracking, curing, UI, walker, everything — is
+torn down and rebuilt from what's on disk, including a brand-new file you just added to the
+loader's manifest. No re-importing a package, no restarting Mudlet.
+</p>
+
+<h3>Running the test suite</h3>
+<p>Emunah ships with 470+ behavioural tests that run the real modules against a Mudlet mock — no live client needed:</p>
+<pre><code># with a Lua interpreter installed:
+lua test/run.lua
+
+# or, with none installed, via a Python + lupa shim:
+python3 tools/run_tests.py .</code></pre>
+
+<h3>Building the distributable package</h3>
+<pre><code># Emunah.xml -- no toolchain needed
+python3 tools/build-xml.py
+
+# a .mpackage bundle -- needs the muddler build tool and a JVM
+cd package &amp;&amp; muddle</code></pre>
+
+<h2>Troubleshooting</h2>
+<table>
+<thead><tr><th>Symptom</th><th>Cause &amp; fix</th></tr></thead>
+<tbody>
+<tr>
+  <td><code>Cannot find the Emunah source at ...</code></td>
+  <td><code>EMUNAH_ROOT</code> is wrong, unset, or the checkout moved. Re-run step 3 with the correct path, or set <code>EMUNAH_ROOT</code> again before <code>emreload</code>.</td>
+</tr>
+<tr>
+  <td><code>No class module loaded -- nothing knows how to attack.</code></td>
+  <td>
+  <code>emunah bash on</code> / <code>emunah hunt</code> / <code>emunah pvp on</code> all
+  refuse to start without a recognised class. Right now that's Priest only — see
+  <a href="combat.html#classes">Class Support</a>. The class is auto-detected from
+  <code>Char.Status</code> once you log in, so this usually means you haven't logged your
+  character in yet this session, or you're playing a class Emunah doesn't have an offence
+  module for.
+  </td>
+</tr>
+<tr>
+  <td>The map/UI panel is missing or the wrong size</td>
+  <td><code>emunah ui map</code> with no argument runs a full diagnostic (Geyser present? mapper widget built? map database populated?) rather than toggling anything.</td>
+</tr>
+<tr>
+  <td>A setting doesn't seem to take effect</td>
+  <td>Check it actually saved: <code>emunah set &lt;key&gt;</code> with no value reads the current value back. Booleans and numbers are coerced automatically; anything else is stored as a string.</td>
+</tr>
+<tr>
+  <td>Reloading after adding a new file does nothing</td>
+  <td>Use <code>emreload</code> (which re-reads the loader file and its module manifest), not a plain re-<code>require</code> — see <a href="architecture.html#reload">the reload model</a> for why this distinction matters.</td>
+</tr>
+</tbody>
+</table>
+
+<footer>
+Emunah is an unofficial, third-party Mudlet script for Achaea, not affiliated with or endorsed by Iron Realms Entertainment.
+</footer>
+
+<div class="page-nav">
+  <div><span class="dir">Back</span><a href="index.html">&larr; Overview</a></div>
+  <div class="next"><span class="dir">Next</span><a href="commands.html">Command Reference &rarr;</a></div>
+</div>
+
+</div>
+</main>
+</div>
+</body>
+</html>

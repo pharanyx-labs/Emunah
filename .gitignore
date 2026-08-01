@@ -1,0 +1,84 @@
+# Build output
+package/build/
+*.mpackage
+
+# Per-profile runtime state.
+#
+# All of this is written into the Mudlet profile directory rather than the repo, so it
+# should never appear here at all -- but a checkout placed inside the profile puts them
+# side by side, and these files carry character-specific data: kill lists, captured game
+# text, tuned thresholds. Matched by prefix so a new state file is covered before anyone
+# has to remember to add it.
+emunah-*.lua
+emunah-*.txt
+emunah-*.json
+
+# Mudlet profile artifacts. Map files and profile backups are large, binary, and record the
+# character's own exploration history.
+*.dat
+*.map
+AdjustableContainer/
+profiles/
+
+# Game logs and transcripts.
+#
+# The category most worth being careful about: a MUD log is a verbatim record of everything
+# on screen, which includes tells, clan and city channels, other players' names, and
+# anything mistyped into the input line. Transcripts that establish a mechanic belong in
+# docs/game/ as quoted excerpts with their timestamps, never as whole logs.
+*.log
+logs/
+transcripts/
+*.txt.gz
+
+# Credentials. Nothing here needs any, which is exactly why this is worth stating -- it is
+# cheap insurance against that changing without the ignore file changing with it.
+.env
+.env.*
+*.pem
+*.key
+secrets.*
+credentials.*
+
+# Git artifacts that carry history.
+#
+# A bundle or a patch series contains the commit history it was made from, including any
+# history this repository was deliberately published without. Committing one would restore
+# in a file exactly what was removed from the log.
+*.bundle
+*.patch
+*.orig
+*.rej
+
+# Tooling that stores local session state, prompts or transcripts alongside the code.
+.claude/
+.aider*
+.cursor/
+.continue/
+
+# Archives. Usually a snapshot of a working directory, which is how an ignored file ends up
+# committed inside something that is not itself ignored.
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+
+# Analysis and scratch output
+graphify-out/
+scratch/
+tmp/
+*.bak
+*~
+
+# Python tooling
+__pycache__/
+*.py[cod]
+
+# Editor and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

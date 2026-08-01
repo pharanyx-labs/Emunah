@@ -1,0 +1,7 @@
+{
+  "package": "Emunah",
+  "version": "0.1.0",
+  "author": "Pharanyx Labs",
+  "title": "Emunah - an Achaea system for Mudlet: GMCP tracking, interface and curing",
+  "outputFile": true
+}

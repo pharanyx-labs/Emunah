@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture — Emunah</title>
+<style>
+:root{
+  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
+  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
+  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
+  --yellow:#facc15; --purple:#c084fc;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:16px; line-height:1.65;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code, pre, kbd{font-family:var(--font-mono)}
+code{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
+  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
+}
+pre{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
+  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
+}
+pre code{border:none; padding:0; background:none; color:var(--text)}
+h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
+h1{font-size:2.1em; margin:0 0 .3em}
+h2{font-size:1.5em; margin:2em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
+h3{font-size:1.15em; margin:1.5em 0 .5em; color:var(--accent)}
+h4{font-size:1em; margin:1.2em 0 .4em}
+p{margin:.8em 0}
+ul,ol{margin:.8em 0; padding-left:1.4em}
+li{margin:.3em 0}
+.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
+nav.sidebar{
+  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
+  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
+}
+.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
+.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
+.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
+.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
+nav.sidebar ul{list-style:none; margin:0; padding:0}
+nav.sidebar li{margin:0}
+nav.sidebar a{
+  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
+  font-size:.92em; margin-bottom:2px;
+}
+nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
+nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
+.nav-group-title{
+  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
+  margin:20px 0 6px; padding:0 10px;
+}
+.nav-group-title:first-child{margin-top:0}
+main{flex:1; min-width:0; padding:40px 48px 100px; display:flex; gap:40px}
+.content{max-width:740px; flex:1; min-width:0}
+.toc{
+  width:190px; flex-shrink:0; position:sticky; top:40px; align-self:flex-start;
+  font-size:.85em;
+}
+.toc-title{font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin-bottom:8px}
+.toc a{display:block; padding:4px 0; color:var(--text-dim)}
+.toc a:hover{color:var(--accent); text-decoration:none}
+table{width:100%; border-collapse:collapse; margin:1.2em 0; font-size:.92em}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
+tr:last-child td{border-bottom:none}
+.callout{
+  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
+  padding:12px 18px; margin:1.2em 0;
+}
+.callout p{margin:.4em 0}
+.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
+.callout-warn{border-left-color:var(--red)}
+.callout-warn .callout-title{color:var(--red)}
+.callout-tip{border-left-color:var(--green)}
+.callout-tip .callout-title{color:var(--green)}
+.callout-note .callout-title{color:var(--accent)}
+.tree{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
+  padding:18px 20px; font-family:var(--font-mono); font-size:.84em; line-height:1.7;
+  overflow-x:auto; white-space:pre;
+}
+.tree .dir{color:var(--accent)}
+.tree .comment{color:var(--text-dim)}
+.bug{
+  background:var(--bg-panel); border:1px solid var(--border); border-left:3px solid var(--yellow);
+  border-radius:0 8px 8px 0; padding:14px 18px; margin:14px 0;
+}
+.bug h4{margin:0 0 6px; color:var(--yellow)}
+.bug p{margin:.4em 0; font-size:.94em}
+.credit{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
+  padding:16px 20px; margin:14px 0;
+}
+.credit h4{margin:0 0 4px}
+.credit p{margin:.3em 0; font-size:.9em; color:var(--text-dim)}
+footer{
+  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
+  color:var(--text-dim); font-size:.85em;
+}
+.page-nav{
+  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
+  border-top:1px solid var(--border); gap:20px;
+}
+.page-nav a{font-size:.92em}
+.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
+.page-nav .next{text-align:right}
+@media (max-width:1150px){ .toc{display:none} }
+@media (max-width:900px){
+  .layout{flex-direction:column}
+  nav.sidebar{
+    width:100%; height:auto; position:relative; border-right:none;
+    border-bottom:1px solid var(--border); padding:18px;
+  }
+  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
+  .nav-group-title{display:none}
+  main{padding:28px 20px 60px; flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="commands.html">Command Reference</a></li>
+    <li><a href="api.html">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="architecture.html" class="active">Architecture</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main>
+<div class="content">
+
+<h1>Architecture</h1>
+<p>
+Emunah lives on disk as a plain Lua module tree, loaded into Mudlet by a small bootstrap
+package rather than being bundled inside one. This page covers the module layout, the
+reload model that makes edit-and-go possible, the bugs fixed along the way, and where the
+design is structured the way it is.
+</p>
+
+<h2 id="layout">Module layout</h2>
+<div class="tree"><span class="comment">src/emunah.lua</span>              <span class="comment">bootstrap loader (manifest + reload)</span>
+<span class="comment">src/emunah/</span>
+  <span class="dir">core/</span>     util log event config timers queue act
+  <span class="dir">gmcp/</span>     init vitals status afflictions defences items skills room comm ire
+  <span class="dir">have/</span>     capabilities              <span class="comment">-- the "can I actually do this" gate</span>
+  <span class="dir">curing/</span>   afflist curelist engine defkeepup detect/ (init, patterns, opponent)
+  <span class="dir">ui/</span>       theme layout vitals affpanel chat roompanel map
+  walker.lua                          <span class="comment">-- area walker</span>
+  keys.lua                            <span class="comment">-- numpad movement bindings</span>
+  denizens.lua                        <span class="comment">-- per-area kill list, targets by replica number</span>
+  bashing.lua                         <span class="comment">-- walk -&gt; target -&gt; attack -&gt; next -&gt; move loop</span>
+  pvp.lua                             <span class="comment">-- PvP loop, opt-in target only</span>
+  loot.lua                            <span class="comment">-- pick up gold by replica number</span>
+  <span class="dir">class/</span>    adapter priest            <span class="comment">-- interface + auto-detection</span>
+  commands.lua
+<span class="comment">test/</span>       mock_mudlet.lua run.lua   <span class="comment">-- 470+ behavioural tests</span>
+<span class="comment">package/</span>    .mpackage build project
+<span class="comment">tools/</span>       build-xml.py syntax_check.py run_tests.py</div>
+
+<p>
+The load order in <code>src/emunah.lua</code>'s manifest is explicit, not alphabetical —
+later modules index earlier ones at load time (UI reads the theme, curing reads the
+affliction table), so order matters and is spelled out rather than inferred.
+</p>
+
+<h2 id="act">One gate for every command</h2>
+<p>
+Achaea refuses commands for reasons that have nothing to do with the command itself: you
+are stunned, you are lying down, the balance it costs has not come back. Those rules used
+to live at each call site — bashing had its own copy, the curing queue had another, loot had
+a third. Every newly discovered rule then had to be added in three places, and whichever one
+was missed carried on firing into rejections once per prompt.
+</p>
+<p>
+<code>core/act.lua</code> is now the single place that knows them. Call sites declare what a
+command <em>costs</em>, never when it is allowed:
+</p>
+<pre><code>emunah.act.send("smite " .. target, { standing = true, bal = true })
+emunah.act.send("get " .. id,       { standing = true })
+emunah.act.send("stand")</code></pre>
+<p>
+Two distinctions in there are load-bearing, and both were learned the hard way:
+</p>
+<ul>
+  <li><strong>Stun is not a declarable requirement.</strong> It blocks literally every
+      command, so it is checked for all of them regardless of what they ask for.</li>
+  <li><strong>Prone is not blanket.</strong> An earlier version blocked curing while knocked
+      down too. That is both wrong — herbs and elixirs work fine lying down — and dangerous:
+      being knocked flat in a fight is precisely when refusing to heal gets you killed. Only
+      actions that genuinely need you upright declare <code>standing</code>.</li>
+</ul>
+<p>
+The one deliberate bypass is <code>keys.lua</code>. A command <em>you</em> typed goes
+straight out — you asked for it, and second-guessing a human is how a system feels broken.
+</p>
+
+<div class="callout callout-note">
+<div class="callout-title">Sent is not executed</div>
+<p>
+The subtlest balance bug in the system had nothing to do with gating. Achaea processes a
+command some time after it arrives, and until it does, <code>Char.Vitals</code> goes on
+reporting the balance that command is about to spend as available — truthfully. Two attacks
+would go out on consecutive prompts, both while the game's own prompt read
+<code>ex-</code>, and the second collected &ldquo;You must regain balance first.&rdquo; when
+the first finally landed.
+</p>
+<p>
+A flag GMCP is entitled to overwrite cannot defend against that. The guard is a timer,
+armed the moment a command leaves and re-armed with the exact figure when the game confirms
+execution and states its cost (<code>Balance used: 3.2s.</code>).
+</p>
+<p>
+How long that first, pre-confirmation guard should be is measurable rather than guessable:
+it covers exactly one send&nbsp;&rarr;&nbsp;response round trip, which is what Mudlet's
+<code>getNetworkLatency()</code> reports. A fixed guess is wrong in both directions — on a
+fast connection it throws away most of a balance, on a bad one it is not enough — so it is
+sized from the real figure with slack for jitter, and clamped so a wild reading can neither
+wedge the loop nor disable the guard.
+</p>
+</div>
+
+<div class="callout callout-warn">
+<div class="callout-title">Movement costs balance too</div>
+<p>
+Achaea volunteers a room's contents <em>before</em> the <code>Room.Info</code> saying you
+have arrived. Mid-speedwalk, that means the tracked room contents already describe the room
+in front of you — so the bashing loop would acquire a target it had not reached yet and
+attack it in transit. Confirmed live: a <code>smite</code> sent from a room containing
+nothing but a signpost, at a pig standing in the room after it.
+</p>
+<p>
+Because movement also costs balance, that stray attack then raced the mapper's next step for
+the same balance, and one of them collected &ldquo;You must regain balance first.&rdquo; The
+fix is to ask the walker whether it is between rooms rather than infer it from GMCP message
+ordering — the walker knows, and message order only hints.
+</p>
+</div>
+
+<h2 id="reload">The reload model</h2>
+<p>
+Extend <code>package.path</code> to point at the checkout, invalidate
+<code>package.loaded</code> for every module, <code>require</code> them in order, restore
+<code>package.path</code>. The whole namespace is rebuilt from scratch on every reload — no
+stale module tables linger, because nothing survives except a short explicit list
+(event handler registry, timers, aliases, and a small scratch space modules use to persist
+settings across a reload).
+</p>
+<div class="callout callout-note">
+<div class="callout-title">Why <code>emreload</code> re-executes the loader file itself</div>
+<p>
+A naive reload would call the same in-memory <code>load()</code> function every time — but
+that function closes over the manifest as it existed when the loader was first read. Calling
+it again re-requires every module the manifest <em>already lists</em>, and silently ignores
+a module you just added to it: the new file is on disk, its manifest entry is on disk, and
+neither is in memory yet. The result looks like nothing happened, because everything that
+<em>did</em> reload looks up to date. <code>emreload</code> re-executes the loader file
+itself, rebuilding the manifest, the loader, and the namespace together in one pass.
+</p>
+</div>
+
+<h2 id="bugs-fixed">Failure modes handled</h2>
+<p>Each of these is locked down by a test, not just fixed and forgotten:</p>
+
+<div class="bug">
+<h4>Handler leaks on reload</h4>
+<p>Registering event handlers at module scope means reloading stacks a new generation on top of the old one, so after three reloads a single GMCP message gets processed three times — in a curing system, that's three cures queued for one affliction. <code>core/event.lua</code> tracks handler ids on a registry that survives reload and tears the previous generation down first.</p>
+</div>
+
+<div class="bug">
+<h4><code>pcall</code> result assigned unconditionally</h4>
+<p>Assigning the <code>pcall</code> result whether or not the <code>require</code> succeeded installs the error <em>string</em> as the module — every later call into it then fails with a confusing "attempt to index a string value". Here, a failed load aborts with the offending filename and rolls the whole reload back rather than leaving a half-built namespace that looks functional.</p>
+</div>
+
+<div class="bug">
+<h4><code>Char.Items.Update</code> copying the wrong item</h4>
+<p>Rebuilding an inventory entry from the <em>existing</em> record rather than the incoming one means updates never actually land.</p>
+</div>
+
+<div class="bug">
+<h4><code>findAndRemove</code> deleting the wrong element</h4>
+<p>The ported walker logic did <code>table.remove(t, table.index_of(t, item))</code>; when the item is absent, <code>index_of</code> returns <code>nil</code>, and <code>table.remove(t, nil)</code> silently drops the <em>last</em> element instead — the walker quietly skips unrelated rooms. <code>walker.lua</code> checks before removing.</p>
+</div>
+
+<div class="bug">
+<h4>O(n²) pathfinding</h4>
+<p>The original walker pathfinds every remaining room on every move. <code>walker.lua</code> pre-ranks candidates by map coordinates and pathfinds only a bounded set.</p>
+</div>
+
+<div class="bug">
+<h4><code>Char.Vitals.bal</code> / <code>.eq</code> arrive as strings</h4>
+<p>They come over GMCP as the strings <code>"1"</code> and <code>"0"</code> — and in Lua, <code>"0"</code> is truthy. <code>if gmcp.Char.Vitals.bal then</code> is true even when you have no balance. Everything routes through a single <code>util.bool()</code> helper instead of trusting truthiness directly.</p>
+</div>
+
+<h2 id="testing">Test discipline</h2>
+<p>
+<code>test/mock_mudlet.lua</code> is deliberately strict rather than permissive: each mocked
+Geyser widget class exposes only the methods the real one actually has, and MiniConsole
+constructor fields are validated against the legal set. This isn't fussiness — two real,
+shipped bugs (<code>MiniConsole:setStyleSheet</code>, which doesn't exist on that widget
+type, and a constructor field <code>wrapWidth</code> that Geyser silently ignores instead of
+erroring on) got through review specifically because an earlier, more permissive mock
+accepted anything passed to it. A strict mock turns "silently wrong at runtime" into "fails
+the test."
+</p>
+<p>The same discipline extends to matching real Mudlet behaviour precisely — the mock's trigger and alias matchers translate the actual PCRE-regex subset those APIs take (not Lua patterns, which look similar but aren't the same language), including anchors, character classes, and capture groups, so a pattern that would silently never fire in real Mudlet fails a test here instead.</p>
+
+<p style="margin-top:24px; color:var(--text-dim); font-size:.9em;">
+Achaea, Dreams of Divine Lands is a trademark of Iron Realms Entertainment. Emunah is an
+unofficial third-party client script, not affiliated with or endorsed by Iron Realms.
+</p>
+
+<footer>
+See the <a href="roadmap.html">Roadmap</a> for what's being built next, or go back to the <a href="index.html">Overview</a>.
+</footer>
+
+<div class="page-nav">
+  <div><span class="dir">Back</span><a href="combat.html">&larr; Combat &amp; PvP</a></div>
+  <div class="next"><span class="dir">Next</span><a href="roadmap.html">Roadmap &rarr;</a></div>
+</div>
+
+</div>
+<div class="toc">
+  <div class="toc-title">On this page</div>
+  <a href="#layout">Module layout</a>
+  <a href="#act">One gate for every command</a>
+  <a href="#reload">The reload model</a>
+  <a href="#bugs-fixed">Failure modes</a>
+  <a href="#testing">Test discipline</a>
+</div>
+</main>
+</div>
+</body>
+</html>

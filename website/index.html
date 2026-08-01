@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emunah — an Achaea system for Mudlet</title>
+<style>
+:root{
+  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
+  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
+  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
+  --yellow:#facc15; --purple:#c084fc;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:16px; line-height:1.65;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code, pre, kbd{font-family:var(--font-mono)}
+code{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
+  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
+}
+pre{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
+  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
+}
+pre code{border:none; padding:0; background:none; color:var(--text)}
+h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
+h1{font-size:2.1em; margin:0 0 .3em}
+h2{font-size:1.5em; margin:1.8em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
+h3{font-size:1.15em; margin:1.5em 0 .5em; color:var(--accent)}
+h4{font-size:1em; margin:1.2em 0 .4em}
+p{margin:.8em 0}
+ul,ol{margin:.8em 0; padding-left:1.4em}
+li{margin:.3em 0}
+.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
+nav.sidebar{
+  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
+  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
+}
+.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
+.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
+.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
+.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
+nav.sidebar ul{list-style:none; margin:0; padding:0}
+nav.sidebar li{margin:0}
+nav.sidebar a{
+  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
+  font-size:.92em; margin-bottom:2px;
+}
+nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
+nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
+.nav-group-title{
+  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
+  margin:20px 0 6px; padding:0 10px;
+}
+.nav-group-title:first-child{margin-top:0}
+main{flex:1; min-width:0; padding:40px 48px 100px}
+.content{max-width:840px}
+.hero{margin-bottom:8px}
+.hero p.lede{font-size:1.15em; color:var(--text-dim); max-width:640px}
+.badge-row{display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 30px}
+.badge{
+  font-family:var(--font-mono); font-size:.78em; padding:4px 10px; border-radius:20px;
+  border:1px solid var(--border); color:var(--text-dim); background:var(--bg-panel);
+}
+.cta-row{display:flex; gap:12px; flex-wrap:wrap; margin:26px 0 10px}
+.btn{
+  display:inline-block; padding:10px 18px; border-radius:8px; font-weight:600;
+  font-size:.92em; border:1px solid var(--border);
+}
+.btn-primary{background:var(--accent); color:#03181c; border-color:var(--accent)}
+.btn-primary:hover{background:#67e8f9; text-decoration:none}
+.btn-secondary{color:var(--text); background:var(--bg-panel)}
+.btn-secondary:hover{border-color:var(--accent); text-decoration:none}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin:20px 0}
+.card{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+  padding:18px 20px;
+}
+.card h3{margin-top:0; color:var(--text-bright); font-size:1em}
+.card p{margin:.4em 0 0; color:var(--text-dim); font-size:.92em}
+table{width:100%; border-collapse:collapse; margin:1.2em 0; font-size:.92em}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
+tr:last-child td{border-bottom:none}
+td code, th code{white-space:nowrap}
+.status{font-family:var(--font-mono); font-size:.82em; padding:2px 8px; border-radius:4px; font-weight:600}
+.status-complete{background:rgba(74,222,128,.12); color:var(--green)}
+.status-working{background:rgba(34,211,238,.12); color:var(--accent)}
+.status-seed{background:rgba(250,204,21,.12); color:var(--yellow)}
+.callout{
+  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
+  padding:12px 18px; margin:1.2em 0;
+}
+.callout p{margin:.4em 0}
+.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
+.callout-warn{border-left-color:var(--red)}
+.callout-warn .callout-title{color:var(--red)}
+.callout-tip{border-left-color:var(--green)}
+.callout-tip .callout-title{color:var(--green)}
+.callout-note .callout-title{color:var(--accent)}
+footer{
+  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
+  color:var(--text-dim); font-size:.85em;
+}
+.page-nav{
+  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
+  border-top:1px solid var(--border); gap:20px;
+}
+.page-nav a{font-size:.92em}
+.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
+@media (max-width:900px){
+  .layout{flex-direction:column}
+  nav.sidebar{
+    width:100%; height:auto; position:relative; border-right:none;
+    border-bottom:1px solid var(--border); padding:18px;
+  }
+  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
+  .nav-group-title{display:none}
+  main{padding:28px 20px 60px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html" class="active">Overview</a></li>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="commands.html">Command Reference</a></li>
+    <li><a href="api.html">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main>
+<div class="content">
+
+<div class="hero">
+<h1>Emunah</h1>
+<p class="lede">A client-side automation system for <a href="https://www.achaea.com" target="_blank" rel="noopener">Achaea</a> on <a href="https://www.mudlet.org" target="_blank" rel="noopener">Mudlet</a>. It tracks the game's GMCP state, renders it, determines what the character can do at any moment, and drives curing, hunting and movement from that state.</p>
+</div>
+
+<div class="badge-row">
+  <span class="badge">41 modules</span>
+  <span class="badge">117-affliction cure table</span>
+  <span class="badge">635 automated tests</span>
+  <span class="badge">edit-and-reload workflow</span>
+  <span class="badge">no external dependencies</span>
+</div>
+
+<div class="cta-row">
+  <a class="btn btn-primary" href="getting-started.html">Get started &rarr;</a>
+  <a class="btn btn-secondary" href="commands.html">Browse commands</a>
+  <a class="btn btn-secondary" href="api.html">Lua API</a>
+</div>
+
+<h2>Overview</h2>
+<p>
+Emunah runs inside Mudlet alongside the game. It consumes everything Achaea reports over
+GMCP — vitals, afflictions, defences, inventory, room contents, skills — maintains a
+normalised model of that state, and acts on it in three areas:
+</p>
+<div class="grid">
+  <div class="card">
+    <h3>Interface</h3>
+    <p>Vitals strip, affliction and defence panels, tabbed chat, room and target panels, and an embedded map. Built from Geyser widgets, and entirely optional.</p>
+  </div>
+  <div class="card">
+    <h3>Curing engine</h3>
+    <p>Tracks affliction state and resolves one cure per resource per tick — eating, applying, smoking, sipping or focusing — while handling the afflictions that block a whole vector.</p>
+  </div>
+  <div class="card">
+    <h3>Movement and combat</h3>
+    <p>Walks an area room by room, engages authorised denizens, collects loot and advances. PvP targeting exists but is never auto-acquired.</p>
+  </div>
+</div>
+
+<h2>Development model</h2>
+<p>
+The module tree lives on disk as plain Lua in a git checkout rather than bundled inside a
+Mudlet package. Editing a file and typing <code>emreload</code> rebuilds the entire system
+from disk — no package reimport, no client restart. The reload-safety problems that model
+introduces, and how each is handled, are documented in
+<a href="architecture.html">Architecture</a>.
+</p>
+
+<h2>Current capabilities</h2>
+<table>
+<thead><tr><th>Area</th><th>Status</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>GMCP tracking</td><td><span class="status status-complete">Complete</span></td><td>vitals, status, afflictions, defences, items, skills, room, comm, rift, target, time</td></tr>
+<tr><td>Interface</td><td><span class="status status-complete">Complete</span></td><td>vitals strip, affliction/defence panels, tabbed chat, room/items panel, embedded map</td></tr>
+<tr><td>Capability layer</td><td><span class="status status-complete">Complete</span></td><td><code>have.skill / item / cure / def / balance</code> — the "can I actually do this" gate</td></tr>
+<tr><td>Curing engine</td><td><span class="status status-working">Working</span></td><td>per-vector queue, blocking-affliction handling, 117-affliction cure table</td></tr>
+<tr><td>Healing</td><td><span class="status status-working">Working</span></td><td>four sources across three independent balances, each with its own threshold</td></tr>
+<tr><td>Rift management</td><td><span class="status status-working">Working</span></td><td>stock levels maintained automatically in both directions</td></tr>
+<tr><td>Area walker</td><td><span class="status status-working">Working</span></td><td>self-driving, no mapper-script dependency</td></tr>
+<tr><td>Hunting</td><td><span class="status status-working">Working</span></td><td><code>emunah hunt</code> walks an area and clears it</td></tr>
+<tr><td>PvP targeting</td><td><span class="status status-working">Working</span></td><td>explicit opt-in target only, never auto-acquired</td></tr>
+<tr><td>Affliction detection</td><td><span class="status status-seed">GMCP + seed</span></td><td>GMCP-driven; the trigger corpus is grown from observed evidence</td></tr>
+<tr><td>Class offence</td><td><span class="status status-working">Priest only</span></td><td>additional classes are a documented extension point — see <a href="architecture.html">Architecture</a></td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-note">
+<div class="callout-title">Scope of affliction detection</div>
+<p>
+Affliction state comes from <code>Char.Afflictions</code>, which is reliable but reports only
+what Achaea chooses to announce. That is sufficient for hunting and incomplete for player
+combat, where being afflicted without notification is the point. See
+<a href="curing.html#detection">detection</a> for how the gap is closed from observed
+evidence rather than assumption.
+</p>
+</div>
+
+<h2>Documentation</h2>
+<div class="grid">
+  <div class="card"><h3><a href="getting-started.html">Getting Started</a></h3><p>Cloning the repository, installing the package, and pointing the bootstrap at the checkout.</p></div>
+  <div class="card"><h3><a href="commands.html">Command Reference</a></h3><p>Every <code>emunah</code> subcommand, grouped by area, with examples.</p></div>
+  <div class="card"><h3><a href="curing.html">Curing Engine</a></h3><p>How afflictions are tracked, ranked and cured, and why priorities are per-vector.</p></div>
+  <div class="card"><h3><a href="combat.html">Combat &amp; PvP</a></h3><p>The walker, the hunting loop, denizen targeting and the PvP module.</p></div>
+  <div class="card"><h3><a href="architecture.html">Architecture</a></h3><p>Module layout, the reload model, and the failure modes handled by design.</p></div>
+  <div class="card"><h3><a href="roadmap.html">Roadmap</a></h3><p>Current state, planned work, and the principles that govern what ships.</p></div>
+</div>
+
+<footer>
+  Emunah is an unofficial, third-party Mudlet script for Achaea. It is not affiliated with
+  or endorsed by Iron Realms Entertainment.
+</footer>
+
+</div>
+</main>
+</div>
+</body>
+</html>

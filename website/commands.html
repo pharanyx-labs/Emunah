@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command Reference — Emunah</title>
+<style>
+:root{
+  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
+  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
+  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
+  --yellow:#facc15; --purple:#c084fc;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:16px; line-height:1.65;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code, pre, kbd{font-family:var(--font-mono)}
+code{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
+  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
+}
+pre{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
+  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
+}
+pre code{border:none; padding:0; background:none; color:var(--text)}
+h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
+h1{font-size:2.1em; margin:0 0 .3em}
+h2{font-size:1.5em; margin:2.2em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
+h3{font-size:1.05em; margin:1.6em 0 .3em; color:var(--text-bright); font-family:var(--font-mono)}
+h4{font-size:1em; margin:1.2em 0 .4em}
+p{margin:.8em 0}
+ul,ol{margin:.8em 0; padding-left:1.4em}
+li{margin:.3em 0}
+.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
+nav.sidebar{
+  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
+  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
+}
+.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
+.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
+.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
+.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
+nav.sidebar ul{list-style:none; margin:0; padding:0}
+nav.sidebar li{margin:0}
+nav.sidebar a{
+  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
+  font-size:.92em; margin-bottom:2px;
+}
+nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
+nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
+.nav-group-title{
+  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
+  margin:20px 0 6px; padding:0 10px;
+}
+.nav-group-title:first-child{margin-top:0}
+main{flex:1; min-width:0; padding:40px 48px 100px; display:flex; gap:40px}
+.content{max-width:720px; flex:1; min-width:0}
+.toc{
+  width:190px; flex-shrink:0; position:sticky; top:40px; align-self:flex-start;
+  font-size:.85em;
+}
+.toc-title{font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin-bottom:8px}
+.toc a{display:block; padding:4px 0; color:var(--text-dim)}
+.toc a:hover{color:var(--accent); text-decoration:none}
+table{width:100%; border-collapse:collapse; margin:1em 0; font-size:.92em}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
+tr:last-child td{border-bottom:none}
+.cmd-block{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
+  padding:16px 20px; margin:1em 0 1.6em;
+}
+.cmd-syntax{
+  font-family:var(--font-mono); font-size:.95em; color:var(--accent-dim); background:var(--bg-code);
+  border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-bottom:10px;
+  color:#67e8f9; display:inline-block;
+}
+.cmd-block p{margin:.5em 0; font-size:.92em}
+.cmd-block ul{margin:.5em 0; font-size:.92em}
+.callout{
+  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
+  padding:12px 18px; margin:1.2em 0;
+}
+.callout p{margin:.4em 0}
+.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
+.callout-warn{border-left-color:var(--red)}
+.callout-warn .callout-title{color:var(--red)}
+.callout-tip{border-left-color:var(--green)}
+.callout-tip .callout-title{color:var(--green)}
+.callout-note .callout-title{color:var(--accent)}
+footer{
+  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
+  color:var(--text-dim); font-size:.85em;
+}
+.page-nav{
+  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
+  border-top:1px solid var(--border); gap:20px;
+}
+.page-nav a{font-size:.92em}
+.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
+.page-nav .next{text-align:right}
+@media (max-width:1150px){ .toc{display:none} }
+@media (max-width:900px){
+  .layout{flex-direction:column}
+  nav.sidebar{
+    width:100%; height:auto; position:relative; border-right:none;
+    border-bottom:1px solid var(--border); padding:18px;
+  }
+  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
+  .nav-group-title{display:none}
+  main{padding:28px 20px 60px; flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="commands.html" class="active">Command Reference</a></li>
+    <li><a href="api.html">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main>
+<div class="content">
+
+<h1>Command Reference</h1>
+<p>
+Everything runs through one alias: <code>emunah &lt;subcommand&gt; [argument] [rest]</code>.
+This is deliberate — Achaea already has a large command vocabulary of its own, and one entry
+point means <code>emunah</code> with no arguments can list everything the system can do.
+</p>
+<pre><code>emunah              # the full command list
+emunah status       # system and character state</code></pre>
+<p>Most subcommands with no argument print a status report instead of doing anything — reading state is always safe to try.</p>
+
+<h2 id="general">General</h2>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah</span>
+<p>Prints the full command list. Also what runs if you type <code>emunah</code> with no arguments at all — the closest thing to documentation most people will ever read, so it's kept accurate.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah status</span>
+<p>One-screen overview: character name, class, whether curing/defence-keepup/UI are on, cure method (herbs or minerals), how many afflictions are currently tracked, how many skills are indexed, inventory item count, and the current log level.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emreload</span>
+<p>Reloads every module from disk — the core development loop. Re-reads the loader file itself, not just the modules it already knows about, so a newly-added file takes effect immediately. See <a href="architecture.html#reload">how this differs from a plain reload</a>.</p>
+</div>
+
+<h2 id="curing">Curing</h2>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah cure on|off</span> &nbsp;<span style="color:var(--text-dim)">(shorthand: <code>ec</code>)</span>
+<p>Toggles the curing engine. <code>ec</code> alone is the fastest way to flip it mid-fight. Starts off on a fresh install — never auto-enabled.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah affs</span>
+<p>Lists every currently-tracked affliction: its known cure vectors, where it came from (<code>gmcp</code> or <code>trigger</code>), and how long it's been active. Prints <span style="color:var(--green)">clear</span> when nothing is tracked.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah prio &lt;affliction&gt; &lt;vector&gt; &lt;rank&gt;</span>
+<p>Override a built-in cure priority without editing <code>afflist.lua</code>. Lower rank = more urgent. Stored in your per-profile config and checked ahead of the shipped table.</p>
+<pre><code>emunah prio paralysis herb 1</code></pre>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah learn on|off</span>
+<p>Logs candidate affliction messages (lines matching "You/Your ..." while you fight) to <code>emunah-learn.txt</code> in your Mudlet home directory. The workflow for growing the detection corpus — see <a href="curing.html#detection">Detection</a>.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah detect</span>
+<p>Reports detection pattern coverage: how many known afflictions have a gain pattern, how many have a cure pattern, out of the total known. GMCP covers the rest.</p>
+</div>
+
+<h2 id="defences">Defences</h2>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah defs on|off</span>
+<p>Toggles defence keep-up: automatically restores any defence on your wanted list that drops. Always runs at a lower priority than curing — a defence raised mid-lock is worth doing, never at the cost of a cure.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah defs add &lt;defence&gt;</span> &nbsp;/&nbsp; <span class="cmd-syntax">emunah defs remove &lt;defence&gt;</span>
+<p>Add or drop a defence from the wanted list.</p>
+<pre><code>emunah defs add rebounding
+emunah defs remove rebounding</code></pre>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah defs list</span> &nbsp;<span style="color:var(--text-dim)">(or bare <code>emunah defs</code>)</span>
+<p>Shows every wanted defence and whether it's currently up or missing.</p>
+</div>
+
+<h2 id="pve">Combat — PvE</h2>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah bash on|off</span>
+<p>Starts or stops the bashing loop on its own, without moving between rooms. Requires a loaded class module (auto-detected on login).</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah bash attack &lt;command&gt;</span>
+<p>Override the attack command sent (target replica number is appended automatically). Defaults to <code>smite</code>.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah bash balance eq|bal|both</span>
+<p>What the attack costs — equilibrium, balance, or both. Verified from what the class actually uses, not assumed.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah bash health &lt;n&gt;</span>
+<p>Stop bashing below this percentage of health (default 50).</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah hunt [off]</span>
+<p>The walker and the bashing loop together — walks the area <strong>and</strong> kills things, moving on once each room is clear. <code>emunah hunt off</code> stops both.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah mobs here|target|done|reset|add|skip|kill|forget|areas</span>
+<p>Manage the per-area denizen kill list.</p>
+<ul>
+<li><code>here</code> — what's in the room right now, by replica number (always target the number, never the name)</li>
+<li><code>target</code> — pick the next thing to kill</li>
+<li><code>done</code> — mark the current target dealt with</li>
+<li><code>reset</code> — clear the dealt-with list for this room</li>
+<li><code>add &lt;name&gt;</code> / <code>forget &lt;name&gt;</code> — record or remove a denizen from this area's list</li>
+<li><code>skip &lt;name&gt;</code> / <code>kill &lt;name&gt;</code> — keep it recorded but off (or back on) the kill list</li>
+<li><code>areas</code> — every area with recorded denizens</li>
+</ul>
+<p>With no argument: everything recorded for the current area, kill counts, and what's here right now.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah loot on|off|now</span>
+<p>Automatic gold pickup from corpses. <code>now</code> sweeps the current room immediately.</p>
+</div>
+
+<h2 id="pvp">Combat — PvP</h2>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah pvp on|off</span>
+<p>Starts or stops the PvP loop. Mutually exclusive with bashing in both directions — starting one stops the other automatically.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah pvp target &lt;name&gt;</span> &nbsp;/&nbsp; <span class="cmd-syntax">emunah pvp target off</span>
+<p>The <strong>only</strong> way a target is ever set — there is no auto-acquisition. See <a href="combat.html#pvp">why</a>.</p>
+<pre><code>emunah pvp target sarapis
+emunah pvp target off</code></pre>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah pvp</span> &nbsp;<span style="color:var(--text-dim)">(no argument)</span>
+<p>Status: running state, class module, current target and their tracked afflictions (if any), attacks sent, and who's in the room.</p>
+</div>
+
+<h2 id="movement">Movement</h2>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah walk start|stop|pause|resume|move|avoid &lt;id&gt;|unavoid &lt;id&gt;|auto on|off|delay &lt;s&gt;|return</span>
+<p>Controls the area walker directly (usually driven through <code>hunt</code> instead).</p>
+<ul>
+<li><code>start</code> — explore the current area room by room</li>
+<li><code>pause</code> / <code>resume</code> — hold in place without losing progress</li>
+<li><code>move</code> — take one step immediately</li>
+<li><code>avoid &lt;id&gt;</code> / <code>unavoid &lt;id&gt;</code> — exclude or re-include a room</li>
+<li><code>auto off</code> — stop self-pacing; a consumer (like the bashing loop) drives timing instead</li>
+<li><code>delay &lt;seconds&gt;</code> — how long to wait after a room change before stepping again</li>
+</ul>
+<p>No argument: area, rooms remaining/visited/unreachable, who's pacing it, auto-step state.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah keys on|off</span>
+<p>Numpad movement bindings, bound for both Num Lock states (a numpad key sends the digit with Num Lock on and the navigation key with it off — both are bound so the pad never silently stops working). Pressing a movement key stops the walker.</p>
+<pre><code>7 nw    8 n     9 ne
+4 w     5 look  6 e
+1 sw    2 s     3 se
+0 in    . out   + up   - down</code></pre>
+</div>
+
+<h2 id="interface">Interface</h2>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah ui [rebuild|reset|show]</span>
+<p>Bare <code>emunah ui</code> toggles the interface. <code>rebuild</code> tears it down and rebuilds from scratch; <code>reset</code> clears saved layout state for a panel stuck off-screen or hidden; <code>show</code> forces it on.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah ui map [height &lt;n&gt;|on|off|centre|rebuild|float|embed|raw]</span>
+<p>Bare <code>emunah ui map</code> runs a full diagnostic rather than toggling anything (deliberately — the natural thing to type when the map looks broken is this exact command, and if it toggled the map off that would look like confirmation something's wrong). Reports whether Geyser and the Mapper widget exist, whether the map database actually has room data, current geometry, and more.</p>
+<ul>
+<li><code>height &lt;n&gt;</code> — percentage of window height, clamped 10–70%</li>
+<li><code>centre</code> — center the view on the current room</li>
+<li><code>float</code> / <code>embed</code> — detach into its own dock widget, or embed in the main window</li>
+<li><code>raw</code> — call <code>createMapper</code> directly, bypassing Geyser (a decisive test for isolating a Geyser-layer bug from a data-layer one)</li>
+</ul>
+</div>
+
+<h2 id="config">Configuration</h2>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah set [key] [value]</span>
+<p>Generic settings get/set, dotted-path addressed.</p>
+<ul>
+<li><code>emunah set</code> — dump every setting</li>
+<li><code>emunah set curing.method</code> — read one setting</li>
+<li><code>emunah set curing.method minerals</code> — write one (booleans and numbers are coerced automatically)</li>
+</ul>
+<pre><code>emunah set bashing.stopBelowHealth 60
+emunah set curing.confirmWait 1.5
+emunah set curing.method minerals</code></pre>
+<p>Settings persist per Mudlet profile in <code>emunah-config.lua</code>.</p>
+</div>
+
+<h2 id="diagnostics">Diagnostics</h2>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah have [thing]</span>
+<p>With an argument: an ad-hoc lookup answering exactly what the curing engine asks — is this a known skill, is it in inventory, is it in the Rift, is the matching defence up.</p>
+<pre><code>emunah have kelp</code></pre>
+<p>With no argument: a full capability report — every cure vector's state (ready / recovering / <span style="color:var(--red)">blocked by &lt;affliction&gt;</span>), skills-indexed status, inventory and Rift counts.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah gmcp [refresh]</span>
+<p>Dumps everything Emunah currently tracks from GMCP. <code>refresh</code> requests a full resync from the game.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah debug handlers|timers|queue</span>
+<p>Internals: <code>handlers</code> lists every registered event handler by owner (useful for confirming reload didn't leak anything), <code>timers</code> lists active timers, <code>queue</code> snapshots the cure action queue.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah debug</span>
+<p>With no argument, toggles verbose logging &mdash; which includes <strong>every command the system sends to the game</strong>, printed as <code>-&gt; smite 19316</code> before it goes out.</p>
+<p>This is the tool for &ldquo;why did it do that?&rdquo;. It also shows commands that were <em>held</em> rather than sent, with the reason (<code>stunned</code>, <code>prone</code>, <code>no balance</code>) &mdash; so a system that is deliberately waiting is distinguishable from one that has hung.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah debug gmcp</span>
+<p>Traces <strong>every GMCP message sent and received</strong>, with its payload summarised to one line:</p>
+<pre><code>[gmcp] &lt;&lt; Char.Items.List {location="room" items=[4]}
+[gmcp] &gt;&gt; Char.Items.Room
+[gmcp] &lt;&lt; Room.Info {num=6181 name="North gate" exits={...}}</code></pre>
+<p>Its own switch rather than part of <code>emunah debug</code>, because <code>Char.Vitals</code> arrives with every prompt and would bury whatever you turned debug on to see.</p>
+<p>Received messages are traced even when the handler ignores the payload &mdash; &ldquo;it arrived and we ignored it&rdquo; and &ldquo;it never arrived&rdquo; look identical from the outside, and telling them apart is usually the whole question. Arrays show their length (<code>items=[4]</code>), which is what distinguishes an empty room from a list that never came.</p>
+</div>
+
+<footer>
+See <a href="curing.html">Curing Engine</a> and <a href="combat.html">Combat &amp; PvP</a> for how these commands fit into the bigger picture.
+</footer>
+
+<div class="page-nav">
+  <div><span class="dir">Back</span><a href="getting-started.html">&larr; Getting Started</a></div>
+  <div class="next"><span class="dir">Next</span><a href="curing.html">Curing Engine &rarr;</a></div>
+</div>
+
+</div>
+<div class="toc">
+  <div class="toc-title">On this page</div>
+  <a href="#general">General</a>
+  <a href="#curing">Curing</a>
+  <a href="#defences">Defences</a>
+  <a href="#pve">Combat — PvE</a>
+  <a href="#pvp">Combat — PvP</a>
+  <a href="#movement">Movement</a>
+  <a href="#interface">Interface</a>
+  <a href="#config">Configuration</a>
+  <a href="#diagnostics">Diagnostics</a>
+</div>
+</main>
+</div>
+</body>
+</html>

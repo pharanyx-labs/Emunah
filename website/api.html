@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lua API — Emunah</title>
+<style>
+:root{
+  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
+  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
+  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
+  --yellow:#facc15; --purple:#c084fc;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:16px; line-height:1.65;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code, pre, kbd{font-family:var(--font-mono)}
+code{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
+  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
+}
+pre{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
+  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
+}
+pre code{border:none; padding:0; background:none; color:var(--text)}
+h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
+h1{font-size:2.1em; margin:0 0 .3em}
+h2{font-size:1.5em; margin:2.2em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
+h3{font-size:1.05em; margin:1.6em 0 .3em; color:var(--text-bright); font-family:var(--font-mono)}
+h4{font-size:1em; margin:1.2em 0 .4em}
+p{margin:.8em 0}
+ul,ol{margin:.8em 0; padding-left:1.4em}
+li{margin:.3em 0}
+.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
+nav.sidebar{
+  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
+  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
+}
+.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
+.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
+.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
+.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
+nav.sidebar ul{list-style:none; margin:0; padding:0}
+nav.sidebar li{margin:0}
+nav.sidebar a{
+  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
+  font-size:.92em; margin-bottom:2px;
+}
+nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
+nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
+.nav-group-title{
+  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
+  margin:20px 0 6px; padding:0 10px;
+}
+.nav-group-title:first-child{margin-top:0}
+main{flex:1; min-width:0; padding:40px 48px 100px; display:flex; gap:40px}
+.content{max-width:720px; flex:1; min-width:0}
+.toc{
+  width:190px; flex-shrink:0; position:sticky; top:40px; align-self:flex-start;
+  font-size:.85em;
+}
+.toc-title{font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin-bottom:8px}
+.toc a{display:block; padding:4px 0; color:var(--text-dim)}
+.toc a:hover{color:var(--accent); text-decoration:none}
+table{width:100%; border-collapse:collapse; margin:1em 0; font-size:.92em}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
+tr:last-child td{border-bottom:none}
+.cmd-block{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
+  padding:16px 20px; margin:1em 0 1.6em;
+}
+.cmd-syntax{
+  font-family:var(--font-mono); font-size:.95em; color:var(--accent-dim); background:var(--bg-code);
+  border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-bottom:10px;
+  color:#67e8f9; display:inline-block;
+}
+.cmd-block p{margin:.5em 0; font-size:.92em}
+.cmd-block ul{margin:.5em 0; font-size:.92em}
+.callout{
+  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
+  padding:12px 18px; margin:1.2em 0;
+}
+.callout p{margin:.4em 0}
+.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
+.callout-warn{border-left-color:var(--red)}
+.callout-warn .callout-title{color:var(--red)}
+.callout-tip{border-left-color:var(--green)}
+.callout-tip .callout-title{color:var(--green)}
+.callout-note .callout-title{color:var(--accent)}
+footer{
+  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
+  color:var(--text-dim); font-size:.85em;
+}
+.page-nav{
+  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
+  border-top:1px solid var(--border); gap:20px;
+}
+.page-nav a{font-size:.92em}
+.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
+.page-nav .next{text-align:right}
+@media (max-width:1150px){ .toc{display:none} }
+@media (max-width:900px){
+  .layout{flex-direction:column}
+  nav.sidebar{
+    width:100%; height:auto; position:relative; border-right:none;
+    border-bottom:1px solid var(--border); padding:18px;
+  }
+  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
+  .nav-group-title{display:none}
+  main{padding:28px 20px 60px; flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="commands.html">Command Reference</a></li>
+    <li><a href="api.html" class="active">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main>
+<div class="content">
+
+<h1>Lua API</h1>
+<p class="lede">Everything under the <code>emunah.</code> namespace that is safe to call from your own aliases, triggers and scripts &mdash; and, just as importantly, the handful of things you should call <em>instead of</em> the obvious Mudlet equivalent.</p>
+
+<h2>Core principle</h2>
+
+<p>If you take nothing else from this page: <strong>automated commands go through <code>emunah.act.send()</code>, not Mudlet's <code>send()</code>.</strong></p>
+
+<p>Achaea refuses commands for reasons that have nothing to do with the command itself &mdash; you are stunned, you are lying down, the balance it costs has not come back. <code>send()</code> knows none of that and will happily fire into a rejection, once per prompt, for as long as the condition lasts. <code>act.send()</code> is the single gate that knows the rules.</p>
+
+<pre><code>-- Wrong: fires into "You are too stunned to be able to do anything."
+send("smite " .. target)
+
+-- Right: held until the character can actually act
+emunah.act.send("smite " .. target, { standing = true, bal = true })</code></pre>
+
+<p>The exception is a command <em>you</em> typed. A keypress or an alias you triggered yourself should go straight out with <code>send()</code> &mdash; you asked for it, and second-guessing a human is how a system feels broken. Emunah's own keybindings do exactly this.</p>
+
+<h2>emunah.act &mdash; command gating</h2>
+
+<p>Requirements are a plain table. State what a command <em>costs</em>; the module decides when that is satisfiable.</p>
+
+<table>
+<tr><th>Requirement</th><th>Meaning</th></tr>
+<tr><td><code>standing = true</code></td><td>Fails while knocked down. Attacks and <code>GET</code> need this; eating a herb and drinking an elixir do not.</td></tr>
+<tr><td><code>bal = true</code></td><td>Needs balance, from <code>Char.Vitals</code>.</td></tr>
+<tr><td><code>eq = true</code></td><td>Needs equilibrium.</td></tr>
+</table>
+
+<p>Stun is deliberately <em>not</em> a requirement you can declare: it blocks literally every command, so it is checked for all of them regardless of what they ask for.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah.act.send(command, needs) &rarr; boolean</span>
+<p>Sends the command if the character can act, and returns whether it actually went. Logs the decision either way under <code>emunah debug</code>, so a held command is visible rather than looking like the system hung.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah.act.can(needs) &rarr; boolean</span>
+<p>Asks without sending. Use it to decide whether to bother building a command at all.</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah.act.blocked(needs) &rarr; string|nil</span>
+<p>Why not, as a short reason (<code>"stunned"</code>, <code>"prone"</code>, <code>"no balance"</code>, <code>"no equilibrium"</code>), or <code>nil</code> when the command can go. The string is meant for logging &mdash; do not branch on its exact wording.</p>
+</div>
+
+<h2>emunah.queue &mdash; balance-gated actions</h2>
+
+<p>Achaea does not have one queue, it has several independent ones: eating a herb, applying a salve and smoking a pipe consume three different balances and can all be in flight at once. The queue models that as one slot per <em>vector</em>, where a vector is any resource that gates an action.</p>
+
+<p>Each slot holds at most one command. A higher-priority push replaces what is waiting; a lower-priority one is dropped rather than stacked, because a backlog of stale cures is worse than none.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah.queue.push(vector, command, opts) &rarr; boolean</span>
+<p>Queue an action. Returns whether it was accepted (<code>false</code> means something more urgent already held the slot).</p>
+<ul>
+  <li><code>priority</code> &mdash; lower wins, default <code>100</code></li>
+  <li><code>tag</code> &mdash; what this is for, e.g. an affliction name; used to match confirmations</li>
+  <li><code>confirm</code> &mdash; seconds to wait for the game to acknowledge before re-arming</li>
+  <li><code>needs</code> &mdash; passed straight to <code>act</code>, e.g. <code>{ standing = true }</code></li>
+  <li><code>onSent</code>, <code>onTimeout</code> &mdash; callbacks</li>
+</ul>
+</div>
+
+<pre><code>emunah.queue.push("herb", "eat bloodroot", {
+  priority = 5,
+  tag      = "paralysis",
+  confirm  = 2.0,
+  onSent   = function() emunah.have.spend("herb") end,
+})</code></pre>
+
+<table>
+<tr><th>Call</th><th>Does</th></tr>
+<tr><td><code>queue.flush()</code></td><td>Sends whatever is pending on every free vector. Driven once per prompt &mdash; you rarely call this yourself.</td></tr>
+<tr><td><code>queue.pending(vector)</code></td><td>What is waiting on a vector, or <code>nil</code>.</td></tr>
+<tr><td><code>queue.awaiting(vector)</code></td><td>What has been sent but not yet confirmed.</td></tr>
+<tr><td><code>queue.confirm(vector)</code></td><td>Mark the in-flight action confirmed, freeing the vector early.</td></tr>
+<tr><td><code>queue.clear(vector)</code></td><td>Drop what is pending on one vector, or all of them with no argument.</td></tr>
+<tr><td><code>queue.snapshot()</code></td><td>Everything pending and in flight, for inspection.</td></tr>
+</table>
+
+<p>Vectors: <code>free</code>, <code>balance</code>, <code>equilibrium</code>, <code>herb</code>, <code>salve</code>, <code>elixir</code>, <code>smoke</code>, <code>focus</code>, <code>tree</code>, <code>writhe</code>, <code>special</code>.</p>
+
+<h2>emunah.have &mdash; capability checks</h2>
+
+<p>Answers &ldquo;can I actually do this?&rdquo; from tracked GMCP state. Nothing here sends a command or guesses; when the data has not arrived yet the answer is a conservative one.</p>
+
+<p>This exists because of one specific, maddening failure mode: a curing engine that does not check first picks the right cure, sends <code>eat kelp</code>, gets &ldquo;You do not have that item&rdquo;, the affliction stays, and it sends the same thing again next tick &mdash; forever, while you die.</p>
+
+<table>
+<tr><th>Call</th><th>Answers</th></tr>
+<tr><td><code>have.skill(name)</code></td><td>Do I know this ability? Permissive while the skill index is still loading.</td></tr>
+<tr><td><code>have.skillset(name)</code></td><td>Do I have a whole skillset? Cheap class inference.</td></tr>
+<tr><td><code>have.item(name)</code></td><td>How many are in inventory.</td></tr>
+<tr><td><code>have.inRift(name)</code></td><td>How many are in the Rift.</td></tr>
+<tr><td><code>have.supply(name)</code></td><td>Inventory plus Rift &mdash; usually the one you want.</td></tr>
+<tr><td><code>have.pipe(herb)</code></td><td>Is there a lit pipe with this herb in it? Not the same question as &ldquo;do I have valerian&rdquo;.</td></tr>
+<tr><td><code>have.def(name)</code></td><td>Is this defence up?</td></tr>
+<tr><td><code>have.affliction(name)</code></td><td>Am I afflicted with this?</td></tr>
+<tr><td><code>have.balance(vector)</code></td><td>Is this vector free right now?</td></tr>
+<tr><td><code>have.blockedBy(vector)</code></td><td>Which affliction is blocking this vector, if any.</td></tr>
+<tr><td><code>have.cure(option)</code></td><td>Can I perform this cure? Returns <code>false, reason</code> when not.</td></tr>
+<tr><td><code>have.spend(vector)</code> / <code>have.recover(vector)</code></td><td>Mark a vector spent or recovered ahead of its timer.</td></tr>
+<tr><td><code>have.denySkill(name)</code></td><td>Record that the game itself refused an ability, overriding the index.</td></tr>
+</table>
+
+<h2>emunah.curing.detect &mdash; incapacitation state</h2>
+
+<p>Two states that are routinely caused by the same hit but clear independently. Prefer letting <code>act</code> consult these for you; read them directly only when you need to branch on <em>why</em>.</p>
+
+<table>
+<tr><th>Call</th><th>Meaning</th></tr>
+<tr><td><code>detect.isProne()</code></td><td>Knocked down. A <code>STAND</code> is already on its way; nothing else needs to send one.</td></tr>
+<tr><td><code>detect.isStunned()</code></td><td>Stunned. Nothing can be sent at all &mdash; no command fixes it, it just wears off.</td></tr>
+<tr><td><code>detect.add(aff, kind, pattern)</code></td><td>Register a detection pattern. <code>kind</code> is <code>"gain"</code> or <code>"cure"</code>.</td></tr>
+<tr><td><code>detect.define(aff, spec)</code></td><td>Several patterns at once: <code>{ gain = {...}, cure = {...} }</code>.</td></tr>
+<tr><td><code>detect.coverage()</code></td><td>How much of the affliction list has patterns.</td></tr>
+</table>
+
+<p>Both flags gate <em>sending</em>, so a clearing message that never arrives would not degrade the system &mdash; it would freeze it. Each therefore has a backstop timer (<code>detect.STUN_GUARD</code>, <code>detect.PRONE_GUARD</code>) that releases the state if the game never says it ended.</p>
+
+<h2>emunah.gmcp &mdash; tracked game state</h2>
+
+<h3>vitals</h3>
+<table>
+<tr><th>Field / call</th><th>Meaning</th></tr>
+<tr><td><code>vitals.hp</code>, <code>.mp</code>, <code>.ep</code>, <code>.wp</code></td><td>Current values, already numbers.</td></tr>
+<tr><td><code>vitals.percent.hp</code></td><td>Precomputed percentages.</td></tr>
+<tr><td><code>vitals.bal</code>, <code>vitals.eq</code></td><td>Real booleans. The raw GMCP fields are the <em>strings</em> <code>"1"</code> and <code>"0"</code>, and <code>"0"</code> is truthy in Lua &mdash; use these, not <code>gmcp.Char.Vitals</code>.</td></tr>
+<tr><td><code>vitals.below(res, pct)</code></td><td>Is a resource under a percentage?</td></tr>
+<tr><td><code>vitals.damageTaken()</code></td><td>Health lost since the previous prompt.</td></tr>
+<tr><td><code>vitals.stat(name, fallback)</code></td><td>A class-specific charstat, e.g. <code>vitals.stat("Devotion")</code>.</td></tr>
+</table>
+
+<h3>items</h3>
+<table>
+<tr><th>Call</th><th>Meaning</th></tr>
+<tr><td><code>items.at("inv")</code> / <code>items.at("room")</code></td><td>Everything at a location.</td></tr>
+<tr><td><code>items.find(pattern, loc)</code></td><td>Items whose name contains a substring.</td></tr>
+<tr><td><code>items.first(pattern, loc)</code></td><td>First match, or <code>nil</code>.</td></tr>
+<tr><td><code>items.count(pattern, loc)</code></td><td>How many match.</td></tr>
+<tr><td><code>items.attrib(item)</code></td><td>Decode the attribute letters into named booleans (<code>container</code>, <code>monster</code>, <code>dead</code>&hellip;).</td></tr>
+<tr><td><code>items.roomFresh()</code></td><td>Has a room list arrived since the last room change? Check this before concluding a room is empty.</td></tr>
+</table>
+
+<h3>skills, room, status</h3>
+<table>
+<tr><th>Call</th><th>Meaning</th></tr>
+<tr><td><code>skills.has(name)</code></td><td>Single hash lookup against the flat ability index.</td></tr>
+<tr><td><code>skills.hasGroup(name)</code></td><td>Do I have this skillset?</td></tr>
+<tr><td><code>skills.rank(group)</code></td><td>Rank string, e.g. <code>"Transcendent"</code>.</td></tr>
+<tr><td><code>room.playerCount()</code></td><td>How many <strong>other</strong> players are here. Achaea's raw <code>Room.Players</code> includes you; this does not.</td></tr>
+<tr><td><code>room.isSelf(name)</code></td><td>Is that name us? Checks <code>Char.Name</code> first &mdash; <code>Char.Status</code> does not arrive on every room change and cannot be relied on here.</td></tr>
+<tr><td><code>room.hasExit(dir)</code></td><td>Is there an exit that way?</td></tr>
+<tr><td><code>status.class()</code>, <code>status.name()</code></td><td>Character identity from <code>Char.Status</code>.</td></tr>
+</table>
+
+<h2>emunah.event &mdash; events</h2>
+
+<p>Handlers registered through this module are tracked so a reload can drop the previous generation. Registering with Mudlet's <code>registerAnonymousEventHandler</code> directly is the classic way to end up eating three bloodroot for one affliction after three reloads.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emunah.event.register(name, fn, owner)</span>
+<p><code>owner</code> is any grouping string. Pass your own and you can drop all of your handlers at once with <code>emunah.event.kill(owner)</code>.</p>
+</div>
+
+<pre><code>emunah.event.register("emunah.bashing.killed", function(_, id, name)
+  cecho("\n&lt;green&gt;Killed " .. tostring(name))
+end, "myscript")</code></pre>
+
+<p>Every system event is prefixed <code>emunah.</code>. The first argument your handler receives is the event name itself &mdash; that is Mudlet's convention, which is why the examples discard it with <code>_</code>.</p>
+
+<h3>Events you can listen for</h3>
+<table>
+<tr><th>Event</th><th>Arguments</th><th>Raised when</th></tr>
+<tr><td><code>emunah.tick</code></td><td>count</td><td>Every prompt. The system heartbeat.</td></tr>
+<tr><td><code>emunah.vitals</code></td><td>vitals</td><td>Char.Vitals processed.</td></tr>
+<tr><td><code>emunah.recovered</code></td><td>&mdash;</td><td>A stun lifted or the character stood back up.</td></tr>
+<tr><td><code>emunah.affliction.added</code></td><td>name, record</td><td>An affliction appeared in <code>Char.Afflictions</code>. The record carries <code>since</code>.</td></tr>
+<tr><td><code>emunah.affliction.removed</code></td><td>name</td><td>&hellip;and stopped.</td></tr>
+<tr><td><code>emunah.items.added</code></td><td>location, item</td><td>Something appeared in inventory or the room.</td></tr>
+<tr><td><code>emunah.items.removed</code></td><td>location, item</td><td>&hellip;or left. This is how a kill is detected.</td></tr>
+<tr><td><code>emunah.items.list</code></td><td>location, count</td><td>A full list replaced a location's contents.</td></tr>
+<tr><td><code>emunah.room</code></td><td>num, name</td><td>The room changed.</td></tr>
+<tr><td><code>emunah.bashing.started</code></td><td>&mdash;</td><td>The bashing loop started.</td></tr>
+<tr><td><code>emunah.bashing.stopped</code></td><td>reason</td><td>&hellip;and stopped, with why.</td></tr>
+<tr><td><code>emunah.bashing.killed</code></td><td>id, name</td><td>The current target died, fled, or was taken.</td></tr>
+<tr><td><code>emunah.walker.arrived</code></td><td>room</td><td>The walker reached a room (its number).</td></tr>
+<tr><td><code>emunah.walker.finished</code></td><td>visited, reason</td><td>The route was exhausted or stopped.</td></tr>
+<tr><td><code>emunah.pvp.started</code> / <code>.stopped</code></td><td>&mdash; / reason</td><td>PvP session state.</td></tr>
+<tr><td><code>emunah.pvp.target</code></td><td>name, or <code>nil</code> when cleared</td><td>The PvP target changed.</td></tr>
+<tr><td><code>emunah.loot.taken</code></td><td>id, name</td><td>Something was picked up.</td></tr>
+<tr><td><code>emunah.class.loaded</code></td><td>name</td><td>A class module was detected and loaded.</td></tr>
+<tr><td><code>emunah.skills.complete</code></td><td>count</td><td>The full ability index finished building.</td></tr>
+<tr><td><code>emunah.timer.started</code> / <code>.expired</code></td><td>name[, duration]</td><td>A named cooldown.</td></tr>
+</table>
+
+<h3>Events you can raise at it</h3>
+<p>These are inputs, not notifications &mdash; raise them to drive the system from your own code.</p>
+<table>
+<tr><th>Event</th><th>Effect</th></tr>
+<tr><td><code>emunah.walker.move</code></td><td>Tell the walker this room is finished and to move on.</td></tr>
+<tr><td><code>emunah.walker.stop</code></td><td>Stop the walk.</td></tr>
+<tr><td><code>emunah.bashing.pause</code></td><td>Stop the bashing loop &mdash; what the curing engine raises when offence would waste the balance a cure needs.</td></tr>
+</table>
+
+<h2>emunah.timers &mdash; named cooldowns</h2>
+
+<p>Every balance in Achaea is a cooldown. Some returns are announced by the game and arrive over GMCP; the rest are only observable by timing. This handles the timed kind.</p>
+
+<table>
+<tr><th>Call</th><th>Does</th></tr>
+<tr><td><code>timers.start(name, seconds, onExpire)</code></td><td>Start or restart a cooldown.</td></tr>
+<tr><td><code>timers.ready(name)</code></td><td>Has it lapsed? The one you usually want.</td></tr>
+<tr><td><code>timers.stop(name)</code></td><td>Cancel early &mdash; the normal response to the game confirming a balance is back sooner than estimated.</td></tr>
+<tr><td><code>timers.remaining(name)</code></td><td>Seconds left, or <code>0</code>.</td></tr>
+<tr><td><code>timers.progress(name)</code></td><td>Fraction elapsed, <code>0..1</code>. Feeds the UI gauges.</td></tr>
+</table>
+
+<h2>emunah.config &mdash; settings</h2>
+
+<p>Dotted paths, persisted per profile. Everything <code>emunah set</code> touches is reachable here.</p>
+
+<pre><code>emunah.config.get("bashing.attack", "smite")
+emunah.config.set("bashing.stopBelowHealth", 60)
+emunah.config.save()</code></pre>
+
+<h2>Loops: bashing, walker, pvp</h2>
+
+<table>
+<tr><th>Call</th><th>Does</th></tr>
+<tr><td><code>bashing.start()</code> / <code>.stop(reason)</code> / <code>.toggle()</code></td><td>The PvE loop. <code>start()</code> returns <code>false</code> if there is no class module.</td></tr>
+<tr><td><code>bashing.report()</code></td><td>Live state: target, kills, attacks, rooms.</td></tr>
+<tr><td><code>walker.start(rooms)</code> / <code>.stop(reason)</code></td><td>Walk an area, or an explicit room list.</td></tr>
+<tr><td><code>walker.move()</code></td><td>Step to the next room now.</td></tr>
+<tr><td><code>walker.claim(owner)</code> / <code>.release(owner)</code></td><td>Take over pacing, so the walker does not speedwalk out of a room mid-fight.</td></tr>
+<tr><td><code>walker.avoidRoom(id)</code></td><td>Exclude a room from the route.</td></tr>
+<tr><td><code>pvp.setTarget(name)</code> / <code>.clearTarget()</code></td><td>PvP never picks a target on its own. This is the only way one gets set.</td></tr>
+<tr><td><code>denizens.here()</code></td><td>Attackable creatures in the room, by replica number.</td></tr>
+<tr><td><code>denizens.setWanted(name, bool)</code></td><td>Add or remove a kind from the area kill list.</td></tr>
+<tr><td><code>loot.sweep()</code></td><td>Pick up anything worth taking in the room.</td></tr>
+</table>
+
+<div class="callout">
+<p><strong>Targets are replica numbers, not names.</strong> <code>denizens.here()</code> returns ids like <code>308635</code> because <code>smite pixie</code> lets Achaea choose which pixie, and its choice shifts as they move and die. Pass the id through to any attack.</p>
+</div>
+
+<h2>Example: a script built on Emunah</h2>
+
+<p>A worked example that ties the pieces together &mdash; drink a health elixir when hurt, without ever fighting the curing engine for the vector or firing into a rejection:</p>
+
+<pre><code>emunah.event.register("emunah.tick", function()
+  local v = emunah.gmcp.vitals
+  if not v.below("hp", 50) then return end
+  if emunah.have.supply("health") == 0 then return end
+
+  emunah.queue.push("elixir", "drink health", {
+    priority = 20,
+    tag      = "emergency",
+    confirm  = 2.0,
+    onSent   = function() emunah.have.spend("elixir") end,
+  })
+end, "myscript")</code></pre>
+
+<p>Note what this does <em>not</em> do: it never calls <code>send()</code>, never checks whether you are stunned, and never worries about sip balance. Pushing onto the <code>elixir</code> vector means the queue holds it until that balance is genuinely free, <code>act</code> holds it further if the character cannot act at all, and a higher-priority cure can pre-empt it if something worse lands in the meantime.</p>
+
+<p>Register with your own <code>owner</code> string and <code>emreload</code> will not leave a duplicate behind.</p>
+
+</div>
+</main>
+</div>
+</body>
+</html>

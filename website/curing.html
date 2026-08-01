@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curing Engine — Emunah</title>
+<style>
+:root{
+  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
+  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
+  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
+  --yellow:#facc15; --purple:#c084fc;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:16px; line-height:1.65;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code, pre, kbd{font-family:var(--font-mono)}
+code{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
+  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
+}
+pre{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
+  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
+}
+pre code{border:none; padding:0; background:none; color:var(--text)}
+h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
+h1{font-size:2.1em; margin:0 0 .3em}
+h2{font-size:1.5em; margin:2em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
+h3{font-size:1.15em; margin:1.5em 0 .5em; color:var(--accent)}
+h4{font-size:1em; margin:1.2em 0 .4em}
+p{margin:.8em 0}
+ul,ol{margin:.8em 0; padding-left:1.4em}
+li{margin:.3em 0}
+.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
+nav.sidebar{
+  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
+  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
+}
+.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
+.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
+.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
+.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
+nav.sidebar ul{list-style:none; margin:0; padding:0}
+nav.sidebar li{margin:0}
+nav.sidebar a{
+  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
+  font-size:.92em; margin-bottom:2px;
+}
+nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
+nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
+.nav-group-title{
+  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
+  margin:20px 0 6px; padding:0 10px;
+}
+.nav-group-title:first-child{margin-top:0}
+main{flex:1; min-width:0; padding:40px 48px 100px; display:flex; gap:40px}
+.content{max-width:740px; flex:1; min-width:0}
+.toc{
+  width:190px; flex-shrink:0; position:sticky; top:40px; align-self:flex-start;
+  font-size:.85em;
+}
+.toc-title{font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin-bottom:8px}
+.toc a{display:block; padding:4px 0; color:var(--text-dim)}
+.toc a:hover{color:var(--accent); text-decoration:none}
+table{width:100%; border-collapse:collapse; margin:1.2em 0; font-size:.92em}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
+tr:last-child td{border-bottom:none}
+.callout{
+  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
+  padding:12px 18px; margin:1.2em 0;
+}
+.callout p{margin:.4em 0}
+.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
+.callout-warn{border-left-color:var(--red)}
+.callout-warn .callout-title{color:var(--red)}
+.callout-tip{border-left-color:var(--green)}
+.callout-tip .callout-title{color:var(--green)}
+.callout-note .callout-title{color:var(--accent)}
+.flow{
+  display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:20px 0;
+  font-family:var(--font-mono); font-size:.85em;
+}
+.flow .step{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
+  padding:10px 14px; color:var(--text-bright);
+}
+.flow .arrow{color:var(--text-dim)}
+footer{
+  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
+  color:var(--text-dim); font-size:.85em;
+}
+.page-nav{
+  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
+  border-top:1px solid var(--border); gap:20px;
+}
+.page-nav a{font-size:.92em}
+.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
+.page-nav .next{text-align:right}
+@media (max-width:1150px){ .toc{display:none} }
+@media (max-width:900px){
+  .layout{flex-direction:column}
+  nav.sidebar{
+    width:100%; height:auto; position:relative; border-right:none;
+    border-bottom:1px solid var(--border); padding:18px;
+  }
+  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
+  .nav-group-title{display:none}
+  main{padding:28px 20px 60px; flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="commands.html">Command Reference</a></li>
+    <li><a href="api.html">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html" class="active">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main>
+<div class="content">
+
+<h1>Curing Engine</h1>
+<p>
+Achaea combat runs on afflictions — negative status effects that stack up and have to be
+cured with the right herb, salve, elixir, or action before they compound into something
+worse. Emunah's curing engine tracks what's afflicting you and queues the right cure
+automatically, once per game tick, one cure per resource in flight at a time.
+</p>
+
+<h2 id="vectors">Vectors and per-vector priority</h2>
+<p>
+A <strong>vector</strong> is a resource that gates a cure. Eating a herb, applying a salve,
+smoking a pipe, sipping an elixir, and focusing your mind all draw on <em>separate</em>
+balances in Achaea — you can do all of them in the same second. Two herbs, on the other
+hand, cannot happen at once; eating uses up the one "herb" balance regardless of which herb
+it is.
+</p>
+<p>
+This is the single most important design decision in the engine: <strong>there is no global
+priority list.</strong> If there were, the most urgent affliction would hog the tick even
+while waiting on salve balance, and three herb cures that could have gone out simultaneously
+in that same second would wait behind it. Achaea combat is decided largely on that
+throughput.
+So each vector is resolved independently, against its own ranking, every tick:
+</p>
+<div class="flow">
+  <div class="step">herb</div><div class="step">salve</div><div class="step">smoke</div>
+  <div class="step">elixir</div><div class="step">focus</div><div class="step">tree</div>
+</div>
+<p>Six cures can be in flight simultaneously — one per vector — each fighting for its own balance, not anyone else's.</p>
+
+<h2 id="afflist">The affliction table</h2>
+<p>
+<code>src/emunah/curing/afflist.lua</code> holds 117 afflictions, each with:
+</p>
+<ul>
+<li>one or more cure <strong>options</strong>, in preference order — a vector, an item, its Alchemist mineral equivalent, and (for salves) a body location</li>
+<li>a <strong>priority</strong> per vector: an integer rank, 1 = most urgent for that vector specifically</li>
+</ul>
+<pre><code>paralysis = {
+   cures    = { { vector = "herb", item = "bloodroot", alt = "magnesium" } },
+   priority = { herb = 6 },
+},
+
+anorexia = {
+   cures    = { { vector = "salve", item = "epidermal", alt = "sensory", location = "body" },
+                { vector = "focus" } },
+   priority = { salve = 1, focus = 2 },
+},</code></pre>
+<p>
+<code>alt</code> is the Alchemist mineral equivalent, used automatically when
+<code>curing.method</code> is set to <code>minerals</code> instead of <code>herbs</code> —
+the herb ↔ mineral mapping lives in exactly one place per entry.
+</p>
+
+<h3 id="blocking">Blocking afflictions — the classic lock</h3>
+<p>Three afflictions each shut down an entire vector, and each is cured by a vector one of the other two blocks:</p>
+<table>
+<thead><tr><th>Affliction</th><th>Blocks</th><th>Cured by</th></tr></thead>
+<tbody>
+<tr><td><code>anorexia</code></td><td>eating (herb)</td><td>apply epidermal, <em>or</em> <code>FOCUS</code></td></tr>
+<tr><td><code>slickness</code></td><td>applying (salve)</td><td>smoke valerian, or eat bloodroot</td></tr>
+<tr><td><code>asthma</code></td><td>smoking (smoke)</td><td>eat kelp</td></tr>
+</tbody>
+</table>
+<p>
+With all three up, every item vector is shut and <code>FOCUS</code> is the only way out —
+which is exactly why <code>focus</code> ranks anorexia <em>second</em> in its own priority
+list. The engine consults this table before ever queuing a cure, so it won't queue
+<code>eat kelp</code> while anorexic and then sit there wondering why nothing is happening.
+</p>
+
+<h2 id="engine">How a tick resolves</h2>
+<p>Once per game prompt (<code>Char.Vitals</code>, which Achaea sends every time), the engine runs through this sequence:</p>
+<ol>
+<li><strong>Reconcile</strong> tracked afflictions against the server's own list (periodically, not every tick — see <a href="#detection">Detection</a> for what "reconcile" means here).</li>
+<li><strong>Writhes first.</strong> Bound, webbed, roped, and similar movement-locks aren't cured by items — the cure is repeated <code>WRITHE</code>, and while active most other actions are refused anyway, so this always goes first, unconditionally.</li>
+<li><strong>Healing.</strong> Not an affliction, but it outranks everything on the vectors it uses — there is no value in curing stupidity at 8% health. See <a href="#healing">Healing</a> below.</li>
+<li><strong>For each vector independently</strong> (herb, salve, smoke, elixir, focus, tree): pick the lowest-ranked tracked affliction that vector can cure, confirm you can actually perform that cure right now (item on hand, defence not blocking it, mana available for focus, a lit pipe for smoking), and queue the command.</li>
+<li><strong>Flush the queue</strong> — send at most one command per vector that's actually free right now.</li>
+</ol>
+
+<h3>The capability gate</h3>
+<p>
+A resolved cure still has to pass <code>have.cure()</code> before it's queued: is the item
+actually in inventory or the Rift, is the vector currently blocked by another affliction, is
+there mana for <code>FOCUS</code>, is a pipe loaded for smoking. This is the layer that keeps
+the engine from confidently sending a cure command for an item you ran out of three fights
+ago.
+</p>
+
+<h2 id="healing">Healing</h2>
+<p>
+Four healing sources draw on three independent balances, so most of them do not compete with
+each other and several can be in flight simultaneously. Each has its own threshold, and the
+defaults descend so that cheaper, renewable sources engage before finite ones.
+</p>
+<table>
+<thead><tr><th>Source</th><th>Balance</th><th>Setting</th><th>Default</th></tr></thead>
+<tbody>
+<tr><td><code>drink mana</code></td><td>Sip</td><td><code>curing.manaThreshold</code></td><td>85%</td></tr>
+<tr><td><code>drink health</code></td><td>Sip</td><td><code>curing.healthThreshold</code></td><td>80%</td></tr>
+<tr><td><code>eat irid</code></td><td>Moss</td><td><code>curing.iridThreshold</code></td><td>68%</td></tr>
+<tr><td><code>perform hands</code></td><td>Equilibrium</td><td><code>curing.handsThreshold</code></td><td>50%</td></tr>
+</tbody>
+</table>
+<p>
+Health and mana are the exception: both are elixirs and share one sip balance, so they
+compete, and health always takes priority. Irid moss restores both bars on a balance nothing
+else uses. <code>perform hands</code> spends equilibrium, which makes it the one healing
+source that competes with attacking.
+</p>
+<div class="callout callout-note">
+<div class="callout-title">A command the game cannot perform still costs time</div>
+<p>
+Asking for a fluid no vial contains produces <code>What is it that you wish to drink?</code>
+— nothing is drunk and no balance is spent, but the send still occupies the elixir vector
+until its confirmation times out. Because health and mana share that vector, an impossible
+mana sip repeated on a loop stops health sipping entirely. Emunah frees the vector on that
+reply and stops requesting the fluid for two minutes, logging what needs refilling.
+</p>
+</div>
+
+<h2 id="rift">Rift management</h2>
+<p>
+Curatives live in the Rift and must be withdrawn before they can be used, and
+<code>OUTR</code> has a round trip — withdrawing a herb at the moment an affliction lands
+produces a cure that arrives too late. Emunah keeps three of each curative in inventory,
+withdrawing one item at a time as stock falls.
+</p>
+<p>
+The ceiling matters as much as the floor. Inventory is lost on death and the Rift is not, so
+anything above the target is risk carried for no benefit; surplus is returned automatically.
+Stock is checked when inventory is listed rather than only on a prompt, so a reload restores
+correct levels immediately rather than at the next combat round.
+</p>
+
+<h2 id="defkeepup">Defence keep-up</h2>
+<p>
+A second, much simpler system restores defences that have dropped, using the same action
+queue as curing so the two never fight over a balance. It's simpler because
+<code>Char.Defences</code> is <em>genuinely</em> complete — the game tells you exactly which
+defences you have, always. No trigger layer, no reconciliation, no ambiguity. Compare that
+to afflictions, below.
+</p>
+<p>
+Keep-up always runs at a fixed low priority — any cure outranks it. And it defers entirely
+while the engine is tracking any affliction: re-raising a defence mid-lock usually just gets
+it stripped again immediately, so it waits until you're clear.
+</p>
+<pre><code>emunah defs add rebounding
+emunah defs on</code></pre>
+
+<h2 id="detection">Detection: GMCP and triggers</h2>
+<p>
+This is the part worth understanding before trusting the engine in a real fight, especially PvP.
+</p>
+<p>Affliction state comes from two independent sources:</p>
+<table>
+<thead><tr><th>Source</th><th>Reliability</th></tr></thead>
+<tbody>
+<tr>
+  <td><strong>GMCP</strong> (<code>Char.Afflictions</code>)</td>
+  <td>Reliable, but reports only what Achaea <em>chooses</em> to announce. Complete enough for PvE bashing. Incomplete in PvP — being afflicted with things you weren't told about is often the entire point of an opponent's strategy.</td>
+</tr>
+<tr>
+  <td><strong>Triggers</strong> (game text)</td>
+  <td>The way to close that gap — parsing Achaea's own affliction messages as they scroll past, which is what every mature curing system relies on for PvP.</td>
+</tr>
+</tbody>
+</table>
+
+<div class="callout callout-warn">
+<div class="callout-title">Why the shipped trigger set is small on purpose</div>
+<p>
+Achaea's ~200 affliction onset messages aren't published anywhere transcribable. Writing
+patterns for all of them from memory or guesswork would produce a table that <em>looks</em>
+complete and is quietly wrong in places — and a wrong pattern is strictly worse than a
+missing one. It asserts an affliction you don't actually have, and the engine burns a real
+balance curing something that isn't there, in the middle of a fight, for a reason invisible
+in any log.
+</p>
+<p>
+So the shipped corpus (<code>src/emunah/curing/detect/patterns.lua</code>) contains only
+patterns that are <strong>structurally certain</strong> — Achaea's own rejection messages
+("You are afflicted with anorexia and cannot eat anything."), which are stable, generic, and
+say exactly what's wrong. Everything else grows from evidence, not assumption.
+</p>
+</div>
+
+<h3>Growing the corpus from evidence</h3>
+<pre><code>emunah learn on     # log candidate lines while you fight
+# ... fight, or spar in the arena ...
+emunah learn off
+emunah detect        # coverage report</code></pre>
+<p>
+<code>emunah learn on</code> logs lines matching Achaea's typical affliction-message shape
+("You ..." / "Your ...", short, present tense) to <code>emunah-learn.txt</code>. After the
+fight, read the file, and add exactly what you saw:
+</p>
+<pre><code>detect.define("paralysis", {
+   gain = { [[^Your muscles seize up completely\.$]] },
+   cure = { [[^Your muscles unlock and you can move again\.$]] },
+})</code></pre>
+<p>
+A <code>gain</code> pattern asserts the affliction the moment it's seen. A <code>cure</code>
+pattern retracts it <em>and</em> immediately confirms whichever vector was waiting on it —
+without that, the vector stays blocked until a fallback timer lapses, which costs roughly a
+full extra cure's worth of time per affliction. Patterns are always anchored with
+<code>^</code> and <code>$</code>; an unanchored pattern will match the same words quoted
+back at you in a tell.
+</p>
+
+<h3>How the two sources reconcile</h3>
+<p>
+GMCP is authoritative for <em>removing</em> a tracked affliction — if the server's list no
+longer mentions it, it's gone. But addition only ever <em>corroborates</em>: an affliction
+detected by a trigger survives even when GMCP hasn't (yet, or ever) reported it, because in
+PvP it frequently won't. This asymmetry is what lets trigger-detected state actually mean
+something instead of being overwritten by an incomplete server list every reconcile pass.
+</p>
+
+<h2 id="provenance">How the cure data is verified</h2>
+<p>
+The affliction/cure mappings, herb&harr;mineral equivalents, salve locations, and &mdash;
+critically &mdash; the per-vector priority ordering are checked against Achaea's own
+<em>A Lesson in Herbs</em>, and independently cross-checked a second time against Achaea's
+official help pages and a second affliction dictionary (documented in full in the repo's
+<code>docs/afflictions.md</code>, including a handful of flagged discrepancies still
+awaiting in-game verification).
+</p>
+
+<footer>
+See <a href="combat.html">Combat &amp; PvP</a> next, or the <a href="commands.html#curing">Curing commands</a> reference.
+</footer>
+
+<div class="page-nav">
+  <div><span class="dir">Back</span><a href="commands.html">&larr; Command Reference</a></div>
+  <div class="next"><span class="dir">Next</span><a href="combat.html">Combat &amp; PvP &rarr;</a></div>
+</div>
+
+</div>
+<div class="toc">
+  <div class="toc-title">On this page</div>
+  <a href="#vectors">Vectors</a>
+  <a href="#afflist">The affliction table</a>
+  <a href="#blocking">Blocking afflictions</a>
+  <a href="#engine">How a tick resolves</a>
+  <a href="#healing">Healing</a>
+  <a href="#rift">Rift management</a>
+  <a href="#defkeepup">Defence keep-up</a>
+  <a href="#detection">Detection</a>
+  <a href="#provenance">Data provenance</a>
+</div>
+</main>
+</div>
+</body>
+</html>

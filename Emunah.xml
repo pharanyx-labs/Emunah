@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE MudletPackage>
+<MudletPackage version="1.001">
+    <ScriptPackage>
+        <ScriptGroup isActive="yes" isFolder="yes">
+            <name>Emunah</name>
+            <packageName>Emunah</packageName>
+            <script></script>
+            <eventHandlerList />
+            <Script isActive="yes" isFolder="no">
+                <!-- MUST be a valid Lua identifier and MUST match the global function
+                     defined in bootstrap.lua. Mudlet fires an event handler by compiling
+                     "return <ScriptName>", so any space here breaks every handler. -->
+                <name>EmunahBootstrap</name>
+                <packageName></packageName>
+                <script>-- Emunah bootstrap.
+--
+-- This is the entire Mudlet-resident part of the system. Everything else is plain Lua on
+-- disk in the checkout, loaded by src/emunah.lua and reloadable with `emreload` without
+-- reimporting anything.
+--
+-- That split is the whole point of the loading model: the package you
+-- install never changes, so you edit modules in a real editor, hit reload, and keep
+-- playing. Compare the usual Mudlet workflow, where every change means re-importing a
+-- package and losing your in-memory state.
+
+local CANDIDATES = {
+   -- Preferred: a clone inside the Mudlet home directory.
+   --
+   -- NOTE the directory is EmunahSrc, not Emunah. A directory named after the package
+   -- sitting inside the profile is dangerous: Mudlet's package manager removes a
+   -- package's own directory on uninstall/reinstall, which would delete your working
+   -- copy. Keeping the source under a different name means the package manager never
+   -- touches it. Never symlink your git checkout into the profile either -- the same
+   -- cleanup follows the link and deletes the repo.
+   getMudletHomeDir() .. "/EmunahSrc",
+   -- GitHub's "Download ZIP" unpacks with a -main suffix; accept it so the zip route
+   -- works without anyone having to rename a directory.
+   getMudletHomeDir() .. "/Emunah-main",
+   getMudletHomeDir() .. "/Emunah-master",
+}
+
+local function exists(path)
+   local file = io.open(path .. "/src/emunah.lua", "r")
+   if file then file:close() return true end
+   return false
+end
+
+-- EMUNAH_ROOT itself is just a Lua global: it does not survive a fresh Mudlet start, only
+-- a mid-session `emreload`. Without something on disk, "point the bootstrap at your
+-- checkout (once; it is remembered per profile)" would not actually be true -- every
+-- restart would fail with "Could not find the Emunah source" until EMUNAH_ROOT was set by
+-- hand again. This file is that memory: written once EMUNAH_ROOT actually resolves to a
+-- real checkout, read back before falling to the CANDIDATES guesses.
+local ROOT_FILE = getMudletHomeDir() .. "/emunah-root.txt"
+
+local function loadRememberedRoot()
+   local file = io.open(ROOT_FILE, "r")
+   if not file then return nil end
+   local path = file:read("*l")
+   file:close()
+   return path and path ~= "" and path or nil
+end
+
+local function rememberRoot(path)
+   local file = io.open(ROOT_FILE, "w")
+   if not file then return end
+   file:write(path)
+   file:close()
+end
+
+local function locate()
+   -- An explicit override always wins; set EMUNAH_ROOT in a script if you keep the
+   -- checkout somewhere else (a dotfiles repo, a shared drive). This is the recommended
+   -- setup: point it at your git clone outside the profile entirely.
+   if EMUNAH_ROOT and exists(EMUNAH_ROOT) then return EMUNAH_ROOT end
+
+   local remembered = loadRememberedRoot()
+   if remembered and exists(remembered) then return remembered end
+
+   for _, candidate in ipairs(CANDIDATES) do
+      if exists(candidate) then return candidate end
+   end
+   return nil
+end
+
+--- Entry point.
+---
+--- The name matters. A Mudlet script with an eventHandlerList invokes a global function
+--- named exactly after the script, by building `return &lt;ScriptName&gt;` and compiling it --
+--- so a script called "Emunah Bootstrap" produces `return Emunah Bootstrap`, which is not
+--- valid Lua and fails on every registered event. The script is therefore named
+--- EmunahBootstrap, and this function has to match it character for character.
+function EmunahBootstrap()
+   local root = locate()
+
+   if not root then
+      cecho("\n&lt;ansi_red&gt;[emunah]&lt;reset&gt; Could not find the Emunah source.\n")
+      cecho("&lt;ansi_light_black&gt;  Clone it somewhere outside the profile and point at it:&lt;reset&gt;\n")
+      cecho("&lt;ansi_cyan&gt;    lua EMUNAH_ROOT = \"/path/to/Emunah\"; EmunahBootstrap()&lt;reset&gt;\n")
+      cecho("&lt;ansi_light_black&gt;  ...or clone into &lt;reset&gt;&lt;ansi_cyan&gt;"
+         .. getMudletHomeDir() .. "/EmunahSrc&lt;reset&gt;\n")
+      return false
+   end
+
+   EMUNAH_ROOT = root
+   rememberRoot(root)
+
+   local ok, err = pcall(dofile, root .. "/src/emunah.lua")
+   if not ok then
+      cecho(string.format("\n&lt;ansi_red&gt;[emunah]&lt;reset&gt; Bootstrap failed: %s\n", tostring(err)))
+      return false
+   end
+   return true
+end
+
+-- Lowercase alias, for typing by hand.
+emunahBootstrap = EmunahBootstrap
+
+-- Load now (covers package install and profile start), and again on connect so that a
+-- profile opened before the checkout existed picks it up without a restart.
+EmunahBootstrap()
+
+if emunahBootstrapHandler then
+   killAnonymousEventHandler(emunahBootstrapHandler)
+end
+emunahBootstrapHandler = registerAnonymousEventHandler("sysConnectionEvent", function()
+   if not emunah then EmunahBootstrap() end
+end)
+</script>
+                <eventHandlerList>
+                    <string>sysLoadEvent</string>
+                    <string>sysInstall</string>
+                </eventHandlerList>
+            </Script>
+        </ScriptGroup>
+    </ScriptPackage>
+</MudletPackage>

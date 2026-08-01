@@ -1,0 +1,153 @@
+--- Tabbed chat.
+---
+--- Routes Comm.Channel.Text into tabs. Uses the EMCO tabbed-console widget when it is
+--- installed, and degrades to a single MiniConsole when it is not, so a missing optional
+--- dependency costs you tabs rather than costing you chat.
+---
+--- Capture happens in gmcp/comm.lua, not here. This module only renders. That split means
+--- chat history keeps accumulating with the UI switched off, and a UI rebuild can replay
+--- the backlog into fresh tabs instead of starting blank -- which is what makes reloading
+--- mid-conversation tolerable.
+
+local M = {}
+
+local theme  = emunah.ui.theme
+local layout = emunah.ui.layout
+local log    = emunah.log
+
+M.console = nil
+M.mode    = "none"   -- "emco" | "plain" | "none"
+
+--- Locate EMCO.
+---
+--- Current versions do NOT publish a global: EMCO is a module you reach with
+--- `require("MDK.emco")`. Checking only for a global (which is what most older examples
+--- do) silently finds nothing on a perfectly good install and drops you to the plain
+--- console with no error to explain it. So try the module first, then the historical
+--- global spellings for standalone or older installs.
+local function findEMCO()
+   local ok, module = pcall(require, "MDK.emco")
+   if ok and type(module) == "table" and module.new then return module end
+
+   if type(EMCO) == "table" and EMCO.new then return EMCO end
+   if type(demonnic) == "table" and type(demonnic.EMCO) == "table" then return demonnic.EMCO end
+   return nil
+end
+
+local function available()
+   return layout.container("right") ~= nil and type(Geyser) == "table"
+end
+
+--- Chat occupies the TOP of the right-hand column; ui/roompanel.lua takes the bottom half
+--- below layout.CHAT_SPLIT. Both read that constant so the two cannot drift into
+--- overlapping each other.
+function M.build()
+   if not available() then
+      M.mode = "none"
+      return false
+   end
+
+   local parent = layout.container("right")
+   local height = string.format("%d%%", layout.percentOf(layout.CHAT_SPLIT) - 1)
+
+   -- The all-tab has to be a real member of `consoles`. EMCO:setAllTabName() rejects any
+   -- name that is not already in the list, and the object then ends up with an allTabName
+   -- it never created a tab for -- which surfaces later as a nil index in
+   -- adjustTabBackground(), nowhere near the actual mistake.
+   local ALL_TAB = "All"
+   local tabs = { ALL_TAB }
+   for _, tab in ipairs(emunah.gmcp.comm.tabs()) do
+      tabs[#tabs + 1] = tab
+   end
+
+   local emco = findEMCO()
+   if emco then
+      local ok, console = pcall(emco.new, emco, {
+         name           = "emunah.chat",
+         x = 2, y = 2, width = "-4px", height = height,
+         consoles       = tabs,
+         allTab         = true,
+         allTabName     = ALL_TAB,
+         blankLine      = false,
+         timestamp      = true,
+         timestampFormat = "HH:mm:ss",
+         gap            = 2,
+         tabHeight      = 22,
+         fontSize       = theme.font.size,
+         consoleColor   = theme.colour.base,
+         activeTabBGColor    = theme.colour.raised,
+         inactiveTabBGColor  = theme.colour.panel,
+         activeTabFGColor    = theme.colour.textBright,
+         inactiveTabFGColor  = theme.colour.textDim,
+         tabBoxColor         = theme.colour.panel,
+         consoleContainerColor = theme.colour.panel,
+      }, parent)
+
+      if ok and console then
+         M.console = console
+         M.mode = "emco"
+         M.replay()
+         return true
+      end
+      log.warn("EMCO is present but would not build (%s); falling back to a plain console.",
+         tostring(console))
+   end
+
+   -- Fallback: one console, channel name prefixed per line.
+   -- No setStyleSheet -- MiniConsole does not have it (see ui/theme.lua).
+   local console = Geyser.MiniConsole:new(theme.consoleCons({
+      name = "emunah.chat.plain",
+      x = 2, y = 2, width = "-4px", height = height,
+      scrollBar = true,
+   }), parent)
+   M.console = console
+   M.mode = "plain"
+
+   if not findEMCO() then
+      log.info("EMCO not found -- chat is a single console. Install the MDK for tabs.")
+   end
+
+   M.replay()
+   return true
+end
+
+--- Render one message.
+function M.append(message)
+   if not M.console then return end
+
+   if M.mode == "emco" then
+      -- EMCO creates the tab set at construction; a channel that routes to an unknown tab
+      -- would be dropped silently, so anything unexpected goes to the fallback tab.
+      local tab = message.tab
+      local ok = pcall(function() M.console:decho(tab, message.text .. "\n") end)
+      if not ok then
+         pcall(function()
+            M.console:decho(emunah.gmcp.comm.FALLBACK_TAB, message.text .. "\n")
+         end)
+      end
+      return
+   end
+
+   M.console:decho(string.format("%s[%s] %s\n",
+      theme.dc("textDim"), message.tab, message.text))
+end
+
+--- Replay recent history into a freshly built console, so a reload does not blank the
+--- conversation you were in the middle of.
+function M.replay()
+   local comm = emunah.gmcp.comm
+   if not comm then return end
+   for _, message in ipairs(comm.recent(40)) do
+      M.append(message)
+   end
+end
+
+emunah.event.register("emunah.comm.text", function(_, message)
+   M.append(message)
+end, "ui.chat")
+
+emunah.event.register("emunah.ui.built", function() M.build() end, "ui.chat")
+
+M.build()
+
+return M
