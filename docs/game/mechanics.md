@@ -184,6 +184,62 @@ index loads" default is wrong for abilities known to be absent.
 | movement (`n`, `s`, ...) | **balance AND equilibrium** | Confirmed by the player: you cannot change rooms without both. This is why the walker sits out the full recovery after every kill (`Held "s" -- no balance` at 12:40:56) -- the pause is the game's rule, not a bug in the walker. Do not "optimise" it away. |
 | `outr` / `inr` | free | Neither costs a balance. Confirmed 0.23s turnaround. |
 
+## Tattoos and passive defences
+
+```
+touch moss
+Your moss tattoo tingles slightly.
+Balance used: 4.0s.
+```
+
+- **Touching a tattoo costs balance whether or not the defence is already up.** Confirmed by
+  another player testing it deliberately: "just tried it and was put 3.7 seconds off balance"
+  — with a trait that lowers off-balance times, so the base is higher. Never touch a defence
+  `Char.Defences` already reports; the cost is paid for nothing.
+- `moss` and `boar` are **passive** defences. They are stripped by a specific action, by
+  death, or by leaving the realms — not by time. One touch is enough.
+- Both appear in `Char.Defences`, so GMCP is a reliable source for whether they are up.
+
+| Command | Costs | Notes |
+|---|---|---|
+| `touch moss` | balance 4.0s | Staunches wounds. Observed 13:29:16.74 |
+| `def` | equilibrium 0.50s | Observed 13:29:20.97. Not free — do not poll it |
+| `def brief` | — | Brief names, close to the GMCP defence names |
+| `perform inspiration` | equilibrium 3.50s | Priest. Lasts around ten minutes (13:35:33.62 to 13:45:28.50), ending with "You slump slightly as the divinely-inspired strength leaves your body." |
+
+## Where GMCP stops being authoritative
+
+GMCP is reliable for PvE. Two afflictions break that, and both are things another player does
+to you deliberately:
+
+| Affliction | Effect on GMCP |
+|---|---|
+| **blackout** | Afflictions applied during it produce **no `Char.Afflictions` updates at all** |
+| **recklessness** | `Char.Vitals` reports `hp` and `mp` at **maximum** regardless of the true values |
+
+Recklessness is the dangerous one for anything automated: every healing threshold in
+`curing/engine.lua` reads `vitals.percent`, so a character under recklessness reads as
+perfectly healthy and is never healed. Any PvP work has to treat both as explicit states
+where the vitals feed is not to be trusted.
+
+## Commands that fail for free
+
+Not every rejection costs something, and knowing which is which decides whether a check is
+worth doing before sending.
+
+- **Penitence on a target that already has it** fails and costs no balance or equilibrium.
+  Re-branding is wasteful but not expensive, so the guard against it can be cheap.
+- **Touching an active tattoo** costs the full balance. The guard has to be reliable.
+
+## Priest: absolve
+
+The class's kill mechanic, for reference — not implemented.
+
+Absolve is a **mana kill** and is binary: it either kills or fails, on the target's mana
+being **below 50%**. Exactly 50% fails. The common route is to break a leg, prone the
+target, drive mana down (an angel's sap does the mana damage), then absolve. Whether the
+threshold is actually met is a calculation most players assume rather than compute.
+
 ## Devotion
 
 Priest's class resource, reported by `charstats` as a **percentage only** -- so an ability
