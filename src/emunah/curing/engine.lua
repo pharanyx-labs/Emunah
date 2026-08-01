@@ -240,6 +240,66 @@ local function resolve(vector)
    return bestOption, bestAffliction, bestRank
 end
 
+-- ---------------------------------------------------------------------------
+-- The cure the server itself suggests
+-- ---------------------------------------------------------------------------
+--
+-- Char.Afflictions.Add carries a `cure` field, and it has been ignored since the module was
+-- written:
+--
+--     {cure="EAT KELP" desc="Weariness increases the rate at which you use endurance..."
+--      name="weariness"}
+--
+-- Meanwhile the engine logged "Tracking unknown affliction \"weariness\" (no cure defined)"
+-- and did nothing about it -- with the answer sitting in the same payload.
+--
+-- This does not replace afflist.lua. That table carries PRIORITY, which the server does not
+-- send and which decides what to cure first when several things are wrong at once; and it
+-- carries the mineral equivalents. What this adds is a floor: an affliction the table has
+-- never heard of is no longer untreatable, it is simply treated last.
+--
+-- The verb maps to a vector because the verb IS the command we would have built anyway.
+-- EAT is the only form observed so far; the rest are mapped because they name vectors that
+-- already exist, and anything unrecognised is skipped and said out loud rather than guessed
+-- into a command.
+
+M.CURE_VERBS = {
+   EAT   = "herb",
+   SMOKE = "smoke",
+   APPLY = "salve",
+   DRINK = "elixir",
+   FOCUS = "focus",
+   TOUCH = "tree",
+}
+
+--- Rank for a server-suggested cure. Above every real priority, so a cure from afflist --
+--- which knows what is urgent -- always wins the vector.
+M.GMCP_CURE_PRIORITY = 500
+
+local warnedVerb = {}
+
+--- The cure Char.Afflictions suggests for an affliction, as a vector and a command.
+--- @return string|nil vector, string|nil command
+function M.serverCure(name)
+   local afflictions = emunah.gmcp.afflictions
+   if not (afflictions and afflictions.cureFor) then return nil end
+
+   local suggestion = afflictions.cureFor(name)
+   if not suggestion or suggestion == "" then return nil end
+
+   local verb = tostring(suggestion):match("^(%a+)")
+   local vector = verb and M.CURE_VERBS[verb:upper()]
+   if not vector then
+      if verb and not warnedVerb[verb] then
+         warnedVerb[verb] = true
+         log.warn("Char.Afflictions suggests %q for %s and the verb is not one this "
+            .. "system maps to a vector -- not acting on it.", suggestion, name)
+      end
+      return nil
+   end
+   return vector, tostring(suggestion):lower()
+end
+
 --- Writhes are not priority-ranked; if you are bound you writhe, and nothing else on that
 --- vector matters.
 local function resolveWrithe()
@@ -725,6 +785,30 @@ function M.tick()
 
    for _, vector in ipairs(M.VECTORS) do
       local option, affliction, rank = resolve(vector)
+
+      -- Nothing in the cure table wanted this vector. Before leaving it idle, see whether
+      -- the server has suggested a cure for something we are tracking but do not know how
+      -- to treat -- the case afflist has simply never heard of.
+      if not option then
+         for name in pairs(M.tracked) do
+            if not afflist.known(name) then
+               local suggestedVector, suggestedCommand = M.serverCure(name)
+               if suggestedVector == vector and suggestedCommand then
+                  queue.push(vector, suggestedCommand, {
+                     priority = M.GMCP_CURE_PRIORITY,
+                     tag      = name .. " (server-suggested)",
+                     confirm  = emunah.config.get("curing.confirmWait", 2.0),
+                     valid    = function() return M.tracked[name] ~= nil end,
+                     onSent   = function() have.spend(vector) end,
+                  })
+                  log.info("No cure defined for %s -- using the server's own suggestion: %s.",
+                     name, suggestedCommand)
+                  break
+               end
+            end
+         end
+      end
+
       if option then
          local command, item = curelist.command(option)
          if command then

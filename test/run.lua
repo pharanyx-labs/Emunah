@@ -849,6 +849,69 @@ engine.forgetStock()
 emunah.config.set("curing.restock", restockWas2)
 
 -- ===========================================================================
+suite("the cure the server itself suggests")
+
+-- Char.Afflictions.Add carries a `cure` field, and it was ignored since the module was
+-- written. Meanwhile the engine logged "Tracking unknown affliction" and did nothing --
+-- with the answer sitting in the same payload:
+--
+--   {cure="EAT KELP" desc="Weariness increases..." name="weariness"}
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = true
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "1", name = "a piece of kelp", attrib = "e" },
+} })
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+
+eq(afflist.known("weariness"), false, "weariness is not in the cure table")
+mock.sent = {}
+mock.feed("Char.Afflictions.Add", { name = "weariness", cure = "EAT KELP",
+   desc = "Weariness increases the rate at which you use endurance." })
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat kelp"),
+   "an affliction the table has never heard of is cured from the server's own suggestion",
+   table.concat(mock.sent, " | "))
+
+-- The table still wins where it has an opinion: it carries priority, which the server does
+-- not send and which decides what to cure first when several things are wrong at once.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "1", name = "a piece of kelp", attrib = "e" },
+   { id = "2", name = "a bloodroot leaf", attrib = "e" },
+} })
+mock.feed("Char.Afflictions.Add", { name = "weariness", cure = "EAT KELP" })
+mock.feed("Char.Afflictions.Add", { name = "paralysis", cure = "EAT BLOODROOT" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat bloodroot"),
+   "a known cure takes the vector ahead of a server-suggested one",
+   table.concat(mock.sent, " | "))
+
+-- A verb this system cannot map to a vector is skipped and said out loud, not guessed into
+-- a command.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.echoed = {}
+mock.feed("Char.Afflictions.Add", { name = "somethingnew", cure = "WAGGLE YOUR EARS" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("waggle"),
+   "an unmappable verb is not sent", table.concat(mock.sent, " | "))
+ok(table.concat(mock.echoed, " "):find("not one this system maps"),
+   "...and is reported", table.concat(mock.echoed, " "))
+
+-- The herb balance is announced by the game, and nothing was listening: every herb cure ran
+-- on the fallback timer and held its slot for the full confirmation wait, which is why a
+-- real fight logged "No confirmation for [herb] eat kelp -- re-arming" after every cure.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+emunah.have.spend("herb")
+eq(emunah.have.balance("herb"), false, "eating spends the herb balance")
+mock.line("You may eat another plant or mineral.")
+eq(emunah.have.balance("herb"), true, "...and the game's own announcement returns it")
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+mock.feed("Char.Afflictions.List", {})
+
+-- ===========================================================================
 suite("loki: DIAG for the ground truth")
 
 -- Char.Afflictions can be relied on for every affliction in player combat except two.

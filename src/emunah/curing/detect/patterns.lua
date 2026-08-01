@@ -93,6 +93,26 @@ detect.balance("elixir", {
 })
 
 -- ---------------------------------------------------------------------------
+-- Herb balance, announced by the game.
+--
+-- "You may eat another plant or mineral." is the herb balance returning, and nothing was
+-- listening to it. Every herb cure therefore ran on the 1.8s fallback timer and held its
+-- queue slot for the full 2s confirmation wait, which is why a real fight logged "No
+-- confirmation for [herb] eat kelp -- re-arming" after every single cure. The cures worked;
+-- the system just never heard the game say so.
+--
+-- No spend pattern here. "You eat ..." also matches irid moss, which is a different balance
+-- entirely, and spending the herb vector on a moss eat would stall herb curing for no
+-- reason. The send arms the fallback; this is what cuts it short.
+-- ---------------------------------------------------------------------------
+
+detect.balance("herb", {
+   gain = {
+      [[^You may eat another plant or mineral\.$]],
+   },
+})
+
+-- ---------------------------------------------------------------------------
 -- Irid moss: a balance of its own, and a trip to the rift first.
 --
 -- Verbatim from a live transcript at 11:28:29.20 onwards. The moss restores health AND
@@ -163,6 +183,32 @@ do
       local engine = emunah.curing and emunah.curing.engine
       local fluid = action and action.command and action.command:match("^drink%s+(%S+)$")
       if engine and engine.elixirMissing then engine.elixirMissing(fluid) end
+   end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
+
+-- ---------------------------------------------------------------------------
+-- A cure that cured nothing.
+--
+-- "The plant has no effect." means the herb was eaten and did not treat anything -- so our
+-- tracked state and the game disagree about what is actually wrong. The herb is spent
+-- either way; what must not continue is acting on the belief that produced it.
+--
+-- Char.Afflictions is authoritative here, so the response is to reconcile against it rather
+-- than to guess which entry was wrong. Seen repeatedly in the arena while an opponent
+-- re-applied afflictions faster than the list could settle.
+-- ---------------------------------------------------------------------------
+
+do
+   local id = tempRegexTrigger([[^The plant has no effect\.$]], function()
+      local engine = emunah.curing and emunah.curing.engine
+      if engine and engine.reconcile then
+         emunah.log.debug("A herb cured nothing -- reconciling against the server list.")
+         engine.reconcile()
+      end
    end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}

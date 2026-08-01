@@ -65,6 +65,23 @@ observed -- while the game had been reporting it by name the whole time.
 GMCP is authoritative and complete here where a hand-built pattern corpus can only ever be
 partial. See `afflist.STATES` for the ones mapped to state flags rather than cure vectors.
 
+## Char.Afflictions carries the cure
+
+Every `Char.Afflictions.Add` names the cure alongside the affliction:
+
+```
+{cure="EAT KELP" desc="Weariness increases the rate at which you use endurance..."
+ name="weariness"}
+```
+
+Observed forms so far are all `EAT <herb>`. `curing/engine.lua` maps the verb to a vector
+and uses the suggestion for anything `afflist.lua` does not know, at a priority below every
+real cure.
+
+This does **not** replace the cure table. The server sends no **priority**, and priority is
+what decides which affliction to treat first when several are active — which is most of the
+value in a curing system. The suggestion is a floor, not a replacement.
+
 ## Char.Vitals
 
 ```
