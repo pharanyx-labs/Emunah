@@ -585,6 +585,78 @@ mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "10
    bal = "1", eq = "1" })
 
 -- ===========================================================================
+suite("when GMCP lies or goes quiet")
+
+-- RECKLESSNESS SETS hp AND mp TO MAXIMUM in Char.Vitals regardless of the truth. Every
+-- healing threshold reads that number, so the affliction works by making a healthy-looking
+-- character die. There is no correct number to substitute -- the feed is unusable until it
+-- clears -- so every consumer takes the one safe action available without it.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = true
+mock.feed("Char.Afflictions.List", {})
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "1000",
+   bal = "1", eq = "1" })
+ok(emunah.gmcp.vitals.trusted(), "vitals are trusted with no falsifying affliction")
+eq(emunah.gmcp.vitals.below("hp", 80), false, "...and a full bar is not below the threshold")
+
+mock.sent = {}
+mock.feed("Char.Afflictions.Add", { name = "recklessness" })
+eq(emunah.gmcp.vitals.trusted(), false, "recklessness makes the feed untrustworthy")
+eq(emunah.gmcp.vitals.trusted("wp"), true, "...but only for what it actually falsifies")
+ok(emunah.gmcp.vitals.below("hp", 80),
+   "an unreadable bar reads as below the threshold, because every caller acts protectively")
+
+-- The healing engine treats it the same way: heal from every source rather than believe a
+-- number that says nothing is wrong.
+emunah.have.recover("elixir"); emunah.have.recover("moss"); queue.reset()
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "1000" })
+local underRecklessness = table.concat(mock.sent, " | ")
+ok(underRecklessness:find("drink health"),
+   "a character reading 100% is still healed while recklessness is up", underRecklessness)
+ok(underRecklessness:find("perform hands"),
+   "...from the equilibrium source too", underRecklessness)
+
+-- And it stops once the lie stops.
+mock.feed("Char.Afflictions.Remove", { "recklessness" })
+ok(emunah.gmcp.vitals.trusted(), "curing it restores trust")
+emunah.have.recover("elixir"); queue.reset(); emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "1000" })
+ok(not table.concat(mock.sent, " | "):find("drink health"),
+   "...and a genuinely full bar is left alone", table.concat(mock.sent, " | "))
+
+-- BLACKOUT FREEZES THE FEED rather than falsifying it: afflictions applied during it
+-- produce no Char.Afflictions update at all. Reconciling against a frozen snapshot would
+-- drop every GMCP-sourced affliction that landed since it began.
+engine.clear(); queue.reset()
+mock.feed("Char.Afflictions.List", { { name = "blackout" } })
+ok(engine.blinded(), "blackout means affliction state is unobservable")
+-- Note the payload shapes, which differ and are easy to confuse: List carries OBJECTS,
+-- Remove carries bare NAMES. A List of strings is silently ignored by the parser.
+eq(emunah.gmcp.afflictions.has("blackout"), true, "...as the server reports it")
+
+-- The server list now moves without us hearing about it, which is exactly the situation
+-- blackout creates. A reconcile in this state must change nothing.
+engine.add("paralysis", "trigger")
+mock.feed("Char.Afflictions.List", { { name = "blackout" }, { name = "asthma" } })
+engine.reconcile()
+eq(engine.has("asthma"), false, "a reconcile while blinded adopts nothing")
+ok(engine.has("paralysis"), "...and drops nothing")
+
+-- The moment it lifts, catch up rather than waiting for the periodic pass -- which in a
+-- fight can be the whole fight away. Checked as a state edge, so it fires whichever route
+-- blackout left by.
+mock.feed("Char.Afflictions.List", { { name = "asthma" } })
+eq(engine.blinded(), false, "the feed is observable again")
+engine.tick()
+ok(engine.has("asthma"), "the thaw reconciles immediately, without waiting for the periodic pass")
+ok(engine.has("paralysis"), "...without discarding trigger-detected state")
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+mock.feed("Char.Afflictions.List", {})
+
+-- ===========================================================================
 suite("restocking")
 
 -- Curatives live in the rift, and OUTR has a round trip -- pulling one at the moment the
@@ -2768,6 +2840,49 @@ mock.feed("Char.Vitals", { charstats = { "Devotion: 100%" } })
 mock.feed("Char.Vitals", { mp = "350", maxmp = "3000" })
 eq(priest.shouldPenitence(8), false, "so does low mana")
 mock.feed("Char.Vitals", { mp = "3000", maxmp = "3000" })
+
+-- AN ALLY'S BRAND COUNTS. The brand is on the creature, not the caster, so a second one
+-- achieves nothing. Verbatim from another Priest hunting in the same room.
+emunah.gmcp.items.locations.room = {
+   { id = "5001", name = "a young rat", attrib = "m" },
+   { id = "5002", name = "an old badger", attrib = "m" },
+}
+bash.penitent = {}
+mock.line("Anzerloi calls down holy fire upon a young rat, condemning him to serve penance")
+ok(bash.isPenitent("5001"), "an ally's brand is recorded against the right replica")
+eq(bash.isPenitent("5002"), false, "...and only that one")
+
+-- Achaea wraps the sentence at the client's width, so the tail arrives on the next line.
+-- An anchored pattern would never fire on the real thing.
+bash.penitent = {}
+mock.line("Anzerloi calls down holy fire upon an old badger, condemning her to serve")
+ok(bash.isPenitent("5002"), "the pattern survives the game wrapping the line")
+
+-- Ambiguity is left alone. With two identically-named creatures the description identifies
+-- neither, and the costs are not symmetric: marking the wrong one loses a real
+-- amplification, marking neither costs at worst a refused command that spends nothing.
+emunah.gmcp.items.locations.room = {
+   { id = "6001", name = "a young rat", attrib = "m" },
+   { id = "6002", name = "a young rat", attrib = "m" },
+}
+bash.penitent = {}
+mock.line("Anzerloi calls down holy fire upon a young rat, condemning him to serve penance")
+eq(bash.isPenitent("6001"), false, "an ambiguous description brands nothing")
+eq(bash.isPenitent("6002"), false, "...neither of them")
+
+-- OFFENSIVE ABILITIES ONLY AT CONFIRMED DENIZENS. The authority is Achaea's own monster
+-- attribute, not our kill list: a player, a shopkeeper or a corpse must never be the object
+-- of one, whatever a misparsed name or a stale id says.
+emunah.gmcp.items.locations.room = {
+   { id = "7001", name = "a young rat", attrib = "m" },
+   { id = "7002", name = "Anzerloi", attrib = "" },
+   { id = "7003", name = "the corpse of a rat", attrib = "md" },
+}
+ok(emunah.denizens.isDenizen("7001"), "a live monster is a denizen")
+eq(emunah.denizens.isDenizen("7002"), false, "a player is not")
+eq(emunah.denizens.isDenizen("7003"), false, "nor is a corpse")
+eq(emunah.denizens.isDenizen("9999"), false, "nor is an id that is not in the room")
+emunah.gmcp.items.locations.room = {}
 
 -- It costs equilibrium, which smite also needs -- so it is refused without it rather than
 -- wasted, the same as everything else.

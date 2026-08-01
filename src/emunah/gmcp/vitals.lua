@@ -160,8 +160,48 @@ function M.damageTaken()
    return delta > 0 and delta or 0
 end
 
+--- Afflictions that make Char.Vitals lie, and what they falsify.
+---
+--- RECKLESSNESS SETS hp AND mp TO MAXIMUM in the payload, regardless of the true values --
+--- established from a player who fights with it. This is not a gap in the feed, it is the
+--- feed confidently reporting the wrong number, and every healing threshold in
+--- curing/engine.lua reads exactly that number. A character under recklessness therefore
+--- reads as perfectly healthy and is never healed, which is the whole point of the
+--- affliction: it is applied so the target dies without noticing.
+---
+--- The honest model is not "assume the worst number" -- there is no number. It is "this
+--- feed is unusable until the affliction clears", and every consumer decides for itself
+--- what to do without it. They all decide the same thing, because there is only one safe
+--- answer when you cannot see your own health: heal, and stop fighting.
+M.LIARS = {
+   recklessness = { "hp", "mp" },
+}
+
+--- Is Char.Vitals telling the truth about this resource right now?
+--- @param resource string|nil "hp", "mp", ... or nil to ask about the feed as a whole
+function M.trusted(resource)
+   local afflictions = emunah.gmcp and emunah.gmcp.afflictions
+   if not afflictions then return true end
+
+   for affliction, falsified in pairs(M.LIARS) do
+      if afflictions.has(affliction) then
+         if not resource then return false end
+         for _, field in ipairs(falsified) do
+            if field == resource then return false end
+         end
+      end
+   end
+   return true
+end
+
 --- Health below a percentage -- the standard guard for fleeing and for emergency cures.
+---
+--- Answers TRUE when the feed cannot be trusted for this resource. Every caller uses this
+--- to decide whether to take a protective action -- flee, heal, stop hunting -- so an
+--- unknown has to read as "yes, act". The alternative is a character that keeps fighting
+--- because the number it cannot see happens to look fine.
 function M.below(resource, pct)
+   if not M.trusted(resource) then return true end
    return (M.percent[resource] or 100) < (pct or 0)
 end
 

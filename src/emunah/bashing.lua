@@ -43,7 +43,25 @@ M.stats   = { killed = 0, rooms = 0, startedAt = 0, attacks = 0, dealt = 0, take
 M.targetHealth = { first = nil, last = nil }
 
 --- Targets already branded this room, so an amplifier that lasts is not re-applied.
+---
+--- Keyed by replica number, and populated from two directions: our own cast, and anyone
+--- else's. An ally branding something we are about to brand is common when hunting near
+--- another Priest, and the second brand achieves nothing.
 M.penitent = {}
+
+--- Record that a replica is already branded, whoever did it.
+---
+--- Deliberately tolerant of an id we have never targeted: an ally may brand something
+--- before we ever pick it, and the point is to know before we spend the equilibrium.
+function M.markPenitent(id)
+   if not id then return false end
+   M.penitent[tostring(id)] = true
+   return true
+end
+
+function M.isPenitent(id)
+   return id ~= nil and M.penitent[tostring(id)] == true
+end
 
 --- Attacks sent at the current target without it dying. Guards against a creature that
 --- cannot be hurt by this attack (wrong damage type, immune, shielded) -- without a cap
@@ -321,10 +339,19 @@ function M.tick()
       -- a turn that would otherwise be an attack -- penitence costs the same equilibrium
       -- smite does -- so it only happens once per target and only on the evidence of how
       -- the fight is actually going. See priest.shouldPenitence().
-      if class.active and class.active.shouldPenitence and not M.penitent[M.target]
+      --
+      -- Two guards before it goes out, and they answer different questions.
+      -- isPenitent() is "has anyone already branded this", which an ally hunting alongside
+      -- us makes true without our knowing. isDenizen() is "is this actually a creature",
+      -- checked against Achaea's own monster attribute rather than our kill list -- an
+      -- offensive ability must never be aimed at a person because a name resolved wrongly
+      -- or an id went stale.
+      if class.active and class.active.shouldPenitence
+         and not M.isPenitent(M.target)
+         and denizens.isDenizen(M.target)
          and class.active.shouldPenitence(M.killIn()) then
          if class.active.penitence(M.target) then
-            M.penitent[M.target] = true
+            M.markPenitent(M.target)
             log.debug("Branding %s -- ~%d attacks left.", M.target, M.killIn() or -1)
             return
          end

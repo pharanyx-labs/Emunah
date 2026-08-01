@@ -265,6 +265,49 @@ local function installTriggers()
    keep(tempRegexTrigger([[^You must be standing first\.$]], function()
       emunah.timers.stop("attack.balance")
    end))
+
+   -- SOMEONE ELSE BRANDED IT.
+   --
+   -- Verbatim, from another Priest hunting in the same room:
+   --
+   --     Anzerloi calls down holy fire upon a young rat, condemning him to serve penance
+   --     in a righteous blaze of light.
+   --
+   -- The brand is on the creature, not on the caster, so a second one achieves nothing.
+   -- Re-branding is cheap rather than free -- an already-branded target refuses without
+   -- taking balance or equilibrium -- but it still costs a turn that could have been an
+   -- attack, and it counts against the rate limiter.
+   --
+   -- Deliberately NOT anchored with `$`: Achaea wraps this sentence at the client's width,
+   -- so the tail lands on the next line and an anchored pattern would never fire. Matching
+   -- through "condemning" is enough to be unambiguous.
+   --
+   -- The message names the creature by description, so it has to be resolved back to a
+   -- replica number against the room. An ambiguous answer is left alone on purpose: with
+   -- two young rats present the description identifies neither, and the costs are not
+   -- symmetric. Marking the wrong one loses a real amplification on a fight that wanted it;
+   -- marking neither costs at worst one refused command that spends nothing.
+   keep(tempRegexTrigger(
+      [[^(\w+) calls down holy fire upon ([^,]+), condemning ]],
+      function()
+         local caster, description = matches[2], matches[3]
+         if not (caster and description) then return end
+
+         local denizens = emunah.denizens
+         local bashing  = emunah.bashing
+         if not (denizens and bashing) then return end
+
+         local found = denizens.findByName(description)
+         if #found ~= 1 then
+            emunah.log.debug("%s branded %q -- %d matches in the room, so not recorded.",
+               caster, description, #found)
+            return
+         end
+
+         bashing.markPenitent(found[1].id)
+         emunah.log.debug("%s branded %s (%s) -- not re-branding it.",
+            caster, description, found[1].id)
+      end))
 end
 installTriggers()
 

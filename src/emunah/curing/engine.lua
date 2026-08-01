@@ -77,6 +77,10 @@ function M.remove(name)
    if not M.tracked[name] then return false end
    M.tracked[name] = nil
    event.raise("affliction.cured", name)
+
+   -- A blinding affliction leaving is handled as a state edge in M.tick() rather than here,
+   -- because it can also leave via a reconcile or a trigger, and the catch-up has to happen
+   -- whichever route it took.
    return true
 end
 
@@ -102,6 +106,30 @@ function M.list()
    return out
 end
 
+--- Afflictions during which Char.Afflictions stops updating.
+---
+--- Blackout is the known one: afflictions applied while it is up produce no GMCP update at
+--- all. This is not the feed lying -- it is the feed frozen -- and the two need different
+--- handling. A frozen feed must not be reconciled against, because `reported` is a snapshot
+--- from before the blackout began and reconciling would drop every GMCP-sourced affliction
+--- that has landed since.
+M.BLINDING = { blackout = true }
+
+--- Is affliction state currently unobservable?
+---
+--- Either source counts. Our own tracked set may not have adopted it yet -- adoption
+--- happens in reconcile(), which this function gates -- so asking only ourselves would
+--- mean the first reconcile after a blackout lands runs against the frozen snapshot it is
+--- supposed to be protected from.
+function M.blinded()
+   local server = emunah.gmcp.afflictions
+   for affliction in pairs(M.BLINDING) do
+      if M.tracked[affliction] then return true end
+      if server and server.has(affliction) then return true end
+   end
+   return false
+end
+
 --- Reconcile against the server's view.
 ---
 --- Removal is authoritative: if Char.Afflictions no longer lists something, it is gone,
@@ -112,6 +140,10 @@ end
 function M.reconcile()
    local server = emunah.gmcp.afflictions
    if not server then return end
+
+   -- Nothing to reconcile against while the feed is frozen; see M.BLINDING. The catch-up
+   -- happens in M.remove() the moment it lifts.
+   if M.blinded() then return end
 
    local reported = server.set()
 
@@ -202,9 +234,36 @@ local function elixirAvailable(fluid)
    return emunah.timers.ready("elixir.missing." .. fluid)
 end
 
+--- Health and mana as a percentage, for a threshold decision.
+---
+--- Returns 0 for a resource Char.Vitals is lying about, which makes every threshold below
+--- fire. Recklessness reports hp and mp at maximum (see vitals.LIARS), so the alternative
+--- is a character that reads 100% while it dies -- the affliction exists precisely to
+--- produce that. Over-healing costs consumables; under-healing costs the character, and the
+--- window is short because recklessness is itself a high-priority cure.
+local function healthPercent(vitals, resource)
+   if not vitals.trusted(resource) then return 0 end
+   return vitals.percent[resource]
+end
+
+local warnedUntrusted = false
+
 local function queueHealing()
    local vitals = emunah.gmcp.vitals
    if not vitals then return end
+
+   if not vitals.trusted() then
+      if not warnedUntrusted then
+         warnedUntrusted = true
+         log.warn("Char.Vitals cannot be trusted right now -- healing on every source "
+            .. "until it clears.")
+      end
+   else
+      warnedUntrusted = false
+   end
+
+   local hp = healthPercent(vitals, "hp")
+   local mp = healthPercent(vitals, "mp")
 
    local healthAt = tonumber(emunah.config.get("curing.healthThreshold", 80)) or 80
    local manaAt   = tonumber(emunah.config.get("curing.manaThreshold", 85)) or 85
@@ -226,7 +285,7 @@ local function queueHealing()
    -- finished loading -- the same failure the CLOT gate produced in the other direction.
    -- If the ability turns out to be unavailable the game says so, and that rejection can
    -- be handled like every other capability here.
-   if vitals.percent.hp < handsAt then
+   if hp < handsAt then
       queue.push("equilibrium", "perform hands", {
          priority = 0, tag = "healhands",
          confirm  = emunah.config.get("curing.confirmWait", 2.0),
@@ -240,13 +299,13 @@ local function queueHealing()
    -- The availability check is part of the condition, not a wrapper around the push, so a
    -- fluid we cannot drink falls through to the next branch rather than blocking it. Health
    -- and mana share one vector; a missing health vial must not also stop mana.
-   if vitals.percent.hp < healthAt and elixirAvailable("health") then
+   if hp < healthAt and elixirAvailable("health") then
       queue.push("elixir", "drink health", {
          priority = 0, tag = "healhealth",
          confirm  = emunah.config.get("curing.elixirConfirm", M.ELIXIR_CONFIRM),
          onSent   = function() have.spend("elixir") end,
       })
-   elseif vitals.percent.mp < manaAt and elixirAvailable("mana") then
+   elseif mp < manaAt and elixirAvailable("mana") then
       queue.push("elixir", "drink mana", {
          priority = 0, tag = "healmana",
          confirm  = emunah.config.get("curing.elixirConfirm", M.ELIXIR_CONFIRM),
@@ -273,8 +332,9 @@ local function queueIrid()
 
    local at = tonumber(emunah.config.get("curing.iridThreshold", M.IRID_THRESHOLD))
       or M.IRID_THRESHOLD
-   -- Either bar: it refills both, so either being low is reason enough.
-   if vitals.percent.hp >= at and vitals.percent.mp >= at then return end
+   -- Either bar: it refills both, so either being low is reason enough. Both read 0 while
+   -- Char.Vitals is lying about them, which engages this the same as any other source.
+   if healthPercent(vitals, "hp") >= at and healthPercent(vitals, "mp") >= at then return end
 
    -- `alive` on both, because both are refused while dead. Neither needs `standing`:
    -- eating works flat on your back, and refusing to heal while knocked down is how an
@@ -424,9 +484,23 @@ function M.restockNow()
    queue.flush()
 end
 
+--- Were we blind on the previous pass? See the thaw check in M.tick().
+local wasBlinded = false
+
 --- One pass of the engine.
 function M.tick()
    if not M.enabled then return end
+
+   -- THE FEED JUST THAWED. Checked as a state edge rather than hooked onto one code path,
+   -- because blackout can leave through any of three: a GMCP removal, a trigger, or a
+   -- reconcile. Everything applied while it was up is unknown to us, and the periodic
+   -- reconcile below can be twenty ticks away -- a whole fight, at prompt speed.
+   local blinded = M.blinded()
+   if wasBlinded and not blinded then
+      log.warn("Affliction state was unobservable -- reconciling now.")
+      M.reconcile()
+   end
+   wasBlinded = blinded
 
    -- Periodic reconciliation. Cheap, but not free, so not every tick.
    local every = tonumber(emunah.config.get("curing.reconcileEvery", 20)) or 20

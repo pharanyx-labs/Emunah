@@ -280,6 +280,41 @@ end
 --- neighbours stand untouched -- the room list still contains it, and it is still first.
 M.engaged = {}
 
+--- Is this replica a denizen we can see in the room right now?
+---
+--- The authority is Achaea's own `monster` attribute on the room item, not our kill list:
+--- a player, an ally's pet, a shopkeeper and a corpse are all things the attribute
+--- excludes, and none of them should ever be the object of an offensive ability. Anything
+--- that spends a balance on a named target checks this first, so a misparsed name or a
+--- stale id cannot turn into an action aimed at a person.
+--- @return boolean
+function M.isDenizen(id)
+   if not id then return false end
+   id = tostring(id)
+   for _, denizen in ipairs(M.here()) do
+      if denizen.id == id then return true end
+   end
+   return false
+end
+
+--- Room denizens whose name matches, exactly and case-insensitively.
+---
+--- Game text names creatures by description ("a young rat"), never by replica number, so
+--- resolving one back to an id is the only way to act on something a message mentioned.
+--- Returns every match, because the caller has to decide what an ambiguous answer means --
+--- two young rats in a room make the description useless as an identifier.
+--- @return table array of { id, name }
+function M.findByName(name)
+   name = tostring(name or ""):lower()
+   if name == "" then return {} end
+
+   local out = {}
+   for _, denizen in ipairs(M.here()) do
+      if denizen.name:lower() == name then out[#out + 1] = denizen end
+   end
+   return out
+end
+
 --- Mark a replica as handled (killed, fled, or deliberately passed over).
 function M.engage(id)
    if not id then return false end

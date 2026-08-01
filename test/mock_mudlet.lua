@@ -698,6 +698,15 @@ local function toLuaPattern(regex)
          elseif nextChar:match("^%p$") then out[#out + 1] = "%" .. nextChar
          else out[#out + 1] = c; nextChar = nil end
          if nextChar then i = i + 1 end
+      elseif (c == "+" or c == "*") and regex:sub(i + 1, i + 1) == "?" then
+         -- PCRE lazy quantifier. Lua spells `.+?` and `.*?` as `.-`, and there is no
+         -- separate one-or-more form. Dropping the `?` instead -- which is what happened
+         -- before this branch existed -- silently converts a lazy match to a greedy one:
+         -- `(.+?), condemning` would swallow every comma on the line. The pattern then
+         -- matches nothing in the mock while working perfectly in Mudlet.
+         out[#out] = nil          -- discard the `.` this quantifier applies to
+         out[#out + 1] = ".-"
+         i = i + 1
       else
          out[#out + 1] = c
       end
