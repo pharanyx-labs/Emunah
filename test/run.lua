@@ -750,6 +750,67 @@ ok(table.concat(mock.sent, " | "):find("focus"),
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 
 -- ===========================================================================
+suite("loki: DIAG for the ground truth")
+
+-- Char.Afflictions can be relied on for every affliction in player combat except two.
+-- Blackout has no answer and is waited out. Loki does have one: DIAG.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = true
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+
+-- Requires BOTH balance and equilibrium, so it waits for the next balance rather than being
+-- refused into a rejection message.
+engine.add("loki", "trigger")
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "0", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("diag"),
+   "DIAG waits for balance", table.concat(mock.sent, " | "))
+
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("diag"),
+   "...and goes out on the next balance", table.concat(mock.sent, " | "))
+
+-- Consumes 1s of equilibrium, and does NOT consume balance -- the same require-versus-
+-- consume split as smite.
+eq(emunah.have.balance("equilibrium"), false,
+   "DIAG spends equilibrium immediately, before Char.Vitals catches up")
+eq(emunah.gmcp.vitals.bal, true, "...and does not spend balance")
+mock.advance(engine.DIAG_EQUILIBRIUM + 0.1)
+eq(emunah.have.balance("equilibrium"), true, "...for one second")
+
+-- Once per bout, not once per tick: it costs the resource attacking needs.
+queue.reset(); mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("diag"),
+   "DIAG is sent once per bout of loki, not every prompt",
+   table.concat(mock.sent, " | "))
+
+-- Loki clearing and returning is a new bout.
+engine.remove("loki")
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+engine.add("loki", "trigger")
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("diag"),
+   "...and again when loki returns", table.concat(mock.sent, " | "))
+
+-- Cured before the balance arrived: the question is resolved, so do not spend on it.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.add("loki", "trigger")
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "0", eq = "1" })
+eq(queue.pending("equilibrium").command, "diag", "queued while waiting for balance")
+engine.remove("loki")
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("diag"),
+   "loki cured while it waited means the equilibrium is not spent",
+   table.concat(mock.sent, " | "))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+
+-- ===========================================================================
 suite("a queued action is re-checked before it is sent")
 
 -- Observed: `perform hands` going out at full health. It had been queued at 30% while

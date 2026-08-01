@@ -61,22 +61,26 @@ A successful load reports:
 | Rift management | Working | Stock levels maintained automatically in both directions |
 | Area walker | Working | Self-driving, no mapper-script dependency |
 | Hunting | Working | `emunah hunt` walks an area and clears it |
-| Affliction detection | GMCP-driven | The trigger corpus is a seed grown from evidence — see below |
+| Affliction detection | GMCP-driven | Reliable except `loki` and `blackout`, both handled — see below |
 | Name database | Working | Who is a person, and whether they are an ally — `whois`, `iff`, import/export |
 | PvP | Opt-in only | Targets are never auto-acquired, and an ally can never be targeted |
 
 ### Affliction detection
 
-Affliction state comes from `Char.Afflictions`, which is reliable but reports only what
-Achaea chooses to announce. That is sufficient for hunting and incomplete for PvP, where
-being afflicted without notification is the point.
+`Char.Afflictions` can be relied on for every affliction, in player combat as well as
+against denizens, with exactly two exceptions:
 
-Closing the gap requires trigger patterns for Achaea's affliction messages. Those messages
-are not published in transcribable form, and a plausible-but-wrong pattern is worse than a
-missing one: it asserts an affliction the character does not have, and the engine spends a
-balance curing it. The shipped set in `src/emunah/curing/detect/patterns.lua` therefore
-contains only patterns confirmed against real output, alongside a capture mode for growing
-it:
+| Exception | Effect | Response |
+|---|---|---|
+| `blackout` | No affliction updates arrive at all | Stop reconciling against a frozen feed; catch up the moment it lifts |
+| `loki` | The list cannot be trusted while it is up | `DIAG` on the next balance — costs 1s of equilibrium |
+
+Triggers still earn their place: they see an affliction the instant its message prints,
+ahead of the next `Char.Afflictions` push. But they are a refinement rather than the thing
+standing between this and player combat. A plausible-but-wrong pattern is worse than a
+missing one — it asserts an affliction the character does not have, and the engine spends a
+balance curing it — so the shipped set in `src/emunah/curing/detect/patterns.lua` contains
+only patterns confirmed against real output, alongside a capture mode for growing it:
 
 ```
 emunah learn on     # log candidate lines during combat

@@ -12,23 +12,26 @@
 --- balance and three herb cures could have gone out for free. Achaea combat is won on
 --- exactly that kind of throughput.
 ---
---- DETECTION: read this before trusting the engine in PvP
---- ------------------------------------------------------
---- Affliction state comes from two sources:
+--- DETECTION
+--- ---------
+--- Char.Afflictions can be relied on for every affliction, in player combat as well as
+--- against denizens, with exactly two exceptions:
 ---
----   Char.Afflictions (GMCP) -- reliable, but only reports afflictions Achaea chooses to
----     announce. Complete enough for bashing; incomplete in PvP, where much of the point
----     is afflicting you with things you have not been told about.
+---   blackout -- afflictions applied during it produce no update at all. There is no way
+---     to see through it, so the response is to stop reconciling against a frozen feed and
+---     catch up the moment it lifts. See M.BLINDING.
 ---
----   Triggers (curing/detect) -- how that gap gets closed, and where most of the work in
----     a mature system goes. The framework is here and is data-driven, but the shipped
----     pattern set is a seed, not a complete corpus: Achaea's affliction messages are not
----     published in a form that could be transcribed reliably, and a wrong pattern is
----     worse than a missing one because it silently corrupts state. Run `emunah learn on` to log
----     unrecognised lines while you fight, then add patterns from what you actually see.
+---   loki -- the list cannot be trusted while it is up. Unlike blackout there IS an answer:
+---     DIAG reports the ground truth, at the cost of a second of equilibrium. See
+---     M.SUSPECT and queueDiag().
 ---
---- So: this engine is production-ready for PvE today, and is the correct scaffolding for
---- PvP once the pattern set is filled in against real combat logs.
+--- This is the opposite of the assumption the engine was built under, and it moves the
+--- trigger corpus from "the thing standing between this and PvP" to a refinement. Triggers
+--- in curing/detect still earn their place -- they see an affliction the instant its message
+--- prints, ahead of the next Char.Afflictions push -- but they are no longer load-bearing.
+---
+--- Char.Vitals is a separate question and has its own liar: recklessness reports hp and mp
+--- at maximum regardless of the truth. See gmcp/vitals.lua's M.LIARS.
 
 local M = {}
 
@@ -54,6 +57,13 @@ M.refusals = {}
 
 --- Reasons already logged, so a refusal is reported when it changes rather than per tick.
 local reported = {}
+
+--- Has DIAG already gone out for this bout of loki?
+---
+--- Once per occurrence, not once per tick. It costs a second of equilibrium -- the same
+--- resource attacking needs -- so sending it repeatedly while the illusion persists would
+--- cost more than the uncertainty it resolves.
+local diagSent = false
 
 --- Vectors we resolve cures on, in the order we consider them. Order only affects which
 --- vector gets first refusal on a shared resource; they are otherwise independent.
@@ -108,6 +118,8 @@ function M.clear()
    -- would otherwise suppress the first report of the same reason next time round.
    M.refusals = {}
    reported = {}
+   -- Clearing tracked state ends the bout: a loki tracked after this is a new one.
+   diagSent = false
 end
 
 function M.count()
@@ -132,6 +144,17 @@ end
 --- from before the blackout began and reconciling would drop every GMCP-sourced affliction
 --- that has landed since.
 M.BLINDING = { blackout = true }
+
+--- Afflictions that make the list untrustworthy rather than absent.
+---
+--- `loki` is illusion: while it is up, what Char.Afflictions reports cannot be taken at
+--- face value. Unlike blackout there is an answer -- DIAG reports the ground truth -- so
+--- this is not a state to wait out, it is one to resolve.
+M.SUSPECT = { loki = true }
+
+--- What DIAG costs. Requires balance AND equilibrium; consumes 1s of equilibrium only.
+--- Same require-versus-consume split as smite: balance has to be there, and is not spent.
+M.DIAG_EQUILIBRIUM = 1.0
 
 --- Is affliction state currently unobservable?
 ---
@@ -557,6 +580,42 @@ local function queueTree()
    end
 end
 
+--- LOKI: ask the game what is actually afflicting us.
+---
+--- Char.Afflictions is reliable in player combat for everything except loki and blackout.
+--- Blackout has no answer and is waited out; loki has one, and it is DIAG.
+---
+--- Queued on the equilibrium vector because that is what it spends, while declaring a
+--- balance requirement it does not spend -- act.blocked() enforces both, so this waits for
+--- the "next balance" rather than being refused into a rejection message.
+local function queueDiag()
+   if not M.tracked["loki"] then
+      diagSent = false
+      return
+   end
+   if diagSent then return end
+   if emunah.config.get("curing.diag", true) == false then return end
+
+   queue.push("equilibrium", "diag", {
+      priority = 0,
+      tag      = "diag:loki",
+      needs    = { bal = true, eq = true },
+      confirm  = emunah.config.get("curing.confirmWait", 2.0),
+      -- Still wanted only while the illusion is up: loki cured by anything else in the
+      -- meantime makes this a second of equilibrium spent on a resolved question.
+      valid    = function() return M.tracked["loki"] ~= nil end,
+      onSent   = function()
+         diagSent = true
+         -- Marks the equilibrium spent immediately, for the same reason every other
+         -- equilibrium cost does: Char.Vitals goes on reporting it as available until the
+         -- game runs the command. The game's own "Equilibrium used:" line replaces this
+         -- with the exact figure when it arrives.
+         emunah.timers.start("cure.equilibrium", M.DIAG_EQUILIBRIUM)
+         log.info("Loki is up -- DIAG for what is actually afflicting us.")
+      end,
+   })
+end
+
 --- Check stock and act on it now, without waiting for a prompt.
 ---
 --- The engine is prompt-driven, which is right for curing -- nothing changes between
@@ -606,6 +665,10 @@ function M.tick()
 
    queueHealing()
    queueIrid()
+
+   -- Before resolving any cure: under loki the list we would resolve against is the thing
+   -- in doubt, so establishing what is real comes first.
+   queueDiag()
 
    -- Every tick by default. It was every tenth, which meant one item pulled per ten
    -- prompts: `outr 3 valerian` at 11:47:32 and `outr 3 irid` at 11:48:26, nearly a minute

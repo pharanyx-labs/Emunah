@@ -248,18 +248,35 @@ The 15s recovery in `curelist.lua` is an estimate, not an observed figure.
 
 ## Where GMCP stops being authoritative
 
-GMCP is reliable for PvE. Two afflictions break that, and both are things another player does
-to you deliberately:
+**`Char.Afflictions` can be relied on for every affliction in PvP, with exactly two
+exceptions: `loki` and `blackout`.** This is the opposite of the assumption the system was
+built under, and it matters — the trigger corpus is a refinement, not the thing standing
+between this and player combat.
 
-| Affliction | Effect on GMCP |
+| Affliction | What it breaks | Response |
+|---|---|---|
+| **blackout** | Afflictions applied during it produce **no `Char.Afflictions` updates at all** | Do not reconcile while it is up; catch up the moment it lifts |
+| **loki** | The affliction list cannot be trusted while it is up | `DIAG` on the next balance |
+| **recklessness** | `Char.Vitals` reports `hp` and `mp` at **maximum** regardless of the truth | Treat the vitals feed as unusable; heal from every source |
+
+Recklessness falsifies *vitals*, not the affliction list, which is why it is a separate
+mechanism from the two above.
+
+### DIAG
+
+The ground truth for what is actually afflicting you, and the answer to `loki`.
+
+| | |
 |---|---|
-| **blackout** | Afflictions applied during it produce **no `Char.Afflictions` updates at all** |
-| **recklessness** | `Char.Vitals` reports `hp` and `mp` at **maximum** regardless of the true values |
+| Requires | **balance AND equilibrium** |
+| Consumes | **1s of equilibrium** — it does not consume balance |
 
-Recklessness is the dangerous one for anything automated: every healing threshold in
-`curing/engine.lua` reads `vitals.percent`, so a character under recklessness reads as
-perfectly healthy and is never healed. Any PvP work has to treat both as explicit states
-where the vitals feed is not to be trusted.
+The require-versus-consume split is the same shape as `smite`: it needs balance present to
+go out and does not spend it.
+
+**The output format has not been recorded here**, so nothing parses it yet — sending `DIAG`
+puts the truth on screen for the player, but the engine cannot yet reconcile its own tracked
+state against it. Paste the output of one and that closes.
 
 ## Commands that fail for free
 

@@ -15,16 +15,21 @@ combat, and both are addressed below.
 | Class offence | Priest only, single attack, no affliction sequencing |
 | PvP | Opt-in targeting and opponent tracking; no offensive sequencing |
 
-### Gap 1: affliction detection is GMCP-driven
+### Gap 1: two afflictions GMCP cannot report
 
-The trigger framework in `src/emunah/curing/detect/` is complete and data-driven. Its
-*corpus* is deliberately small, because `Char.Afflictions` reports only what Achaea chooses
-to announce — sufficient for hunting, incomplete for PvP by design.
+**This gap is much smaller than it was assumed to be.** `Char.Afflictions` can be relied on
+for every affliction in player combat except `loki` and `blackout`, and both are now
+handled: blackout suspends reconciliation until it lifts, loki triggers `DIAG` on the next
+balance.
 
-Closing it requires real message text, which cannot be written from documentation. Achaea's
-published help gives affliction names, cure vocabulary and the class structure, but no
-message wording, balance figures or stacking rules. It serves as a completeness checklist,
-not a pattern source.
+That moves the trigger corpus from load-bearing to a refinement. Triggers still see an
+affliction the instant its message prints, ahead of the next GMCP push, which is worth
+having in a fight decided on fractions of a second — but the engine no longer depends on
+them to know what is wrong.
+
+The remaining work is `DIAG` output parsing, so the engine can reconcile its own state
+against the ground truth rather than only putting it on screen. That needs one verbatim
+sample of the output.
 
 The workflow is `emunah learn on` → fight or spar → `emunah learn off` → add what was
 actually observed. Priority order:
