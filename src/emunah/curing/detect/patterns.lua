@@ -205,10 +205,23 @@ end
 do
    local id = tempRegexTrigger([[^The plant has no effect\.$]], function()
       local engine = emunah.curing and emunah.curing.engine
-      if engine and engine.reconcile then
-         emunah.log.debug("A herb cured nothing -- reconciling against the server list.")
-         engine.reconcile()
+      if not engine then return end
+
+      -- WHICH cure failed is the part that matters. The in-flight action on the herb
+      -- vector is the only record of it -- the game's reply names neither the herb nor the
+      -- affliction -- so read it before the vector is freed.
+      local action = emunah.queue.awaiting("herb")
+      if action and action.tag and action.command then
+         -- The tag carries the affliction, sometimes with a suffix for a server-suggested
+         -- cure; the affliction is the part before any space.
+         local affliction = tostring(action.tag):match("^(%S+)")
+         engine.cureFailed(affliction, action.command)
       end
+
+      emunah.queue.confirm("herb")
+      emunah.have.recover("herb")
+
+      if engine.reconcile then engine.reconcile() end
    end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}

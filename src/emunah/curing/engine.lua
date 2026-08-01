@@ -58,6 +58,36 @@ M.refusals = {}
 --- Reasons already logged, so a refusal is reported when it changes rather than per tick.
 local reported = {}
 
+--- Cures the game has demonstrated do not work: "affliction|command" -> true.
+---
+--- "The plant has no effect." is the game saying the herb treated nothing. Our tracked state
+--- and the cure table disagree with it, and the game is right. Without recording that, the
+--- loop is exact and endless: reconcile against Char.Afflictions, which still lists the
+--- affliction, resolve the same cure, send it, get the same answer. Observed as `eat kelp`
+--- going out eight times in twelve seconds for a clumsiness that kelp was not treating.
+---
+--- Recorded per affliction AND command, not per affliction: a second cure for the same
+--- affliction on another vector is still worth trying, and is what this frees the engine to
+--- reach.
+M.ineffective = {}
+
+--- Forget which cures have been shown not to work. The table is a within-session
+--- observation, not a correction to afflist.lua.
+function M.forgetIneffective()
+   M.ineffective = {}
+end
+
+--- Record that a command did not treat an affliction.
+function M.cureFailed(affliction, command)
+   if not (affliction and command) then return false end
+   local key = affliction .. "|" .. command
+   if M.ineffective[key] then return false end
+   M.ineffective[key] = true
+   log.warn("%q did not cure %s -- the game says it had no effect. Not trying that "
+      .. "combination again this session.", command, affliction)
+   return true
+end
+
 --- Has DIAG already gone out for this bout of loki?
 ---
 --- Once per occurrence, not once per tick. It costs a second of equilibrium -- the same
@@ -120,6 +150,7 @@ function M.clear()
    reported = {}
    -- Clearing tracked state ends the bout: a loki tracked after this is a new one.
    diagSent = false
+   M.ineffective = {}
 end
 
 function M.count()
@@ -217,7 +248,11 @@ local function resolve(vector)
       local rank = afflist.priority(name, vector)
       if rank and (not bestRank or rank < bestRank) then
          for _, option in ipairs(afflist.curesVia(name, vector)) do
+            local command = curelist.command(option)
             local usable, reason = have.cure(option)
+            if command and M.ineffective[name .. "|" .. command] then
+               usable, reason = false, "the game says " .. command .. " does not cure this"
+            end
             if usable then
                bestOption, bestAffliction, bestRank = option, name, rank
                M.refusals[name] = nil

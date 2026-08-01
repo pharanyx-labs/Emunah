@@ -912,6 +912,85 @@ engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 mock.feed("Char.Afflictions.List", {})
 
 -- ===========================================================================
+suite("a cure the game says does not work")
+
+-- "The plant has no effect." is the game saying the herb treated nothing. Without recording
+-- that, the loop is exact and endless: reconcile against Char.Afflictions, which still
+-- lists the affliction, resolve the same cure, send it, get the same answer. Observed as
+-- `eat kelp` going out eight times in twelve seconds.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+engine.enabled = true
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "1", name = "a piece of kelp", attrib = "e" },
+   { id = "2", name = "an epidermal salve", attrib = "e" },
+} })
+engine.add("clumsiness", "trigger")
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat kelp"), "the known cure is tried",
+   table.concat(mock.sent, " | "))
+
+-- The game says it did nothing. That is authoritative, and it is not retried.
+mock.echoed = {}
+engine.cureFailed("clumsiness", "eat kelp")
+ok(table.concat(mock.echoed, " "):find("did not cure clumsiness"),
+   "...and the failure is reported once", table.concat(mock.echoed, " "))
+
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+for _ = 1, 4 do
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   emunah.have.recover("herb")
+end
+ok(not table.concat(mock.sent, " | "):find("eat kelp"),
+   "a cure the game has refuted is not sent again", table.concat(mock.sent, " | "))
+eq(engine.refusals["clumsiness"], "the game says eat kelp does not cure this",
+   "...and the reason says so plainly", tostring(engine.refusals["clumsiness"]))
+
+-- Recorded per affliction AND command: another cure for the same affliction is still
+-- reachable, which is the point of not blacklisting the affliction itself.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+engine.add("anorexia", "trigger")
+engine.cureFailed("anorexia", "apply epidermal to body")
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "3000", maxmp = "3000",
+   bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("focus"),
+   "a refuted salve falls through to the focus cure", table.concat(mock.sent, " | "))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+engine.forgetIneffective()
+
+-- ===========================================================================
+suite("standing up, once")
+
+-- Prone is re-evaluated on every tick, and STAND had no in-flight guard -- so one `sit`
+-- produced two STANDs, the second answered with "You are not fallen or kneeling."
+detect.prone = false
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Afflictions.Add", { name = "prone", cure = "STAND" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+local stands = 0
+for _, command in ipairs(mock.sent) do
+   if command == "stand" then stands = stands + 1 end
+end
+eq(stands, 1, "one knockdown sends exactly one STAND",
+   table.concat(mock.sent, " | "))
+
+-- And a genuine second knockdown, later, still stands.
+mock.advance(detect.STAND_GUARD + 0.01)
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("stand"),
+   "...and a retry is allowed once the round trip has passed",
+   table.concat(mock.sent, " | "))
+
+detect.prone = false
+emunah.timers.stopAll()
+mock.feed("Char.Afflictions.List", {})
+
+-- ===========================================================================
 suite("loki: DIAG for the ground truth")
 
 -- Char.Afflictions can be relied on for every affliction in player combat except two.
@@ -1733,7 +1812,10 @@ eq(#mock.sent, 0, "already known to be down: does not resend stand", table.conca
 mock.line("You stand up.")
 ok(not detect.isProne(), "standing confirmed: no longer known to be down")
 
--- And the flag correctly re-arms for the next knockdown.
+-- And the flag correctly re-arms for the next knockdown. Past the in-flight guard: a STAND
+-- is not re-sent within a round trip of the last one, which is what stopped one knockdown
+-- producing a STAND on every prompt until the game caught up.
+mock.advance(detect.STAND_GUARD + 0.01)
 mock.sent = {}
 mock.line("You must be standing first.")
 ok(table.concat(mock.sent, " | "):find("stand"),
@@ -1826,6 +1908,8 @@ eq(#mock.sent, 0, "no stand is sent without the balance it costs",
 ok(detect.isProne(), "...but we know we are down")
 
 -- Retried once balance returns, rather than left for an unrelated rejection to trigger.
+-- Past the in-flight guard: a STAND is not re-sent within a round trip of the last one.
+mock.advance(detect.STAND_GUARD + 0.01)
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 ok(table.concat(mock.sent, " | "):find("stand"),
@@ -1842,6 +1926,7 @@ mock.line("You must be standing first.")
 ok(detect.isProne(), "knocked down while stunned")
 eq(#mock.sent, 0, "STAND is not sent while stunned", table.concat(mock.sent, " | "))
 
+mock.advance(detect.STAND_GUARD + 0.01)
 mock.sent = {}
 mock.line("You are no longer stunned.")
 ok(table.concat(mock.sent, " | "):find("stand"),

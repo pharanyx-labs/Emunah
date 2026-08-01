@@ -72,8 +72,23 @@ end
 --- Retried from the tick below rather than sent once. A single refused attempt left the
 --- character flat for twelve seconds in that same fight, until an unrelated rejection
 --- happened to trigger another one.
+--- How long to refuse a second STAND after sending one.
+---
+--- Sized like every other in-flight guard here: long enough to cover the round trip, short
+--- enough that a stand which was genuinely refused is retried promptly.
+M.STAND_GUARD = 1.0
+
+--- Get up, at most once per round trip.
+---
+--- SENT IS NOT EXECUTED, and prone is re-evaluated on every tick. Without a guard, a single
+--- knockdown produced a STAND on every Char.Vitals until the game caught up -- observed as
+--- two in a row for one `sit`, answered with "You are not fallen or kneeling." That reply
+--- is harmless; the balance the second one would have spent if it HAD been needed is not.
 function M.standUp()
-   return emunah.act.send("stand", { bal = true })
+   if not emunah.timers.ready("stand.inflight") then return false end
+   local sent = emunah.act.send("stand", { bal = true })
+   if sent then emunah.timers.start("stand.inflight", M.STAND_GUARD) end
+   return sent
 end
 
 --- Upper bound on how long either state is believed without a clearing message. Both flags
