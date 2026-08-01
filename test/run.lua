@@ -68,7 +68,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 41, "all 41 manifest modules loaded")
+eq(loadedModules, 42, "all 42 manifest modules loaded")
 
 -- ===========================================================================
 suite("reload safety (the headline fix)")
@@ -748,6 +748,95 @@ ok(table.concat(mock.sent, " | "):find("focus"),
    table.concat(mock.sent, " | "))
 
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+
+-- ===========================================================================
+suite("namedb: who is a person, and what are they")
+
+local ndb = emunah.namedb
+ndb.people = {}
+ndb.hostile = { city = {}, house = {}, order = {} }
+
+-- Set directly rather than feeding Char.Status: that message also drives class detection,
+-- and a suite that quietly loads a class module changes what later suites are testing.
+local savedCity, savedCharacter = emunah.gmcp.status.values.city, emunah.gmcp.character
+emunah.gmcp.status.values.city = "Targossas"
+emunah.gmcp.character = "Saemora"
+
+-- Give chat somewhere to render, or the channel message below trips the no-console warning
+-- and the test that asserts that warning fires later finds it already spent.
+local savedConsole, savedMode = emunah.ui.chat.console, emunah.ui.chat.mode
+emunah.ui.chat.console = { decho = function() end }
+emunah.ui.chat.mode = "plain"
+
+-- A stranger is neutral. That is the honest answer, and it is not the same as an enemy.
+eq(ndb.relationship("Nobody"), "neutral", "an unknown name is neutral, not hostile")
+ok(ndb.attackable("Nobody"), "...and may be targeted if chosen explicitly")
+
+-- Derivation: organisations, checked against our own.
+ndb.set("Anzerloi", "city", "Targossas")
+eq(ndb.relationship("Anzerloi"), "ally", "someone in our own city derives as an ally")
+eq(ndb.attackable("Anzerloi"), false, "...and can never be targeted")
+
+ndb.set("Malefactor", "city", "Mhaldor")
+eq(ndb.relationship("Malefactor"), "neutral",
+   "another city is not hostile by itself -- that has to be declared")
+ndb.setHostile("city", "Mhaldor", true)
+eq(ndb.relationship("Malefactor"), "enemy", "...and once the city is marked hostile, it is")
+ok(ndb.attackable("Malefactor"), "an enemy is targetable")
+
+-- DECLARATION BEATS DERIVATION, always. A name someone took the trouble to mark carries
+-- information no organisation table has.
+ndb.iff("Anzerloi", "enemy")
+eq(ndb.relationship("Anzerloi"), "enemy",
+   "an explicit iff overrides shared citizenship")
+ndb.iff("Anzerloi", "auto")
+eq(ndb.relationship("Anzerloi"), "ally", "...and auto hands it back to derivation")
+
+-- Never ourselves, however the question is asked.
+eq(ndb.relationship("Saemora"), "self", "we are not a third party")
+eq(ndb.attackable("Saemora"), false, "...and never attackable")
+
+-- GMCP populates it exactly: room players and channel talkers are real sightings. Neither
+-- says anything about allegiance, so neither sets a relationship.
+mock.feed("Room.Players", { { name = "Wanderer", fullname = "Wanderer, a stranger" } })
+ok(ndb.known("Wanderer"), "someone in the room is recorded")
+eq(ndb.get("Wanderer").fullname, "Wanderer, a stranger", "...with the honorific form")
+eq(ndb.relationship("Wanderer"), "neutral", "...and no allegiance invented for them")
+
+mock.feed("Comm.Channel.Text", { channel = "ct", talker = "Talker", text = "hello" })
+ok(ndb.known("Talker"), "a channel talker is recorded")
+
+-- PvP REFUSES AN ALLY. Targeting is already explicit, so this guards against a typo, a
+-- name resolved from game text, or a target surviving a change of allegiance.
+local pvp = emunah.pvp
+pvp.clearTarget()
+eq(pvp.setTarget("Anzerloi"), false, "PvP refuses to target an ally")
+eq(pvp.target, nil, "...and no target is set")
+ok(pvp.setTarget("Malefactor"), "an enemy is accepted")
+pvp.clearTarget()
+
+-- Notes accumulate rather than overwrite: they are judgement, not data.
+ndb.note("Malefactor", "opens with a lock")
+ndb.note("Malefactor", "flees below 40%")
+eq(#ndb.get("Malefactor").notes, 2, "notes accumulate")
+
+-- Import is additive. Someone else's file is evidence about people we have not met, not a
+-- correction of judgement we have already recorded about people we have.
+ndb.iff("Malefactor", "ally")
+local added, updated = ndb.import({ people = {
+   ["malefactor"] = { name = "Malefactor", iff = "enemy", class = "Blademaster",
+                      notes = { { text = "imported note" } } },
+   ["newcomer"]   = { name = "Newcomer", city = "Cyrene" },
+} })
+eq(added, 1, "an unknown person is added by import")
+eq(ndb.get("Malefactor").iff, "ally", "...but our own declaration is never overwritten")
+eq(ndb.get("Malefactor").class, "Blademaster", "...while a field we lacked is filled in")
+eq(#ndb.get("Malefactor").notes, 3, "...and notes merge")
+
+ndb.people = {}
+ndb.hostile = { city = {}, house = {}, order = {} }
+emunah.gmcp.status.values.city, emunah.gmcp.character = savedCity, savedCharacter
+emunah.ui.chat.console, emunah.ui.chat.mode = savedConsole, savedMode
 
 -- ===========================================================================
 suite("touch tree: the last resort")

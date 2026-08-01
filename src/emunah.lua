@@ -108,6 +108,10 @@ local MANIFEST = {
    -- numpad movement bindings; loaded after the walker because a movement key stops it
    { path = "emunah.keys",               as = "keys"          },
 
+   -- who is a person, and what are they. Loaded before pvp, which asks it whether a name
+   -- may be targeted at all.
+   { path = "emunah.namedb",             as = "namedb"        },
+
    -- class adapter (interface + detection; loads emunah/class/<class>.lua when known)
    { path = "emunah.class.adapter",      as = "class"         },
 

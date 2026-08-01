@@ -166,6 +166,105 @@ M.handlers.chat = function(arg)
    cecho("\n  <ansi_light_black>emunah chat rebuild -- rebuild just the chat console.<reset>")
 end
 
+--- The name database: who is a person, and what are they.
+M.handlers.ndb = function(arg, rest)
+   local ndb = emunah.namedb
+
+   if arg == "set" and rest then
+      local name, field, value = rest:match("^(%S+)%s+(%S+)%s+(.+)$")
+      if not name then
+         log.warn("Usage: emunah ndb set <person> <field> <value>")
+         return
+      end
+      local ok, why = ndb.set(name, field, value)
+      log.info(ok and ("%s: %s = %s"):format(name, field, value) or tostring(why))
+      return
+   end
+
+   if arg == "note" and rest then
+      local name, text = rest:match("^(%S+)%s+(.+)$")
+      if not name then log.warn("Usage: emunah ndb note <person> <text>") return end
+      ndb.note(name, text)
+      log.info("Noted against %s.", name)
+      return
+   end
+
+   if arg == "hostile" and rest then
+      local kind, org = rest:match("^(%S+)%s+(.+)$")
+      local ok, why = ndb.setHostile(kind, org, true)
+      log.info(ok and ("%s %s is hostile."):format(kind, org) or tostring(why))
+      return
+   end
+
+   if arg == "here" then
+      header("Players here")
+      local here = ndb.here()
+      if #here == 0 then cecho("\n  <ansi_light_black>nobody<reset>") end
+      for _, person in ipairs(here) do
+         row(person.name, person.relationship,
+            person.relationship == "enemy" and "ansi_light_red"
+            or person.relationship == "ally" and "ansi_light_green" or "reset")
+      end
+      return
+   end
+
+   if arg == "export" then
+      header("NameDB export")
+      display(ndb.export())
+      return
+   end
+
+   -- Default: a roster, optionally filtered by relationship.
+   header("NameDB (" .. ndb.count() .. " known)")
+   local people = ndb.list(arg)
+   if #people == 0 then
+      cecho("\n  <ansi_light_black>nothing recorded -- try: emunah ndb set <name> city Targossas<reset>")
+   end
+   for _, person in ipairs(people) do
+      local relation = ndb.relationship(person.name)
+      row(person.name, string.format("%s  %s%s", relation,
+         person.class or "", person.city and (" of " .. person.city) or ""),
+         relation == "enemy" and "ansi_light_red"
+         or relation == "ally" and "ansi_light_green" or "reset")
+   end
+end
+
+--- Everything known about one person.
+M.handlers.whois = function(arg)
+   if not arg then log.warn("Usage: emunah whois <person>") return end
+   local ndb = emunah.namedb
+   local person = ndb.get(arg)
+   if not person then
+      log.info("%s is not in the name database.", arg)
+      return
+   end
+
+   header("whois " .. (person.fullname or person.name))
+   row("relationship", ndb.relationship(person.name),
+      ndb.isEnemy(person.name) and "ansi_light_red"
+      or ndb.isAlly(person.name) and "ansi_light_green" or "reset")
+   row("declared", person.iff or "auto")
+   for _, field in ipairs({ "class", "city", "house", "order", "rank", "might" }) do
+      if person[field] then row(field, person[field]) end
+   end
+   if person.seen then
+      row("last seen", string.format("%.0fs ago", emunah.util.now() - person.seen))
+   end
+   for _, note in ipairs(person.notes or {}) do
+      cecho(string.format("\n  <ansi_light_black>note<reset>  %s", note.text))
+   end
+end
+
+--- Declare a relationship. The one thing in the database that beats derivation.
+M.handlers.iff = function(arg, rest)
+   if not (arg and rest) then
+      log.warn("Usage: emunah iff <person> ally|enemy|auto")
+      return
+   end
+   local ok, why = emunah.namedb.iff(arg, rest)
+   if not ok then log.warn(tostring(why)) end
+end
+
 M.handlers.gmcp = function(arg)
    if arg == "refresh" then
       emunah.gmcp.refresh()
@@ -605,6 +704,9 @@ M.handlers.help = function()
       { "emunah have [thing]",     "capability report, or check one item/skill" },
       { "emunah gmcp [refresh]",   "tracked GMCP state" },
       { "emunah chat [rebuild]",   "chat capture vs rendering -- which half is working" },
+      { "emunah ndb ...",          "set|note|hostile|here|export, or a roster" },
+      { "emunah whois <person>",   "everything known about one person" },
+      { "emunah iff <person> ...", "ally|enemy|auto -- declaration beats derivation" },
       { "emunah learn on|off",     "log candidate affliction messages to a file" },
       { "emunah detect",           "detection pattern coverage" },
       { "emunah walk ...",         "start|stop|pause|auto on|off|delay <s>|avoid <id>" },

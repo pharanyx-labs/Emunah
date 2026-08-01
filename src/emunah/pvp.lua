@@ -66,6 +66,19 @@ end
 function M.setTarget(name)
    name = tostring(name or ""):lower()
    if name == "" then return false end
+
+   -- AN ALLY IS NEVER A TARGET, and neither are we. Targeting here is already explicit --
+   -- nothing auto-acquires -- so this is not protection against the loop picking wrongly,
+   -- it is protection against a typo, a name resolved from game text, or a stale target
+   -- surviving a change of allegiance. The name database is the one place that knows.
+   local ndb = emunah.namedb
+   if ndb and not ndb.attackable(name) then
+      log.warn("Refusing to target <ansi_cyan>%s<ansi_yellow> -- %s. "
+         .. "`emunah iff %s auto` if that is wrong.",
+         name, ndb.relationship(name), name)
+      return false
+   end
+
    M.target = name
 
    local ire = emunah.gmcp.ire

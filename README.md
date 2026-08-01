@@ -46,7 +46,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 41 modules.
+[emunah] v0.1.0 loaded -- 42 modules.
 ```
 
 ## Capabilities
@@ -62,7 +62,8 @@ A successful load reports:
 | Area walker | Working | Self-driving, no mapper-script dependency |
 | Hunting | Working | `emunah hunt` walks an area and clears it |
 | Affliction detection | GMCP-driven | The trigger corpus is a seed grown from evidence — see below |
-| PvP | Opt-in only | Targets are never auto-acquired |
+| Name database | Working | Who is a person, and whether they are an ally — `whois`, `iff`, import/export |
+| PvP | Opt-in only | Targets are never auto-acquired, and an ally can never be targeted |
 
 ### Affliction detection
 
@@ -117,6 +118,10 @@ patterns, grown the same way.
 | `emunah set [key] [value]` | Read or write a setting |
 | `emunah ui [rebuild\|reset\|show]` | Toggle, rebuild or reset the interface |
 | `emunah ui map [height <n>\|on\|off\|centre\|raw]` | Map status, size and control |
+| `emunah ndb set\|note\|hostile\|here\|export` | The name database, or a roster |
+| `emunah whois <person>` | Everything known about one person |
+| `emunah iff <person> ally\|enemy\|auto` | Declare a relationship; beats derivation |
+| `emunah chat [rebuild]` | Chat capture vs rendering — which half is working |
 | `emunah debug [gmcp\|handlers\|timers\|queue]` | Internals and tracing |
 | `emreload` | Reload all modules from disk |
 
@@ -169,6 +174,7 @@ src/emunah/
   denizens.lua                        -- per-area kill list, targets by replica number
   ih.lua                              -- linkifies `ih` output
   bashing.lua                         -- walk, target, attack, advance
+  namedb.lua                          -- who is a person, and what are they
   pvp.lua                             -- PvP loop
   loot.lua                            -- collect gold by replica number
   class/    adapter priest            -- class interface + auto-detection
