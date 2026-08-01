@@ -647,6 +647,77 @@ queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Defences.List", {})
 
 -- ===========================================================================
+suite("surviving death")
+
+-- Reported from play: channel capture stops after dying and does not come back. Nothing
+-- here tears the handlers down -- they are ordinary Mudlet handlers -- so the subscription
+-- is being lost upstream. Death is detected from Char.Vitals rather than a message,
+-- because a message trigger only covers the deaths whose wording it happens to know.
+local vitals = emunah.gmcp.vitals
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = false
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+eq(vitals.dead, false, "alive to begin with")
+
+local died, revived = 0, 0
+emunah.event.register("emunah.character.died", function() died = died + 1 end, "test.death")
+emunah.event.register("emunah.character.revived", function() revived = revived + 1 end,
+   "test.death")
+
+mock.gmcpSent = {}
+mock.feed("Char.Vitals", { hp = "0", maxhp = "1000" })
+ok(vitals.dead, "zero health is death")
+eq(died, 1, "...raised once")
+
+-- An edge, not a state: further prompts while dead must not re-raise it.
+mock.feed("Char.Vitals", { hp = "0", maxhp = "1000" })
+mock.feed("Char.Vitals", { hp = "0", maxhp = "1000" })
+eq(died, 1, "...and not again on every prompt while dead")
+
+-- The subscription is re-established rather than assumed. Delayed, because requests issued
+-- into the game's own burst of death traffic get dropped.
+mock.advance(2.1)
+ok(table.concat(mock.gmcpSent, " | "):find("Core.Supports.Add"),
+   "death re-negotiates the GMCP modules", table.concat(mock.gmcpSent, " | "))
+ok(table.concat(mock.gmcpSent, " | "):find("Comm.Channel.Players"),
+   "...and re-requests the state that goes with them")
+
+mock.gmcpSent = {}
+mock.feed("Char.Vitals", { hp = "1450", maxhp = "1450" })
+eq(vitals.dead, false, "coming back is the other edge")
+eq(revived, 1, "...raised once")
+mock.advance(2.1)
+ok(table.concat(mock.gmcpSent, " | "):find("Core.Supports.Add"),
+   "revival re-negotiates too -- whichever edge the drop happens on, one of them covers it")
+
+emunah.event.kill("test.death")
+
+-- CAPTURE AND RENDERING FAIL INDEPENDENTLY, which is the whole reason they are separate
+-- modules. A console that has gone away must not take the GMCP handler with it, and must
+-- not fail silently either -- "chat stopped" with nothing in the log is an hour of guessing.
+local chat = emunah.ui.chat
+local before = #emunah.gmcp.comm.history
+chat.console = { decho = function() error("widget is gone", 0) end }
+chat.mode = "plain"
+chat.broken = false
+mock.echoed = {}
+
+mock.feed("Comm.Channel.Text", { channel = "ct", talker = "Anzerloi", text = "still here" })
+eq(#emunah.gmcp.comm.history, before + 1,
+   "capture records the message even with the console broken")
+ok(chat.broken, "...and the render failure is noticed")
+ok(table.concat(mock.echoed, " "):find("Capture is unaffected"),
+   "...and reported once, saying which half broke", table.concat(mock.echoed, " "))
+
+mock.echoed = {}
+mock.feed("Comm.Channel.Text", { channel = "ct", talker = "Anzerloi", text = "and again" })
+eq(#emunah.gmcp.comm.history, before + 2, "capture keeps going")
+ok(not table.concat(mock.echoed, " "):find("Capture is unaffected"),
+   "...without repeating the warning on every line")
+
+chat.console, chat.mode, chat.broken = nil, "none", false
+
+-- ===========================================================================
 suite("when GMCP lies or goes quiet")
 
 -- RECKLESSNESS SETS hp AND mp TO MAXIMUM in Char.Vitals regardless of the truth. Every

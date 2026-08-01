@@ -18,6 +18,11 @@ local log    = emunah.log
 M.console = nil
 M.mode    = "none"   -- "emco" | "plain" | "none"
 
+--- Set once the console has refused output, so a broken widget reports itself exactly once
+--- rather than either spamming the log or -- worse -- saying nothing at all. Cleared by a
+--- successful build: a fresh console is working until proven otherwise.
+M.broken  = false
+
 --- Locate EMCO.
 ---
 --- Current versions do NOT publish a global: EMCO is a module you reach with
@@ -86,6 +91,7 @@ function M.build()
       if ok and console then
          M.console = console
          M.mode = "emco"
+         M.broken = false
          M.replay()
          return true
       end
@@ -102,6 +108,7 @@ function M.build()
    }), parent)
    M.console = console
    M.mode = "plain"
+   M.broken = false
 
    if not findEMCO() then
       log.info("EMCO not found -- chat is a single console. Install the MDK for tabs.")
@@ -109,6 +116,23 @@ function M.build()
 
    M.replay()
    return true
+end
+
+--- Say, once, that rendering is failing and capture is not.
+---
+--- WHY THIS EXISTS. Both console writes below are wrapped in pcall, which is right -- a
+--- widget that throws must not take the GMCP handler down with it -- but a bare pcall
+--- turns a broken chat window into a silent one. The reported symptom was "chat capture
+--- stops", and capture is the one thing that cannot stop here: gmcp/comm.lua records every
+--- message into its own history before this module is ever called, precisely so the two
+--- fail independently. A chat window that has gone quiet is therefore either the game no
+--- longer sending, or this. Saying which turns an hour of guessing into one line.
+local function renderFailed(reason)
+   if M.broken then return end
+   M.broken = true
+   emunah.log.warn("Chat console is not accepting output (%s). Capture is unaffected -- "
+      .. "`emunah gmcp` still shows the messages arriving. Try `emunah ui rebuild`.",
+      tostring(reason))
 end
 
 --- Render one message.
@@ -119,17 +143,25 @@ function M.append(message)
       -- EMCO creates the tab set at construction; a channel that routes to an unknown tab
       -- would be dropped silently, so anything unexpected goes to the fallback tab.
       local tab = message.tab
-      local ok = pcall(function() M.console:decho(tab, message.text .. "\n") end)
+      local ok, err = pcall(function() M.console:decho(tab, message.text .. "\n") end)
       if not ok then
-         pcall(function()
+         local fellBack, fallbackErr = pcall(function()
             M.console:decho(emunah.gmcp.comm.FALLBACK_TAB, message.text .. "\n")
          end)
+         -- The first failure is ordinary: an unexpected tab name. The second is not --
+         -- it means the console itself is gone, which is the case worth reporting.
+         if not fellBack then renderFailed(fallbackErr or err) end
       end
       return
    end
 
-   M.console:decho(string.format("%s[%s] %s\n",
-      theme.dc("textDim"), message.tab, message.text))
+   -- The plain console path was unguarded: a console that has gone away takes the GMCP
+   -- handler down with it, and then nothing downstream of comm.text runs either.
+   local ok, err = pcall(function()
+      M.console:decho(string.format("%s[%s] %s\n",
+         theme.dc("textDim"), message.tab, message.text))
+   end)
+   if not ok then renderFailed(err) end
 end
 
 --- Replay recent history into a freshly built console, so a reload does not blank the

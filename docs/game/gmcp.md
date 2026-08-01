@@ -121,6 +121,20 @@ qualifier, so two kinds of moss cannot overwrite each other.
 
 The rift survives death and inventory does not, which is why the restocker has a ceiling.
 
+## Death
+
+Reported from play: **channel capture stops after dying and does not resume on its own.**
+Nothing client-side explains it — Mudlet's anonymous event handlers survive anything short
+of a reload, and `gmcp/comm.lua` holds ordinary ones — so the subscription is being lost
+upstream of the client.
+
+Not confirmed which edge drops it, so `gmcp/init.lua` re-negotiates on both: entering death
+and returning from it. `Core.Supports.Add` is additive and idempotent, so a redundant
+re-negotiation costs one packet.
+
+Death itself is detected from `Char.Vitals` reporting `hp` at zero, not from a message.
+Message wording varies by what killed you; the vitals feed does not.
+
 ## Other observed messages
 
 | Message | Payload | Notes |

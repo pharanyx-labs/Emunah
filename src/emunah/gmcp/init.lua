@@ -140,6 +140,35 @@ event.gmcp("Char.Name", function()
    event.raise("character.identified", M.character)
 end, "gmcp")
 
+-- DEATH LOSES GMCP STATE, AND THERE IS NO EVENT THAT SAYS SO.
+--
+-- Reported from play: channel capture stops after dying and does not come back on its own.
+-- Nothing in this codebase tears the handlers down -- they are ordinary Mudlet anonymous
+-- handlers and survive anything short of a reload -- so whatever stops is upstream of us:
+-- the messages stop arriving, which means the subscription no longer holds.
+--
+-- Re-negotiating is the cheap half of the fix and is safe to do unconditionally.
+-- Core.Supports.Add is additive and idempotent (see M.MODULES), so at worst this is one
+-- redundant packet at a moment when the character is already dead and doing nothing else.
+--
+-- Both edges, deliberately. If the subscription drops at the moment of death, the death
+-- edge restores it; if it drops as part of being restored to life, the revival edge does.
+-- Doing only one leaves whichever case it is not silently broken, and the symptom -- chat
+-- that is quiet rather than obviously broken -- is one nobody notices for hours.
+--
+-- Delayed for the same reason the login refresh is: requests issued into the middle of the
+-- game's own burst of death or resurrection traffic get dropped.
+local function reestablish(reason)
+   log.debug("Re-establishing GMCP after %s.", reason)
+   tempTimer(2, function()
+      M.negotiate()
+      M.refresh()
+   end)
+end
+
+event.register("emunah.character.died", function() reestablish("death") end, "gmcp")
+event.register("emunah.character.revived", function() reestablish("revival") end, "gmcp")
+
 -- If we reload mid-session there is no fresh sysConnectionEvent to hang negotiation off,
 -- so re-negotiate immediately when the profile is already connected.
 if M.character or (gmcp and gmcp.Char and gmcp.Char.Vitals) then

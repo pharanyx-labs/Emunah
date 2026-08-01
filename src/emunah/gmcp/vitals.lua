@@ -35,6 +35,10 @@ M.nl          = 0
 M.bal = true
 M.eq  = true
 
+--- True between the Char.Vitals that reports zero health and the one that reports it back.
+--- See the edge detection in the update handler.
+M.dead = false
+
 --- Percentages, precomputed because the UI and the curing thresholds both want them.
 M.percent = { hp = 100, mp = 100, ep = 100, wp = 100 }
 
@@ -120,6 +124,20 @@ local function onVitals()
 
    M.ticks = M.ticks + 1
 
+   -- DEATH, AS AN EDGE RATHER THAN A STATE.
+   --
+   -- Several things need to happen once when the character dies and once when it comes
+   -- back, not on every prompt in between: stopping loops, and re-establishing anything the
+   -- server may have reset. Raised here because Char.Vitals is the only source that reports
+   -- it for every kind of death -- a message trigger only ever covers the deaths whose
+   -- wording it happens to know.
+   local dead = (M.maxhp or 0) > 0 and (M.hp or 0) <= 0
+   local diedNow, revivedNow = false, false
+   if dead ~= M.dead then
+      M.dead = dead
+      diedNow, revivedNow = dead, not dead
+   end
+
    -- Balance transitions drive the action queue, so raise them before the generic tick.
    if balChanged then
       event.raise(M.bal and "balance.gained" or "balance.lost")
@@ -127,6 +145,9 @@ local function onVitals()
    if eqChanged then
       event.raise(M.eq and "equilibrium.gained" or "equilibrium.lost")
    end
+
+   if diedNow then event.raise("character.died") end
+   if revivedNow then event.raise("character.revived") end
 
    event.raise("vitals", M)
 
