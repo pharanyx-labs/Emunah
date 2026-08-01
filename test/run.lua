@@ -770,7 +770,7 @@ mock.feed("IRE.Rift.List", {
 })
 -- Learning what the rift holds is itself a reason to restock, so it will have taken the
 -- vector already. Clear it before the listing this case is actually about.
-queue.reset(); emunah.timers.stopAll()
+queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
 mock.sent = {}
 mock.feed("Char.Items.List", { location = "inv", items = {} })
 ok(table.concat(mock.sent, " | "):find("outr 3 bloodroot"),
@@ -790,6 +790,63 @@ ok(table.concat(mock.sent, " | "):find("outr 3 irid"),
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 engine.forgetStock()
 emunah.config.set("curing.restock", restockWas)
+
+-- ===========================================================================
+suite("restocking does not oscillate on a stale count")
+
+-- Observed after a death dropped everything: `outr 3 ash` went out, the count still read 0
+-- because Char.Items had not caught up, so a second `outr 3 ash` followed. The count then
+-- read 6, which is over target, so `inr 3 ash` went out twice and it read 0 again. Four
+-- commands a second, indefinitely.
+--
+-- The rift vector alone cannot stop it: the game's own "You remove 3 ash" frees the vector,
+-- and that arrives BEFORE the inventory update it describes.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+engine.enabled = true
+local restockWas2 = emunah.config.get("curing.restock", true)
+emunah.config.set("curing.restock", true)
+mock.feed("IRE.Rift.List", { { name = "ash", amount = 100 } })
+queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+local first = table.concat(mock.sent, " | ")
+ok(first:find("outr 3 ash") or emunah.gmcp.items.inventoryKnown(),
+   "a pull goes out for an item we hold none of", first)
+
+-- The confirmation frees the vector while the count is still stale. Nothing further may be
+-- decided about that item until the count actually moves.
+mock.line("You remove 3 ash, bringing the total in the rift to 97.")
+mock.sent = {}
+for _ = 1, 5 do mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" }) end
+ok(not table.concat(mock.sent, " | "):find("ash"),
+   "no second pull, and no store, while the count has not caught up",
+   table.concat(mock.sent, " | "))
+
+-- The count catching up is what releases it -- and at target, neither direction fires.
+mock.feed("Char.Items.Add", { location = "inv",
+   item = { id = "1", name = "a group of 3 pieces of prickly ash bark", attrib = "gre" } })
+eq(emunah.have.quantity("ash"), 3, "the stack is counted correctly once it lands")
+queue.reset(); emunah.timers.stopAll()
+mock.sent = {}
+for _ = 1, 3 do mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" }) end
+ok(not table.concat(mock.sent, " | "):find("ash"),
+   "at exactly the target, it neither pulls nor stores",
+   table.concat(mock.sent, " | "))
+
+-- And the settle window expires rather than wedging: an item whose count never moves is
+-- still bounded by the attempt budget, not stuck forever.
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("outr 3 ash"),
+   "a fresh decision is made once the ledger is clear", table.concat(mock.sent, " | "))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+engine.forgetStock()
+emunah.config.set("curing.restock", restockWas2)
 
 -- ===========================================================================
 suite("loki: DIAG for the ground truth")
@@ -1416,6 +1473,13 @@ for _ = 1, 6 do
    mock.feed("Char.Vitals", healthy)
    if table.concat(mock.sent, " | "):find("outr") then pulls = pulls + 1 end
    mock.line("You remove 2 irid, bringing the total in the rift to 493.")
+   -- Stop the timers BEFORE advancing: the confirmation schedules the next pull in the
+   -- chain, and letting that fire during the advance would spend an attempt outside the
+   -- window this loop is counting. The count never moves in this case -- that is the point
+   -- -- so each attempt is separated by the settle window rather than by a changing count.
+   emunah.timers.stopAll()
+   mock.advance(engine.RESTOCK_SETTLE + 0.01)
+   emunah.timers.stopAll()
 end
 eq(pulls, engine.STOCK_ATTEMPTS,
    "an uncountable stack stops after a bounded number of attempts, not never",
@@ -1431,8 +1495,9 @@ mock.feed("IRE.Rift.List", {
    { name = "bloodroot", amount = 250 },
 })
 -- After the rift list, not before: learning what the rift holds is itself a reason to
--- restock now, so it will have taken the vector with a pull of its own.
-queue.reset(); emunah.timers.stopAll()
+-- restock now, so it will have taken the vector with a pull of its own -- and left that
+-- item settling, which is what forgetStock() clears.
+queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
 mock.sent = {}
 mock.feed("Char.Items.List", { location = "inv", items = {} })
 ok(table.concat(mock.sent, " | "):find("outr 3 bloodroot"),

@@ -171,6 +171,30 @@ do
 end
 
 -- ---------------------------------------------------------------------------
+-- An eat with nothing to eat.
+--
+-- "What do you want to eat?" is the herb counterpart of the drink case above: the noun did
+-- not resolve because the herb is not in inventory. Observed at 18:26:51.05, immediately
+-- after a death dropped everything.
+--
+-- Same reasoning as the drink: nothing was eaten, so no herb balance was spent, and
+-- re-arming the recovery timer would be exactly wrong. Free the vector so the next cure --
+-- possibly for a different affliction, with a herb we do have -- is not stuck behind it.
+-- ---------------------------------------------------------------------------
+
+do
+   local id = tempRegexTrigger([[^What do you want to eat\?$]], function()
+      emunah.queue.confirm("herb")
+      emunah.have.recover("herb")
+      emunah.log.debug("An eat did not resolve -- the herb is not in inventory.")
+   end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
+
+-- ---------------------------------------------------------------------------
 -- Balance rejections.
 --
 -- Not afflictions, but the same principle: the game telling us our model is wrong. If we

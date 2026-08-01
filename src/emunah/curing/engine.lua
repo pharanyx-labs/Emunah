@@ -452,11 +452,48 @@ M.STOCK_TARGET = 3
 --- already moved by the time another pull is possible, and the budget resets.
 M.STOCK_ATTEMPTS = 3
 
+--- How long to leave an item alone after sending a rift command for it.
+---
+--- THE COUNT LAGS THE COMMAND, and deciding on a stale one oscillates. Observed after a
+--- death dropped everything: `outr 3 ash` went out, the count still read 0 because
+--- Char.Items had not caught up, so a second `outr 3 ash` followed -- then the count read 6,
+--- which is over target, so `inr 3 ash` went out twice, and the count read 0 again. It ran
+--- at four commands a second until the fight ended.
+---
+--- The rift vector alone cannot prevent it: the game's own "You remove 3 ash" confirmation
+--- frees the vector, and that arrives before the inventory update it describes. So the
+--- guard has to be per item and has to outlive the vector -- no further decision about an
+--- item until its count actually moves, or this long has passed.
+M.RESTOCK_SETTLE = 2.0
+
 local stockPulls, stockSeen, stockWarned = {}, {}, {}
+
+--- item -> { held = count when the command was sent, until_ = when to give up waiting }
+local settling = {}
 
 --- Reset the restocking ledger. Used on reload and when the rift is re-listed.
 function M.forgetStock()
-   stockPulls, stockSeen, stockWarned = {}, {}, {}
+   stockPulls, stockSeen, stockWarned, settling = {}, {}, {}, {}
+end
+
+--- Is this item waiting for the count to reflect a command already sent?
+local function unsettled(item, held)
+   local pending = settling[item]
+   if not pending then return false end
+   -- The count moved: whatever we sent has landed, and the new number is real.
+   if held ~= pending.held then
+      settling[item] = nil
+      return false
+   end
+   if util.now() < pending.until_ then return true end
+   -- Waited long enough. Either the command did nothing or the update was lost; either way
+   -- the attempt budget is what stops this becoming a loop.
+   settling[item] = nil
+   return false
+end
+
+local function markSettling(item, held)
+   settling[item] = { held = held, until_ = util.now() + M.RESTOCK_SETTLE }
 end
 
 local function queueRestock()
@@ -488,7 +525,10 @@ local function queueRestock()
       if held > (stockSeen[item] or -1) then stockPulls[item] = 0 end
       stockSeen[item] = held
 
-      if held < target then
+      if unsettled(item, held) then
+         -- Deliberately not `return`: another item can still be dealt with this pass.
+
+      elseif held < target then
          local spent = stockPulls[item] or 0
          if spent >= M.STOCK_ATTEMPTS then
             if not stockWarned[item] then
@@ -506,6 +546,7 @@ local function queueRestock()
                onSent   = function()
                   have.spend("rift")
                   stockPulls[item] = (stockPulls[item] or 0) + 1
+                  markSettling(item, held)
                end,
             })
             return
@@ -524,7 +565,10 @@ local function queueRestock()
             tag      = "restock",
             needs    = { alive = true },
             confirm  = emunah.config.get("curing.riftConfirm", 1.5),
-            onSent   = function() have.spend("rift") end,
+            onSent   = function()
+               have.spend("rift")
+               markSettling(item, held)
+            end,
          })
          return
       end
@@ -795,6 +839,10 @@ event.register("emunah.rift.list", function() M.restockNow() end, "curing.engine
 --- there would re-enter the queue while it is still finishing the previous one. A short
 --- timer keeps the chain fast while leaving each pull a complete, separate transaction.
 M.RESTOCK_CHAIN = 0.05
+
+-- Death drops the pack. Every count in the ledger now describes inventory that is on the
+-- floor of wherever you died, and the settle windows describe commands about it.
+event.register("emunah.character.died", function() M.forgetStock() end, "curing.engine")
 
 event.register("emunah.balance.recovered", function(_, vector)
    if vector ~= "rift" then return end
