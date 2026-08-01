@@ -294,6 +294,22 @@ therefore flushes only the eating vectors while it is up, plus `tree`: whether a
 be touched while paralysed is unverified, and withholding the last resort from a character
 that is already stuck is the worse error.
 
+## Eating inside the herb balance
+
+`The plant has no effect.` is what Achaea says when a herb is eaten **while still off herb
+balance**. The herb is consumed and nothing is cured.
+
+It is not a statement about the cure being wrong, which is the natural reading and the
+expensive one — an attempt to act on that reading disabled `eat bloodroot` for paralysis and
+`eat lobelia` for guilt mid-fight.
+
+Curing an affliction and regaining the balance are separate events: eating bloodroot cures
+paralysis **instantly** and still costs the full herb balance. Anything that infers the
+balance from a cure landing will send the next eat inside it.
+
+The balance is announced — `You may eat another plant or mineral.` — so it never needs
+inferring.
+
 ## Commands that fail for free
 
 Not every rejection costs something, and knowing which is which decides whether a check is

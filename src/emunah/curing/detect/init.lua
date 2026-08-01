@@ -218,14 +218,15 @@ function M.onCure(affliction)
 
    engine.remove(affliction)
 
-   -- Free whichever vector was waiting on this cure. This is the whole point of having a
-   -- cure-side pattern: without it the vector stays blocked until the fallback timer
-   -- lapses, which costs roughly a full extra cure's worth of time per affliction.
+   -- Free the QUEUE SLOT that was waiting on this cure, and only that. The balance is a
+   -- separate thing and is not back merely because the affliction is gone -- eating a herb
+   -- cures instantly and still costs the full herb balance, so recovering it here sent the
+   -- next eat inside the balance, where the game consumes the herb and answers "The plant
+   -- has no effect." See the same note in curing/engine.lua.
    for _, vector in ipairs(queue.VECTORS) do
       local action = queue.awaiting(vector)
       if action and action.tag == affliction then
          queue.confirm(vector)
-         emunah.have.recover(vector)
          break
       end
    end

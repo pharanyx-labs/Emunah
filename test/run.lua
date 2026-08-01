@@ -1008,6 +1008,52 @@ engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 engine.forgetIneffective()
 
 -- ===========================================================================
+suite("curing an affliction is not the balance coming back")
+
+-- The cause of every "The plant has no effect." in a night of arena logs. A GMCP affliction
+-- removal was treated as proof the balance had returned as well as the cure having landed:
+-- eating bloodroot cures paralysis instantly AND costs a full herb balance, so the next eat
+-- went out 0.22s later, inside the real balance, where Achaea consumes the herb and does
+-- nothing.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+engine.enabled = true
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "1", name = "a bloodroot leaf", attrib = "e" },
+   { id = "2", name = "a piece of kelp", attrib = "e" },
+} })
+mock.feed("IRE.Rift.List", {})
+
+-- Two afflictions on the same vector: paralysis first by priority, clumsiness behind it.
+mock.feed("Char.Afflictions.Add", { name = "paralysis", cure = "EAT BLOODROOT" })
+mock.feed("Char.Afflictions.Add", { name = "clumsiness", cure = "EAT KELP" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat bloodroot"),
+   "the first cure goes out", table.concat(mock.sent, " | "))
+eq(emunah.have.balance("herb"), false, "...and spends the herb balance")
+
+-- The cure lands. The affliction is gone -- and the balance is NOT back.
+mock.sent = {}
+mock.feed("Char.Afflictions.Remove", { "paralysis" })
+eq(emunah.have.balance("herb"), false,
+   "curing an affliction does not return the balance it cost")
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("eat kelp"),
+   "so the next cure does not go out inside the balance",
+   table.concat(mock.sent, " | "))
+
+-- The game announcing the balance is what releases it, and then the next cure follows.
+mock.line("You may eat another plant or mineral.")
+eq(emunah.have.balance("herb"), true, "the game's own announcement returns it")
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat kelp"),
+   "...and the next cure goes out then", table.concat(mock.sent, " | "))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+mock.feed("Char.Afflictions.List", {})
+
+-- ===========================================================================
 suite("a cure you cannot reach is not a cure")
 
 -- After a death dropped the pack, `eat bloodroot` went out every two seconds against "What

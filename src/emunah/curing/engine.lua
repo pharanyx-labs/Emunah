@@ -917,9 +917,20 @@ event.register("emunah.tick", function()
    M.tick()
 end, "curing.engine")
 
--- Server-confirmed removal is our most reliable cure confirmation: free the vector that
--- was waiting on it so the next cure can go out immediately rather than after the
--- fallback timer.
+-- Server-confirmed removal is our most reliable cure confirmation, and it frees the QUEUE
+-- SLOT that was waiting on it -- but NOT the balance.
+--
+-- THE AFFLICTION BEING CURED IS NOT THE BALANCE COMING BACK. This freed both, and it is the
+-- cause of every "The plant has no effect." in a night of arena logs: eating bloodroot
+-- cures paralysis instantly and also puts you off herb balance for a second and a half.
+-- Treating the cure as proof the balance had returned sent the next eat 0.22s later, inside
+-- the real balance, where Achaea consumes the herb and does nothing. Which then looked like
+-- the cure table being wrong, and cost an attempt at "fixing" that by disabling correct
+-- cures.
+--
+-- The balance has its own authority and does not need inferring: the game announces it
+-- ("You may eat another plant or mineral.", "You may drink another health or mana
+-- elixir."), and where it does not, the fallback timer in curelist.lua is the estimate.
 event.register("emunah.affliction.removed", function(_, name)
    name = tostring(name or ""):lower()
    M.remove(name)
@@ -927,7 +938,6 @@ event.register("emunah.affliction.removed", function(_, name)
       local action = queue.awaiting(vector)
       if action and action.tag == name then
          queue.confirm(vector)
-         have.recover(vector)
          break
       end
    end
