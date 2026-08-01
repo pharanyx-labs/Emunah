@@ -1050,6 +1050,23 @@ mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 ok(table.concat(mock.sent, " | "):find("eat kelp"),
    "...and the next cure goes out then", table.concat(mock.sent, " | "))
 
+-- "The plant has no effect." means a herb was CONSUMED and treated nothing, because it went
+-- down inside the balance. The balance is therefore not free -- it has just been spent
+-- again, on nothing. Recovering it there was the same mistake one layer on: every following
+-- bloodroot also landed off balance, which is why paralysis was never cured.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+emunah.have.recover("herb")
+eq(emunah.have.balance("herb"), true, "herb balance starts free")
+mock.line("The plant has no effect.")
+eq(emunah.have.balance("herb"), false,
+   "a wasted eat spends the balance rather than freeing it")
+
+-- Whereas an eat that never happened costs nothing and must free it.
+emunah.have.spend("herb")
+mock.line("What do you want to eat?")
+eq(emunah.have.balance("herb"), true,
+   "an eat that did not resolve consumed nothing, so the balance is free")
+
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 mock.feed("Char.Afflictions.List", {})
 

@@ -226,10 +226,16 @@ do
       -- failure lands on whichever action happens to be queued, which is usually not the
       -- one that failed.
       --
-      -- So this only frees the vector and reconciles. What stops the repeat is the
-      -- per-affliction guard in the engine, which needs no attribution at all.
+      -- THE HERB WAS EATEN. That is what this message means -- it was consumed and treated
+      -- nothing, because it went down inside the herb balance. So the balance is NOT free:
+      -- it has just been spent again, on nothing.
+      --
+      -- Recovering it here (which this did) is the same mistake that caused the message in
+      -- the first place, one layer further on: it frees a balance the game has not returned,
+      -- the next eat goes out inside it too, and paralysis is never cured because every
+      -- bloodroot lands off balance. Spend, do not recover.
       emunah.queue.confirm("herb")
-      emunah.have.recover("herb")
+      emunah.have.spend("herb")
 
       if engine.reconcile then engine.reconcile() end
    end)
