@@ -46,6 +46,11 @@ refusal rather than a guess. There is no affliction sequencing, and only one cla
 `curing/detect/opponent.lua`. Blocked on Gap 1: sequencing against an opponent model that
 cannot see afflictions is guesswork.
 
+The class's kill route is `absolve`, which is binary on the target's mana being below 50%
+— exactly 50% fails. The usual sequence is break a leg, prone, drive mana down, absolve.
+Whether the threshold is actually met is a calculation worth computing rather than
+assuming, which is the part of the work with any real value in it.
+
 **A second class.** Monk, chosen because it needs no adapter changes —
 `adapter.SKILLSET_TO_CLASS` already maps its skillsets — and because a second implementation
 is the only way to confirm the sequencing logic is not accidentally Priest-specific. A
@@ -54,6 +59,18 @@ contributor-facing guide to adding a class follows the second one, not the first
 **Shield handling.** `handleShield` stays unimplemented until a shield-break mechanic is
 confirmed in play. The bashing loop treats the refusal as "cannot handle this" and stops,
 which is the correct behaviour for an unknown.
+
+**Tattoo keep-up.** `boar` and `moss` are passive defences raised by `touch`, stripped only
+by a specific action, by death, or by leaving the realms. The machinery is in place —
+`emunah defs add <name> <command>` supplies the command, and the attempt budget stops a
+wrong name from spending a balance every few seconds — but the names as `Char.Defences`
+reports them have not been observed, and guessing one means the defence silently never goes
+up.
+
+**`CON`-based difficulty.** Penitence currently fires on `killIn()`, an estimate that needs
+one landed hit before it says anything. `CON` reports sentience and a power rank directly,
+at the point a denizen is first recorded rather than mid-fight, which is better information
+for the same decision. Needs the `CON` output format.
 
 **Open data questions.** Seven items in
 [docs/afflictions.md](afflictions.md#open-questions) need in-game confirmation, most

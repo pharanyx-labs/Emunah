@@ -55,13 +55,31 @@ function M.wanted()
    return emunah.config.get("defences.keepup", {}) or {}
 end
 
-function M.add(name)
+--- Start maintaining a defence.
+---
+--- An explicit command can be supplied for anything this file does not already know how to
+--- raise -- `emunah defs add moss touch moss`. That matters for tattoos in particular: the
+--- name Char.Defences reports is not something to guess at, because a wrong one means the
+--- defence silently never goes up, and the command that raises it costs a full balance
+--- whether or not it was needed. Read the real name from `emunah gmcp` and pair it here.
+--- @param name string the name as Char.Defences reports it
+--- @param command string|nil what raises it; omit for a defence already in M.commands
+--- @param vector string|nil which balance that command spends; defaults to balance
+function M.add(name, command, vector)
    name = tostring(name or ""):lower()
    if name == "" then return false end
+
+   if command and command ~= "" then
+      local custom = emunah.config.get("defences.commands", {}) or {}
+      custom[name] = { command = command, vector = vector or "balance" }
+      emunah.config.set("defences.commands", custom)
+   end
+
    local list = M.wanted()
-   if util.contains(list, name) then return false end
-   table.insert(list, name)
-   emunah.config.set("defences.keepup", list)
+   if not util.contains(list, name) then
+      table.insert(list, name)
+      emunah.config.set("defences.keepup", list)
+   end
    emunah.config.save()
    log.info("Keeping up <ansi_cyan>%s<ansi_yellow>.", name)
    return true
@@ -85,6 +103,13 @@ end
 --- Resolve how to raise a defence.
 --- @return string|nil vector, string|nil command
 local function resolveDefence(name)
+   -- A command supplied through `emunah defs add <name> <command>` wins: it is the only
+   -- source that came from someone looking at the real defence name.
+   local custom = (emunah.config.get("defences.commands", {}) or {})[name]
+   if custom and custom.command then
+      return custom.vector or "balance", custom.command
+   end
+
    -- Item-based defences share the cure machinery.
    local cure = afflist.defenceCures[name]
    if cure then
@@ -97,6 +122,51 @@ local function resolveDefence(name)
    if entry.skill and not have.skill(entry.skill) then return nil, nil end
    return entry.vector, entry.command
 end
+
+-- ---------------------------------------------------------------------------
+-- The attempt budget
+-- ---------------------------------------------------------------------------
+--
+-- Raising a defence is not free and, for the ones that matter most, is not cheap: touching
+-- a tattoo costs a full balance -- around four seconds -- and costs it whether or not the
+-- attempt achieves anything. So a defence that never appears in Char.Defences after being
+-- raised must not be retried forever. That happens for ordinary reasons: the configured
+-- name does not match what the game reports, the ability is not trained, or the command is
+-- refused for a reason nothing here models.
+--
+-- Retrying blind in that state does not fix it and does spend every balance the character
+-- has, which in a fight is the character. The budget stops after a few attempts and says
+-- what it stopped on. It resets the moment the defence actually appears, so a defence
+-- stripped repeatedly in real combat is raised every time.
+
+M.ATTEMPTS = 3
+
+local attempts, warned = {}, {}
+
+--- Has this defence any attempts left?
+function M.withinBudget(name)
+   if (attempts[name] or 0) < M.ATTEMPTS then return true end
+   if not warned[name] then
+      warned[name] = true
+      log.warn("Raised %s %d times and it never appeared in Char.Defences -- stopping. "
+         .. "Check the name matches what `emunah gmcp` reports.", name, attempts[name])
+   end
+   return false
+end
+
+--- Forget the attempt history, for one defence or all of them.
+function M.resetBudget(name)
+   if name then
+      attempts[name], warned[name] = nil, nil
+   else
+      attempts, warned = {}, {}
+   end
+end
+
+-- A defence appearing is proof the command works, whatever it took to get there.
+event.register("emunah.defence.added", function(_, name)
+   M.resetBudget(tostring(name or ""):lower())
+end, "curing.defkeepup")
 
 --- Which wanted defences are currently missing.
 function M.missing()
@@ -116,12 +186,13 @@ function M.tick()
 
    for _, name in ipairs(M.missing()) do
       local vector, command = resolveDefence(name)
-      if vector and command then
+      if vector and command and M.withinBudget(name) then
          queue.push(vector, command, {
             priority = M.PRIORITY,
             tag      = "def:" .. name,
             confirm  = emunah.config.get("curing.confirmWait", 2.0),
             onSent   = function()
+               attempts[name] = (attempts[name] or 0) + 1
                if vector ~= "balance" and vector ~= "equilibrium" then
                   have.spend(vector)
                end

@@ -77,7 +77,12 @@ M.handlers.defs = function(arg, rest)
    local keepup = emunah.curing.defkeepup
    if arg == "on" then keepup.start(); emunah.config.save()
    elseif arg == "off" then keepup.stop(); emunah.config.save()
-   elseif arg == "add" and rest then keepup.add(rest)
+   elseif arg == "add" and rest then
+      -- `emunah defs add <name>` for anything already known, or
+      -- `emunah defs add <name> <command>` to supply one -- the form tattoos need, where
+      -- the Char.Defences name has to be read from the game rather than assumed.
+      local name, command = rest:match("^(%S+)%s+(.+)$")
+      keepup.add(name or rest, command)
    elseif arg == "remove" or arg == "drop" then keepup.drop(rest)
    elseif arg == "list" or not arg then
       header("Defence keep-up (" .. (keepup.enabled and "on" or "off") .. ")")

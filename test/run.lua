@@ -585,6 +585,68 @@ mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "10
    bal = "1", eq = "1" })
 
 -- ===========================================================================
+suite("defence keep-up: custom commands and the attempt budget")
+
+local keepup = emunah.curing.defkeepup
+emunah.config.set("defences.keepup", {})
+emunah.config.set("defences.commands", {})
+keepup.resetBudget()
+queue.reset(); emunah.timers.stopAll()
+engine.clear()
+mock.feed("Char.Defences.List", {})
+
+-- A defence this file has never heard of, raised by a command supplied at the call site.
+-- Tattoos are the case that needs this: the name Char.Defences reports is not something to
+-- guess, and the command that raises one costs a full balance whether or not it was needed.
+keepup.add("moss", "touch moss")
+keepup.enabled = true
+-- Clear BEFORE the feed: a Char.Vitals push drives the tick itself, so by the time it
+-- returns the command has already gone out.
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("touch moss"),
+   "a defence with a supplied command is raised", table.concat(mock.sent, " | "))
+
+-- Once it is up, it is left alone -- touching an active tattoo costs the balance again for
+-- nothing. The guard is Char.Defences, not our own bookkeeping.
+mock.feed("Char.Defences.Add", { name = "moss" })
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("touch moss"),
+   "an active defence is never re-raised", table.concat(mock.sent, " | "))
+
+-- THE BUDGET. A defence that never appears after being raised must not be retried forever:
+-- each attempt spends a real balance, and the usual cause is a name that does not match
+-- what the game reports, which no amount of retrying fixes.
+mock.feed("Char.Defences.List", {})
+keepup.resetBudget()
+local raised = 0
+for _ = 1, 6 do
+   queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+   if table.concat(mock.sent, " | "):find("touch moss") then raised = raised + 1 end
+end
+eq(raised, keepup.ATTEMPTS,
+   "a defence that never appears is dropped after a bounded number of attempts",
+   tostring(raised))
+
+-- The defence actually appearing is proof the command works, and clears the history.
+mock.feed("Char.Defences.Add", { name = "moss" })
+mock.feed("Char.Defences.List", {})
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("touch moss"),
+   "...and the budget resets once it is seen, so a stripped defence is raised again",
+   table.concat(mock.sent, " | "))
+
+keepup.enabled = false
+emunah.config.set("defences.keepup", {})
+emunah.config.set("defences.commands", {})
+keepup.resetBudget()
+queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Defences.List", {})
+
+-- ===========================================================================
 suite("when GMCP lies or goes quiet")
 
 -- RECKLESSNESS SETS hp AND mp TO MAXIMUM in Char.Vitals regardless of the truth. Every
