@@ -190,6 +190,13 @@ function M.tick()
          queue.push(vector, command, {
             priority = M.PRIORITY,
             tag      = "def:" .. name,
+            -- The defence may come back on its own while this waits for a balance, and
+            -- raising one that is already up costs the balance for nothing -- a full four
+            -- seconds for a tattoo.
+            valid    = function()
+               local defences = emunah.gmcp.defences
+               return not (defences and defences.has(name))
+            end,
             confirm  = emunah.config.get("curing.confirmWait", 2.0),
             onSent   = function()
                attempts[name] = (attempts[name] or 0) + 1

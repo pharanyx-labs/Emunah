@@ -317,6 +317,9 @@ local function queueHealing()
    if hp < handsAt then
       queue.push("equilibrium", "perform hands", {
          priority = 0, tag = "healhands",
+         -- Equilibrium is the most contested vector there is -- attacking and penitence
+         -- both want it -- so this can wait seconds, and health recovers in that time.
+         valid    = function() return healthPercent(vitals, "hp") < handsAt end,
          confirm  = emunah.config.get("curing.confirmWait", 2.0),
          onSent   = function()
             emunah.gmcp.vitals.spend("eq")
@@ -331,12 +334,14 @@ local function queueHealing()
    if hp < healthAt and elixirAvailable("health") then
       queue.push("elixir", "drink health", {
          priority = 0, tag = "healhealth",
+         valid    = function() return healthPercent(vitals, "hp") < healthAt end,
          confirm  = emunah.config.get("curing.elixirConfirm", M.ELIXIR_CONFIRM),
          onSent   = function() have.spend("elixir") end,
       })
    elseif mp < manaAt and elixirAvailable("mana") then
       queue.push("elixir", "drink mana", {
          priority = 0, tag = "healmana",
+         valid    = function() return healthPercent(vitals, "mp") < manaAt end,
          confirm  = emunah.config.get("curing.elixirConfirm", M.ELIXIR_CONFIRM),
          onSent   = function() have.spend("elixir") end,
       })
@@ -375,6 +380,9 @@ local function queueIrid()
          queue.push("moss", "eat irid", {
             priority = 0, tag = "irid",
             needs    = { alive = true },
+            valid    = function()
+               return healthPercent(vitals, "hp") < at or healthPercent(vitals, "mp") < at
+            end,
             -- Longer than the 5.94s the balance actually takes. At 5.0 this timed out
             -- every single time ("No confirmation for [moss] eat irid -- re-arming." at
             -- 12:41:06.17, with the real confirmation arriving at 12:41:07.55) and the
@@ -617,6 +625,10 @@ function M.tick()
                priority = rank,
                tag      = affliction,
                confirm  = emunah.config.get("curing.confirmWait", 2.0),
+               -- Another vector may have cured it while this one waited: anorexia goes to
+               -- salve or focus, and whichever lands first makes the other a wasted
+               -- balance at the moment the next affliction needs it.
+               valid    = function() return M.tracked[affliction] ~= nil end,
                onSent   = function()
                   -- Start the fallback recovery timer. A confirmation trigger or the
                   -- GMCP removal will normally cut this short.

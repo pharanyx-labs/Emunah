@@ -750,6 +750,59 @@ ok(table.concat(mock.sent, " | "):find("focus"),
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 
 -- ===========================================================================
+suite("a queued action is re-checked before it is sent")
+
+-- Observed: `perform hands` going out at full health. It had been queued at 30% while
+-- equilibrium was spent -- attacking and penitence both want that vector -- and by the time
+-- equilibrium came back the health it was queued for had recovered. The queue sent it
+-- anyway, because nothing re-asked whether it was still wanted.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = true
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+
+-- Below the hands threshold, but equilibrium is spent, so it waits.
+mock.feed("Char.Vitals", { hp = "300", maxhp = "1000", mp = "3000", maxmp = "3000",
+   bal = "1", eq = "0" })
+eq(queue.pending("equilibrium").command, "perform hands",
+   "hands is queued while equilibrium is unavailable")
+
+-- Health recovers before equilibrium does.
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("perform hands"),
+   "a heal queued at 30% is not sent at 100%", table.concat(mock.sent, " | "))
+eq(queue.pending("equilibrium"), nil, "...and is dropped rather than left waiting")
+
+-- Still sent when it is still wanted, which is the case that must not regress.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Vitals", { hp = "300", maxhp = "1000", bal = "1", eq = "0" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "300", maxhp = "1000", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("perform hands"),
+   "a heal that is still needed goes out", table.concat(mock.sent, " | "))
+
+-- The same applies to a cure whose affliction another vector already removed.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "1", name = "some bloodroot", attrib = "e" },
+} })
+emunah.have.spend("herb")            -- herb balance busy, so the cure waits
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+engine.add("paralysis", "gmcp")
+engine.tick()
+eq(queue.pending("herb").command, "eat bloodroot", "the cure is queued behind herb balance")
+
+engine.remove("paralysis")           -- cured by something else meanwhile
+emunah.have.recover("herb")
+mock.sent = {}
+queue.flush()
+ok(not table.concat(mock.sent, " | "):find("eat bloodroot"),
+   "a cure for an affliction that is already gone is not sent",
+   table.concat(mock.sent, " | "))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+
+-- ===========================================================================
 suite("namedb: who is a person, and what are they")
 
 local ndb = emunah.namedb
@@ -857,7 +910,7 @@ engine.clear(); queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Items.List", { location = "inv", items = {
    { id = "1", name = "some bloodroot", attrib = "e" },
 } })
-engine.add("paralysis", "gmcp")
+engine.add("paralysis", "trigger")
 mock.advance(engine.TREE_DWELL + 1)
 queue.reset(); mock.sent = {}
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
@@ -868,7 +921,7 @@ ok(not table.concat(mock.sent, " | "):find("touch tree"),
 -- Nothing can cure it: out of the herb, and the rift is empty too.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Items.List", { location = "inv", items = {} })
-engine.add("paralysis", "gmcp")
+engine.add("paralysis", "trigger")
 mock.sent = {}
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 ok(not table.concat(mock.sent, " | "):find("touch tree"),
@@ -885,9 +938,12 @@ ok(table.concat(mock.sent, " | "):find("touch tree"),
 -- It costs no balance and no equilibrium: it goes out with both spent, which is the whole
 -- reason it is the last resort.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
-engine.add("paralysis", "gmcp")
+engine.add("paralysis", "trigger")
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 mock.advance(engine.TREE_DWELL + 0.1)
+-- After the advance, not before: advancing the clock fires timers, and a flush among them
+-- can spend the tree balance this assertion depends on being free.
+emunah.timers.stopAll()
 emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = false, false
 queue.reset(); mock.sent = {}
 engine.tick(); queue.flush()
@@ -899,7 +955,7 @@ emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
 -- Without the tattoo inked there is nothing to touch.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Defences.List", {})
-engine.add("paralysis", "gmcp")
+engine.add("paralysis", "trigger")
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 mock.advance(engine.TREE_DWELL + 0.1)
 queue.reset(); mock.sent = {}

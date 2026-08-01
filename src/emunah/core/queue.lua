@@ -46,6 +46,7 @@ end
 ---                         tag = string (what this is for, e.g. an affliction name),
 ---                         confirm = number (seconds to wait for confirmation),
 ---                         needs = table passed to act.blocked(), e.g. { standing = true },
+---                         valid = function -> boolean, re-checked at send time,
 ---                         onSent = function, onTimeout = function }
 --- @return boolean queued
 function queue.push(vector, command, opts)
@@ -79,6 +80,7 @@ function queue.push(vector, command, opts)
       tag       = opts.tag,
       confirm   = opts.confirm,
       needs     = opts.needs,
+      valid     = opts.valid,
       onSent    = opts.onSent,
       onTimeout = opts.onTimeout,
       queuedAt  = emunah.util.now(),
@@ -106,6 +108,20 @@ function queue.flush()
    local sent = 0
    for _, vector in ipairs(queue.VECTORS) do
       local action = slots[vector]
+
+      -- STILL WANTED? A queued action waits for its vector, and a contested vector can
+      -- take seconds -- `perform hands` needs equilibrium, which attacking and penitence
+      -- also spend. In that gap the reason for the action can simply stop being true:
+      -- health recovers, the affliction is cured by another vector, the defence comes back.
+      -- Sending it anyway spends a real balance on a condition that no longer exists, and
+      -- the observed case was `perform hands` going out at full health because it had been
+      -- queued at 30%.
+      if action and action.valid and not action.valid() then
+         log.debug("Dropping [%s] %s -- no longer needed.", vector, action.command)
+         slots[vector] = nil
+         action = nil
+      end
+
       -- act.send() returning false means the game would refuse it for a reason unrelated to
       -- this vector (see act). The action stays queued rather than being dropped, so the
       -- next tick tries again -- which is why this is one condition and not an early exit.
