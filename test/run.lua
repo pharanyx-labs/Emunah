@@ -308,9 +308,17 @@ local usable2, reason2 = emunah.have.cure(bloodrootCure)
 ok(not usable2, "cure is refused when the item is absent")
 ok(tostring(reason2):find("out of"), "refusal explains why", reason2)
 
--- The rift counts as supply.
+-- THE RIFT IS NOT IN HAND. supply() counts both and answers "can I get this"; performing a
+-- cure asks "can I eat this now", which is a different question. A death drops the pack
+-- while the rift keeps its stock, and treating the two as equivalent had `eat bloodroot`
+-- going out every two seconds against "What do you want to eat?" while paralysis never
+-- cleared.
 mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = 500 } })
-ok(emunah.have.cure(bloodrootCure), "rift stock satisfies the capability check")
+local riftUsable, riftReason = emunah.have.cure(bloodrootCure)
+ok(not riftUsable, "rift stock alone does not make a cure performable")
+ok(tostring(riftReason):find("in the rift, not in hand"),
+   "...and says which of the two situations it is", riftReason)
+eq(emunah.have.supply("bloodroot"), 500, "supply still counts the rift, for restocking")
 eq(emunah.have.supply("bloodroot"), 500, "supply counts the rift")
 
 -- ===========================================================================
@@ -998,6 +1006,52 @@ ok(table.concat(mock.sent, " | "):find("eat bloodroot"),
 
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 engine.forgetIneffective()
+
+-- ===========================================================================
+suite("a cure you cannot reach is not a cure")
+
+-- After a death dropped the pack, `eat bloodroot` went out every two seconds against "What
+-- do you want to eat?" while paralysis never cleared. The rift still held 750 bloodroot, so
+-- the cure read as performable -- but you cannot eat from the rift.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+engine.enabled = true
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = 750 } })
+engine.add("paralysis", "trigger")
+
+mock.sent = {}
+for _ = 1, 4 do
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   emunah.have.recover("herb")
+   mock.advance(engine.CURE_GUARD + 0.01)
+end
+ok(not table.concat(mock.sent, " | "):find("eat bloodroot"),
+   "a herb that is only in the rift is never eaten", table.concat(mock.sent, " | "))
+eq(engine.refusals["paralysis"], "bloodroot is in the rift, not in hand",
+   "...and the reason distinguishes that from being out of it entirely",
+   tostring(engine.refusals["paralysis"]))
+
+-- Once the restocker has pulled it, the cure becomes possible.
+mock.feed("Char.Items.Add", { location = "inv",
+   item = { id = "1", name = "a bloodroot leaf", attrib = "gre" } })
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat bloodroot"),
+   "...and goes out the moment it is in hand", table.concat(mock.sent, " | "))
+
+-- An eat that does not resolve means our view of inventory is wrong by definition, so it
+-- asks for the real list rather than waiting for whatever would have corrected it.
+-- Requests are paced, so clear anything already queued or the first thing on the wire is
+-- whatever was waiting rather than the one this sends.
+emunah.gmcp.clearRequests()
+emunah.timers.stopAll()
+mock.gmcpSent = {}
+mock.line("What do you want to eat?")
+ok(table.concat(mock.gmcpSent, " | "):find("Char.Items.Inv"),
+   "a failed eat re-reads inventory", table.concat(mock.gmcpSent, " | "))
+emunah.gmcp.clearRequests()
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 
 -- ===========================================================================
 suite("paralysis blocks almost everything")

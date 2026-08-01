@@ -54,7 +54,7 @@ Exact wording — these are trigger patterns, so they matter verbatim.
 | `You are too stunned to be able to do anything.` | Stunned |
 | `Now now, don't be so hasty!` | **Rate limited** — commands sent too fast |
 | `Clot is not a valid command.` | No `clotting` lesson (Survival) |
-| `What do you want to eat?` | The herb named is not in inventory. Nothing was eaten and no herb balance was spent. Observed at 18:26:51.05, right after a death dropped everything. |
+| `What do you want to eat?` | The herb named is not in inventory — **being in the rift is not enough**, and a cure must check what is in hand rather than total supply. Nothing was eaten and no herb balance was spent. Observed at 18:26:51.05, right after a death dropped everything. |
 | `What is it that you wish to drink?` | **Not a balance rejection.** No vial we are carrying holds that fluid, so the noun in `drink <fluid>` did not resolve. Nothing was drunk and no sip balance was spent. Observed at 11:10:14.06 on `drink mana`, with fourteen vials held and 2000 sips of mana sitting in the rift. |
 
 ## Irid moss

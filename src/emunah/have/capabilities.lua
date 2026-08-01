@@ -264,7 +264,21 @@ function M.cure(option)
          if not M.pipe(item) then
             return false, ("no pipe of %s"):format(item)
          end
-      elseif M.supply(item) <= 0 then
+      elseif M.item(item) <= 0 then
+         -- IN HAND, NOT IN THE RIFT. supply() counts both, and that is the right question
+         -- for "can I get this" -- it is the wrong one for "can I eat this now". A death
+         -- drops the pack while the rift keeps its 750 bloodroot, so the cure read as
+         -- performable and `eat bloodroot` went out every two seconds against "What do you
+         -- want to eat?", indefinitely, with paralysis never clearing.
+         --
+         -- The rift is still the answer, just not this instant: the restocker pulls it and
+         -- the cure becomes possible a round trip later. Saying which of the two is the
+         -- case matters, because "out of bloodroot" and "bloodroot is in the rift" call for
+         -- completely different responses from whoever reads the log.
+         local inRift = M.inRift(item)
+         if inRift > 0 then
+            return false, ("%s is in the rift, not in hand"):format(item)
+         end
          warnOnce("item:" .. item, "Out of %s -- falling through to the next cure.", item)
          return false, ("out of %s"):format(item)
       end

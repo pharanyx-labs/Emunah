@@ -255,7 +255,15 @@ do
    local id = tempRegexTrigger([[^What do you want to eat\?$]], function()
       emunah.queue.confirm("herb")
       emunah.have.recover("herb")
-      emunah.log.debug("An eat did not resolve -- the herb is not in inventory.")
+
+      -- Our view of inventory is wrong, by definition: we believed we held something we do
+      -- not. Ask for the real list rather than waiting for whatever would have corrected it
+      -- eventually -- after a death this is the difference between resuming and repeating
+      -- the same failed eat until someone notices.
+      emunah.log.debug("An eat did not resolve -- re-reading inventory.")
+      if emunah.gmcp.items and emunah.gmcp.items.refresh then
+         emunah.gmcp.items.refresh()
+      end
    end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
