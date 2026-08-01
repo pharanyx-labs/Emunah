@@ -104,6 +104,10 @@ end
 
 function M.clear()
    M.tracked = {}
+   -- Refusals describe afflictions that no longer exist, and the log debounce keyed to them
+   -- would otherwise suppress the first report of the same reason next time round.
+   M.refusals = {}
+   reported = {}
 end
 
 function M.count()
@@ -496,6 +500,55 @@ local function queueRestock()
    end
 end
 
+-- ---------------------------------------------------------------------------
+-- TOUCH TREE -- the last resort
+-- ---------------------------------------------------------------------------
+--
+-- The Tree of Life tattoo costs no balance and no equilibrium, only its own tree balance,
+-- which is why it still works when everything else has been taken. That is also the only
+-- situation it is worth spending: the balance is long, and burning it on an affliction the
+-- herb vector would have cleared a moment later wastes the one cure a lock cannot block.
+--
+-- WHICH afflictions it clears is not recorded here, and deliberately so -- no entry in
+-- afflist.lua names `tree` as a vector, because the mapping has never been verified. So
+-- this does not claim to cure a particular affliction. It fires on the *state* the tattoo
+-- exists for: something is afflicting us and every cure we know for it has been refused.
+--
+-- engine.refusals is what makes that state observable. It records why each tracked
+-- affliction could not be cured on this pass -- a blocked vector, a missing item, an
+-- untrained skill -- all of which are structural rather than a balance ticking down.
+
+--- Seconds an affliction must have been uncurable before the tattoo is spent on it.
+---
+--- Refusals are structural, but not all are durable: "out of bloodroot" clears the moment
+--- restocking lands. A short dwell keeps the long balance for a genuine lock rather than a
+--- gap of a second and a half.
+M.TREE_DWELL = 2.0
+
+local function queueTree()
+   if emunah.config.get("curing.tree", true) == false then return end
+   if queue.pending("tree") or queue.awaiting("tree") then return end
+
+   -- The tattoo has to be inked, and its own balance has to be back. Both are checked by
+   -- have.cure() for an ordinary cure; this path builds its own command, so it asks here.
+   if not have.def("tree") then return end
+   if not have.balance("tree") then return end
+
+   local now = util.now()
+   for name, record in pairs(M.tracked) do
+      if M.refusals[name] and (now - record.since) >= M.TREE_DWELL then
+         queue.push("tree", "touch tree", {
+            priority = 0,
+            tag      = "tree:" .. name,
+            confirm  = emunah.config.get("curing.confirmWait", 2.0),
+            onSent   = function() have.spend("tree") end,
+         })
+         log.info("Nothing can cure %s (%s) -- touching the tree.", name, M.refusals[name])
+         return
+      end
+   end
+end
+
 --- Check stock and act on it now, without waiting for a prompt.
 ---
 --- The engine is prompt-driven, which is right for curing -- nothing changes between
@@ -577,6 +630,9 @@ function M.tick()
          end
       end
    end
+
+   -- After the vector loop: this pass's refusals are what it reads.
+   queueTree()
 
    queue.flush()
 end

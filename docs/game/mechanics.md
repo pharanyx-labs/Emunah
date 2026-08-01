@@ -233,6 +233,19 @@ cures live.
 Given the choice between the two: *"choose between veering closer to being sapped of a lot
 of mana, or being locked. Choose former."* Clear the lock, accept the sapping.
 
+## TOUCH TREE
+
+The Tree of Life tattoo. **Costs no balance and no equilibrium** — only its own tree
+balance, which is why it still works when everything else has been taken.
+
+**Which afflictions it clears is not established**, so no entry in `afflist.lua` names
+`tree` as a cure vector. `engine.queueTree()` therefore does not claim a mapping: it fires
+on the *state* the tattoo exists for — something is afflicting us and every cure we know for
+it has been refused for `TREE_DWELL` seconds. Requires the tattoo to be inked, which shows
+in `Char.Defences`.
+
+The 15s recovery in `curelist.lua` is an estimate, not an observed figure.
+
 ## Where GMCP stops being authoritative
 
 GMCP is reliable for PvE. Two afflictions break that, and both are things another player does

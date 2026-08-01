@@ -750,6 +750,78 @@ ok(table.concat(mock.sent, " | "):find("focus"),
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 
 -- ===========================================================================
+suite("touch tree: the last resort")
+
+-- The Tree of Life tattoo costs no balance and no equilibrium, only its own tree balance --
+-- which is why it still works when everything else has been taken, and why it is only worth
+-- spending then. No entry in afflist.lua names `tree` as a vector, because which
+-- afflictions it clears has never been verified; this fires on the STATE the tattoo exists
+-- for, not on a claimed mapping.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = true
+mock.feed("Char.Defences.List", { { name = "tree" } })
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+mock.feed("IRE.Rift.List", {})
+
+-- Curable normally: the tattoo is not touched, however long it sits.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "1", name = "some bloodroot", attrib = "e" },
+} })
+engine.add("paralysis", "gmcp")
+mock.advance(engine.TREE_DWELL + 1)
+queue.reset(); mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("touch tree"),
+   "an affliction that can be cured normally does not spend the tattoo",
+   table.concat(mock.sent, " | "))
+
+-- Nothing can cure it: out of the herb, and the rift is empty too.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+engine.add("paralysis", "gmcp")
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("touch tree"),
+   "...and not immediately: a refusal that clears in a second is not a lock",
+   table.concat(mock.sent, " | "))
+
+mock.advance(engine.TREE_DWELL + 0.1)
+queue.reset(); mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("touch tree"),
+   "once nothing has been able to cure it for a while, the tattoo is spent",
+   table.concat(mock.sent, " | "))
+
+-- It costs no balance and no equilibrium: it goes out with both spent, which is the whole
+-- reason it is the last resort.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.add("paralysis", "gmcp")
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+mock.advance(engine.TREE_DWELL + 0.1)
+emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = false, false
+queue.reset(); mock.sent = {}
+engine.tick(); queue.flush()
+ok(table.concat(mock.sent, " | "):find("touch tree"),
+   "the tattoo works with no balance and no equilibrium",
+   table.concat(mock.sent, " | "))
+emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
+
+-- Without the tattoo inked there is nothing to touch.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Defences.List", {})
+engine.add("paralysis", "gmcp")
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+mock.advance(engine.TREE_DWELL + 0.1)
+queue.reset(); mock.sent = {}
+engine.tick(); queue.flush()
+ok(not table.concat(mock.sent, " | "):find("touch tree"),
+   "no tree tattoo, no touch", table.concat(mock.sent, " | "))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+mock.feed("Char.Defences.List", {})
+
+-- ===========================================================================
 suite("GMCP requests are paced, not burst")
 
 -- Observed live, a Mudlet JSON decode failure:
@@ -796,8 +868,10 @@ ok(emunah.gmcp.queued() > 5,
    "...with the rest queued, including one per skill group",
    tostring(emunah.gmcp.queued()))
 
+-- Bounded, never `while queued() > 0`: advancing the clock also fires the room-list retry,
+-- which enqueues another request every time, so draining to empty never terminates.
 emunah.timers.stopAll()
-while emunah.gmcp.queued() > 0 do mock.advance(emunah.gmcp.REQUEST_INTERVAL + 0.01) end
+emunah.gmcp.clearRequests()
 mock.gmcpSent = {}
 
 -- ===========================================================================
