@@ -98,22 +98,38 @@ function M.go(command)
    send(command)
 end
 
-local function available()
-   return type(tempKey) == "function"
-      and type(mudlet) == "table"
-      and type(mudlet.key) == "table"
-      and type(mudlet.keymodifier) == "table"
+--- Why bindings cannot be installed, or nil if they can.
+---
+--- Returns a reason rather than a boolean because every one of these is worth saying out
+--- loud. Numpad movement failing is invisible until you press a key and walk nowhere, and
+--- at that point the useful information is which of these was missing.
+local function unavailable()
+   if type(tempKey) ~= "function" then return "tempKey is not available" end
+   if type(mudlet) ~= "table" or type(mudlet.key) ~= "table" then
+      return "mudlet.key is not available"
+   end
+   if type(mudlet.keymodifier) ~= "table" or not mudlet.keymodifier.Keypad then
+      -- Refuse rather than fall back to binding the bare digits. Without the Keypad
+      -- modifier there is nothing to distinguish numpad 8 from the 8 above the letters,
+      -- and typing "8" in a sentence would walk you north.
+      return "mudlet.keymodifier.Keypad is missing -- refusing to bind bare digits"
+   end
+   return nil
 end
 
 --- Install the bindings.
 function M.build()
    if not emunah.config.get("keys.numpad", true) then
-      log.debug("Numpad bindings disabled in settings.")
+      -- Said at info, not debug. Someone whose numpad has stopped working is owed the one
+      -- sentence that explains it, and `emunah keys on` is the whole fix.
+      log.info("Numpad movement is <ansi_light_red>off<ansi_yellow> in settings "
+         .. "-- `emunah keys on` to restore it.")
       return false
    end
 
-   if not available() then
-      log.debug("tempKey/mudlet.key unavailable -- numpad bindings not installed.")
+   local why = unavailable()
+   if why then
+      log.warn("Numpad bindings not installed: %s.", why)
       return false
    end
 
@@ -121,7 +137,7 @@ function M.build()
 
    local reg = registry()
    local keypad = mudlet.keymodifier.Keypad
-   local bound, missing = 0, {}
+   local bound, missing, failed = 0, {}, {}
 
    for _, entry in ipairs(M.LAYOUT) do
       -- Both Num Lock states map to the same command.
@@ -136,6 +152,11 @@ function M.build()
                if ok and id then
                   table.insert(reg, id)
                   bound = bound + 1
+               else
+                  -- A refused binding used to vanish here without a trace, which is what
+                  -- "the numpad just stopped working" looks like from the outside.
+                  failed[#failed + 1] = string.format("%s (%s): %s",
+                     entry.command, keyName, tostring(id))
                end
             else
                missing[#missing + 1] = keyName
@@ -147,9 +168,29 @@ function M.build()
    if #missing > 0 then
       log.warn("Unknown key names, not bound: %s", table.concat(missing, ", "))
    end
+   if #failed > 0 then
+      log.warn("%d numpad binding(s) refused by Mudlet: %s",
+         #failed, table.concat(failed, "; "))
+   end
 
-   log.debug("Numpad: %d bindings for %d directions.", bound, #M.LAYOUT)
-   return bound > 0
+   -- Zero bindings is a failure, not a quiet outcome. This is the case that reads as
+   -- "the numpad broke" with nothing anywhere to explain it.
+   if bound == 0 then
+      log.warn("No numpad bindings were installed -- movement keys will do nothing. "
+         .. "`emunah keys` shows the state.")
+      return false
+   end
+
+   local expected = 0
+   for _, entry in ipairs(M.LAYOUT) do
+      expected = expected + (entry.on and 1 or 0) + (entry.off and 1 or 0)
+   end
+   if bound < expected then
+      log.warn("Numpad: only %d of %d bindings installed.", bound, expected)
+   else
+      log.debug("Numpad: %d bindings for %d directions.", bound, #M.LAYOUT)
+   end
+   return true
 end
 
 function M.setEnabled(enabled)

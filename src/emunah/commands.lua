@@ -676,10 +676,21 @@ M.handlers.keys = function(arg)
    local keys = emunah.keys
    if arg == "on" then keys.setEnabled(true)
    elseif arg == "off" then keys.setEnabled(false)
+   elseif arg == "rebuild" then
+      local ok = keys.build()
+      log.info("Numpad rebuild: %s (%d bindings).",
+         ok and "ok" or "failed", keys.count())
    else
       header("Numpad movement (" ..
          (emunah.config.get("keys.numpad", true) and "on" or "off") .. ")")
-      row("bindings active", keys.count())
+      -- The count is the honest answer to "are my keys working", and zero with the
+      -- setting on is the state that used to be invisible.
+      local active = keys.count()
+      row("bindings active", active, active == 0 and "ansi_light_red" or "ansi_light_green")
+      if active == 0 and emunah.config.get("keys.numpad", true) then
+         cecho("\n  <ansi_light_red>enabled but nothing is bound<reset> "
+            .. "<ansi_light_black>-- emunah keys rebuild<reset>")
+      end
       cecho("\n  <ansi_light_black>  7 nw    8 n     9 ne<reset>")
       cecho("\n  <ansi_light_black>  4 w     5 look  6 e<reset>")
       cecho("\n  <ansi_light_black>  1 sw    2 s     3 se<reset>")

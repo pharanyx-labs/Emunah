@@ -3834,6 +3834,48 @@ eq(mock.sent[#mock.sent], "se", "numpad 3 sends southeast with Num Lock off")
 ok(not mock.press(mudlet.keymodifier.None, mudlet.key["8"]),
    "plain 8 (no Keypad modifier) is NOT bound")
 
+-- FAILURE HAS TO BE LOUD. Numpad movement breaking is invisible until you press a key and
+-- walk nowhere, and every path that could stop it used to be silent or debug-only.
+local realTempKey = _G.tempKey
+
+_G.tempKey = function() error("Mudlet refused the binding", 0) end
+mock.echoed = {}
+eq(emunah.keys.build(), false, "a build that binds nothing reports failure")
+local said = table.concat(mock.echoed, " ")
+ok(said:find("refused by Mudlet"), "...names the refused bindings", said)
+ok(said:find("No numpad bindings were installed"),
+   "...and says movement keys will do nothing", said)
+
+_G.tempKey = realTempKey
+mock.echoed = {}
+ok(emunah.keys.build(), "rebuilding restores them")
+eq(emunah.keys.count(), 24, "...all of them")
+
+-- Disabled in settings is a different cause with the same symptom, and is now said at info
+-- rather than debug: someone whose numpad stopped working is owed the sentence that
+-- explains it.
+emunah.config.set("keys.numpad", false)
+mock.echoed = {}
+eq(emunah.keys.build(), false, "disabled in settings does not bind")
+ok(table.concat(mock.echoed, " "):find("emunah keys on"),
+   "...and says how to turn it back on", table.concat(mock.echoed, " "))
+emunah.config.set("keys.numpad", true)
+emunah.keys.build()
+eq(emunah.keys.count(), 24, "and back on again")
+
+-- Refusing to bind bare digits is deliberate: without the Keypad modifier there is nothing
+-- separating numpad 8 from the 8 above the letters, and typing "8" would walk you north.
+local realKeypad = mudlet.keymodifier.Keypad
+mudlet.keymodifier.Keypad = nil
+mock.echoed = {}
+eq(emunah.keys.build(), false, "no Keypad modifier means no bindings")
+ok(table.concat(mock.echoed, " "):find("refusing to bind bare digits"),
+   "...and says why rather than binding something dangerous",
+   table.concat(mock.echoed, " "))
+mudlet.keymodifier.Keypad = realKeypad
+emunah.keys.build()
+eq(emunah.keys.count(), 24, "restored")
+
 -- A movement key takes manual control from the walker; `look` does not.
 mock.installMap(10)
 mock.feed("Room.Info", { num = 1, name = "Room 1", area = "Test", exits = { e = 2 } })
