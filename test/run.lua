@@ -230,6 +230,22 @@ ok(afflist.priority("anorexia", "focus") ~= nil, "anorexia is also focusable (th
 eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss", "anorexia blocks eating")
 eq(table.concat(afflist.blockedVectors("slickness"), ","), "salve", "slickness blocks applying")
 eq(table.concat(afflist.blockedVectors("asthma"), ","), "smoke", "asthma blocks smoking")
+eq(table.concat(afflist.blockedVectors("impatience"), ","), "focus", "impatience blocks focusing")
+
+-- Every blocker must itself be curable by a vector it does not block, or it is a lock with
+-- no key: the engine would need the shut vector to open the shut vector.
+for blocker, shut in pairs(afflist.blocks) do
+   local escape = false
+   for _, option in ipairs(afflist.curesVia(blocker, "herb")) do escape = true end
+   for _, vector in ipairs({ "salve", "smoke", "focus", "elixir" }) do
+      local blocked = false
+      for _, name in ipairs(shut) do if name == vector then blocked = true end end
+      if not blocked and #afflist.curesVia(blocker, vector) > 0 then
+         escape = true
+      end
+   end
+   ok(escape, ("%s can be cured without the vector it blocks"):format(blocker))
+end
 
 -- EVERY CURE MUST BE REACHABLE. engine.resolve() only considers afflictions that have a
 -- priority for the vector being resolved, so an entry with a cure but no rank is tracked
@@ -666,6 +682,72 @@ emunah.config.set("defences.commands", {})
 keepup.resetBudget()
 queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Defences.List", {})
+
+-- ===========================================================================
+suite("focus curing")
+
+-- Focus clears mental afflictions, and against a Priest every mental affliction left up is
+-- 2% more sapping potential -- so the vector matters more than its cure count suggests.
+local afflist2 = emunah.curing.afflist
+
+-- ANOREXIA OUTRANKS EVERY MENTAL AFFLICTION ON FOCUS. A mental affliction left up is a
+-- slow loss; anorexia is a shut vector, and the vector it shuts is where most cures live.
+-- Ranked behind a mental it would wait behind one, which is the ordering that turns a
+-- survivable position into a lock.
+local worst, worstName = math.huge, nil
+for name in pairs(afflist2.afflictions) do
+   local rank = afflist2.priority(name, "focus")
+   if rank and rank < worst then worst, worstName = rank, name end
+end
+eq(worstName, "anorexia", "anorexia is the most urgent focus cure", tostring(worstName))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = true
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+mock.feed("IRE.Rift.List", {})
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "3000", maxmp = "3000",
+   bal = "1", eq = "1" })
+
+-- FOCUS COSTS NEITHER BALANCE NOR EQUILIBRIUM, only its own mental balance -- so it goes
+-- out with both spent, which is exactly when a lock leaves nothing else available.
+engine.add("stupidity", "gmcp")
+emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = false, false
+queue.reset(); mock.sent = {}
+engine.tick(); queue.flush()
+ok(table.concat(mock.sent, " | "):find("focus"),
+   "focus goes out with no balance and no equilibrium", table.concat(mock.sent, " | "))
+emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
+
+-- IMPATIENCE SHUTS IT, the same way anorexia shuts eating.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.add("stupidity", "gmcp")
+engine.add("impatience", "gmcp")
+mock.sent = {}
+engine.tick(); queue.flush()
+ok(not table.concat(mock.sent, " | "):find("focus"),
+   "impatience blocks focusing", table.concat(mock.sent, " | "))
+eq(engine.refusals["stupidity"], "focus is blocked by impatience",
+   "...and says so", tostring(engine.refusals["stupidity"]))
+
+-- GUILT: do not focus, UNLESS anorexia is also up.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.add("stupidity", "gmcp")
+engine.add("guilt", "gmcp")
+mock.sent = {}
+engine.tick(); queue.flush()
+ok(not table.concat(mock.sent, " | "):find("focus"),
+   "guilt alone stops focusing", table.concat(mock.sent, " | "))
+
+-- ...and anorexia forces it anyway: guilt's own cure is a herb, and anorexia is what shuts
+-- the herb vector, so refusing to focus here means refusing to act at all.
+engine.add("anorexia", "gmcp")
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+engine.tick(); queue.flush()
+ok(table.concat(mock.sent, " | "):find("focus"),
+   "...but anorexia forces it, because nothing else can open the lock",
+   table.concat(mock.sent, " | "))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 
 -- ===========================================================================
 suite("GMCP requests are paced, not burst")

@@ -207,6 +207,32 @@ Balance used: 4.0s.
 | `def brief` | — | Brief names, close to the GMCP defence names |
 | `perform inspiration` | equilibrium 3.50s | Priest. Lasts around ten minutes (13:35:33.62 to 13:45:28.50), ending with "You slump slightly as the divinely-inspired strength leaves your body." |
 
+## FOCUS
+
+Clears mental afflictions. **Costs neither balance nor equilibrium** — only its own mental
+balance, which is why it still works in a lock that has taken everything else.
+
+Its balance is not reported over GMCP. Like herb, salve and sip balance it is tracked from
+the game's own messages, and it is a predictable length. The rejection is confirmed:
+`You have not yet regained your mental balance.`
+
+| Rule | Reason |
+|---|---|
+| **`impatience` blocks focusing** | Cured by eating goldenseal, so the escape is the herb vector |
+| **Do not focus while `guilt` is up** | It costs more than the affliction it clears |
+| **Unless `anorexia` is also up** | Guilt's cure is a herb and anorexia shuts the herb vector, so refusing to focus means refusing to act at all |
+| **`anorexia` outranks every mental affliction on focus** | "You want it away urgently even at the cost of maybe getting another mental" |
+
+### Why the ordering matters against a Priest
+
+Every mental affliction left up is **2% more sapping potential** for an enemy Priest, and
+their kill route is a mana kill (see absolve, below). So mental afflictions are a slow loss
+that compounds, while anorexia is a shut vector — and the vector it shuts is where most
+cures live.
+
+Given the choice between the two: *"choose between veering closer to being sapped of a lot
+of mana, or being locked. Choose former."* Clear the lock, accept the sapping.
+
 ## Where GMCP stops being authoritative
 
 GMCP is reliable for PvE. Two afflictions break that, and both are things another player does

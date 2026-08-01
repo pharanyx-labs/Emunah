@@ -279,6 +279,30 @@ function M.cure(option)
       if not M.skill("focus") then
          return false, "focus not known"
       end
+
+      -- GUILT MAKES FOCUSING A BAD TRADE, AND ANOREXIA MAKES IT THE ONLY TRADE.
+      --
+      -- Reported in play: "a good rule is NOT to focus when you have guilt, UNLESS you also
+      -- have anorexia." Both halves matter and they pull opposite ways.
+      --
+      -- Focusing under guilt costs more than the affliction it clears, so ordinarily it is
+      -- the wrong move. But anorexia shuts the herb vector, and the herb vector is where
+      -- guilt's own cure lives -- so with both up, refusing to focus means refusing to act
+      -- at all, and the lock simply stays shut. The exception is not a softening of the
+      -- rule; it is the case the rule would otherwise make fatal.
+      --
+      -- Tactical rather than mechanical, so it is a setting: `emunah set curing.focusGuilt
+      -- true` focuses regardless.
+      if emunah.config.get("curing.focusGuilt", false) ~= true then
+         local engine = emunah.curing.engine
+         local function afflicted(name)
+            if engine and engine.has and engine.has(name) then return true end
+            return M.affliction(name)
+         end
+         if afflicted("guilt") and not afflicted("anorexia") then
+            return false, "guilt -- not focusing while the herb vector is still open"
+         end
+      end
    end
 
    if vector == "tree" and not M.def("tree") then

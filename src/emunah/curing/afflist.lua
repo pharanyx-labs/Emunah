@@ -48,6 +48,16 @@ M.blocks = {
    anorexia  = { "herb", "moss" },
    slickness = { "salve" },
    asthma    = { "smoke" },
+   -- IMPATIENCE SHUTS FOCUS. Reported in play as "focus requires no eq or balance but the
+   -- affliction 'impatience' does" -- read as: FOCUS itself costs neither equilibrium nor
+   -- balance, and impatience is what stops it. Impatience is cured by eating goldenseal,
+   -- so the escape from it is the herb vector, exactly like the three above.
+   --
+   -- This matters more than an ordinary block. Focus is the vector that clears mental
+   -- afflictions, and against a Priest every mental affliction left up is 2% more sapping
+   -- potential for them -- so a shut focus vector is not merely slower curing, it is the
+   -- opponent's kill condition getting closer while it stays shut.
+   impatience = { "focus" },
 }
 
 --- Afflictions that stop you acting until you writhe free. These are not cured by items;
@@ -98,9 +108,20 @@ M.afflictions = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" }, { vector = "focus" } },
       priority = { herb = 53, focus = 11 },
    },
+   -- ANOREXIA IS RANK 1 ON FOCUS, AHEAD OF EVERY MENTAL AFFLICTION.
+   --
+   -- Reported in play: "if you get anorexia, you want it away urgently even at the cost of
+   -- maybe getting another mental... choose between veering closer to being sapped of a lot
+   -- of mana, or being locked. Choose former."
+   --
+   -- The trade is asymmetric. A mental affliction left up is a slow loss -- against a
+   -- Priest, 2% more sapping potential each. Anorexia is a shut vector, and the vector it
+   -- shuts is where most cures live, so it does not cost a percentage, it stops the engine
+   -- curing anything by eating. Ranked below a mental affliction it would wait behind one,
+   -- which is the one ordering that turns a survivable position into a lock.
    anorexia = {
       cures = { { vector = "salve", item = "epidermal", alt = "sensory", location = "body" }, { vector = "focus" } },
-      priority = { salve = 1, focus = 2 },
+      priority = { salve = 1, focus = 1 },
    },
    asthma = {
       cures = { { vector = "herb", item = "kelp", alt = "aurum" } },
@@ -520,7 +541,7 @@ M.afflictions = {
    },
    stupidity = {
       cures = { { vector = "herb", item = "goldenseal", alt = "plumbum" }, { vector = "focus" } },
-      priority = { herb = 7, focus = 1 },
+      priority = { herb = 7, focus = 2 },
    },
    stuttering = {
       cures = { { vector = "salve", item = "epidermal", alt = "sensory", location = "head" } },
