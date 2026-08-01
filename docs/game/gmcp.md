@@ -135,6 +135,34 @@ re-negotiation costs one packet.
 Death itself is detected from `Char.Vitals` reporting `hp` at zero, not from a message.
 Message wording varies by what killed you; the vitals feed does not.
 
+## Bursts of requests are not delivered reliably
+
+Observed live, from Mudlet's decoder:
+
+```
+<JSON decoder error:> parse error: trailing garbage
+    'll fight until the end." ] }Char.Skills.List { "group": "av
+                                ^
+```
+
+Two GMCP messages arriving as a single payload. The decoder reads the first object, finds
+the second appended where the input should have ended, and **discards both** — so this is
+not a cosmetic error line, it is a message that was never delivered.
+
+The trigger is our own request volume: a full refresh sends five requests, and
+`Char.Skills.Get` is then sent once per skill group — around twenty for a class — all in the
+same frame. The answers come back faster than they can be framed separately, and the message
+named in the error is `Char.Skills.List`, the tail of that burst.
+
+Losing one is quiet and expensive: a dropped `Char.Skills.List` leaves the skill index
+incomplete, `have.skill()` answers false for an ability the character has, and every cure
+gated on that skill is refused.
+
+`gmcp/init.lua` therefore paces outgoing requests through `gmcp.request()`, one every
+`REQUEST_INTERVAL` (0.15s). A lone request still goes out immediately; only bursts are
+spread. `Core.Supports.Add`, `Core.KeepAlive` and `IRE.Target.Set` bypass the pacer — none is
+answered with a payload, and targeting is latency-sensitive.
+
 ## Other observed messages
 
 | Message | Payload | Notes |

@@ -100,7 +100,7 @@ function M.riftCount(name)
 end
 
 function M.requestRift()
-   sendGMCP("IRE.Rift.Request")
+   emunah.gmcp.request("IRE.Rift.Request")
 end
 
 -- ---------------------------------------------------------------------------
@@ -167,7 +167,7 @@ function M.isNight()
 end
 
 function M.requestTime()
-   sendGMCP("IRE.Time.Request")
+   emunah.gmcp.request("IRE.Time.Request")
 end
 
 -- ---------------------------------------------------------------------------

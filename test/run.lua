@@ -668,6 +668,57 @@ queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Defences.List", {})
 
 -- ===========================================================================
+suite("GMCP requests are paced, not burst")
+
+-- Observed live, a Mudlet JSON decode failure:
+--
+--     parse error: trailing garbage
+--         'll fight until the end." ] }Char.Skills.List { "group": "av
+--
+-- Two GMCP messages arriving as one payload. The decoder reads the first object, finds the
+-- second appended where the input should have ended, and discards both -- so a message is
+-- silently never delivered. We provoke it: refresh() sends five requests and
+-- skills.requestAll() then sends one per skill group, all in the same frame.
+emunah.timers.stopAll()
+emunah.gmcp.clearRequests()
+mock.gmcpSent = {}
+
+emunah.gmcp.request("Char.Items.Inv")
+eq(#mock.gmcpSent, 1, "a lone request goes out immediately -- only a burst is spread")
+
+emunah.gmcp.request("Char.Items.Room")
+emunah.gmcp.request("IRE.Rift.Request")
+emunah.gmcp.request("Comm.Channel.Players")
+eq(#mock.gmcpSent, 1, "the rest queue behind it rather than going out in the same frame")
+eq(emunah.gmcp.queued(), 3, "...and are counted")
+
+mock.advance(emunah.gmcp.REQUEST_INTERVAL + 0.01)
+eq(#mock.gmcpSent, 2, "one goes out per interval")
+mock.advance(emunah.gmcp.REQUEST_INTERVAL + 0.01)
+mock.advance(emunah.gmcp.REQUEST_INTERVAL + 0.01)
+eq(#mock.gmcpSent, 4, "...until the queue drains")
+eq(emunah.gmcp.queued(), 0, "...and then stops")
+
+-- The real burst: a full refresh with a class's worth of skill groups behind it. Nothing
+-- may go out in one frame except the first.
+emunah.timers.stopAll()
+mock.gmcpSent = {}
+mock.feed("Char.Skills.Groups", {
+   { name = "Survival" }, { name = "Devotion" }, { name = "Spirituality" },
+   { name = "Weaponry" }, { name = "Tattoos" },
+})
+emunah.gmcp.refresh()
+eq(#mock.gmcpSent, 1, "a full refresh sends exactly one request in the current frame",
+   tostring(#mock.gmcpSent) .. " sent: " .. table.concat(mock.gmcpSent, " | "))
+ok(emunah.gmcp.queued() > 5,
+   "...with the rest queued, including one per skill group",
+   tostring(emunah.gmcp.queued()))
+
+emunah.timers.stopAll()
+while emunah.gmcp.queued() > 0 do mock.advance(emunah.gmcp.REQUEST_INTERVAL + 0.01) end
+mock.gmcpSent = {}
+
+-- ===========================================================================
 suite("why a cure did not happen")
 
 -- have.cure() returns a precise reason for every refusal and resolve() used to discard it,
@@ -751,8 +802,12 @@ eq(died, 1, "...and not again on every prompt while dead")
 mock.advance(2.1)
 ok(table.concat(mock.gmcpSent, " | "):find("Core.Supports.Add"),
    "death re-negotiates the GMCP modules", table.concat(mock.gmcpSent, " | "))
+-- The refresh behind it is paced one request at a time, so the rest arrive over the next
+-- second rather than in the same frame -- which is the entire point of the pacer.
+for _ = 1, 8 do mock.advance(emunah.gmcp.REQUEST_INTERVAL + 0.01) end
 ok(table.concat(mock.gmcpSent, " | "):find("Comm.Channel.Players"),
-   "...and re-requests the state that goes with them")
+   "...and re-requests the state that goes with them, spread over several frames",
+   table.concat(mock.gmcpSent, " | "))
 
 mock.gmcpSent = {}
 mock.feed("Char.Vitals", { hp = "1450", maxhp = "1450" })
@@ -3610,7 +3665,10 @@ ok(traced:find("<<") and traced:find("Char%.Vitals"), "a received message is tra
 
 -- Sent, via the wrapped global -- so call sites did not have to change to be visible.
 mock.echoed = {}
+emunah.gmcp.clearRequests()
 emunah.gmcp.items.refresh()
+-- Requests are paced now (see gmcp/init.lua), so the second one is a timer away.
+mock.advance(emunah.gmcp.REQUEST_INTERVAL + 0.01)
 local sentTrace = table.concat(mock.echoed, " | ")
 ok(sentTrace:find(">>") and sentTrace:find("Char%.Items%.Room"),
    "a sent message is traced", sentTrace)

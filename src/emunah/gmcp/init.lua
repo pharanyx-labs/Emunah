@@ -55,6 +55,84 @@ M.MODULES = {
 --- True once we have seen enough traffic to trust our state.
 M.ready = false
 
+-- ---------------------------------------------------------------------------
+-- Outgoing requests are paced, not burst
+-- ---------------------------------------------------------------------------
+--
+-- Observed live:
+--
+--     <JSON decoder error:> parse error: trailing garbage
+--         'll fight until the end." ] }Char.Skills.List { "group": "av
+--                                     ^
+--
+-- Two GMCP messages arriving as one payload. The decoder reads the first object, finds the
+-- second one appended where the input should have ended, and throws away the lot -- so the
+-- failure is not a cosmetic error line, it is a message silently never delivered.
+--
+-- We provoke it. M.refresh() sends five requests, and skills.requestAll() then sends one
+-- per skill group -- around twenty for a class, all in the same frame. The answers come
+-- back faster than they can be framed separately, and the message the error names is
+-- Char.Skills.List: the tail of that burst.
+--
+-- The cost of losing one is not obvious either. A dropped Char.Skills.List leaves the skill
+-- index incomplete, have.skill() answers false for an ability the character has, and every
+-- cure gated on that skill is refused for a reason nothing reports.
+--
+-- So requests go out one at a time, spaced. Nothing here is latency-sensitive: these are
+-- state reads issued on login, on reload and after death, and a full refresh finishing
+-- three seconds later than it might is worth more than a refresh that loses a message.
+M.REQUEST_INTERVAL = 0.15
+
+local outbox = {}
+
+--- Are we inside the interval after a send?
+---
+--- This has to be a flag rather than "is the queue empty". The queue empties on every send,
+--- so a check on emptiness makes each new request look like the first one and go straight
+--- out -- which is the burst this exists to prevent, reproduced exactly.
+local sending = false
+
+local function drain()
+   local payload = table.remove(outbox, 1)
+   if not payload then
+      sending = false
+      return
+   end
+   sendGMCP(payload)
+   sending = true
+   -- Armed after every send, empty queue or not: the interval is a cooldown on the wire,
+   -- not a schedule for work already waiting.
+   emunah.timers.start("gmcp.outbox", M.REQUEST_INTERVAL, drain)
+end
+
+--- Queue a GMCP request. Use this for anything the game answers with a payload.
+---
+--- Goes out immediately when nothing has been sent recently, so a single request is never
+--- delayed; only a burst is spread out.
+function M.request(payload)
+   outbox[#outbox + 1] = tostring(payload)
+
+   -- The cooldown lives in a timer, and timers are cancelled wholesale on reload and on
+   -- disconnect (timers.stopAll). Without this check `sending` would stay true with nothing
+   -- left to clear it, and every GMCP request for the rest of the session would queue and
+   -- never go out -- a system that looks alive and asks the game for nothing.
+   if sending and emunah.timers.ready("gmcp.outbox") then sending = false end
+
+   if not sending then drain() end
+end
+
+--- Drop anything queued. A reconnect re-requests state from scratch, and replaying stale
+--- requests into a fresh session is at best noise.
+function M.clearRequests()
+   outbox = {}
+   sending = false
+end
+
+--- How many requests are still waiting. For `emunah gmcp` and the tests.
+function M.queued()
+   return #outbox
+end
+
 --- Ask the game for the modules we need.
 function M.negotiate()
    local payload = yajl.to_string(M.MODULES)
@@ -83,11 +161,11 @@ end
 --- These are all pull requests; the game answers with the corresponding List messages,
 --- which our per-module handlers pick up as normal.
 function M.refresh()
-   sendGMCP("Char.Items.Inv")
-   sendGMCP("Char.Items.Room")
-   sendGMCP("Comm.Channel.Players")
-   sendGMCP("IRE.Rift.Request")
-   sendGMCP("IRE.Time.Request")
+   M.request("Char.Items.Inv")
+   M.request("Char.Items.Room")
+   M.request("Comm.Channel.Players")
+   M.request("IRE.Rift.Request")
+   M.request("IRE.Time.Request")
    if emunah.gmcp.skills and emunah.gmcp.skills.requestAll then
       emunah.gmcp.skills.requestAll()
    end
@@ -125,6 +203,7 @@ end, "gmcp")
 event.register("sysDisconnectionEvent", function()
    M.ready = false
    emunah.timers.stop("gmcp.keepalive")
+   M.clearRequests()
 end, "gmcp")
 
 -- Char.Name arrives right after login and is the earliest reliable "we are in the game

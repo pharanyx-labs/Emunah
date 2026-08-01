@@ -97,7 +97,9 @@ function M.request(group)
    local key = tostring(group):lower()
    pending[key] = true
    -- The payload is a JSON object: Char.Skills.Get {"group": "survival"}
-   sendGMCP("Char.Skills.Get " .. yajl.to_string({ group = tostring(group) }))
+   -- Paced: requestAll() below asks for every group at once, and the answers coalesce
+   -- into a single unparseable payload if they go out in one frame. See gmcp/init.lua.
+   emunah.gmcp.request("Char.Skills.Get " .. yajl.to_string({ group = tostring(group) }))
    return true
 end
 
@@ -105,7 +107,7 @@ end
 function M.requestAll()
    if not next(M.groups) then
       -- Groups have not arrived yet; ask for them and let onGroups re-drive this.
-      sendGMCP("Char.Skills.Get " .. yajl.to_string({}))
+      emunah.gmcp.request("Char.Skills.Get " .. yajl.to_string({}))
       return false
    end
    M.complete = false
@@ -117,7 +119,8 @@ end
 
 --- Ask for one ability's description.
 function M.info(group, skill)
-   sendGMCP("Char.Skills.Get " .. yajl.to_string({ group = tostring(group), name = tostring(skill) }))
+   emunah.gmcp.request("Char.Skills.Get "
+      .. yajl.to_string({ group = tostring(group), name = tostring(skill) }))
 end
 
 -- ---------------------------------------------------------------------------

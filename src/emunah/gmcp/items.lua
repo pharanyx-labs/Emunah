@@ -75,21 +75,21 @@ end
 --- Ask the game what is inside a container we just learned about.
 local function requestContents(item)
    if not (item and item.id) then return end
-   sendGMCP("Char.Items.Contents " .. item.id)
+   emunah.gmcp.request("Char.Items.Contents " .. item.id)
 end
 
 --- We have been told about a location we are not tracking. Re-sync rather than guess.
 local function resync(key)
    if key == "inv" then
-      sendGMCP("Char.Items.Inv")
+      emunah.gmcp.request("Char.Items.Inv")
    elseif key == "room" then
       -- Mark it ours, or onList will read the reply as the next room's contents arriving
       -- early and refuse to treat it as current. Every path that asks for a room list has
       -- to do this; "unsolicited" only means anything if we account for all our own asks.
       M.roomPollOutstanding = true
-      sendGMCP("Char.Items.Room")
+      emunah.gmcp.request("Char.Items.Room")
    else
-      sendGMCP("Char.Items.Contents " .. key)
+      emunah.gmcp.request("Char.Items.Contents " .. key)
    end
 end
 
@@ -304,9 +304,9 @@ end
 
 --- Ask for a full re-read of inventory and room.
 function M.refresh()
-   sendGMCP("Char.Items.Inv")
+   emunah.gmcp.request("Char.Items.Inv")
    M.roomPollOutstanding = true   -- ours -- see resync()
-   sendGMCP("Char.Items.Room")
+   emunah.gmcp.request("Char.Items.Room")
 end
 
 event.gmcp("Char.Items.List",   onList,   "gmcp.items")
@@ -399,7 +399,7 @@ local function requestRoom(attempt)
    end
 
    M.roomPollOutstanding = true
-   sendGMCP("Char.Items.Room")
+   emunah.gmcp.request("Char.Items.Room")
 
    emunah._persist.itemsRoomTimer = tempTimer(M.ROOM_RETRY_DELAY, function()
       emunah._persist.itemsRoomTimer = nil
