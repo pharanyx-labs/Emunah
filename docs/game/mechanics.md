@@ -279,6 +279,21 @@ go out and does not spend it.
 puts the truth on screen for the player, but the engine cannot yet reconcile its own tracked
 state against it. Paste the output of one and that closes.
 
+## Paralysis blocks almost everything
+
+Three verbatim refusals, all observed in one arena bout:
+
+```
+Your state of paralysis prevents you from doing that.          (drink health)
+You are paralysed and cannot do that.                          (drink health)
+Frustratingly, your body won't respond to your call to action.  (perform hands)
+```
+
+**Eating still works**, which it must — bloodroot is what cures paralysis. `core/queue.lua`
+therefore flushes only the eating vectors while it is up, plus `tree`: whether a tattoo can
+be touched while paralysed is unverified, and withholding the last resort from a character
+that is already stuck is the worse error.
+
 ## Commands that fail for free
 
 Not every rejection costs something, and knowing which is which decides whether a check is

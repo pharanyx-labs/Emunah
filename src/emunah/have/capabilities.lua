@@ -280,27 +280,35 @@ function M.cure(option)
          return false, "focus not known"
       end
 
-      -- GUILT MAKES FOCUSING A BAD TRADE, AND ANOREXIA MAKES IT THE ONLY TRADE.
+      -- GUILT MAKES FOCUSING A BAD TRADE, UNLESS NOTHING ELSE CAN CLEAR THE GUILT.
       --
       -- Reported in play: "a good rule is NOT to focus when you have guilt, UNLESS you also
-      -- have anorexia." Both halves matter and they pull opposite ways.
+      -- have anorexia." Focusing under guilt costs more than the affliction it clears, so
+      -- ordinarily it is the wrong move -- but guilt's own cure is a herb, and if that route
+      -- is shut then refusing to focus means refusing to act at all.
       --
-      -- Focusing under guilt costs more than the affliction it clears, so ordinarily it is
-      -- the wrong move. But anorexia shuts the herb vector, and the herb vector is where
-      -- guilt's own cure lives -- so with both up, refusing to focus means refusing to act
-      -- at all, and the lock simply stays shut. The exception is not a softening of the
-      -- rule; it is the case the rule would otherwise make fatal.
+      -- THE TEST IS WHETHER GUILT CAN ACTUALLY BE EATEN AWAY RIGHT NOW, not whether
+      -- anorexia specifically is up. Anorexia was only ever the example: being out of
+      -- lobelia shuts the same door, and in a real fight that is the commoner way to lose
+      -- it. Checking the affliction rather than the capability left the engine refusing to
+      -- focus while it also had nothing to eat, which is the one state where focusing is
+      -- unambiguously right.
       --
-      -- Tactical rather than mechanical, so it is a setting: `emunah set curing.focusGuilt
-      -- true` focuses regardless.
+      -- Herb BALANCE deliberately does not enter into it. Focus runs on its own balance, so
+      -- being mid-herb-cooldown says nothing about whether focusing is a good idea -- it is
+      -- a question about supply and blocks, both of which have.cure() answers.
       if emunah.config.get("curing.focusGuilt", false) ~= true then
          local engine = emunah.curing.engine
-         local function afflicted(name)
-            if engine and engine.has and engine.has(name) then return true end
-            return M.affliction(name)
-         end
-         if afflicted("guilt") and not afflicted("anorexia") then
-            return false, "guilt -- not focusing while the herb vector is still open"
+         local guilty = (engine and engine.has and engine.has("guilt")) or M.affliction("guilt")
+         if guilty then
+            local afflist = emunah.curing.afflist
+            local canEatItAway = false
+            for _, herbOption in ipairs(afflist.curesVia("guilt", "herb")) do
+               if M.cure(herbOption) then canEatItAway = true end
+            end
+            if canEatItAway then
+               return false, "guilt -- eating it away first, which costs less than focusing"
+            end
          end
       end
    end

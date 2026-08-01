@@ -729,22 +729,39 @@ ok(not table.concat(mock.sent, " | "):find("focus"),
 eq(engine.refusals["stupidity"], "focus is blocked by impatience",
    "...and says so", tostring(engine.refusals["stupidity"]))
 
--- GUILT: do not focus, UNLESS anorexia is also up.
+-- GUILT: eat it away rather than focus -- but only while eating it away is possible.
+-- The test is the capability, not the affliction: being out of lobelia shuts the same door
+-- anorexia does, and in a real fight it is the commoner way to lose it.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
-engine.add("stupidity", "gmcp")
-engine.add("guilt", "gmcp")
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "9", name = "a lobelia seed", attrib = "e" },
+} })
+mock.feed("IRE.Rift.List", {})
+engine.add("stupidity", "trigger")
+engine.add("guilt", "trigger")
 mock.sent = {}
 engine.tick(); queue.flush()
 ok(not table.concat(mock.sent, " | "):find("focus"),
-   "guilt alone stops focusing", table.concat(mock.sent, " | "))
+   "with lobelia in hand, guilt is eaten away rather than focused through",
+   table.concat(mock.sent, " | "))
 
--- ...and anorexia forces it anyway: guilt's own cure is a herb, and anorexia is what shuts
--- the herb vector, so refusing to focus here means refusing to act at all.
-engine.add("anorexia", "gmcp")
+-- Out of lobelia: nothing can eat the guilt, so focusing is now unambiguously right.
+mock.feed("Char.Items.List", { location = "inv", items = {} })
 queue.reset(); emunah.timers.stopAll(); mock.sent = {}
 engine.tick(); queue.flush()
 ok(table.concat(mock.sent, " | "):find("focus"),
-   "...but anorexia forces it, because nothing else can open the lock",
+   "out of lobelia, it focuses rather than doing nothing at all",
+   table.concat(mock.sent, " | "))
+
+-- Anorexia shuts the same door, which is the case the rule was first described with.
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "9", name = "a lobelia seed", attrib = "e" },
+} })
+engine.add("anorexia", "trigger")
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+engine.tick(); queue.flush()
+ok(table.concat(mock.sent, " | "):find("focus"),
+   "...and anorexia does too, lobelia in hand or not",
    table.concat(mock.sent, " | "))
 
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
@@ -912,53 +929,123 @@ engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 mock.feed("Char.Afflictions.List", {})
 
 -- ===========================================================================
-suite("a cure the game says does not work")
+suite("a cure is not sent twice for the same affliction")
 
--- "The plant has no effect." is the game saying the herb treated nothing. Without recording
--- that, the loop is exact and endless: reconcile against Char.Afflictions, which still
--- lists the affliction, resolve the same cure, send it, get the same answer. Observed as
--- `eat kelp` going out eight times in twelve seconds.
+-- The spam this replaces: `eat kelp` going out repeatedly for one clumsiness. The first
+-- attempt at fixing it recorded which cure "had no effect" and refused to use it again --
+-- and blacklisted `eat bloodroot` for paralysis, `eat lobelia` for guilt and `eat kelp` for
+-- clumsiness within twelve seconds. All correct cures, disabled mid-fight.
+--
+-- The reason is that the reply cannot be attributed: the herb balance returns on the game's
+-- own announcement, so by the time "The plant has no effect." prints, a different cure is
+-- already in flight. The guard that works needs no attribution at all.
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
 engine.enabled = true
 mock.feed("Char.Items.List", { location = "inv", items = {
    { id = "1", name = "a piece of kelp", attrib = "e" },
-   { id = "2", name = "an epidermal salve", attrib = "e" },
+   { id = "2", name = "a bloodroot leaf", attrib = "e" },
 } })
 engine.add("clumsiness", "trigger")
 mock.sent = {}
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
-ok(table.concat(mock.sent, " | "):find("eat kelp"), "the known cure is tried",
+ok(table.concat(mock.sent, " | "):find("eat kelp"), "the cure is sent",
    table.concat(mock.sent, " | "))
 
--- The game says it did nothing. That is authoritative, and it is not retried.
-mock.echoed = {}
-engine.cureFailed("clumsiness", "eat kelp")
-ok(table.concat(mock.echoed, " "):find("did not cure clumsiness"),
-   "...and the failure is reported once", table.concat(mock.echoed, " "))
-
-queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+-- The herb balance returns, the affliction is still listed, and the cure must NOT go again:
+-- the first one has not been answered yet.
+mock.sent = {}
 for _ = 1, 4 do
+   mock.line("You may eat another plant or mineral.")
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
-   emunah.have.recover("herb")
 end
 ok(not table.concat(mock.sent, " | "):find("eat kelp"),
-   "a cure the game has refuted is not sent again", table.concat(mock.sent, " | "))
-eq(engine.refusals["clumsiness"], "the game says eat kelp does not cure this",
-   "...and the reason says so plainly", tostring(engine.refusals["clumsiness"]))
+   "a second cure for the same affliction is not sent while the first is unanswered",
+   table.concat(mock.sent, " | "))
 
--- Recorded per affliction AND command: another cure for the same affliction is still
--- reachable, which is the point of not blacklisting the affliction itself.
-engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
-engine.add("anorexia", "trigger")
-engine.cureFailed("anorexia", "apply epidermal to body")
+-- Once the guard lapses, a genuinely still-present affliction is treated again.
+mock.advance(engine.CURE_GUARD + 0.01)
+emunah.have.recover("herb")
 mock.sent = {}
-mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "3000", maxmp = "3000",
-   bal = "1", eq = "1" })
-ok(table.concat(mock.sent, " | "):find("focus"),
-   "a refuted salve falls through to the focus cure", table.concat(mock.sent, " | "))
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat kelp"),
+   "...and is retried once the guard lapses", table.concat(mock.sent, " | "))
+
+-- The affliction going away releases the guard immediately -- the next affliction should
+-- not wait out a window belonging to one that has been cured.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+engine.add("paralysis", "trigger")
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+engine.remove("paralysis")
+engine.add("paralysis", "trigger")
+-- The previous cure is still in flight on the vector; that is a separate guard.
+queue.reset(); emunah.queue.confirm("herb"); emunah.have.recover("herb")
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat bloodroot"),
+   "a cured-and-reapplied affliction is treated immediately",
+   table.concat(mock.sent, " | "))
+
+-- And "no effect" never disables a cure. It frees the vector and reconciles, nothing more.
+mock.line("The plant has no effect.")
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+engine.add("paralysis", "trigger")
+emunah.have.recover("herb")
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat bloodroot"),
+   "a correct cure is never disabled by a reply it cannot be matched to",
+   table.concat(mock.sent, " | "))
 
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 engine.forgetIneffective()
+
+-- ===========================================================================
+suite("paralysis blocks almost everything")
+
+-- Three verbatim refusals from the arena, all for actions the engine kept sending anyway:
+--   "Your state of paralysis prevents you from doing that."        (drink health)
+--   "You are paralysed and cannot do that."                        (drink health)
+--   "Frustratingly, your body won't respond to your call to action." (perform hands)
+--
+-- Eating is the exception and has to be: bloodroot is what cures paralysis, so blocking
+-- everything would lock the character out of its own escape.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+engine.enabled = true
+detect.prone = false
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "1", name = "a bloodroot leaf", attrib = "e" },
+} })
+mock.feed("Char.Vitals", { hp = "300", maxhp = "1000", mp = "3000", maxmp = "3000",
+   bal = "1", eq = "1" })
+
+engine.add("paralysis", "trigger")
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+engine.tick(); queue.flush()
+local whileParalysed = table.concat(mock.sent, " | ")
+ok(whileParalysed:find("eat bloodroot"),
+   "the eat that cures paralysis still goes out", whileParalysed)
+ok(not whileParalysed:find("drink health"),
+   "...but the sip does not, because the game would refuse it", whileParalysed)
+ok(not whileParalysed:find("perform hands"),
+   "...and neither does hands", whileParalysed)
+
+-- Cured, and everything resumes.
+engine.remove("paralysis")
+queue.reset(); emunah.timers.stopAll(); emunah.have.recover("elixir")
+mock.sent = {}
+engine.tick(); queue.flush()
+local after = table.concat(mock.sent, " | ")
+ok(after:find("drink health"), "once it is cured, healing resumes", after)
+
+-- The refusals themselves assert the affliction, ahead of any GMCP push.
+engine.clear()
+mock.line("Your state of paralysis prevents you from doing that.")
+ok(engine.has("paralysis"), "a paralysis refusal asserts the affliction")
+engine.clear()
+mock.line("Frustratingly, your body won't respond to your call to action.")
+ok(engine.has("paralysis"), "...in all its wordings")
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 
 -- ===========================================================================
 suite("standing up, once")
@@ -1362,8 +1449,10 @@ engine.clear(); queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Items.List", { location = "inv", items = {
    { id = "1", name = "some kelp", attrib = "e" },
 } })
-engine.add("anorexia", "gmcp")
-engine.add("asthma", "gmcp")
+-- Trigger-sourced: a GMCP-sourced affliction is dropped by the periodic reconcile when the
+-- server list does not list it, which makes this depend on where the tick counter lands.
+engine.add("anorexia", "trigger")
+engine.add("asthma", "trigger")
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 eq(engine.refusals["asthma"], "herb is blocked by anorexia",
    "a blocked vector names the affliction blocking it",

@@ -63,9 +63,16 @@ detect.define("slickness", {
    },
 })
 
+-- All four are the game refusing an action because of paralysis, and they are worth
+-- asserting from: they arrive the instant the refusal happens, ahead of any GMCP push, and
+-- they are unambiguous. Verbatim from the arena -- the first for `drink health`, the second
+-- also for `drink health`, the third for `perform hands`.
 detect.define("paralysis", {
    gain = {
       [[^You are paralysed and cannot move\.$]],
+      [[^Your state of paralysis prevents you from doing that\.$]],
+      [[^You are paralysed and cannot do that\.$]],
+      [[^Frustratingly, your body won't respond to your call to action\.$]],
    },
 })
 
@@ -207,17 +214,20 @@ do
       local engine = emunah.curing and emunah.curing.engine
       if not engine then return end
 
-      -- WHICH cure failed is the part that matters. The in-flight action on the herb
-      -- vector is the only record of it -- the game's reply names neither the herb nor the
-      -- affliction -- so read it before the vector is freed.
-      local action = emunah.queue.awaiting("herb")
-      if action and action.tag and action.command then
-         -- The tag carries the affliction, sometimes with a suffix for a server-suggested
-         -- cure; the affliction is the part before any space.
-         local affliction = tostring(action.tag):match("^(%S+)")
-         engine.cureFailed(affliction, action.command)
-      end
-
+      -- NO ATTRIBUTION. It is tempting to blame the in-flight herb action and record that
+      -- cure as useless, and that was tried: it blacklisted `eat bloodroot` for paralysis,
+      -- `eat lobelia` for guilt and `eat kelp` for clumsiness within twelve seconds -- all
+      -- three correct cures that had worked minutes earlier -- and left the character
+      -- curing nothing at all.
+      --
+      -- The reason is that the reply cannot be matched to the command that caused it. The
+      -- herb balance now returns on the game's own announcement, so by the time "no effect"
+      -- prints, the vector has been freed and a DIFFERENT cure is already in flight. The
+      -- failure lands on whichever action happens to be queued, which is usually not the
+      -- one that failed.
+      --
+      -- So this only frees the vector and reconciles. What stops the repeat is the
+      -- per-affliction guard in the engine, which needs no attribution at all.
       emunah.queue.confirm("herb")
       emunah.have.recover("herb")
 

@@ -58,33 +58,36 @@ M.refusals = {}
 --- Reasons already logged, so a refusal is reported when it changes rather than per tick.
 local reported = {}
 
---- Cures the game has demonstrated do not work: "affliction|command" -> true.
+--- How long to wait after sending a cure before sending another for the SAME affliction.
 ---
---- "The plant has no effect." is the game saying the herb treated nothing. Our tracked state
---- and the cure table disagree with it, and the game is right. Without recording that, the
---- loop is exact and endless: reconcile against Char.Afflictions, which still lists the
---- affliction, resolve the same cure, send it, get the same answer. Observed as `eat kelp`
---- going out eight times in twelve seconds for a clumsiness that kelp was not treating.
+--- This is what stops a cure being sent twice, and it replaces an attempt at something
+--- cleverer that failed badly. "The plant has no effect." cannot be attributed to the
+--- command that caused it -- the herb balance returns on the game's own announcement, so by
+--- the time the reply prints, a different cure is already in flight -- and recording the
+--- failure against the wrong pair blacklisted `eat bloodroot` for paralysis and `eat
+--- lobelia` for guilt inside twelve seconds. Correct cures, disabled, mid-fight.
 ---
---- Recorded per affliction AND command, not per affliction: a second cure for the same
---- affliction on another vector is still worth trying, and is what this frees the engine to
---- reach.
-M.ineffective = {}
+--- The guard needs no attribution. A cure was sent for this affliction; until the game says
+--- the affliction is gone, or this long passes, sending a second one can only be a
+--- duplicate -- the first has not been answered yet.
+M.CURE_GUARD = 1.5
 
---- Forget which cures have been shown not to work. The table is a within-session
---- observation, not a correction to afflist.lua.
+--- affliction -> time until which another cure for it is a duplicate.
+local curing = {}
+
+--- Forget the in-flight cure guards.
 function M.forgetIneffective()
-   M.ineffective = {}
+   curing = {}
 end
 
---- Record that a command did not treat an affliction.
-function M.cureFailed(affliction, command)
-   if not (affliction and command) then return false end
-   local key = affliction .. "|" .. command
-   if M.ineffective[key] then return false end
-   M.ineffective[key] = true
-   log.warn("%q did not cure %s -- the game says it had no effect. Not trying that "
-      .. "combination again this session.", command, affliction)
+--- Is a cure for this affliction already on its way?
+local function cureInFlight(name)
+   local until_ = curing[name]
+   if not until_ then return false end
+   if util.now() >= until_ then
+      curing[name] = nil
+      return false
+   end
    return true
 end
 
@@ -130,6 +133,7 @@ function M.remove(name)
    M.tracked[name] = nil
    M.refusals[name] = nil
    reported[name] = nil
+   curing[name] = nil
    event.raise("affliction.cured", name)
 
    -- A blinding affliction leaving is handled as a state edge in M.tick() rather than here,
@@ -150,7 +154,7 @@ function M.clear()
    reported = {}
    -- Clearing tracked state ends the bout: a loki tracked after this is a new one.
    diagSent = false
-   M.ineffective = {}
+   curing = {}
 end
 
 function M.count()
@@ -248,10 +252,9 @@ local function resolve(vector)
       local rank = afflist.priority(name, vector)
       if rank and (not bestRank or rank < bestRank) then
          for _, option in ipairs(afflist.curesVia(name, vector)) do
-            local command = curelist.command(option)
             local usable, reason = have.cure(option)
-            if command and M.ineffective[name .. "|" .. command] then
-               usable, reason = false, "the game says " .. command .. " does not cure this"
+            if usable and cureInFlight(name) then
+               usable, reason = false, nil   -- not a refusal: a cure is already on its way
             end
             if usable then
                bestOption, bestAffliction, bestRank = option, name, rank
@@ -859,6 +862,9 @@ function M.tick()
                   -- Start the fallback recovery timer. A confirmation trigger or the
                   -- GMCP removal will normally cut this short.
                   have.spend(vector)
+                  -- And do not send another cure for this same affliction until the game
+                  -- has had a chance to answer this one.
+                  curing[affliction] = util.now() + M.CURE_GUARD
                end,
                onTimeout = function()
                   log.debug("Cure for %s via %s went unconfirmed.", affliction, vector)

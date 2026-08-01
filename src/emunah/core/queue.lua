@@ -101,12 +101,45 @@ end
 --- fight is precisely when refusing to heal gets the character killed. Only actions that
 --- genuinely need you upright pass `needs = { standing = true }` to push().
 --- @return number actions sent
+--- Vectors that still work while paralysed.
+---
+--- PARALYSIS BLOCKS ALMOST EVERYTHING, and the game says so three different ways:
+---
+---   "Your state of paralysis prevents you from doing that."   (drink health)
+---   "You are paralysed and cannot do that."                   (drink health)
+---   "Frustratingly, your body won't respond to your call to action."  (perform hands)
+---
+--- Eating is the exception, and it has to be: bloodroot is what cures paralysis, so a rule
+--- that blocked everything would lock the character out of its own escape. Observed in the
+--- arena as sips, hands and salves going out repeatedly into rejections while the one
+--- command that would have worked waited behind them.
+--- `tree` is here without evidence, deliberately. Whether paralysis blocks touching a
+--- tattoo has not been observed, and the two errors are not equal: sending it into a
+--- refusal costs one round trip, while withholding it removes the last resort from a
+--- character that is, by definition, already stuck.
+queue.WHILE_PARALYSED = {
+   herb = true, moss = true, free = true, writhe = true, tree = true,
+}
+
+local function paralysed()
+   local engine = emunah.curing and emunah.curing.engine
+   if engine and engine.has and engine.has("paralysis") then return true end
+   local afflictions = emunah.gmcp and emunah.gmcp.afflictions
+   return afflictions and afflictions.has("paralysis") or false
+end
+
 function queue.flush()
    -- Cheap early out: stun refuses everything, so there is no point walking the vectors.
    if not emunah.act.can() then return 0 end
 
+   local locked = paralysed()
+
    local sent = 0
    for _, vector in ipairs(queue.VECTORS) do
+      if locked and not queue.WHILE_PARALYSED[vector] then
+         -- Skip: the game will refuse it, and the refusal costs a round trip in a fight
+         -- where the eat that fixes this is waiting behind it.
+      else
       local action = slots[vector]
 
       -- STILL WANTED? A queued action waits for its vector, and a contested vector can
@@ -152,6 +185,7 @@ function queue.flush()
             local ok, err = pcall(action.onSent, action)
             if not ok then log.error("Queue onSent callback failed: %s", tostring(err)) end
          end
+      end
       end
    end
    return sent
