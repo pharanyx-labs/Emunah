@@ -715,7 +715,37 @@ eq(#emunah.gmcp.comm.history, before + 2, "capture keeps going")
 ok(not table.concat(mock.echoed, " "):find("Capture is unaffected"),
    "...without repeating the warning on every line")
 
+-- A broken console rebuilds itself rather than waiting to be told. Telling someone to run
+-- a repair command is no use when the thing that broke is the window they would read it in.
+chat.rebuilt = false
+chat.broken = false
+chat.console = { decho = function() error("widget is gone", 0) end }
+mock.echoed = {}
+mock.feed("Comm.Channel.Text", { channel = "ct", text = "trigger a rebuild" })
+ok(table.concat(mock.echoed, " "):find("Rebuilding the chat console"),
+   "a render failure rebuilds the console", table.concat(mock.echoed, " "))
+ok(chat.rebuilt, "...once")
+
+-- Only once: a console that cannot be rebuilt must not be rebuilt per message arriving.
+mock.echoed = {}
+chat.console = { decho = function() error("still gone", 0) end }
+chat.broken = false
+mock.feed("Comm.Channel.Text", { channel = "ct", text = "and again" })
+ok(not table.concat(mock.echoed, " "):find("Rebuilding the chat console"),
+   "...and not again on every message", table.concat(mock.echoed, " "))
+
+-- No console at all is its own failure, and was previously a silent early return: a chat
+-- window that never built looks exactly like one that stopped working.
+chat.console, chat.mode = nil, "none"
+chat.dropped = 0
+mock.echoed = {}
+mock.feed("Comm.Channel.Text", { channel = "ct", text = "nowhere to go" })
+eq(chat.dropped, 1, "a message with no console is counted, not silently dropped")
+ok(table.concat(mock.echoed, " "):find("no console to render into"),
+   "...and said out loud", table.concat(mock.echoed, " "))
+
 chat.console, chat.mode, chat.broken = nil, "none", false
+chat.rebuilt, chat.dropped = false, 0
 
 -- ===========================================================================
 suite("when GMCP lies or goes quiet")

@@ -92,6 +92,7 @@ function M.build()
          M.console = console
          M.mode = "emco"
          M.broken = false
+         warnedNoConsole = false
          M.replay()
          return true
       end
@@ -109,6 +110,7 @@ function M.build()
    M.console = console
    M.mode = "plain"
    M.broken = false
+   warnedNoConsole = false
 
    if not findEMCO() then
       log.info("EMCO not found -- chat is a single console. Install the MDK for tabs.")
@@ -127,17 +129,55 @@ end
 --- message into its own history before this module is ever called, precisely so the two
 --- fail independently. A chat window that has gone quiet is therefore either the game no
 --- longer sending, or this. Saying which turns an hour of guessing into one line.
+--- Set once a rebuild has been attempted, so a console that cannot be rebuilt is not
+--- rebuilt on every single line arriving.
+M.rebuilt = false
+
 local function renderFailed(reason)
-   if M.broken then return end
-   M.broken = true
-   emunah.log.warn("Chat console is not accepting output (%s). Capture is unaffected -- "
-      .. "`emunah gmcp` still shows the messages arriving. Try `emunah ui rebuild`.",
-      tostring(reason))
+   if not M.broken then
+      M.broken = true
+      log.warn("Chat console stopped accepting output (%s). Capture is unaffected -- "
+         .. "the messages are still recorded; this is the window, not the feed.",
+         tostring(reason))
+   end
+
+   -- REBUILD RATHER THAN ASK. Telling someone to run `emunah ui rebuild` is no use when
+   -- they are in a fight and the thing that broke is the window they would read the advice
+   -- in. One attempt only: if the rebuild does not take, retrying per message turns a dead
+   -- chat window into a dead client.
+   if M.rebuilt then return false end
+   M.rebuilt = true
+   log.info("Rebuilding the chat console.")
+   local ok, built = pcall(M.build)
+   if ok and built then
+      M.broken = false
+      log.info("Chat console rebuilt.")
+      return true
+   end
+   log.warn("Chat console could not be rebuilt (%s). `emunah ui rebuild` retries the "
+      .. "whole interface.", tostring(built))
+   return false
 end
+
+--- Messages that arrived with nowhere to put them.
+---
+--- `M.append` returns early when there is no console, which is correct -- but silently, and
+--- a chat window that never built looks exactly like one that stopped working. Counted so
+--- `emunah chat` can say so, and warned about once.
+M.dropped = 0
+local warnedNoConsole = false
 
 --- Render one message.
 function M.append(message)
-   if not M.console then return end
+   if not M.console then
+      M.dropped = M.dropped + 1
+      if not warnedNoConsole then
+         warnedNoConsole = true
+         log.warn("Chat has no console to render into (mode %q) -- messages are being "
+            .. "captured but not shown. `emunah ui rebuild` builds one.", M.mode)
+      end
+      return
+   end
 
    if M.mode == "emco" then
       -- EMCO creates the tab set at construction; a channel that routes to an unknown tab

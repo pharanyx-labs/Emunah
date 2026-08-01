@@ -115,6 +115,43 @@ M.handlers.affs = function()
    end
 end
 
+--- Chat diagnostics: which half is working.
+---
+--- Capture and rendering are separate modules so they fail independently, which only helps
+--- if you can see which one went. "Chat stopped" is the same symptom for three different
+--- causes -- the game stopped sending, the console broke, or no console was ever built --
+--- and this distinguishes them in one line.
+M.handlers.chat = function(arg)
+   local comm = emunah.gmcp.comm
+   local chat = emunah.ui.chat
+
+   if arg == "rebuild" then
+      chat.rebuilt = false
+      local ok, built = pcall(chat.build)
+      log.info("Chat rebuild: %s", (ok and built) and "ok" or "failed")
+      return
+   end
+
+   header("Chat")
+   row("captured", string.format("%d message%s", #comm.history,
+      #comm.history == 1 and "" or "s"))
+   local last = comm.history[#comm.history]
+   row("last captured", last and (os.date("%H:%M:%S", last.at) .. "  [" .. last.tab .. "] "
+      .. (last.talker or "")) or "(nothing yet)")
+   row("render mode", chat.mode,
+      chat.mode == "none" and "ansi_light_red" or "ansi_light_green")
+   row("console", chat.console and "present" or "MISSING",
+      chat.console and "ansi_light_green" or "ansi_light_red")
+   if chat.broken then row("state", "NOT ACCEPTING OUTPUT", "ansi_light_red") end
+   if (chat.dropped or 0) > 0 then
+      row("dropped", tostring(chat.dropped) .. " (captured, never rendered)", "ansi_yellow")
+   end
+
+   cecho("\n  <ansi_light_black>Messages captured but not shown means the window; "
+      .. "nothing captured means the feed.<reset>")
+   cecho("\n  <ansi_light_black>emunah chat rebuild -- rebuild just the chat console.<reset>")
+end
+
 M.handlers.gmcp = function(arg)
    if arg == "refresh" then
       emunah.gmcp.refresh()
@@ -553,6 +590,7 @@ M.handlers.help = function()
       { "emunah defs ...",         "on|off|add <def>|remove <def>|list" },
       { "emunah have [thing]",     "capability report, or check one item/skill" },
       { "emunah gmcp [refresh]",   "tracked GMCP state" },
+      { "emunah chat [rebuild]",   "chat capture vs rendering -- which half is working" },
       { "emunah learn on|off",     "log candidate affliction messages to a file" },
       { "emunah detect",           "detection pattern coverage" },
       { "emunah walk ...",         "start|stop|pause|auto on|off|delay <s>|avoid <id>" },
