@@ -72,7 +72,7 @@ one landed hit before it says anything. `CON` reports sentience and a power rank
 at the point a denizen is first recorded rather than mid-fight, which is better information
 for the same decision. Needs the `CON` output format.
 
-**Open data questions.** Seven items in
+**Open data questions.** Six items in
 [docs/afflictions.md](afflictions.md#open-questions) need in-game confirmation, most
 significantly whether five entries are defences mismodelled as afflictions.
 

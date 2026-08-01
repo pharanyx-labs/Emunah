@@ -147,18 +147,18 @@ of what `Char.Afflictions` actually reports.
 identically (`apply caloric to body`) and all plausibly map to the published "Freezing"
 entry. Whether Achaea has three distinct cold-severity names is unconfirmed.
 
-**4. `unknowncrippledarm` and `unknowncrippledlimb` share `location = "arms"`.** The second
+**3. `unknowncrippledarm` and `unknowncrippledlimb` share `location = "arms"`.** The second
 name suggests a location-agnostic fallback rather than a copy of the first.
 
-**5. The five `*disrupt` afflictions** (`airdisrupt`, `earthdisrupt`, `firedisrupt`,
+**4. The five `*disrupt` afflictions** (`airdisrupt`, `earthdisrupt`, `firedisrupt`,
 `spiritdisrupt`, `waterdisrupt`) do not appear in the published help. Likely class-specific
 content the general pages do not cover — unverifiable from that source rather than known
 wrong.
 
-**6. `fear` resolves through the `focus` vector**, but the published page names the action
+**5. `fear` resolves through the `focus` vector**, but the published page names the action
 "Compose". Possibly terminology only, since the `focus` vector issues `FOCUS` elsewhere.
 
-**7. Afflictions observed without cure data.** `horror`, `pyre`, `crescendo` and three
+**6. Afflictions observed without cure data.** `horror`, `pyre`, `crescendo` and three
 `unweaving*` effects have been seen named but have no confirmed cure, so they are absent
 from the table rather than guessed into it.
 
