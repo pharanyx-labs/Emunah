@@ -147,13 +147,6 @@ of what `Char.Afflictions` actually reports.
 identically (`apply caloric to body`) and all plausibly map to the published "Freezing"
 entry. Whether Achaea has three distinct cold-severity names is unconfirmed.
 
-**3. Four entries have an empty priority table.** `crackedribs`, `skullfractures`,
-`torntendons` and `wristfractures` are cured via salve `health` rather than
-`mending`/`restoration`. An empty `priority` means `afflist.priority()` returns `nil` for
-every vector, so the engine's ranked resolution can never select them. If that is
-intentional — swept up by the emergency healing branch instead — it needs stating; if not,
-they are silently uncurable.
-
 **4. `unknowncrippledarm` and `unknowncrippledlimb` share `location = "arms"`.** The second
 name suggests a location-agnostic fallback rather than a copy of the first.
 
@@ -172,6 +165,16 @@ from the table rather than guessed into it.
 ## Change history
 
 Substantive corrections to the data, most recent first.
+
+**Four afflictions were uncurable.** `crackedribs`, `skullfractures`, `torntendons` and
+`wristfractures` shipped with an empty `priority` table. `afflist.priority()` returns `nil`
+for every vector in that state, and `engine.resolve()` only considers ranked afflictions —
+so the game reported them, the engine tracked them, the panel displayed them, and no cure
+was ever sent. All four are `apply health` damage from ordinary hunting, so the symptom was
+a single injury that never healed while everything else cured normally. Ranked after the
+existing salve list (42–45) rather than guessed into the middle of it. The test suite now
+asserts that every affliction with a cure has a priority the engine can select it by, so no
+entry can be left unrankable again.
 
 **Stack-count handling.** Afflictions reporting as `"name (N)"` were untrackable under any
 spelling. `splitStack()` in `gmcp/afflictions.lua` now strips the suffix before lookup and

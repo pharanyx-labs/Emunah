@@ -43,6 +43,18 @@ local curelist = emunah.curing.curelist
 --- affliction name -> { since, source }
 M.tracked = {}
 
+--- Why a tracked affliction is not being cured: affliction -> reason.
+---
+--- have.cure() returns a precise reason for every refusal -- "out of bloodroot", "herb is
+--- blocked by anorexia", "not enough mana to focus" -- and resolve() used to discard it.
+--- That made every cure failure look identical from outside: an affliction sitting in the
+--- panel with nothing happening, and nothing anywhere saying why. Kept so `emunah affs` can
+--- answer the question directly.
+M.refusals = {}
+
+--- Reasons already logged, so a refusal is reported when it changes rather than per tick.
+local reported = {}
+
 --- Vectors we resolve cures on, in the order we consider them. Order only affects which
 --- vector gets first refusal on a shared resource; they are otherwise independent.
 M.VECTORS = { "salve", "herb", "smoke", "elixir", "focus", "tree" }
@@ -76,6 +88,8 @@ function M.remove(name)
    name = tostring(name or ""):lower()
    if not M.tracked[name] then return false end
    M.tracked[name] = nil
+   M.refusals[name] = nil
+   reported[name] = nil
    event.raise("affliction.cured", name)
 
    -- A blinding affliction leaving is handled as a state edge in M.tick() rather than here,
@@ -176,10 +190,21 @@ local function resolve(vector)
       local rank = afflist.priority(name, vector)
       if rank and (not bestRank or rank < bestRank) then
          for _, option in ipairs(afflist.curesVia(name, vector)) do
-            local usable = have.cure(option)
+            local usable, reason = have.cure(option)
             if usable then
                bestOption, bestAffliction, bestRank = option, name, rank
+               M.refusals[name] = nil
+               reported[name] = nil
                break
+            elseif reason then
+               M.refusals[name] = reason
+               -- Once per distinct reason, not once per tick: this runs on every prompt,
+               -- and an affliction nothing can cure would otherwise fill the log with the
+               -- same line several times a second.
+               if reported[name] ~= reason then
+                  reported[name] = reason
+                  log.warn("Cannot cure %s: %s.", name, reason)
+               end
             end
          end
       end

@@ -231,6 +231,27 @@ eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss", "anorexia
 eq(table.concat(afflist.blockedVectors("slickness"), ","), "salve", "slickness blocks applying")
 eq(table.concat(afflist.blockedVectors("asthma"), ","), "smoke", "asthma blocks smoking")
 
+-- EVERY CURE MUST BE REACHABLE. engine.resolve() only considers afflictions that have a
+-- priority for the vector being resolved, so an entry with a cure but no rank is tracked
+-- forever and never acted on -- the game reports it, the panel shows it, and nothing is
+-- sent. Four entries shipped in exactly that state (crackedribs, skullfractures,
+-- torntendons, wristfractures: all `apply health` damage from ordinary hunting), which
+-- presents as one affliction that never heals while everything else cures normally.
+local unrankable = {}
+for name, definition in pairs(afflist.afflictions) do
+   local ranked = false
+   for _, option in ipairs(definition.cures or {}) do
+      if afflist.priority(name, option.vector) then ranked = true break end
+   end
+   if not ranked and #(definition.cures or {}) > 0 then
+      unrankable[#unrankable + 1] = name
+   end
+end
+table.sort(unrankable)
+eq(#unrankable, 0,
+   "every affliction with a cure has a priority the engine can select it by",
+   table.concat(unrankable, ", "))
+
 local curelist = emunah.curing.curelist
 local cure = afflist.curesVia("paralysis", "herb")[1]
 local command, item = curelist.command(cure)
@@ -645,6 +666,57 @@ emunah.config.set("defences.commands", {})
 keepup.resetBudget()
 queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Defences.List", {})
+
+-- ===========================================================================
+suite("why a cure did not happen")
+
+-- have.cure() returns a precise reason for every refusal and resolve() used to discard it,
+-- so every failure looked identical from outside: an affliction in the panel, nothing
+-- happening, nothing anywhere saying why.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = true
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+mock.feed("IRE.Rift.List", {})
+mock.echoed = {}
+
+mock.feed("Char.Afflictions.Add", { name = "paralysis" })
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+eq(engine.refusals["paralysis"], "out of bloodroot",
+   "the reason a cure could not happen is recorded", tostring(engine.refusals["paralysis"]))
+ok(table.concat(mock.echoed, " "):find("Cannot cure paralysis"),
+   "...and said once", table.concat(mock.echoed, " "))
+
+-- Once per distinct reason, not once per tick: this runs on every prompt.
+mock.echoed = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000" })
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000" })
+ok(not table.concat(mock.echoed, " "):find("Cannot cure paralysis"),
+   "...not repeated every prompt", table.concat(mock.echoed, " "))
+
+-- Restocking the herb clears it, and the cure goes out.
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "1", name = "some bloodroot", attrib = "e" },
+} })
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat bloodroot"),
+   "with the herb in hand the cure goes out", table.concat(mock.sent, " | "))
+eq(engine.refusals["paralysis"], nil, "...and the refusal is cleared")
+
+-- A blocked vector reports the blocker rather than nothing.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "1", name = "some kelp", attrib = "e" },
+} })
+engine.add("anorexia", "gmcp")
+engine.add("asthma", "gmcp")
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+eq(engine.refusals["asthma"], "herb is blocked by anorexia",
+   "a blocked vector names the affliction blocking it",
+   tostring(engine.refusals["asthma"]))
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+mock.feed("Char.Afflictions.List", {})
 
 -- ===========================================================================
 suite("surviving death")

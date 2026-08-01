@@ -148,9 +148,16 @@ M.afflictions = {
       cures = { { vector = "herb", item = "ash", alt = "stannum" }, { vector = "focus" } },
       priority = { herb = 22, focus = 7 },
    },
+   -- THESE FOUR WERE UNCURABLE. An empty `priority` makes afflist.priority() return nil for
+   -- every vector, and engine.resolve() only ever considers ranked afflictions -- so the
+   -- game reported them, the engine tracked them, and no cure was ever sent. All four are
+   -- `apply health` damage from ordinary hunting, so the symptom was a fracture that never
+   -- healed while everything else cured normally. Ranked after the existing salve list
+   -- rather than guessed into the middle of it. test/run.lua asserts no entry can be left
+   -- unrankable again.
    crackedribs = {
       cures = { { vector = "salve", item = "health", alt = "health", location = "torso" } },
-      priority = {},
+      priority = { salve = 43 },
    },
    crippledleftarm = {
       cures = { { vector = "salve", item = "mending", alt = "renewal", location = "arms" } },
@@ -488,7 +495,7 @@ M.afflictions = {
    },
    skullfractures = {
       cures = { { vector = "salve", item = "health", alt = "health", location = "head" } },
-      priority = {},
+      priority = { salve = 42 },
    },
    slashedthroat = {
       cures = { { vector = "salve", item = "epidermal", alt = "sensory", location = "head" } },
@@ -530,7 +537,7 @@ M.afflictions = {
    },
    torntendons = {
       cures = { { vector = "salve", item = "health", alt = "health", location = "legs" } },
-      priority = {},
+      priority = { salve = 44 },
    },
    unknowncrippledarm = {
       cures = { { vector = "salve", item = "mending", alt = "renewal", location = "arms" } },
@@ -574,7 +581,7 @@ M.afflictions = {
    },
    wristfractures = {
       cures = { { vector = "salve", item = "health", alt = "health", location = "arms" } },
-      priority = {},
+      priority = { salve = 45 },
    },
 }
 

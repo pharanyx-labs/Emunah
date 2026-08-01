@@ -108,10 +108,24 @@ M.handlers.affs = function()
       cecho("\n  <ansi_light_green>clear<reset>")
       return
    end
+   if not engine.enabled then
+      cecho("\n  <ansi_light_red>curing is OFF<reset> <ansi_light_black>-- "
+         .. "`emunah cure on`. Nothing below is being acted on.<reset>")
+   end
    for _, record in ipairs(tracked) do
       local vectors = table.concat(emunah.curing.afflist.vectorsFor(record.name), ", ")
       row(record.name, string.format("%s  [%s, %.0fs]",
-         vectors ~= "" and vectors or "no known cure", record.source, emunah.util.now() - record.since))
+         vectors ~= "" and vectors or "no known cure", record.source,
+         emunah.util.now() - record.since))
+      -- The reason it is still here, when there is one. An affliction with a cure that
+      -- cannot currently be performed looks exactly like one being ignored.
+      local refusal = engine.refusals[record.name]
+      if refusal then
+         cecho(string.format("\n  %-18s <ansi_light_red>%s<reset>", "", refusal))
+      elseif vectors == "" then
+         cecho(string.format("\n  %-18s <ansi_yellow>%s<reset>", "",
+            "no cure defined -- it will sit here until it wears off"))
+      end
    end
 end
 
