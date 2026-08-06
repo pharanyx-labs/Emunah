@@ -78,9 +78,16 @@ local MANIFEST = {
    -- capability gate: reads gmcp state and the cure data, so must follow both
    { path = "emunah.have.capabilities",  as = "have"          },
 
+   -- what raises each defence, and which afflictions are somebody's defence held on
+   -- purpose. Pure data over afflist and have. Ahead of the engine, which asks it whether
+   -- an affliction is one the character wants.
+   { path = "emunah.curing.deflist",     as = "curing.deflist" },
+
    -- ui
    { path = "emunah.ui.theme",           as = "ui.theme"      },
+   { path = "emunah.ui.echo",            as = "ui.echo"       },
    { path = "emunah.ui.layout",          as = "ui.layout"     },
+   { path = "emunah.ui.chyron",          as = "ui.chyron"     },
    { path = "emunah.ui.vitals",          as = "ui.vitals"     },
    { path = "emunah.ui.affpanel",        as = "ui.affpanel"   },
    { path = "emunah.ui.chat",            as = "ui.chat"       },
@@ -91,6 +98,8 @@ local MANIFEST = {
    { path = "emunah.curing.engine",      as = "curing.engine" },
    { path = "emunah.curing.detect.init", as = "curing.detect" },
    { path = "emunah.curing.detect.opponent", as = "curing.detect.opponent" },
+   -- reads DIAG's answer; needs afflist to normalise names and the engine to reconcile
+   { path = "emunah.curing.detect.diag",     as = "curing.diag" },
    { path = "emunah.curing.defkeepup",   as = "curing.defkeepup" },
 
    -- area walker: needs gmcp.room for position and config for its avoid list
@@ -105,12 +114,31 @@ local MANIFEST = {
    -- gold pickup; reads gmcp.items
    { path = "emunah.loot",               as = "loot"          },
 
+   -- shop listings and buying by replica number; reads loot.STOW_IN for where gold lives
+   -- and gmcp.status for the gold-spent verification, so it follows both
+   { path = "emunah.shop",               as = "shop"          },
+
+   -- the manna rite as one command; needs act, timers and have.balance
+   { path = "emunah.manna",              as = "manna"         },
+
+   -- keeps the pipes filled and lit; needs curing.curelist for the smoked-herb list and
+   -- have.item for what is carried, so it loads after both
+   { path = "emunah.pipes",              as = "pipes"         },
+
    -- numpad movement bindings; loaded after the walker because a movement key stops it
    { path = "emunah.keys",               as = "keys"          },
 
    -- who is a person, and what are they. Loaded before pvp, which asks it whether a name
    -- may be targeted at all.
    { path = "emunah.namedb",             as = "namedb"        },
+   -- the Achaea web API, then the game-text listings that feed it names. capture needs
+   -- api, and both hang off the namedb table published above them.
+   { path = "emunah.namedb.api",         as = "namedb.api"    },
+   { path = "emunah.namedb.capture",     as = "namedb.capture" },
+
+   -- name highlighting. Out of the ui block above on purpose: it renders the database, so
+   -- it has to follow it.
+   { path = "emunah.ui.names",           as = "ui.names"      },
 
    -- class adapter (interface + detection; loads emunah/class/<class>.lua when known)
    { path = "emunah.class.adapter",      as = "class"         },
@@ -122,6 +150,10 @@ local MANIFEST = {
    -- PvP targeting: explicit opt-in only, mutually exclusive with bashing via the
    -- emunah.bashing.pause / bashing.started event pair (see pvp.lua's header)
    { path = "emunah.pvp",                as = "pvp"           },
+
+   -- the command reference. Ahead of commands.lua, which renders it; it reads config and
+   -- keys at RENDER time rather than load time, so it only needs theme to be present.
+   { path = "emunah.help",               as = "help"          },
 
    -- user-facing aliases. Last, so `emunah status` can report on everything above it.
    { path = "emunah.commands",           as = "commands"      },

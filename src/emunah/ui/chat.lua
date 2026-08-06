@@ -43,9 +43,9 @@ local function available()
    return layout.container("right") ~= nil and type(Geyser) == "table"
 end
 
---- Chat occupies the TOP of the right-hand column; ui/roompanel.lua takes the bottom half
---- below layout.CHAT_SPLIT. Both read that constant so the two cannot drift into
---- overlapping each other.
+--- Chat occupies the TOP of the right-hand column; ui/affpanel.lua's defences console
+--- takes the bottom half below layout.CHAT_SPLIT. Both read that constant so the two
+--- cannot drift into overlapping each other.
 function M.build()
    if not available() then
       M.mode = "none"
@@ -53,7 +53,11 @@ function M.build()
    end
 
    local parent = layout.container("right")
-   local height = string.format("%d%%", layout.percentOf(layout.CHAT_SPLIT) - 1)
+   -- A few percent of top margin, not zero: right up against the container's top edge,
+   -- the console's first line sat under the container's own title bar. Reported from play
+   -- (same fix as ui/roompanel.lua's room console, for the same reason).
+   local TOP_MARGIN = 3
+   local height = string.format("%d%%", layout.percentOf(layout.CHAT_SPLIT) - 1 - TOP_MARGIN)
 
    -- The all-tab has to be a real member of `consoles`. EMCO:setAllTabName() rejects any
    -- name that is not already in the list, and the object then ends up with an allTabName
@@ -69,7 +73,7 @@ function M.build()
    if emco then
       local ok, console = pcall(emco.new, emco, {
          name           = "emunah.chat",
-         x = 2, y = 2, width = "-4px", height = height,
+         x = 2, y = string.format("%d%%", TOP_MARGIN), width = "-4px", height = height,
          consoles       = tabs,
          allTab         = true,
          allTabName     = ALL_TAB,
@@ -92,6 +96,12 @@ function M.build()
          M.console = console
          M.mode = "emco"
          M.broken = false
+         -- A fresh, working console earns back the one rebuild attempt renderFailed()
+         -- spends on the next failure. Leaving this latched true after a successful
+         -- rebuild meant only the FIRST console failure of a session was ever repaired --
+         -- every one after it hit `if M.rebuilt then return false end` and was dropped
+         -- silently, forever, until a manual `emreload`.
+         M.rebuilt = false
          warnedNoConsole = false
          M.replay()
          return true
@@ -104,12 +114,13 @@ function M.build()
    -- No setStyleSheet -- MiniConsole does not have it (see ui/theme.lua).
    local console = Geyser.MiniConsole:new(theme.consoleCons({
       name = "emunah.chat.plain",
-      x = 2, y = 2, width = "-4px", height = height,
+      x = 2, y = string.format("%d%%", TOP_MARGIN), width = "-4px", height = height,
       scrollBar = true,
    }), parent)
    M.console = console
    M.mode = "plain"
    M.broken = false
+   M.rebuilt = false  -- see the emco branch above: this is what lets a LATER failure self-heal too
    warnedNoConsole = false
 
    if not findEMCO() then

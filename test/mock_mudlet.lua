@@ -38,7 +38,9 @@ function mock.reset()
    mock.timers, mock.aliases, mock.triggers = {}, {}, {}
    mock.handlers = {}
    mock.links = {}
+   mock.popups = {}
    mock.deletedLines = 0
+   mock.currentLine, mock.formatted = "", {}
    mock.clock = 0
    nextId = 0
 end
@@ -60,11 +62,13 @@ function mock.install(homeDir)
    _G.debugc = record
    function _G.display(value) record(tostring(value)) end
 
-   -- Clickable links: cechoLink/dechoLink(text, command, hint, singleClick) -- the "c"/"d"
-   -- prefix only controls how colour tags in `text` are parsed (named vs decimal-tuple),
-   -- same distinction as cecho/decho. `command` is Lua SOURCE, evaluated fresh when
-   -- clicked -- not a function reference -- matching real Mudlet. mock.click(index)
-   -- simulates a click by running exactly that source.
+   -- Clickable links: cechoLink/dechoLink(text, command, hint, useCurrentFormat) -- the
+   -- "c"/"d" prefix only controls how colour tags in `text` are parsed (named vs
+   -- decimal-tuple), same distinction as cecho/decho. `command` is Lua SOURCE, evaluated
+   -- fresh when clicked -- not a function reference -- matching real Mudlet. mock.click(index)
+   -- simulates a click by running exactly that source. The 4th argument is `useCurrentFormat`
+   -- (Mudlet's own name, per TLuaInterpreterUI.cpp) -- it keeps the caller's own colour tags
+   -- instead of Mudlet's default link styling, and has nothing to do with click behaviour.
    mock.links = {}
    local function recordLink(text, command, hint)
       mock.links[#mock.links + 1] = { text = text, command = command, hint = hint }
@@ -73,12 +77,157 @@ function mock.install(homeDir)
    _G.cechoLink, _G.dechoLink, _G.echoLink, _G.hechoLink =
       recordLink, recordLink, recordLink, recordLink
 
+   -- Popup links: cechoPopup/dechoPopup(text, commandList, hintList, useCurrentFormat) --
+   -- same click-time-evaluated-source idiom as the plain link functions above, except this
+   -- one offers several commands instead of one: left-click runs commandList[1], right-click
+   -- opens a menu of every entry in commandList (real Mudlet behaviour, confirmed against
+   -- Mudlet's own GUIUtils.lua/TLuaInterpreterUI.cpp -- not modelled here, since this mock
+   -- has no real mouse-button discrimination and cannot represent that distinction; use
+   -- mock.popupClick() to simulate choosing an entry from the menu regardless of which
+   -- button a real click would have used). This is how a console-embedded link can offer
+   -- more than one action (shop.lua's "buy 1 / 10 / 100" and "fill rift" menus).
+   mock.popups = {}
+   local function recordPopup(text, commandList, hintList)
+      mock.popups[#mock.popups + 1] = { text = text, commands = commandList, hints = hintList }
+      record(text)
+   end
+   _G.cechoPopup, _G.dechoPopup, _G.echoPopup, _G.hechoPopup =
+      recordPopup, recordPopup, recordPopup, recordPopup
+
+   --- Simulate choosing one entry (1-indexed) from a captured popup menu (1-indexed).
+   --- @return boolean ok, string|nil err
+   function mock.popupClick(index, choice)
+      local popup = mock.popups[index]
+      if not popup then return false, "no such popup" end
+      local command = popup.commands and popup.commands[choice]
+      if not command then return false, "no such choice" end
+      local fn, err = (loadstring or load)(command)
+      if not fn then return false, err end
+      return pcall(fn)
+   end
+
    -- Deletes the current line, real Mudlet's half of the "rewrite this line as a
    -- clickable one" idiom (deleteLine() then re-echo). Nothing in this mock models line
    -- buffers precisely enough to actually remove anything; recording that it was called
    -- is enough for a test to assert the rewrite happened.
    mock.deletedLines = 0
    function _G.deleteLine() mock.deletedLines = mock.deletedLines + 1 end
+
+   -- In-place line formatting: the selectString + set*() family, which is how a highlighter
+   -- restyles text that has already arrived.
+   --
+   -- Modelled rather than stubbed, because the interesting bugs here are all about WHICH
+   -- text got selected. selectString's second argument is an ORDINAL -- restyling the second
+   -- "Malefactor" on a line means asking for occurrence 2 -- and a stub that ignored it
+   -- would happily pass a highlighter that styles the first occurrence three times and
+   -- leaves the other two plain, which is exactly the bug worth catching.
+   --
+   -- mock.formatted records one entry per styled run, in the order they were applied.
+   mock.currentLine = ""
+   mock.formatted = {}
+   local selection = nil
+
+   --- Set the line a trigger is notionally firing on.
+   function mock.setLine(text)
+      mock.currentLine = tostring(text or "")
+      mock.formatted = {}
+      selection = nil
+   end
+
+   function _G.getCurrentLine() return mock.currentLine end
+
+   --- Real Mudlet returns the 0-based start index, or -1 when the occurrence is not there.
+   function _G.selectString(text, occurrence)
+      occurrence = tonumber(occurrence) or 1
+      local from, start, stop = 1, nil, nil
+      for _ = 1, occurrence do
+         start, stop = mock.currentLine:find(tostring(text), from, true)
+         if not start then selection = nil return -1 end
+         from = start + 1
+      end
+      selection = { text = mock.currentLine:sub(start, stop), at = start,
+                    bold = false, italic = false, underline = false }
+      mock.formatted[#mock.formatted + 1] = selection
+      return start - 1
+   end
+
+   function _G.deselect() selection = nil end
+
+   local function styler(field)
+      return function(...)
+         if not selection then return end
+         local args = { ... }
+         if field == "colour" then
+            selection.colour = string.format("#%02x%02x%02x",
+               tonumber(args[1]) or 0, tonumber(args[2]) or 0, tonumber(args[3]) or 0)
+         else
+            selection[field] = args[1] ~= false
+         end
+      end
+   end
+   _G.setFgColor   = styler("colour")
+   _G.setBold      = styler("bold")
+   _G.setItalics   = styler("italic")
+   _G.setUnderline = styler("underline")
+
+   --- What was applied to a given piece of text, or nil. Occurrence defaults to the first.
+   function mock.formatOf(text, occurrence)
+      local n = 0
+      for _, entry in ipairs(mock.formatted) do
+         if entry.text == text then
+            n = n + 1
+            if n == (tonumber(occurrence) or 1) then return entry end
+         end
+      end
+      return nil
+   end
+
+   -- HTTP. Both of Mudlet's mechanisms are modelled, because namedb/api.lua picks between
+   -- them at runtime and each delivers its result through a DIFFERENT pair of events --
+   -- getting either pair wrong means every lookup silently never completes.
+   --
+   -- Nothing here touches the network. mock.serve() registers canned bodies by URL, and
+   -- mock.respond() delivers them; a URL with no canned body fails the way a 403 does,
+   -- which is what the API returns for a name that is not a character.
+   mock.requests = {}     -- { url, handle } in order
+   mock.responses = {}    -- url -> body string, or { error = "..." }
+   mock.hasGetHTTP = true
+
+   function mock.serve(url, body) mock.responses[url] = body end
+
+   function _G.getHTTP(url)
+      mock.requests[#mock.requests + 1] = { url = url, handle = url, kind = "getHTTP" }
+   end
+
+   function _G.downloadFile(path, url)
+      mock.requests[#mock.requests + 1] = { url = url, handle = path, kind = "downloadFile" }
+   end
+
+   --- Deliver every outstanding request. Returns how many were answered.
+   ---
+   --- Synchronous on purpose: the queue in namedb/api.lua paces requests with tempTimer, so
+   --- a test drives it with mock.advance() and calls this to let each one land.
+   function mock.respond()
+      local outstanding = mock.requests
+      mock.requests = {}
+      for _, request in ipairs(outstanding) do
+         local body = mock.responses[request.url]
+         if body == nil then
+            if request.kind == "getHTTP" then
+               raiseEvent("sysGetHttpError", "403 Forbidden", request.url)
+            else
+               raiseEvent("sysDownloadError", "403 Forbidden", request.handle)
+            end
+         elseif request.kind == "getHTTP" then
+            raiseEvent("sysGetHttpDone", request.url, body)
+         else
+            local file = io.open(request.handle, "w")
+            if file then file:write(body) file:close() end
+            raiseEvent("sysDownloadDone", request.handle)
+         end
+      end
+      return #outstanding
+   end
 
    --- Simulate clicking a captured link (1-indexed, in echo order).
    --- @return boolean ok, string|nil err
@@ -90,10 +239,14 @@ function mock.install(homeDir)
       return pcall(fn)
    end
 
-   function _G.setBorderLeft() end
-   function _G.setBorderRight() end
-   function _G.setBorderTop() end
-   function _G.setBorderBottom() end
+   --- Recorded rather than pure no-ops, so a test can assert a region actually reserves
+   --- console space (setBorderTop > 0) rather than only checking the container geometry
+   --- that space is meant to correspond to.
+   mock.borders = { left = 0, right = 0, top = 0, bottom = 0 }
+   function _G.setBorderLeft(px)   mock.borders.left   = px end
+   function _G.setBorderRight(px)  mock.borders.right  = px end
+   function _G.setBorderTop(px)    mock.borders.top    = px end
+   function _G.setBorderBottom(px) mock.borders.bottom = px end
 
    --- Round-trip time to the game, in seconds. Real Mudlet measures this; tests set it to
    --- exercise the latency-sized in-flight guard (see class/priest.lua).
@@ -231,6 +384,8 @@ function mock.install(homeDir)
       Asterisk = 0x2a, Plus = 0x2b, Minus = 0x2d, Period = 0x2e, Slash = 0x2f,
       ["0"] = 0x30, ["1"] = 0x31, ["2"] = 0x32, ["3"] = 0x33, ["4"] = 0x34,
       ["5"] = 0x35, ["6"] = 0x36, ["7"] = 0x37, ["8"] = 0x38, ["9"] = 0x39,
+      -- Qt::Key_F1.. F5/F11/F12 are the ones keys.lua's action bindings need.
+      F5 = 0x01000034, F11 = 0x0100003a, F12 = 0x0100003b,
    }
 
    function _G.tempKey(modifier, code, fn)
@@ -290,7 +445,24 @@ function mock.install(homeDir)
 
    -- table.save / table.load -------------------------------------------
    local store = {}
-   function table.save(path, tbl) store[path] = tbl end
+
+   --- Real table.save() SERIALISES to a file: the saved copy stops sharing identity with
+   --- the live table the instant it is written. Storing the reference instead made every
+   --- round-trip test vacuous -- "save, load, assert the value came back" passed without
+   --- anything ever being written, because it was reading the same table it had just
+   --- mutated. Deep-copying models the real thing and lets a persistence test mean
+   --- something.
+   local function freeze(value, seen)
+      if type(value) ~= "table" then return value end
+      seen = seen or {}
+      if seen[value] then return seen[value] end
+      local copy = {}
+      seen[value] = copy
+      for key, item in pairs(value) do copy[key] = freeze(item, seen) end
+      return copy
+   end
+
+   function table.save(path, tbl) store[path] = freeze(tbl) end
    function table.load(path, target)
       local saved = store[path]
       if not saved then return false end
@@ -320,6 +492,35 @@ function mock.install(homeDir)
    local realClock = os.clock
    os.clock = function() return mock.clock end
    mock.realClock = realClock
+end
+
+-- ---------------------------------------------------------------------------
+-- draw-call accounting
+-- ---------------------------------------------------------------------------
+--
+-- COUNTS, NOT TIMES, and the distinction is the whole point. Under real Mudlet a decho is a
+-- Qt rich-text parse and a setStyleSheet is a stylesheet reparse plus a re-layout; against
+-- this stub both are a string assignment. So timing a repaint here measures the stub.
+--
+-- What DOES transfer is how many times the UI reaches for Qt at all. "This panel used to
+-- issue thirty-four draw calls per repaint and now issues one", and "a burst of five item
+-- events used to repaint five times and now paints once", are the two regressions worth
+-- protecting, and both are counts.
+
+mock.draws = { draw = 0, clear = 0, style = 0, value = 0 }
+
+function mock.count(kind)
+   mock.draws[kind] = (mock.draws[kind] or 0) + 1
+end
+
+--- Zero the counters and return the table, so a test reads
+---     local drawn = mock.countDraws()
+---     ... do the thing ...
+---     eq(drawn.draw, 1, "...")
+function mock.countDraws()
+   mock.draws.draw, mock.draws.clear = 0, 0
+   mock.draws.style, mock.draws.value = 0, 0
+   return mock.draws
 end
 
 --- Install a Geyser stub so the UI construction path can actually be exercised.
@@ -396,6 +597,7 @@ function mock.installGeyser()
 
       -- MiniConsoles accumulate text until cleared; Labels replace their contents.
       local function write(text)
+         mock.count("draw")
          if kind == "miniconsole" then
             self.contents = (self.contents or "") .. tostring(text)
          else
@@ -406,11 +608,16 @@ function mock.installGeyser()
 
       local implementations = {
          echo = write, decho = write, cecho = write, hecho = write,
-         clear = function() self.contents = "" return self end,
+         clear = function() mock.count("clear") self.contents = "" return self end,
          show  = function() self.shown = true return self end,
          hide  = function() self.shown = false return self end,
-         setStyleSheet = function(_, sheet) self.style = sheet return self end,
+         setStyleSheet = function(_, sheet)
+            mock.count("style")
+            self.style = sheet
+            return self
+         end,
          setValue = function(_, current, max, text)
+            mock.count("value")
             self.value = { current = current, max = max, text = text }
             return self
          end,
@@ -689,6 +896,15 @@ local function toLuaPattern(regex)
          if nextChar == "s" then out[#out + 1] = "%s"
          elseif nextChar == "d" then out[#out + 1] = "%d"
          elseif nextChar == "w" then out[#out + 1] = "%w"
+         -- The negated classes. Lua spells them with the capital letter too, so the
+         -- translation is direct -- but without this branch `\S` fell through to the
+         -- punctuation test, failed it, and came out as a literal backslash followed by an
+         -- `S`. A column-anchored pattern using `\S+` then matched nothing here while
+         -- working in Mudlet, which is the failure mode this whole translator exists to
+         -- prevent.
+         elseif nextChar == "S" then out[#out + 1] = "%S"
+         elseif nextChar == "D" then out[#out + 1] = "%D"
+         elseif nextChar == "W" then out[#out + 1] = "%W"
          -- An escaped punctuation character is a LITERAL in PCRE, and Lua's magic set is
          -- not the same set, so it has to be re-escaped Lua's way rather than passed
          -- through. Only `\.` was handled: `\?` fell to the else branch and came out as a
@@ -713,6 +929,49 @@ local function toLuaPattern(regex)
       i = i + 1
    end
    return (table.concat(out):gsub("%(%?:", "("))   -- (?: non-capturing group -> plain (
+end
+
+--- One regex, as the LIST of Lua patterns that together mean the same thing.
+---
+--- Lua patterns have no alternation, and ui/names.lua's highlighter is one big
+--- `(?:Alice|Bob|Carol)` -- the whole roster as a single trigger, which is the change that
+--- got the name scan off the per-line path. Translating that to a Lua pattern is not
+--- possible; enumerating it is, and enumerating it is exactly what PCRE does anyway.
+---
+--- Deliberately narrow, in the same spirit as toLuaPattern: ONE alternation group, and only
+--- alternation inside it. Anything more layered than that does not belong in a trigger
+--- pattern, and pretending to support it here would let a pattern pass the tests and fail
+--- in Mudlet -- the precise failure this translator exists to prevent.
+--- Translation is memoised by regex, and that is not just tidiness.
+---
+--- mock.line() runs every registered trigger against the line -- seventy-odd of them -- and
+--- translated each pattern afresh every time. With ui/names.lua's roster trigger, one regex
+--- expands to one Lua pattern per person, so a forty-name database made a single mock.line()
+--- call do a hundred-odd translations. That is milliseconds per line of a benchmark whose
+--- entire subject is microseconds per line.
+---
+--- Patterns are created once and never rewritten, so a plain unbounded table is right here.
+local patternCache = {}
+
+local function toLuaPatterns(regex)
+   local hit = patternCache[regex]
+   if hit then return hit end
+
+   local before, branches, after = regex:match("^(.-)%((.-)%)(.*)$")
+   if not branches or not branches:find("|", 1, true) then
+      hit = { toLuaPattern(regex) }
+      patternCache[regex] = hit
+      return hit
+   end
+   -- A `?:` survives from the non-capturing group; strip it before splitting.
+   branches = branches:gsub("^%?:", "")
+
+   local out = {}
+   for branch in (branches .. "|"):gmatch("(.-)|") do
+      out[#out + 1] = toLuaPattern(before .. branch .. after)
+   end
+   patternCache[regex] = out
+   return out
 end
 
 --- Type a command, the way a user would.
@@ -748,17 +1007,41 @@ end
 --- captures), the same as mock.command() already does for aliases -- a trigger with a
 --- capture group (an actor's name in a third-person combat message, say) needs the actual
 --- captured text, not a copy of the whole line.
+--- Triggers fire in CREATION ORDER, as Mudlet does.
+---
+--- `pairs()` over the trigger table was non-deterministic, and that is not a cosmetic
+--- difference: namedb/capture.lua depends on its listing patterns running before its
+--- accounting pass on the same line, which is a real ordering guarantee Mudlet makes. An
+--- unordered mock passes and fails the same code at random.
+local function triggersInOrder()
+   local ids = {}
+   for id in pairs(mock.triggers) do ids[#ids + 1] = id end
+   table.sort(ids)
+   local ordered = {}
+   for _, id in ipairs(ids) do ordered[#ordered + 1] = mock.triggers[id] end
+   return ordered
+end
+
 function mock.line(text)
    local fired = 0
-   for _, trigger in pairs(mock.triggers) do
-      local pattern = toLuaPattern(trigger.pattern)
-      local ok, captures = pcall(function() return { string.find(text, pattern) } end)
-      if ok and captures[1] then
-         local m = { text }
-         for index = 3, #captures do m[#m + 1] = captures[index] end
-         _G.matches = m
-         trigger.fn()
-         fired = fired + 1
+   -- Real Mudlet exposes the line being processed to getCurrentLine(); a trigger that
+   -- re-reads its own line (the highlighter, the capture ring buffer) needs that to be the
+   -- line it is firing on rather than whatever was set last.
+   mock.currentLine, mock.formatted = tostring(text), {}
+   for _, trigger in ipairs(triggersInOrder()) do
+      -- A list, not a single pattern: an alternation regex is several Lua patterns, and the
+      -- trigger fires on the FIRST that matches -- once, not once per branch, which is what
+      -- Mudlet does with a single pattern however many alternatives it lists.
+      for _, pattern in ipairs(toLuaPatterns(trigger.pattern)) do
+         local ok, captures = pcall(function() return { string.find(text, pattern) } end)
+         if ok and captures[1] then
+            local m = { text }
+            for index = 3, #captures do m[#m + 1] = captures[index] end
+            _G.matches = m
+            trigger.fn()
+            fired = fired + 1
+            break
+         end
       end
    end
    return fired

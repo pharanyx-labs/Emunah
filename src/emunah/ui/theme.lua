@@ -39,6 +39,10 @@ M.colour = {
    defence   = "#5cb87a",
    warning   = "#d9a441",
    inactive  = "#3a4553",
+   -- A genuinely dark red, distinct from the brighter `health`/`affliction` accents --
+   -- reserved for "everything has stopped" states (the paused banner) so it reads as more
+   -- severe than an ordinary affliction warning.
+   danger    = "#8b1a1a",
 }
 
 --- RGB triples for decho/cecho, derived from the hex above so there is one source.
@@ -50,16 +54,64 @@ function M.rgb(name)
    return tonumber(r, 16) or 0, tonumber(g, 16) or 0, tonumber(b, 16) or 0
 end
 
+-- MEMOISED, because the palette is a constant and these are not cheap.
+--
+-- M.dc() parses a hex string with a pattern match, runs two tonumber()s, and formats a new
+-- string -- 0.94us, measured -- and every panel calls it inside its per-row loops.
+-- ui/roompanel.lua alone reaches it fourteen times per repaint, and it repaints on every
+-- item event. The answer for a given key cannot change: M.colour is written at load, and
+-- nothing in the codebase assigns to it afterwards.
+--
+-- Keyed on whatever was passed, including an unknown name -- which resolves to the `text`
+-- fallback inside M.rgb() and should be just as cached, since a typo'd key in a hot loop is
+-- exactly as expensive as a real one.
+--- All three declared together and ABOVE every function that touches them, including
+--- M.repalette() below: a `local` is only in scope for what follows it, so a cache declared
+--- further down would leave repalette() assigning to a same-named global and silently
+--- clearing nothing.
+local dcCache, dcbCache, dcHexCache = {}, {}, {}
+
 --- A decho colour prefix, e.g. theme.dc("health") .. "text"
 function M.dc(name)
+   local hit = dcCache[name]
+   if hit then return hit end
    local r, g, b = M.rgb(name)
-   return string.format("<%d,%d,%d>", r, g, b)
+   hit = string.format("<%d,%d,%d>", r, g, b)
+   dcCache[name] = hit
+   return hit
 end
 
 --- A decho background prefix.
 function M.dcb(name)
+   local hit = dcbCache[name]
+   if hit then return hit end
    local r, g, b = M.rgb(name)
-   return string.format("<:%d,%d,%d>", r, g, b)
+   hit = string.format("<:%d,%d,%d>", r, g, b)
+   dcbCache[name] = hit
+   return hit
+end
+
+--- Drop the memos. Only needed if the palette is ever edited at runtime -- nothing does that
+--- today, and this exists so that if something starts to, the way to keep the cache honest
+--- is already here rather than having to be discovered.
+function M.repalette()
+   dcCache, dcbCache, dcHexCache = {}, {}, {}
+end
+
+--- A decho colour prefix from a raw "#rrggbb" string rather than a M.colour key -- for
+--- colours that do not live in the palette, e.g. ui/names.lua's per-city tints.
+--- Falls back to plain text (textDim) on anything that does not parse as hex.
+--- Memoised for the same reason as M.dc(): ui/names.lua asks for a per-city tint once per
+--- name, and ui/roompanel.lua once per player in the room, on every repaint.
+function M.dcHex(hex)
+   local hit = dcHexCache[hex]
+   if hit then return hit end
+
+   local r, g, b = tostring(hex or ""):match("^#(%x%x)(%x%x)(%x%x)$")
+   if not r then return M.dc("textDim") end
+   hit = string.format("<%d,%d,%d>", tonumber(r, 16), tonumber(g, 16), tonumber(b, 16))
+   dcHexCache[hex] = hit
+   return hit
 end
 
 M.font = {
@@ -67,6 +119,64 @@ M.font = {
    size   = 10,
    small  = 9,
 }
+
+-- ---------------------------------------------------------------------------
+-- painting a console
+-- ---------------------------------------------------------------------------
+
+--- Last body painted into each console, keyed by name.
+---
+--- Held on _persist so a reload does not repaint every panel with content identical to what
+--- is already on screen -- and, more to the point, so it cannot go the other way and skip a
+--- paint because a FRESH cache happens to agree with a console that was rebuilt empty.
+local function painted()
+   emunah._persist = emunah._persist or {}
+   emunah._persist.paintedBodies = emunah._persist.paintedBodies or {}
+   return emunah._persist.paintedBodies
+end
+
+--- Draw a whole console body in ONE call, and not at all if it has not changed.
+---
+--- Two separate wins, and they compound:
+---
+---   * ONE decho, not one per row. The panels used to emit a decho per affliction, per
+---     defence cell, per room item -- thirty-odd Qt rich-text parses for one repaint of the
+---     defence grid. Building the body with table.concat in Lua and handing Qt a single
+---     string is the same pixels for a fraction of the work.
+---
+---   * NOTHING AT ALL when the body is byte-identical to what is already displayed. This is
+---     what makes a burst cheap without changing when repaints happen: ui/roompanel.lua
+---     redraws on every Char.Items.Add, and a restock that pulls five herbs fires five
+---     events of which at most one changes what the room panel shows. The other four now
+---     cost a string build and a compare, and Qt never hears about them.
+---
+--- Deliberately NOT a timer-coalesced repaint. Deferring to the next tick would mean a panel
+--- could sit stale whenever events arrive without a prompt behind them, and it would make
+--- every assertion about panel contents depend on advancing a clock. Comparing the rendered
+--- result gets the same saving with neither problem.
+---
+--- @param console table a Geyser.MiniConsole
+--- @param key string stable identity for this console
+--- @param body string the complete decho body, colour escapes and newlines included
+--- @return boolean whether anything was actually drawn
+function M.paint(console, key, body)
+   if not console then return false end
+
+   local cache = painted()
+   if cache[key] == body then return false end
+   cache[key] = body
+
+   console:clear()
+   if body ~= "" then console:decho(body) end
+   return true
+end
+
+--- Forget what a console is displaying, so the next paint always draws.
+--- Called when a console is rebuilt -- the widget is new and empty, whatever the cache says.
+function M.forgetPainted(key)
+   local cache = painted()
+   if key then cache[key] = nil else emunah._persist.paintedBodies = {} end
+end
 
 -- ---------------------------------------------------------------------------
 -- stylesheets

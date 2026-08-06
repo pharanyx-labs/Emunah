@@ -42,12 +42,29 @@ local event = emunah.event
 
 M.enabled = false
 M.target  = nil   -- opponent name (lower), or nil -- never auto-acquired
-M.stats   = { attacks = 0, startedAt = 0 }
+M.stats   = { attacks = 0, recited = 0, startedAt = 0 }
 
 M.config = {
    -- Higher than bashing's default: a PvP loss is a worse outcome than a PvE one, and
    -- there is no "room is clear" backstop to fall back on if this fires late.
    stopBelowHealth = 60,
+   -- Recite Zeal verses (currently Guilt/Condemnation) at the target whenever prayer balance
+   -- is free -- see class/priest.lua's header for why this never competes with the attack.
+   verses = true,
+   -- Angel Sear is not the kill route here -- afflictions are (see the verse-reciting
+   -- above). Racing raw damage the whole fight is exactly the strategy already established
+   -- as unwinnable (~300 dmg/s incoming vs ~100-150 hp/s max sustainable healing, in the
+   -- fight that motivated building the verse offense at all) -- so the attack is withheld
+   -- until the opponent looks vulnerable enough, where it becomes a realistic finishing
+   -- blow rather than a race.
+   --
+   -- NOT health -- confirmed by the user, 2026-08-06: IRE.Target.Info does not report a
+   -- player's vitals, so there is no reliable way to read a player opponent's health from
+   -- here at all (denizens are a different matter; bashing.lua's own use of the same feed is
+   -- unaffected). Their tracked affliction LOAD (curing/detect/opponent.lua) is what is
+   -- actually available, so that is the signal used instead -- see
+   -- targetVulnerableEnoughToAttack() below.
+   attackAtAfflictions = 2,
 }
 
 local function setting(key)
@@ -112,7 +129,7 @@ function M.start()
    end
 
    M.enabled = true
-   M.stats = { attacks = 0, startedAt = emunah.util.now() }
+   M.stats = { attacks = 0, recited = 0, startedAt = emunah.util.now() }
 
    -- event.raise() prefixes with "emunah.", so this produces "emunah.bashing.pause" --
    -- exactly the raw name bashing.lua already registers a listener for.
@@ -159,6 +176,35 @@ local function unsafe()
    return nil
 end
 
+--- Is `perform hands` actually wanted right now?
+---
+--- The attack sends directly the instant its own resources are free (see class/priest.lua's
+--- M.attack()), bypassing the priority queue `perform hands` and every other cure shares --
+--- so an active PvP session attacking every tick can keep re-claiming equilibrium before the
+--- queue ever gets a turn to send the heal it already wants. Mirrors curing.handsThreshold
+--- exactly (see queueHealing() in curing/engine.lua) rather than inventing a second number
+--- that could drift out of sync with it.
+local function handsWanted()
+   local vitals = emunah.gmcp.vitals
+   if not vitals then return false end
+   local handsAt = tonumber(emunah.config.get("curing.handsThreshold", 50)) or 50
+   return vitals.trusted("hp") and vitals.percent.hp < handsAt
+end
+
+--- Is the opponent vulnerable enough that the attack is a realistic finishing blow rather
+--- than a damage race? See M.config.attackAtAfflictions for why this exists, and why it is
+--- affliction count rather than health.
+---
+--- No target, or nothing tracked on them yet, counts as NOT vulnerable enough. Attacking on
+--- a guess is exactly the race this is meant to avoid; better to withhold one tick than
+--- swing blind.
+local function targetVulnerableEnoughToAttack()
+   local opponent = emunah.curing and emunah.curing.detect and emunah.curing.detect.opponent
+   if not (opponent and M.target) then return false end
+   local at = tonumber(setting("attackAtAfflictions")) or 2
+   return opponent.count(M.target) >= at
+end
+
 --- One pass. Driven by the prompt, like bashing.tick().
 function M.tick()
    if not M.enabled then return end
@@ -172,9 +218,31 @@ function M.tick()
    if not M.target then return end
 
    local class = emunah.class
-   if class.canAttack() then
+   if class.canAttack() and not handsWanted() and targetVulnerableEnoughToAttack() then
       class.attack(M.target)
       M.stats.attacks = M.stats.attacks + 1
+   end
+
+   -- Verses spend PRAYER balance, a resource independent of the attack above -- see
+   -- class/priest.lua's header. This is deliberately not an elseif: both can go out on the
+   -- same tick. Condemnation first -- HELP states its affliction outright (justice), where
+   -- Guilt's payoff depends on the target choosing to FOCUS.
+   --
+   -- class.active.xxx, not class.xxx: canRecite/recite are Priest-specific, the same shape
+   -- as shouldPenitence/shouldDesolation in bashing.lua -- the adapter (class/adapter.lua)
+   -- only forwards the universal interface (attack, canAttack, handleShield, onTick, stats),
+   -- so a class with no Zeal-equivalent simply has no canRecite/recite and this is a no-op.
+   local active = class.active
+   if setting("verses") ~= false and active and active.canRecite and active.recite then
+      if active.canRecite("condemnation") then
+         if active.recite("condemnation", M.target) then
+            M.stats.recited = M.stats.recited + 1
+         end
+      elseif active.canRecite("guilt") then
+         if active.recite("guilt", M.target) then
+            M.stats.recited = M.stats.recited + 1
+         end
+      end
    end
 end
 
@@ -185,6 +253,7 @@ function M.report()
       running     = M.enabled,
       target      = M.target,
       attacks     = M.stats.attacks,
+      recited     = M.stats.recited,
       elapsed     = elapsed,
       classLoaded = (emunah.class and emunah.class.name) or nil,
    }

@@ -11,7 +11,7 @@ happens in a normal editor with no package reimport in the loop.
 ```
 emreload          reload every module from disk
 emunah            list commands
-emunah status     system and character state
+emset status     system and character state
 ```
 
 ## Requirements
@@ -46,7 +46,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 42 modules.
+[emunah] v0.1.0 loaded -- 51 modules.
 ```
 
 ## Capabilities
@@ -56,13 +56,13 @@ A successful load reports:
 | GMCP tracking | Complete | Vitals, status, afflictions, defences, items, skills, room, channels, rift, target, time |
 | Interface | Complete | Vitals strip, affliction and defence panels, tabbed chat, room and target panels, embedded map |
 | Capability layer | Complete | `have.skill / item / cure / def / balance` — one gate answering "is this possible right now" |
-| Curing engine | Working | Per-vector action queue, blocking-affliction handling, 117-affliction cure table |
+| Curing engine | Working | Per-vector action queue, blocking-affliction handling, 131-affliction cure table |
 | Healing | Working | Four sources across three independent balances, each with its own threshold |
 | Rift management | Working | Stock levels maintained automatically in both directions |
 | Area walker | Working | Self-driving, no mapper-script dependency |
-| Hunting | Working | `emunah hunt` walks an area and clears it |
+| Hunting | Working | `emset hunt` walks an area and clears it |
 | Affliction detection | GMCP-driven | Reliable except `loki` and `blackout`, both handled — see below |
-| Name database | Working | Who is a person, and whether they are an ally — `whois`, `iff`, import/export |
+| Name database | Working | Real data from `api.achaea.com` and HONOURS, names mined from CW/CLWHO/QW, in-scroll highlighting |
 | PvP | Opt-in only | Targets are never auto-acquired, and an ally can never be targeted |
 
 ### Affliction detection
@@ -83,9 +83,9 @@ balance curing it — so the shipped set in `src/emunah/curing/detect/patterns.l
 only patterns confirmed against real output, alongside a capture mode for growing it:
 
 ```
-emunah learn on     # log candidate lines during combat
-emunah learn off
-emunah detect       # coverage report
+emset learn on     # log candidate lines during combat
+emset learn off
+emset detect       # coverage report
 ```
 
 See [docs/afflictions.md](docs/afflictions.md) for the table's structure and verification
@@ -93,7 +93,7 @@ process.
 
 ### PvP
 
-`emunah pvp target <name>` is the only way a target is set. There is no auto-acquisition,
+`emset pvp target <name>` is the only way a target is set. There is no auto-acquisition,
 because `Room.Players` is knowingly incomplete — concealed opponents produce no entry at
 all — and acting on an incorrect read is worse than not engaging.
 `src/emunah/curing/detect/opponent.lua` tracks an opponent's afflictions from third-person
@@ -101,32 +101,65 @@ patterns, grown the same way.
 
 ## Commands
 
+Everything runs through one dispatcher, under two names: `emunah` (the long form, and what
+reads best in a script) and `emset` (the short form, and what you actually type). They are
+the same command.
+
+**There is no `!` prefix.** There used to be, meaning exactly what `emunah` means, and it has
+been removed rather than deprecated — `!` now falls through to the game untouched. Two
+spellings for every command meant every document describing one had to pick a side, and they
+picked differently.
+
+The table below is a summary. **`emhelp` is the real reference**: an index, a card per command
+with arguments, examples and the settings it touches, a search, and every setting with its
+current value. It is generated from `src/emunah/help.lua`, which the test suite checks against
+the code — a new command or setting fails `lua test/run.lua` until it is documented.
+
+```
+emhelp                  the index
+emhelp curing           one topic
+emhelp bash             every bash command
+emhelp search gold      find a command by what it does
+emhelp settings         every setting, with its current value
+emhelp keys             the key bindings
+```
+
 | Command | Purpose |
 |---|---|
-| `emunah` | Command list |
-| `emunah status` | System and character state |
-| `emunah cure on\|off` (or `ec`) | Toggle the curing engine |
-| `emunah affs` | Tracked afflictions and their cure vectors |
-| `emunah defs on\|off\|add <d>\|remove <d>\|list` | Defence keep-up |
-| `emunah have [thing]` | Capability report, or a single skill/item check |
-| `emunah gmcp [refresh]` | Tracked GMCP state |
-| `emunah learn on\|off` | Affliction message capture |
-| `emunah walk start\|stop\|pause\|auto on\|off\|delay <s>\|avoid <id>` | Area walker |
-| `emunah keys [on\|off]` | Numpad movement bindings |
-| `emunah mobs here\|target\|done\|add\|skip\|forget\|areas` | Per-area denizen list |
-| `emunah hunt [off]` | Walk an area and clear it |
-| `emunah loot [on\|off\|now]` | Collect gold from corpses |
-| `emunah bash on\|off\|attack <cmd>\|balance\|health <n>` | Hunting loop only |
-| `emunah pvp on\|off\|target <name>\|target off` | PvP loop |
-| `emunah prio <aff> <vector> <n>` | Override a cure priority |
-| `emunah set [key] [value]` | Read or write a setting |
-| `emunah ui [rebuild\|reset\|show]` | Toggle, rebuild or reset the interface |
-| `emunah ui map [height <n>\|on\|off\|centre\|raw]` | Map status, size and control |
-| `emunah ndb set\|note\|hostile\|here\|export` | The name database, or a roster |
-| `emunah whois <person>` | Everything known about one person |
-| `emunah iff <person> ally\|enemy\|auto` | Declare a relationship; beats derivation |
-| `emunah chat [rebuild]` | Chat capture vs rendering — which half is working |
-| `emunah debug [gmcp\|handlers\|timers\|queue]` | Internals and tracing |
+| `emhelp` | **The full command reference, in the client** |
+| `emunah` / `emset` | The short list |
+| `emset status` | System and character state |
+| `emset cure on\|off` | Toggle the curing engine |
+| `pp` | Pause/resume curing + defence keep-up together |
+| `emset affs` | Tracked afflictions and their cure vectors |
+| `emset defs on\|off\|add\|mode\|names\|remove\|list` | Defences: defup raises once, keepup maintains |
+| `emdefs` | Clickable defence grid — click cycles off → defup → keepup |
+| `emset have [thing]` | Capability report, or a single skill/item check |
+| `emset gmcp [refresh]` | Tracked GMCP state |
+| `emset learn on\|off` | Affliction message capture |
+| `emset walk start\|stop\|pause\|auto on\|off\|delay <s>\|avoid <id>` | Area walker |
+| `emset keys [on\|off]` | Numpad movement bindings |
+| `emset mobs here\|target\|done\|add\|skip\|forget\|areas` | Per-area denizen list |
+| `emset hunt [off]` | Walk an area and clear it |
+| `emset loot [on\|off\|now]` | Collect gold from corpses |
+| `emset bash on\|off\|attack <cmd>\|balance\|health <n>` | Hunting loop only |
+| `emset pvp on\|off\|target <name>\|target off` | PvP loop |
+| `emset prio <aff> <vector> <n>` | Override a cure priority |
+| `emset set [key] [value]` | Read or write a setting |
+| `emset ui [rebuild\|reset\|show]` | Toggle, rebuild or reset the interface |
+| `emset ui map [height <n>\|on\|off\|centre\|raw]` | Map status, size and control |
+| `emset ndb [ally\|enemy\|city <c>\|dragons\|marks\|infamous]` | The roster, filtered |
+| `ndb show <person>` | The full dossier — everything on one card |
+| `emset ndb here\|stats\|fields\|capture\|path` | Who is present, the population, the schema, the sources |
+| `emset ndb api\|refresh\|online\|learn` | The Achaea web API: state, re-fetch, who is online |
+| `emset ndb capture [on\|off]` | Reading CW, CLWHO, QW, HONOURS and angel reports |
+| `emset ndb set\|note\|unnote\|forget\|prune\|hostile` | Edit the database |
+| `emset ndb export [fields <a,b>] [path]\|import <path>` | Share a database, or merge one in |
+| `emset whois <person>` | The dossier on one person |
+| `emset iff <person> ally\|enemy\|auto` | Declare a relationship; beats derivation |
+| `emset names [on\|off\|ignore <p>\|tint on\|off]` | Highlight known names in the game text |
+| `emset chat [rebuild]` | Chat capture vs rendering — which half is working |
+| `emset debug [gmcp\|handlers\|timers\|queue]` | Internals and tracing |
 | `emreload` | Reload all modules from disk |
 
 ### Denizen kill lists
@@ -136,17 +169,17 @@ to the kill list. It is echoed as a clickable line; one click authorises killing
 and saves the decision to `emunah-denizens.lua`, which persists across reloads. Denizens in
 the room panel are clickable toggles, and `ih` output is relinked the same way.
 
-`emunah mobs skip <name>` and `emunah mobs kill <name>` cover scripted or bulk changes.
+`emset mobs skip <name>` and `emset mobs kill <name>` cover scripted or bulk changes.
 
 ## Configuration
 
 Settings persist per Mudlet profile in `emunah-config.lua`, and are read or written with
-`emunah set`:
+`emset set`:
 
 ```
-emunah set                             # everything currently stored
-emunah set curing.healthThreshold      # one value
-emunah set curing.healthThreshold 75   # write it
+emset set                             # everything currently stored
+emset set curing.healthThreshold      # one value
+emset set curing.healthThreshold 75   # write it
 ```
 
 Healing thresholds are the settings most worth tuning. Four sources draw on three
@@ -171,7 +204,7 @@ src/emunah/
   core/     util log event config timers queue
   gmcp/     init vitals status afflictions defences items skills room comm ire
   have/     capabilities              -- the "is this possible" gate
-  curing/   afflist curelist engine defkeepup detect/ (init, patterns, opponent)
+  curing/   afflist curelist deflist engine defkeepup detect/ (init, patterns, opponent, diag)
   ui/       theme layout vitals affpanel chat roompanel map
   walker.lua                          -- area walker
   keys.lua                            -- numpad movement bindings
@@ -179,16 +212,19 @@ src/emunah/
   ih.lua                              -- linkifies `ih` output
   bashing.lua                         -- walk, target, attack, advance
   namedb.lua                          -- who is a person, and what are they
+  namedb/api.lua                      -- api.achaea.com: real data, not inference
+  namedb/capture.lua                  -- names mined from CW, CLWHO, QW, HONOURS, angel
   pvp.lua                             -- PvP loop
   loot.lua                            -- collect gold by replica number
   class/    adapter priest            -- class interface + auto-detection
   commands.lua
-test/       mock_mudlet.lua run.lua   -- 635 behavioural tests
+test/       mock_mudlet.lua run.lua   -- 1672 behavioural tests
+            bench.lua profile.lua     -- per-prompt cost, and where it goes
 package/    .mpackage build project
 tools/      build-xml.py syntax_check.py run_tests.py
 ```
 
-Three ideas carry most of the design:
+Four ideas carry most of the design:
 
 **One gate for every command.** `core/act.lua` is the single place that knows when the game
 will refuse an action — stunned, prone, no balance, rate-limited. Call sites declare what a
@@ -202,6 +238,15 @@ elixir can all be in flight simultaneously; two herbs cannot.
 command, so state alone cannot prevent a duplicate send. Every action arms a short guard on
 dispatch, replaced by the exact cooldown the moment the game announces it.
 
+**Nothing is recomputed that the game has not changed.** The curing engine runs on every
+prompt, so anything it does per tick is paid several times a second on Mudlet's UI thread —
+shared with every other package the user has installed. Inventory counts, cure-table lookups
+and settings are all memoised against an explicit generation counter or invalidated on
+write, never against a clock. A full tick under an eight-affliction lock costs **321 µs**,
+down from 1851 µs, and the queries it leans on hardest allocate nothing at all. See
+[docs/performance.md](docs/performance.md) for the measurements and the rules for keeping it
+that way.
+
 Notes on the game's own mechanics — verified costs, message wording, GMCP payload shapes —
 live in [docs/game/](docs/game/).
 
@@ -214,6 +259,14 @@ The test suite runs the real modules against a Mudlet mock, with no client invol
 ```sh
 lua test/run.lua
 python3 tools/run_tests.py .   # if no Lua interpreter is installed
+```
+
+The per-prompt cost is measurable without the client too. `bench.lua` reports wall time and
+bytes allocated per call; `profile.lua` is a sampling profiler that names the hottest lines:
+
+```sh
+lua test/bench.lua      # engine.tick() and the queries under it
+lua test/profile.lua    # where the time actually goes
 ```
 
 Build the distributable package:
@@ -261,6 +314,7 @@ evaluates true when the character has no balance. All GMCP booleans route throug
 
 - [docs/game/](docs/game/) — verified Achaea mechanics, GMCP payloads and message wording
 - [docs/afflictions.md](docs/afflictions.md) — the cure table's structure and verification
+- [docs/performance.md](docs/performance.md) — the hot paths, what they cost, and how to measure
 - [docs/roadmap.md](docs/roadmap.md) — planned work
 
 ## Licence

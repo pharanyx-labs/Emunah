@@ -60,6 +60,11 @@ detect.define("slickness", {
    gain = {
       [[^Your body is too slick with oil for the salve to have any effect\.$]],
       [[^The salve slides off your slick skin\.$]],
+      -- Confirmed live 2026-08-05, verbatim, blocking a salve applied to arms mid-fight:
+      -- "oily skin", not "slick skin" -- a real wording this repo had never seen before,
+      -- so the block went undetected and afflist.blocks/have.blockedBy() never routed
+      -- around it.
+      [[^The salve slides off your oily skin\.$]],
    },
 })
 
@@ -266,9 +271,16 @@ do
       -- not. Ask for the real list rather than waiting for whatever would have corrected it
       -- eventually -- after a death this is the difference between resuming and repeating
       -- the same failed eat until someone notices.
+      --
+      -- INVENTORY ONLY, not the full M.refresh(). This question is "what do I hold", which
+      -- has nothing to do with the room -- and a full refresh also polls Char.Items.Room and
+      -- triggers a Char.Items.Contents round trip per container in the pack. Live 2026-08-03
+      -- 15:52:18-23: that chain ran for five seconds of real time, mid-fight, taking only
+      -- bleed damage, before the next cure went out. See M.refreshInventory() in
+      -- gmcp/items.lua.
       emunah.log.debug("An eat did not resolve -- re-reading inventory.")
-      if emunah.gmcp.items and emunah.gmcp.items.refresh then
-         emunah.gmcp.items.refresh()
+      if emunah.gmcp.items and emunah.gmcp.items.refreshInventory then
+         emunah.gmcp.items.refreshInventory()
       end
    end)
    if id then
@@ -292,8 +304,39 @@ local function rearm(vector)
    end
 end
 
+--- "You must regain balance first." is GENERIC, and attributing it to the herb vector
+--- unconditionally was wrong in a way that made things worse under load.
+---
+--- The message belongs to whichever command needed the physical balance. Observed at
+--- 12:01:19.03: `perform hands` and `eat irid` went out together, the refusal came back,
+--- and the very next line was "You eat some irid moss." -- the eat had worked, and the
+--- refusal was the hands. It was logged as "Rejected on herb balance" and re-armed the herb
+--- recovery timer anyway. Again at 12:01:24.47 and 12:01:28.17 with no herb or moss action
+--- in flight at all, the last eat having resolved five seconds earlier.
+---
+--- So failing to heal via equilibrium was delaying healing via herbs, at exactly the moment
+--- both were needed. What the message unambiguously states is that BALANCE is not there;
+--- that much is always safe to record. The herb reading is kept -- mechanics.md has it as
+--- what a herb eaten too soon gets -- but only when there is a herb or moss action actually
+--- in flight to have earned it.
+local function onBalanceRefused()
+   local vitals = emunah.gmcp and emunah.gmcp.vitals
+   if vitals and vitals.spend then vitals.spend("bal") end
+
+   for _, vector in ipairs({ "herb", "moss" }) do
+      if emunah.queue.awaiting(vector) then
+         emunah.have.spend(vector)
+         emunah.log.debug("Rejected on %s balance -- re-arming the recovery timer.", vector)
+         return
+      end
+   end
+
+   emunah.log.debug("Refused for balance, with nothing eaten in flight -- "
+      .. "balance marked spent, herb timer untouched.")
+end
+
 local REJECTIONS = {
-   { vector = "herb",   pattern = [[^You must regain balance first\.$]] },
+   { handler = onBalanceRefused, pattern = [[^You must regain balance first\.$]] },
    { vector = "salve",  pattern = [[^You have not yet regained balance for applying salves\.$]] },
    { vector = "elixir", pattern = [[^You may not drink another elixir yet\.$]] },
    { vector = "smoke",  pattern = [[^You have not yet recovered balance for smoking\.$]] },
@@ -301,7 +344,8 @@ local REJECTIONS = {
 }
 
 for _, rejection in ipairs(REJECTIONS) do
-   local id = tempRegexTrigger(rejection.pattern, rearm(rejection.vector))
+   local id = tempRegexTrigger(rejection.pattern,
+      rejection.handler or rearm(rejection.vector))
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
       table.insert(emunah._persist.detectTriggers, id)
@@ -319,7 +363,12 @@ end
 do
    local id = tempRegexTrigger([[^You do not have (?:that|any of those|the) ]], function()
       emunah.log.warn("The game says an item is missing -- resyncing inventory.")
-      if emunah.gmcp.items then emunah.gmcp.items.refresh() end
+      -- Inventory only, not M.refresh() -- see the comment on the eat-failure handler above
+      -- for why a full refresh (room plus a Char.Items.Contents round trip per container) is
+      -- the wrong amount of work for "what do I actually hold".
+      if emunah.gmcp.items and emunah.gmcp.items.refreshInventory then
+         emunah.gmcp.items.refreshInventory()
+      end
    end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
@@ -410,6 +459,66 @@ do
 end
 
 -- ---------------------------------------------------------------------------
+-- Guardian angel.
+--
+-- Unlike prone/stunned/asleep, there is no GMCP backstop here at all: `emunah debug gmcp`
+-- across both `angel summon` (07:44:53-07:44:59) and `angel fade` (07:45:01-07:45:28) showed
+-- only the ordinary Char.Vitals equilibrium update, nothing Char.Defences- or Char.Status-
+-- shaped. These two lines are the ONLY mechanism, not a backstop for one -- so unlike prone's
+-- rejection-text fallback, there is nothing else to fall back to if one is ever missed.
+-- Confirmed exact wording from that same capture.
+-- ---------------------------------------------------------------------------
+
+do
+   local function onAngelUp()
+      if not detect.angel then
+         detect.angel = true
+         emunah.event.raise("defence.added", "trackangel")
+      end
+      -- NOTHING ELSE CONFIRMS THE EQUILIBRIUM VECTOR for this command -- same gap
+      -- documented below at "perform hands landed": "Equilibrium used: N.NNs." arms the
+      -- fallback timer but never calls queue.confirm(), so without this the vector sits
+      -- inFlight for the full 2s confirm window (queue.lua's vectorReady() refuses it
+      -- outright while inFlight is set) even though the game already answered. Harmless on
+      -- its own -- the 2s timeout re-arms it either way -- but it is the same wasted-wait
+      -- shape that command was fixed for, and ANGEL SUMMON is unconditionally the only
+      -- thing that can be in flight on this vector when either of these lines lands.
+      emunah.queue.confirm("equilibrium")
+   end
+
+   -- REGRESSION: a cold summon and a redundant one answer with DIFFERENT text, and only the
+   -- first was covered. Confirmed live 08:32:09.28-08:32:16.27: `angel summon` sent while
+   -- already summoned answered "You feel confusion radiate from your guardian, who hovers
+   -- already at your side." -- which never touched detect.angel, so isUp("trackangel") stayed
+   -- false forever and keep-up resent ANGEL SUMMON every equilibrium cycle indefinitely,
+   -- stopped only by the user pausing keep-up by hand (`pp`). Both mean the same thing --
+   -- the angel is up -- and both have to set the flag.
+   for _, pattern in ipairs({
+      [[^A flower of white light blooms in the air beside you, and your guardian is by your side\.$]],
+      [[^You feel confusion radiate from your guardian, who hovers already at your side\.$]],
+   }) do
+      local id = tempRegexTrigger(pattern, onAngelUp)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+end
+
+do
+   local id = tempRegexTrigger([[^Your guardian angel shimmers silently away\.$]], function()
+      if detect.angel then
+         detect.angel = false
+         emunah.event.raise("defence.lost", "trackangel")
+      end
+   end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
+
+-- ---------------------------------------------------------------------------
 -- Bleeding.
 --
 -- Achaea's own help (afflictions-and-what-cures-them) gives bleeding's cure as the bare
@@ -429,34 +538,60 @@ end
 -- live: without it, Achaea replies "Clot is not a valid command.", one wasted round trip
 -- per bleed tick for as long as curing stays on.
 --
--- This deliberately does NOT use the ordinary have.skill() gate that curing/engine.lua uses
--- for every other cure. That gate defaults PERMISSIVE (assume yes) while the skill index is
--- still loading, which is right for a cure you might have: refusing to act on every login
--- until the round trip finishes would break curing generally. It is wrong here, confirmed
--- live twice over, because we have stronger evidence than "unknown" -- the character does
--- not have this lesson, full stop -- and permissive-by-default means every fresh reload or
--- reconnect re-sends `clot` into the same rejection once more before the index (or the
--- rejection itself, via have.denySkill() -- see below) catches up. So this waits for
--- POSITIVE confirmation instead: skills.complete AND skills.has("clotting"), both true. The
--- cost of being wrong here is a few points of unclotted bleed for a moment, which is not
--- remotely comparable to sending a command the game has already told us does not exist.
+-- THE CHARACTER NOW HAS THE LESSON, and that changes the gate rather than merely satisfying
+-- it. This used to demand POSITIVE confirmation -- skills.complete AND skills.has()
+-- -- refusing to send while the index was still loading, unlike every other cure. That was
+-- right at the time and for a specific reason: we had evidence stronger than "unknown",
+-- namely two live rejections saying the lesson was absent, so permissive-by-default would
+-- have re-sent `clot` into the same rejection after every reload and reconnect.
 --
--- have.denySkill() is still worth keeping as a backstop for the reverse mistake: if the
--- index ever says yes but the game disagrees, one rejection is enough to override it for
--- the rest of the session, the same as any other capability the game corrects us on.
+-- That evidence is now void, and a rule kept past its reason is just a rule that is wrong.
+-- So this is back to the ordinary have.skill() gate the rest of curing uses, which is
+-- permissive while the index loads. The trade has inverted with the premise: the cost of
+-- being wrong is now one wasted CLOT after a reload -- and CLOT costs no balance, so it is
+-- close to free -- while the cost of the strict rule is unclotted bleeding through every
+-- post-reload window, which at the 90-a-tick rates seen while hunting is not nothing.
+--
+-- have.denySkill() is what makes that safe, and it is worth keeping for the reverse mistake
+-- in either direction: if the index ever says yes but the game disagrees, one rejection
+-- overrides it for the rest of the session, the same as any other capability the game
+-- corrects us on. It also self-clears when a fresh index completes, so a lesson trained
+-- mid-session is picked up without a reload.
+--
+-- CLOT COSTS NO BALANCE AND NO EQUILIBRIUM -- it can be sent freely, and takes a little mana
+-- instead. So nothing here spends a vector: an earlier version called have.spend("special"),
+-- which armed a two-second recovery timer for a balance that does not exist. The pacing that
+-- remains is the queue's own `confirm` slot, which holds one CLOT in flight at a time -- that
+-- is a statement about waiting for the game to answer, which is true, rather than about a
+-- balance, which is not.
 -- ---------------------------------------------------------------------------
 
 do
    local id = tempRegexTrigger([[^You bleed \d+ health\.$]], function()
       local engine = emunah.curing.engine
       if not (engine and engine.enabled) then return end
-      local skills = emunah.gmcp.skills
-      if not (skills and skills.complete) then return end   -- unknown -- do not guess
       if not emunah.have.skill("clotting") then return end
+
+      -- ONLY ABOVE A THRESHOLD. The bleed level comes from the `Bleed` charstat rather than
+      -- the number this very line carries -- see detect.CLOT_THRESHOLD, and the same choice
+      -- already made in watch.lua. The line says what one tick cost, which is not the same
+      -- question as how hard we are bleeding.
+      local function bleeding()
+         local vitals = emunah.gmcp.vitals
+         return vitals and vitals.bleeding() or 0
+      end
+      local at = tonumber(emunah.config.get("curing.clotThreshold", detect.CLOT_THRESHOLD))
+         or detect.CLOT_THRESHOLD
+      if bleeding() <= at then return end
+
       emunah.queue.push("special", "clot", {
          priority = 50, tag = "bleeding",
          confirm  = emunah.config.get("curing.confirmWait", 2.0),
-         onSent   = function() emunah.have.spend("special") end,
+         -- Re-checked at send time, like every other queued action whose reason can stop
+         -- being true while it waits. A clot queued at 45 that is still pending once the
+         -- bleed has clotted down past the threshold would spend mana on a problem that has
+         -- already gone.
+         valid    = function() return bleeding() > at end,
       })
    end)
    if id then
@@ -471,6 +606,30 @@ do
    if deniedId then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
       table.insert(emunah._persist.detectTriggers, deniedId)
+   end
+
+   -- "You do not bleed, my friend." -- CLOT answered when there was nothing to clot.
+   --
+   -- Handled for the QUEUE, not for the state, and the distinction is the whole reason this
+   -- section keeps no bleeding flag (see above). The line says we are not bleeding *now*,
+   -- which is a fact with no future in it -- the next tick can start us bleeding again and
+   -- nothing would retract a flag set from this. Storing it would recreate exactly the stuck
+   -- TRUE the header warns about, in the opposite direction.
+   --
+   -- What it does settle is this command. A CLOT sent just as the bleeding stopped would
+   -- otherwise hold the special slot for the full confirm timeout, and any clot still pending
+   -- behind it would go out into the same reply afterwards. The game has answered: free the
+   -- slot, and drop the queued one. Checked by tag because `special` is a general-purpose
+   -- vector and this reply is only ever about a CLOT.
+   local idleId = tempRegexTrigger([[^You do not bleed, my friend\.$]], function()
+      local flight = emunah.queue.awaiting("special")
+      if flight and flight.tag == "bleeding" then emunah.queue.confirm("special") end
+      local pending = emunah.queue.pending("special")
+      if pending and pending.tag == "bleeding" then emunah.queue.clear("special") end
+   end)
+   if idleId then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, idleId)
    end
 end
 
@@ -505,6 +664,66 @@ do
    local id = tempRegexTrigger([[^Equilibrium used: ([\d.]+)s\.$]], function()
       local seconds = tonumber(matches[2])
       if seconds then emunah.timers.start("cure.equilibrium", seconds) end
+   end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
+
+-- ---------------------------------------------------------------------------
+-- An elixir that did nothing.
+--
+-- "The elixir flows down your throat without effect." is Achaea saying the sip was real and
+-- achieved nothing -- almost always because the defence it grants is already up.
+--
+-- That matters because of what it looked like without this. Watched live at 13:47:44.97:
+-- `drink venom` had worked at 13:47:33 ("your resistance to damage by poison increases",
+-- and DEF listed it), but Char.Defences never reported it under the name `venom`, so
+-- keep-up kept raising it -- three sips, each one answered with this line, each one a
+-- wasted elixir and a wasted balance, before the attempt budget stopped it.
+--
+-- The line is unambiguous, so the honest response is to stop rather than to spend the rest
+-- of the budget learning the same thing twice. Only a DEFENCE raise is abandoned: a healing
+-- sip that reports no effect means something quite different (full health), and that path
+-- has its own handling.
+-- ---------------------------------------------------------------------------
+
+do
+   local id = tempRegexTrigger([[^The elixir flows down your throat without effect\.$]], function()
+      local flight = emunah.queue.awaiting("elixir")
+      local tag = flight and flight.tag
+      local defence = tag and tostring(tag):match("^def:(.+)$")
+      if not defence then return end
+
+      emunah.queue.confirm("elixir")
+      emunah.curing.defkeepup.abandon(defence,
+         "the sip had no effect, so it is already up under a different Char.Defences name")
+   end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
+
+-- ---------------------------------------------------------------------------
+-- `perform hands` landed.
+--
+-- NOTHING confirmed the equilibrium vector. Every other vector has a line that closes the
+-- loop -- "You eat some irid moss." for moss, "You may drink another..." for the elixir --
+-- and equilibrium had none, so queue.confirm("equilibrium") was never once called and every
+-- single `perform hands` timed out instead:
+--
+--   12:01:31.34  You lay your hands on yourself.          <- it worked
+--   12:01:31.83  No confirmation for [equilibrium] perform hands -- re-arming.
+--
+-- The heal itself was fine; the bookkeeping said otherwise, which is how a working ability
+-- ends up looking broken in the log and being re-queued on top of itself.
+-- ---------------------------------------------------------------------------
+
+do
+   local id = tempRegexTrigger([[^You lay your hands on yourself\.$]], function()
+      emunah.queue.confirm("equilibrium")
    end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
@@ -601,6 +820,54 @@ do
    if clearId then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
       table.insert(emunah._persist.detectTriggers, clearId)
+   end
+end
+
+-- ---------------------------------------------------------------------------
+-- Asleep.
+--
+-- GMCP IS THE MECHANISM HERE, NOT THE FALLBACK. Achaea names it `sleeping` in
+-- Char.Afflictions and reported both edges cleanly in the 06:03 capture, so unlike prone --
+-- where the onset text is per attack per denizen and the corpus is necessarily partial --
+-- there is nothing for these patterns to cover that GMCP does not already. They exist for
+-- the window before the next push, and because the rejection is free to match.
+--
+-- WHAT IS DELIBERATELY MISSING
+-- ---------------------------
+-- The onset below is the one for a SLEEP you typed yourself. What an opponent's sleep
+-- prints, and what a successful WAKE prints, have never been observed -- and the wake
+-- message that HAS been seen is specifically the rested one at the end of a full night:
+--
+--     06:03:15.10  You open your eyes and stretch languidly, feeling deliciously well-rested.
+--
+-- Guessing the other two would be the failure this file's header warns about, and there is
+-- no cost to leaving them out: Char.Afflictions.Remove carried the wake in the same capture,
+-- and detect.SLEEP_GUARD bounds an involuntary sleep even if both were lost.
+-- ---------------------------------------------------------------------------
+
+do
+   for _, pattern in ipairs({
+      -- The onset of a self-inflicted sleep. Observed 06:03:03.06.
+      [[^You close your eyes, curl up in a ball, and fall asleep\.$]],
+      -- The REJECTION, and circular in the same way stun's is: it can only make the flag
+      -- true after a command has already been thrown away. Kept anyway because it is what
+      -- re-asserts the state if SLEEP_GUARD expires early on a long sleep -- see the note
+      -- on that constant for why being wrong there is cheap.
+      [[^You are asleep and can do nothing\. WAKE will attempt to wake you\.$]],
+   }) do
+      local id = tempRegexTrigger(pattern, function() detect.onSleep() end)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+
+   local wokeId = tempRegexTrigger(
+      [[^You open your eyes and stretch languidly, feeling deliciously well-rested\.$]],
+      function() detect.onWake() end)
+   if wokeId then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, wokeId)
    end
 end
 

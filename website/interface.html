@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interface — Emunah</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="commands.html">Command Reference</a></li>
+    <li><a href="api.html">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="people.html">People &amp; Names</a></li>
+    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="interface.html" class="active">Interface</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main class="with-toc">
+<div class="content">
+
+<h1>Interface</h1>
+<p class="lede">
+In a MUD the scrolling text is the interface. Everything here is chrome, and chrome that
+draws the eye away from the text is actively harmful during a fight.
+</p>
+
+<h2 id="layout">Layout</h2>
+<p>
+Three Adjustable containers &mdash; left, right and bottom &mdash; plus a thin strip along
+the top. The game console keeps the middle.
+</p>
+<div class="tree">  <span class="dir">top</span>      chyron (scrolling announcements)
+  <span class="dir">left</span>     room + items          <span class="comment">-- above</span>
+           afflictions           <span class="comment">-- below</span>
+  <span class="dir">right</span>    chat                  <span class="comment">-- above</span>
+           defences grid         <span class="comment">-- below</span>
+  <span class="dir">bottom</span>   vitals strip, target gauge, vector lights, class stats
+           map</div>
+<pre><code>emset ui                  # toggle the whole interface
+emset ui rebuild          # recreate the containers
+emset ui reset            # discard saved geometry
+emset ui show             # un-hide -- the fix for "it has gone invisible"</code></pre>
+
+<div class="bug">
+<h4>The interface used to go permanently invisible</h4>
+<p>
+Rebuilding hides the previous generation of containers.
+<code>Adjustable.Container:new</code> inherits <code>hidden</code> from a same-named
+container, autoSave writes it to disk, and autoLoad restores it. So after one reload the UI
+was built correctly and then immediately hidden, permanently, with no error anywhere.
+</p>
+<p>
+New containers are now explicitly shown after a rebuild, and saved state that says "hidden"
+does not win. Both are asserted in the test suite.
+</p>
+</div>
+
+<h2 id="panels">Panels</h2>
+<table>
+<thead><tr><th>Panel</th><th>Shows</th></tr></thead>
+<tbody>
+<tr><td><strong>Room</strong></td><td>Name, area, exits, shop/bank details, who is here (coloured by the same policy the highlighter uses), and the items on the floor. Creatures are clickable &mdash; a click toggles whether the hunting loop will attack that denizen.</td></tr>
+<tr><td><strong>Afflictions</strong></td><td>Ordered by <em>curing urgency</em> rather than onset, annotated with the vector that will cure each. During a fight the useful question is never "what do I have", it is "what is the system about to do about it, and on which balance".</td></tr>
+<tr><td><strong>Defences</strong></td><td>A three-column colour-coded grid. Green up, amber wanted but missing.</td></tr>
+<tr><td><strong>Vitals strip</strong></td><td>Health, mana, endurance, willpower, XP; balance and equilibrium lights; a light per cure vector (green ready, grey recovering, red blocked by an affliction); and class stats from <code>charstats</code>.</td></tr>
+<tr><td><strong>Chat</strong></td><td>Captured channels, tabbed. Capture and rendering are separate modules and fail independently, which is why <code>emset chat</code> reports on both halves.</td></tr>
+</tbody>
+</table>
+<p>
+Affliction colour carries the <em>source</em>: server-confirmed afflictions are solid,
+trigger-detected ones dimmer. They have genuinely different reliability and hiding that would
+make a desync impossible to spot.
+</p>
+
+<h2 id="chyron">The chyron</h2>
+<p>
+A scrolling ticker in the top strip, for things that must not be missed. Up to three messages
+are held at once and all of them scroll continuously on a loop &mdash; the way a TV chyron
+actually moves, not a slideshow that pauses on each message in turn.
+</p>
+<pre><code>emset chyron &lt;text&gt;
+emset chyron clear</code></pre>
+<p>
+Anything in the codebase can push to it programmatically; the command is the manual entry
+point to the same call.
+</p>
+
+<h2 id="echo">Banners and labels</h2>
+<p>
+<code>ui/echo.lua</code> provides the one-off announcements: a boxed centred banner in the
+main console, a highlighted line framed by a short colour gradient, and small floating labels
+anchored over the game console.
+</p>
+<p>
+The <code>** PAUSED **</code> label is the worked example. Curing and defence keep-up are both
+independently pausable, and <strong>a system silently doing nothing is exactly the failure
+mode a banner like this exists to make impossible to miss</strong>. It is persistent &mdash;
+no duration &mdash; and stays up for as long as either is off.
+</p>
+
+<h2 id="theme">Theme</h2>
+<p>
+One place for every colour, font and border, so panels stay consistent and a retheme is a
+single-file change. A dark, low-saturation base with a small number of saturated accents
+reserved for information that <em>changes</em>: health, balance, afflictions.
+</p>
+<p>
+Colours are given as hex strings for Qt stylesheets and as RGB triples for the echo
+functions, derived from the same source. Note that <code>Geyser.MiniConsole</code> has no
+<code>setStyleSheet</code> &mdash; that is a Label and Gauge method, and calling it on a
+console is a hard error. A console's background comes from the <code>color</code> field of its
+constructor instead.
+</p>
+
+<h2 id="cost">What the interface costs</h2>
+<p>
+Mudlet runs every installed package in one Lua state on the UI thread, so a panel repaint is
+time the whole client is not drawing, not reading input, and not sending. Two rules, both
+enforced by the test suite:
+</p>
+<ul>
+  <li><strong>A panel draws once per repaint, not once per row.</strong> The defence grid used to emit a separate Qt rich-text parse per cell &mdash; thirty-odd of them.</li>
+  <li><strong>A panel whose rendered content is unchanged does not draw at all.</strong> A restock pulling five herbs fires five item events, none of which change what the room shows.</li>
+</ul>
+<p>
+See <a href="performance.html">Performance</a> for the measurements.
+</p>
+
+
+<footer>
+See <a href="architecture.html">Architecture</a> next, or <a href="performance.html">Performance</a> for what the panels cost.
+</footer>
+
+<div class="page-nav">
+  <div><span class="dir">Back</span><a href="sustenance.html">&larr; Sustenance &amp; Economy</a></div>
+  <div class="next"><span class="dir">Next</span><a href="architecture.html">Architecture &rarr;</a></div>
+</div>
+
+</div>
+<div class="toc">
+  <div class="toc-title">On this page</div>
+  <a href="#layout">Layout</a>
+  <a href="#panels">Panels</a>
+  <a href="#chyron">The chyron</a>
+  <a href="#echo">Banners and labels</a>
+  <a href="#theme">Theme</a>
+  <a href="#cost">What it costs</a>
+</div>
+</main>
+</div>
+</body>
+</html>

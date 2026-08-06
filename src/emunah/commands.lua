@@ -45,6 +45,80 @@ local function flag(value)
 end
 
 -- ---------------------------------------------------------------------------
+-- richer output helpers
+-- ---------------------------------------------------------------------------
+--
+-- decho and the theme palette rather than the sixteen `<ansi_*>` names above. Used by the
+-- name database and by the defence keep-up grid, which is why they live here rather than
+-- inside either: a `local` declared further down the file is not in scope for a handler
+-- defined above it, and the forward reference resolves to a nil global instead of failing
+-- loudly.
+
+local NDB_WIDTH = 68
+
+local function theme() return emunah.ui.theme end
+
+--- decho colour prefix for a hex string, rather than for a palette key.
+local function hexdc(hex)
+   local r, g, b = tostring(hex):match("^#(%x%x)(%x%x)(%x%x)$")
+   if not r then return theme().dc("text") end
+   return string.format("<%d,%d,%d>", tonumber(r, 16), tonumber(g, 16), tonumber(b, 16))
+end
+
+local function dim(text)   return theme().dc("textDim") .. tostring(text) end
+local function faint(text) return theme().dc("inactive") .. tostring(text) end
+
+local function ndbRule(width)
+   decho("\n  " .. faint(string.rep("-", width or NDB_WIDTH)))
+end
+
+local function ndbTitle(text, right)
+   local pad = NDB_WIDTH - #text - #(right or "") - 3
+   if pad < 1 then pad = 1 end
+   decho(string.format("\n  %s%s %s %s%s",
+      theme().dc("borderLit"), "--", theme().dc("textBright") .. text,
+      faint(string.rep("-", pad)),
+      right and (" " .. theme().dc("textDim") .. right) or ""))
+end
+
+--- "4m", "3d" -- a duration at the scale a roster cares about, which is days, not the
+--- tenths of a second util.duration() is tuned for.
+local function span(seconds)
+   if not seconds then return "never" end
+   if seconds < 90 then return string.format("%ds", math.floor(seconds)) end
+   if seconds < 5400 then return string.format("%dm", math.floor(seconds / 60)) end
+   if seconds < 172800 then return string.format("%dh", math.floor(seconds / 3600)) end
+   return string.format("%dd", math.floor(seconds / 86400))
+end
+
+local function ago(when)
+   if not when then return "never" end
+   return span(emunah.util.now() - when)
+end
+
+--- Lay out label/value pairs two to a line.
+---
+--- Two columns rather than one: a full record is twenty-odd fields, and a single column
+--- makes the dossier longer than a screen -- at which point the top has scrolled away by
+--- the time you have read the bottom, which defeats the point of gathering it in one place.
+--- Nothing is dropped for being unknown; a dash for "we never found out" is itself
+--- information, and a field that silently vanished would read as one we never had.
+local function ndbGrid(rows)
+   for index = 1, #rows, 2 do
+      local left, right = rows[index], rows[index + 1]
+      local line = string.format("%s%-12s%s%-16s",
+         theme().dc("textDim"), left[1],
+         left[3] or theme().dc("text"), tostring(left[2]):sub(1, 15))
+      if right then
+         line = line .. string.format("%s%-12s%s%s",
+            theme().dc("textDim"), right[1],
+            right[3] or theme().dc("text"), tostring(right[2]))
+      end
+      decho("\n  " .. line)
+   end
+end
+
+-- ---------------------------------------------------------------------------
 -- commands
 -- ---------------------------------------------------------------------------
 
@@ -64,12 +138,48 @@ M.handlers.status = function()
       (#emunah.gmcp.skills.all() .. " abilities") or "pending")
    row("inventory", emunah.gmcp.items.count("inv") .. " items")
    row("log level", emunah.log.level)
+
+   -- THE SAFETY FLOORS, stated plainly and together.
+   --
+   -- These live in three places -- bashing, pvp, and watch's shared `critical` -- and a
+   -- floor set to 0 is OFF, silently. A fight was observed running down to 23% health and
+   -- stopping on watch's critical rather than on the bashing floor, which is exactly what a
+   -- `bashing.stopBelowHealth` of 0 looks like from the outside and is indistinguishable
+   -- from a bug unless you can see all three numbers at once.
+   local function floor(label, value)
+      local number = tonumber(value) or 0
+      row(label, number > 0 and (number .. "%") or "OFF",
+         number > 0 and "reset" or "ansi_light_red")
+   end
+   floor("stop: bashing", emunah.config.get("bashing.stopBelowHealth", 50))
+   floor("stop: pvp", emunah.config.get("pvp.stopBelowHealth", 60))
+   floor("stop: critical", emunah.watch and emunah.watch.config
+      and emunah.config.get("watch.critical", emunah.watch.config.critical))
 end
 
 M.handlers.cure = function(arg)
    if arg == "on" then emunah.curing.engine.start()
    elseif arg == "off" then emunah.curing.engine.stop()
    else emunah.curing.engine.toggle() end
+   emunah.config.save()
+end
+
+--- `pp`: pause or resume curing AND defence keep-up together. A cure engine paused with
+--- keep-up still raising defences (or the reverse) is not actually the fight paused, it is
+--- half paused -- so this drives both from the curing engine's state rather than letting
+--- them drift independently. "Resuming" is defined as "either one is currently off": that
+--- way one call always lands on a clean, fully-on or fully-off state, regardless of how
+--- `! cure` or `! defs` may have left them individually.
+M.handlers.pause = function()
+   local engine = emunah.curing.engine
+   local keepup = emunah.curing.defkeepup
+   if engine.enabled and keepup.enabled then
+      engine.stop()
+      keepup.stop()
+   else
+      engine.start()
+      keepup.start()
+   end
    emunah.config.save()
 end
 
@@ -83,21 +193,173 @@ M.handlers.defs = function(arg, rest)
       -- the Char.Defences name has to be read from the game rather than assumed.
       local name, command = rest:match("^(%S+)%s+(.+)$")
       keepup.add(name or rest, command)
+   elseif arg == "names" then
+      -- What Char.Defences actually calls things. The answer to every "I raised it and it
+      -- never appeared" -- the game has been reporting the real name all along.
+      header("Char.Defences reports " .. #emunah.gmcp.defences.names() .. " defences")
+      local unclaimed = util.set(keepup.unclaimed())
+      for _, name in ipairs(emunah.gmcp.defences.names()) do
+         row(name, unclaimed[name] and "not paired with any command" or "known",
+            unclaimed[name] and "ansi_yellow" or "ansi_light_green")
+      end
+      cecho("\n  <ansi_light_black>An unpaired name that you know how to raise: "
+         .. "emunah defs add <name> <command><reset>")
+      return
+   elseif arg == "mode" and rest then
+      -- Explicit rather than an optional trailing argument on `add`, which already takes a
+      -- free-form command and could not tell a mode from the first word of one.
+      local name, mode = rest:match("^(%S+)%s+(%S+)$")
+      if not name then
+         log.warn("Usage: emunah defs mode <name> defup|keepup|off")
+         return
+      end
+      mode = mode:lower()
+      if mode == "off" or mode == "none" then mode = nil end
+      keepup.setMode(name, mode)
+      log.info("%s: %s.", name, mode or "off")
    elseif arg == "remove" or arg == "drop" then keepup.drop(rest)
    elseif arg == "list" or not arg then
-      header("Defence keep-up (" .. (keepup.enabled and "on" or "off") .. ")")
+      header("Defences (" .. (keepup.enabled and "on" or "off") .. ")")
       local wanted = keepup.wanted()
       if #wanted == 0 then
-         cecho("\n  <ansi_light_black>nothing configured -- try: emunah defs add rebounding<reset>")
+         cecho("\n  <ansi_light_black>nothing configured -- try `emdefs` for the grid, "
+            .. "or: emunah defs add rebounding<reset>")
       end
-      local missing = util.set(keepup.missing())
+      -- Say it where the red text is, not only in the header. A list of defences marked
+      -- MISSING while the thing that raises them is switched off reads as a fault in the
+      -- raising, which is exactly how it was reported. Same warning, and the same reason
+      -- for it, as the one `emunah affs` prints when curing is off.
+      if #wanted > 0 and not keepup.enabled then
+         cecho("\n  <ansi_light_red>defences are OFF<reset> <ansi_light_black>-- "
+            .. "`emunah defs on`. Nothing below is being raised.<reset>")
+      end
       for _, name in ipairs(wanted) do
-         row(name, missing[name] and "MISSING" or "up",
-            missing[name] and "ansi_light_red" or "ansi_light_green")
+         local state = keepup.state(name)
+         -- A satisfied defup entry is neither up nor owed anything, and calling it MISSING
+         -- would be wrong in the one mode where a lapse is deliberately ignored.
+         local status
+         if state.up then status = "up"
+         elseif state.mode == "defup" and state.satisfied then status = "done (lapsed)"
+         else status = "MISSING" end
+         -- Name and mode padded here rather than left to row()'s single 18-wide column,
+              -- which the two of them together overrun.
+         row(string.format("%-16s %-8s", name, "[" .. tostring(state.mode) .. "]"), status,
+            status == "up" and "ansi_light_green"
+            or status == "MISSING" and "ansi_light_red" or "ansi_light_black")
       end
    else
       keepup.toggle()
    end
+end
+
+--- The keep-up grid: every defence we know how to raise, as clickable toggles.
+---
+--- Three states per defence, not two, and that is the point of building this rather than
+--- printing a list. A checkbox alone answers "did I ask for this", which is the least
+--- interesting of the three questions -- the others being whether it is actually up right
+--- now, and whether we hold a command capable of raising it at all. A defence sitting
+--- wanted-but-unraisable looks identical to one that is merely down, and stays that way
+--- forever.
+---
+---   [ ] off     not wanted
+---   [o] defup   raise it once if it is missing, then leave it alone
+---   [x] keepup  raise it whenever it is missing, indefinitely
+---   [-] faint   we have no command for it; asking for it would achieve nothing
+---
+--- and the NAME is coloured by what is actually true right now: green up, red wanted but
+--- down, dim down.
+---
+--- Clicking re-renders rather than editing in place: Mudlet's main console has no
+--- addressable cells, and a fresh grid under the old one is what every other clickable view
+--- in this codebase does (see ih.lua, ui/roompanel.lua).
+M.handlers.keepup = function()
+   local keepup = emunah.curing.defkeepup
+   local names  = keepup.known()
+
+   ndbTitle("defences", keepup.enabled and "ON" or "OFF")
+   if not keepup.enabled then
+      decho("\n  " .. theme().dc("affliction") .. "defences are OFF"
+         .. faint(" -- nothing below is being raised. "))
+      dechoLink(theme().dc("defence") .. "[turn it on]",
+         "emunah.curing.defkeepup.start() emunah.config.save() "
+         .. "emunah.curing.defkeepup.nudge() "
+         .. "emunah.commands.handlers.keepup()", "Start raising these defences", true)
+   end
+
+   local COLUMNS, column = 3, 0
+   for _, name in ipairs(names) do
+      local state = keepup.state(name)
+
+      -- THE BOX IS THE MODE, THE NAME IS THE TRUTH. Two questions, two channels: what did
+      -- you ask for, and what is actually up. Folding them together would make "I asked for
+      -- this and it is not up" -- the only state anything is owed about -- look the same as
+      -- "I never asked for it".
+      local box, boxColour
+      if not state.raisable then
+         box, boxColour = "-", theme().dc("inactive")
+      elseif state.mode == "defup" then
+         box, boxColour = "o", theme().dc("warning")
+      elseif state.mode == "keepup" then
+         box, boxColour = "x", theme().dc("defence")
+      else
+         box, boxColour = " ", theme().dc("textDim")
+      end
+
+      local nameColour_
+      if state.up then
+         nameColour_ = theme().dc("defence")
+      elseif state.mode and state.blockedBy then
+         -- Wanted, down, and waiting on something else -- which is not the same problem as
+         -- "wanted and not going up", and should not read like it.
+         nameColour_ = theme().dc("warning")
+      elseif state.mode == "defup" and state.satisfied then
+         -- Done, not owed anything further -- the `emunah defs list` text view already
+         -- draws this distinction ("done (lapsed)"); the grid did not, so a satisfied defup
+         -- entry (an ordinary lapsed one, or an unconfirmable one-shot like `bliss`) looked
+         -- identical to one that had never been raised at all.
+         nameColour_ = theme().dc("textDim")
+      elseif state.mode and state.raisable then
+         nameColour_ = theme().dc("affliction")
+      else
+         nameColour_ = theme().dc("textDim")
+      end
+
+      if column == 0 then decho("\n  ") end
+      -- The whole cell is the link, checkbox included: a three-character click target is
+      -- an unkind one, and the name beside it is what the eye is already on.
+      dechoLink(string.format("%s[%s] %s%-20s", boxColour, box, nameColour_, name:sub(1, 20)),
+         -- Cycle, ask for a prompt so the change is acted on now rather than whenever the
+         -- game next says something, then redraw.
+         string.format("emunah.curing.defkeepup.cycle(%q) "
+            .. "emunah.curing.defkeepup.nudge() "
+            .. "emunah.commands.handlers.keepup()", name),
+         state.raisable
+            and (({ [""] = "Raise " .. name .. " once (defup)",
+                    defup  = "Keep " .. name .. " up (keepup)",
+                    keepup = "Stop raising " .. name })[state.mode or ""]
+                 .. "  (" .. tostring(state.command) .. ")"
+                 -- Say when the command has not been checked against a live
+                 -- Char.Defences: "it never goes up" is a likelier outcome for those, and
+                 -- the tooltip should not hide it.
+                 .. (state.blockedBy
+                     and ("  -- waiting for " .. state.blockedBy
+                          .. ", without which you cannot see or hear") or "")
+                 .. (state.source == "imported" and "  [unverified]" or "")
+                 .. (state.unconfirmable
+                     and "  [never shows as up -- Char.Defences has no line for it]" or ""))
+            -- Say why it is inert rather than offering a toggle that cannot help.
+            or (name .. ": no command known. `emunah defs add " .. name .. " <command>`"),
+         true)
+
+      column = (column + 1) % COLUMNS
+   end
+
+   decho("\n\n  " .. faint("click cycles:  [ ] off  ->  [o] defup (raise once)  ->  "
+      .. "[x] keepup  ->  off"))
+   decho("\n  " .. faint("[-] no command known.  Name: green up now, red wanted but down, "
+      .. "dim down"))
+   decho("\n  " .. faint("emunah defs on|off  |  emunah defs add <name> <command> "
+      .. "corrects a name that never appears"))
 end
 
 M.handlers.affs = function()
@@ -166,18 +428,378 @@ M.handlers.chat = function(arg)
    cecho("\n  <ansi_light_black>emunah chat rebuild -- rebuild just the chat console.<reset>")
 end
 
+-- ---------------------------------------------------------------------------
+-- the name database
+-- ---------------------------------------------------------------------------
+--
+-- This section draws with decho and the theme palette rather than the `<ansi_*>` names the
+-- rest of the file uses. That is deliberate, and it is the one place in the command surface
+-- where it happens: a roster is read at a glance under time pressure, and sixteen ANSI
+-- colours cannot give six cities six distinguishable tints. The theme already carries a
+-- palette; this borrows it so a retheme moves the roster too.
+--
+-- The visual grammar, which every view below shares:
+--
+--   a GLYPH column says standing        x enemy   + ally   . neutral   @ you
+--   COLOUR says the same thing again for enemies and allies, and says CITY for everyone
+--     else, matching what the highlighter does to the same name in the game text
+--   a FLAG cluster says what is unusual  D dragon   M mark   i<n> infamy   !<n> importance
+--
+-- Saying standing twice, in glyph and in colour, is not redundancy: the glyph survives a
+-- colourblind reader and a monochrome log, and the colour is what is actually legible at
+-- speed.
+
+
+local STANDING = {
+   enemy   = { glyph = "x", colour = "affliction", label = "enemy"   },
+   ally    = { glyph = "+", colour = "defence",    label = "ally"    },
+   neutral = { glyph = ".", colour = "textDim",    label = "neutral" },
+   self    = { glyph = "@", colour = "textBright", label = "you"     },
+}
+
+--- The colour a name is drawn in -- the same decision the highlighter makes, so a name
+--- reads identically in the roster and in the scroll.
+local function nameColour(name)
+   local style = emunah.ui.names and emunah.ui.names.styleFor(name)
+   if style and style.colour then return hexdc(style.colour) end
+   local standing = STANDING[emunah.namedb.relationship(name)] or STANDING.neutral
+   return theme().dc(standing.colour)
+end
+
+
+
+
+--- The compact flag cluster. Empty when there is nothing unusual, which is most people --
+--- an always-present column of dashes would be noise in exactly the place the eye should
+--- find nothing.
+local function flags(person)
+   local ndb = emunah.namedb
+   local out = {}
+   if person.dragon then out[#out + 1] = "D" end
+   if person.mark then out[#out + 1] = "M" end
+   local infamy = ndb.infamy(person.name)
+   if infamy >= 2 then out[#out + 1] = "i" .. infamy end
+   if (person.importance or 0) > 0 then out[#out + 1] = "!" .. person.importance end
+   if person.immortal then out[#out + 1] = "IMM" end
+   return table.concat(out, " ")
+end
+
+--- One roster line. The name is a link, because the roster's whole job is to be the thing
+--- you scan before picking one person to read properly.
+local function ndbLine(person)
+   local ndb = emunah.namedb
+   local standing = STANDING[ndb.relationship(person.name)] or STANDING.neutral
+
+   decho(string.format("\n  %s%s ", theme().dc(standing.colour), standing.glyph))
+   dechoLink(nameColour(person.name) .. string.format("%-14s", person.name:sub(1, 14)),
+      "emunah whois " .. person.name, "Read the dossier on " .. person.name, true)
+   decho(string.format("%s%-13s %s%-11s %s%-13s %s%s",
+      theme().dc("text"),      (person.class or "-"):sub(1, 13),
+      theme().dc("textDim"),   (person.city or "-"):sub(1, 11),
+      theme().dc("inactive"),  (person.house or "-"):sub(1, 13),
+      theme().dc("warning"),   flags(person)))
+end
+
+--- A labelled bar. Used by `stats`; the bar is drawn in the city's own colour, which turns
+--- the population breakdown into the same visual language as everything else.
+local function ndbBar(label, count, most, colour)
+   local width = most > 0 and math.floor((count / most) * 28) or 0
+   decho(string.format("\n  %s%-18s %s%4d  %s%s",
+      theme().dc("textDim"), tostring(label):sub(1, 18),
+      theme().dc("text"), count,
+      colour or theme().dc("borderLit"), string.rep("=", width)))
+end
+
+--- Anything destructive asks twice, and the second ask has to name a number. `forget all`
+--- on a database somebody has curated for a month is not recoverable, and a confirmation
+--- that says "are you sure" without saying how much is at stake is not a confirmation.
+local pendingWipe = nil
+
+--- The filtered-roster verbs, as data: verb -> the filter it builds.
+local ROSTERS = {
+   all      = {},
+   ally     = { relationship = "ally" },
+   allies   = { relationship = "ally" },
+   enemy    = { relationship = "enemy" },
+   enemies  = { relationship = "enemy" },
+   neutral  = { relationship = "neutral" },
+   dragons  = { dragon = true },
+   marks    = { mark = true },
+   infamous = { infamous = true },
+}
+
+local function ndbRoster(filter, title)
+   local ndb = emunah.namedb
+   local people = ndb.list(filter)
+
+   ndbTitle(title or "roster", string.format("%d of %d", #people, ndb.count()))
+   if #people == 0 then
+      decho("\n  " .. dim("nobody matches. `emunah ndb capture` explains where records "
+         .. "come from."))
+      return
+   end
+   for _, person in ipairs(people) do ndbLine(person) end
+   decho("\n  " .. faint("x enemy  + ally  . neutral   D dragon  M mark  i infamy  "
+      .. "!importance"))
+end
+
 --- The name database: who is a person, and what are they.
 M.handlers.ndb = function(arg, rest)
    local ndb = emunah.namedb
+   arg = arg and arg:lower() or nil
+
+   -- --- reading -----------------------------------------------------------
+
+   if arg == nil or ROSTERS[arg] then
+      ndbRoster(ROSTERS[arg or "all"], arg or "roster")
+      return
+   end
+
+   if (arg == "city" or arg == "house" or arg == "order" or arg == "class") and rest then
+      ndbRoster({ [arg] = rest }, arg .. " " .. rest)
+      return
+   end
+
+   if arg == "here" then
+      local here = ndb.here()
+      ndbTitle("in the room", tostring(#here))
+      if #here == 0 then decho("\n  " .. dim("nobody but you")) return end
+      for _, person in ipairs(here) do
+         local record = ndb.get(person.name)
+         if record then
+            ndbLine(record)
+         else
+            -- In the room but not in the database at all. Says so plainly rather than
+            -- rendering a row of dashes that looks like a record with nothing in it.
+            decho(string.format("\n  %s? %s%-14s %s",
+               theme().dc("warning"), theme().dc("text"), person.name:sub(1, 14),
+               dim("not recorded")))
+         end
+      end
+      return
+   end
+
+   if arg == "stats" then
+      local s = ndb.stats()
+      ndbTitle("population", tostring(s.total) .. " known")
+
+      local most = math.max(s.standing.ally, s.standing.enemy, s.standing.neutral, 1)
+      ndbBar("ally", s.standing.ally, most, theme().dc("defence"))
+      ndbBar("enemy", s.standing.enemy, most, theme().dc("affliction"))
+      ndbBar("neutral", s.standing.neutral, most, theme().dc("inactive"))
+
+      local cities, top = emunah.util.keys(s.cities), 0
+      for _, city in ipairs(cities) do top = math.max(top, s.cities[city]) end
+      if #cities > 0 then
+         ndbRule()
+         for _, city in ipairs(cities) do
+            ndbBar(city, s.cities[city], top,
+               hexdc(emunah.ui.names.cityColour[city:lower()] or theme().colour.borderLit))
+         end
+      end
+
+      ndbRule()
+      -- The gaps, stated as loudly as the totals. A database is only as good as what it
+      -- does NOT know, and that number is invisible in every other view.
+      decho(string.format("\n  %s%-18s %s%4d unknown city, %d unknown class",
+         theme().dc("textDim"), "gaps", theme().dc("warning"), s.unknownCity, s.unknownClass))
+      decho(string.format("\n  %s%-18s %s%d dragons, %d marks, %d infamous, %d with notes",
+         theme().dc("textDim"), "of note", theme().dc("text"),
+         s.dragons, s.marks, s.infamous, s.noted))
+
+      local hostiles = ndb.hostiles()
+      if #hostiles > 0 then
+         ndbRule()
+         for _, org in ipairs(hostiles) do
+            decho(string.format("\n  %s%-18s %s%s",
+               theme().dc("textDim"), "hostile " .. org.kind,
+               theme().dc("affliction"), org.name))
+         end
+      end
+      return
+   end
+
+   if arg == "fields" then
+      ndbTitle("settable fields", "emunah ndb set <person> <field> <value>")
+      for _, spec in ipairs(ndb.FIELDS) do
+         decho(string.format("\n  %s%-12s %s%-7s %s%s",
+            theme().dc("text"), spec.name,
+            theme().dc("inactive"), spec.type,
+            theme().dc("textDim"), spec.help or ""))
+      end
+      return
+   end
+
+   if arg == "capture" and (rest == "on" or rest == "off") then
+      ndb.capture.setEnabled(rest == "on")
+      emunah.config.save()
+      log.info("Reading CW, CLWHO, QW and angel reports is %s.", rest)
+      return
+   end
+
+   if arg == "capture" then
+      -- Where records come from, and -- the part that matters -- exactly what each source
+      -- we have NOT built is waiting on. See namedb.lua's header for why guessing at that
+      -- text is the one thing this project will not do.
+      ndbTitle("data sources", ndb.capture.enabled and "reading" or "NOT READING")
+      for _, source in ipairs(ndb.sources) do
+         decho(string.format("\n  %s%-10s %s%s",
+            source.implemented and theme().dc("defence") or theme().dc("warning"),
+            source.implemented and "live" or "waiting",
+            theme().dc("text"), source.what))
+         decho(string.format("\n  %s%-10s %s%s", "", "", dim("gives "), dim(source.gives)))
+         if source.needs then
+            decho("\n  " .. string.rep(" ", 11) .. theme().dc("warning") .. "needs: "
+               .. source.needs)
+         end
+      end
+      local capture = ndb.capture
+      ndbRule()
+      decho(string.format("\n  %s%-12s %s%d read, %d resolved, %d recorded",
+         theme().dc("textDim"), "listings", theme().dc("text"),
+         capture.counters.lines, capture.counters.resolved, capture.counters.records))
+
+      -- The honorifics we could not turn into a name, shown rather than swallowed. This is
+      -- the list that says whether the resolver is actually working, and a capture layer
+      -- that hid its failures would look perfect while quietly recording nobody.
+      local stuck = emunah.util.keys(capture.unresolved)
+      if #stuck > 0 then
+         decho(string.format("\n  %s%-12s %s%d", theme().dc("textDim"), "unresolved",
+            theme().dc("warning"), #stuck))
+         for index, fullname in ipairs(stuck) do
+            if index > 8 then
+               decho("\n  " .. faint(string.format("   ... and %d more", #stuck - 8)))
+               break
+            end
+            decho("\n    " .. faint(fullname))
+         end
+      end
+
+      decho("\n  " .. faint("paste the text into docs/game/help/ and the pattern "
+         .. "follows from it"))
+      return
+   end
+
+   if arg == "path" then
+      ndbTitle("storage")
+      decho("\n  " .. theme().dc("text") .. ndb.path)
+      decho("\n  " .. dim(string.format("%d records, written on every change", ndb.count())))
+      return
+   end
+
+   -- `ndb show <person>` is the same dossier as `emunah whois <person>`. Two spellings for
+   -- one view because they are reached from different places: `whois` is what you type
+   -- about a name that just walked in, `ndb show` is what you type when you are already
+   -- inside the database.
+   if (arg == "show" or arg == "who" or arg == "whois") and rest then
+      M.handlers.whois(rest)
+      return
+   end
+
+   -- --- the web API --------------------------------------------------------
+
+   if arg == "api" then
+      if rest == "on" or rest == "off" then
+         ndb.api.enabled = (rest == "on")
+         log.info("The Achaea web API is %s.", rest)
+         return
+      end
+      local status = ndb.api.status()
+      ndbTitle("achaea web API", status.enabled and "ON" or "OFF")
+      decho("\n  " .. dim(ndb.api.HOST))
+      ndbGrid({
+         { "transport", status.transport },
+         { "queued",    status.queued },
+         { "cached",    status.cached },
+         { "online",    status.online
+                          and (status.online .. " (" .. span(status.onlineAge) .. " old)")
+                          or "not fetched" },
+         { "fetched",   status.counters.ok },
+         { "not found", status.counters.missing },
+         { "failed",    status.counters.failed },
+         { "from cache", status.counters.served },
+      })
+      decho("\n  " .. faint("emunah ndb api on|off  |  ndb refresh <person>|all  "
+         .. "|  ndb online"))
+      return
+   end
+
+   if arg == "refresh" then
+      if not rest or rest:lower() == "all" then
+         local queued = 0
+         for _, person in ipairs(ndb.list()) do
+            if ndb.api.enrich(person.name, nil, true) then queued = queued + 1 end
+         end
+         log.info("Queued %d lookups, one per second. `emunah ndb api` to watch.", queued)
+         return
+      end
+      ndb.api.enrich(rest, function(person, written, why)
+         if person then
+            log.info("%s: %d fields from the web API.", person.name, written)
+         else
+            log.warn("Could not refresh %s: %s", rest, tostring(why))
+         end
+      end, true)
+      return
+   end
+
+   if arg == "online" then
+      ndb.api.roster(function(online)
+         local names = emunah.util.keys(online)
+         ndbTitle("online now", tostring(#names))
+         local known, unknown = {}, {}
+         for _, id in ipairs(names) do
+            local canonical = online[id]
+            if ndb.known(canonical) then known[#known + 1] = canonical
+            else unknown[#unknown + 1] = canonical end
+         end
+         if #known > 0 then
+            decho("\n  " .. dim("known  ") .. theme().dc("text")
+               .. table.concat(known, ", "))
+         end
+         if #unknown > 0 then
+            decho("\n  " .. dim("new    ") .. theme().dc("warning")
+               .. table.concat(unknown, ", "))
+            decho("\n  " .. faint("`emunah ndb learn` records and looks up every "
+               .. "name above"))
+         end
+      end, function(why)
+         log.error("Could not reach the web API: %s", tostring(why))
+      end, true)
+      return
+   end
+
+   if arg == "learn" then
+      ndb.api.roster(function(online)
+         local queued = 0
+         for _, canonical in pairs(online) do
+            if not ndb.isSelf(canonical) then
+               ndb.seen(canonical)
+               if ndb.api.enrich(canonical) then queued = queued + 1 end
+            end
+         end
+         log.info("Recorded everyone online; %d queued for lookup.", queued)
+      end, function(why)
+         log.error("Could not reach the web API: %s", tostring(why))
+      end, true)
+      return
+   end
+
+   -- --- writing -----------------------------------------------------------
 
    if arg == "set" and rest then
-      local name, field, value = rest:match("^(%S+)%s+(%S+)%s+(.+)$")
+      local name, field, value = rest:match("^(%S+)%s+(%S+)%s*(.*)$")
       if not name then
-         log.warn("Usage: emunah ndb set <person> <field> <value>")
+         log.warn("Usage: emunah ndb set <person> <field> <value> -- `emunah ndb fields`")
          return
       end
       local ok, why = ndb.set(name, field, value)
-      log.info(ok and ("%s: %s = %s"):format(name, field, value) or tostring(why))
+      if ok then
+         log.info("%s: %s = %s", ndb.get(name).name, field,
+            value ~= "" and value or "(cleared)")
+      else
+         log.warn("%s", tostring(why))
+      end
       return
    end
 
@@ -185,74 +807,260 @@ M.handlers.ndb = function(arg, rest)
       local name, text = rest:match("^(%S+)%s+(.+)$")
       if not name then log.warn("Usage: emunah ndb note <person> <text>") return end
       ndb.note(name, text)
-      log.info("Noted against %s.", name)
+      log.info("Noted against %s.", ndb.get(name).name)
       return
    end
 
-   if arg == "hostile" and rest then
-      local kind, org = rest:match("^(%S+)%s+(.+)$")
-      local ok, why = ndb.setHostile(kind, org, true)
-      log.info(ok and ("%s %s is hostile."):format(kind, org) or tostring(why))
+   if arg == "unnote" and rest then
+      local name, index = rest:match("^(%S+)%s*(%d*)$")
+      local ok, why = ndb.unnote(name, index ~= "" and index or nil)
+      log.info(ok and ("Dropped %s from %s."):format(
+         index ~= "" and ("note " .. index) or "every note", name) or tostring(why))
       return
    end
 
-   if arg == "here" then
-      header("Players here")
-      local here = ndb.here()
-      if #here == 0 then cecho("\n  <ansi_light_black>nobody<reset>") end
-      for _, person in ipairs(here) do
-         row(person.name, person.relationship,
-            person.relationship == "enemy" and "ansi_light_red"
-            or person.relationship == "ally" and "ansi_light_green" or "reset")
+   if arg == "hostile" then
+      if not rest then
+         local hostiles = ndb.hostiles()
+         ndbTitle("hostile organisations", tostring(#hostiles))
+         if #hostiles == 0 then
+            decho("\n  " .. dim("none -- everyone outside your own city reads as neutral"))
+         end
+         for _, org in ipairs(hostiles) do
+            decho(string.format("\n  %s%-8s %s%s",
+               theme().dc("textDim"), org.kind, theme().dc("affliction"), org.name))
+         end
+         decho("\n  " .. faint("emunah ndb hostile city Mhaldor | "
+            .. "emunah ndb hostile off city Mhaldor"))
+         return
+      end
+
+      local off = rest:match("^off%s+(.+)$")
+      local kind, org = (off or rest):match("^(%S+)%s+(.+)$")
+      local ok, why = ndb.setHostile(kind, org, not off)
+      log.info(ok and ("%s %s is %s."):format(kind, org, off and "no longer hostile"
+         or "hostile") or tostring(why))
+      return
+   end
+
+   if arg == "forget" and rest then
+      if rest:lower() == "all" then
+         local now = emunah.util.now()
+         if pendingWipe and (now - pendingWipe) < 15 then
+            pendingWipe = nil
+            log.warn("Forgot %d people.", ndb.forgetAll())
+         else
+            pendingWipe = now
+            log.warn("This will forget %d people, including %d notes you wrote. "
+               .. "Repeat within 15s to confirm.", ndb.count(), ndb.stats().noted)
+         end
+         return
+      end
+      log.info(ndb.forget(rest) and ("Forgot %s."):format(rest)
+         or ("%s was not in the database."):format(rest))
+      return
+   end
+
+   if arg == "prune" then
+      local removed, names = ndb.prune(rest and tonumber(rest) or nil)
+      log.info("Pruned %d records carrying nothing but a name%s.", removed,
+         rest and (" and unseen for " .. rest .. " days") or "")
+      if removed > 0 and removed <= 20 then
+         log.info("  %s", table.concat(names, ", "))
       end
       return
    end
 
+   -- --- moving it around ---------------------------------------------------
+
    if arg == "export" then
-      header("NameDB export")
-      display(ndb.export())
+      local fields, path = nil, rest
+      local list, remainder = (rest or ""):match("^fields%s+(%S+)%s*(.*)$")
+      if list then
+         fields = emunah.util.split(list, ",")
+         path = remainder ~= "" and remainder or nil
+      end
+      local ok, where = ndb.exportFile(path, { fields = fields, notes = fields == nil })
+      if ok then
+         log.info("Exported %d records to %s%s.", ndb.count(), where,
+            fields and (" (" .. table.concat(fields, ", ") .. " only, no notes)") or "")
+      else
+         log.error("Export failed: %s", tostring(where))
+      end
       return
    end
 
-   -- Default: a roster, optionally filtered by relationship.
-   header("NameDB (" .. ndb.count() .. " known)")
-   local people = ndb.list(arg)
-   if #people == 0 then
-      cecho("\n  <ansi_light_black>nothing recorded -- try: emunah ndb set <name> city Targossas<reset>")
+   if arg == "import" and rest then
+      local ok, added, updated = ndb.importFile(rest)
+      if ok then
+         log.info("Imported: %d new, %d fields filled in. Your own declarations and notes "
+            .. "were left alone.", added, updated)
+      else
+         log.error("Import failed: %s", tostring(added))
+      end
+      return
    end
-   for _, person in ipairs(people) do
-      local relation = ndb.relationship(person.name)
-      row(person.name, string.format("%s  %s%s", relation,
-         person.class or "", person.city and (" of " .. person.city) or ""),
-         relation == "enemy" and "ansi_light_red"
-         or relation == "ally" and "ansi_light_green" or "reset")
-   end
+
+   log.warn("Unknown: emunah ndb %s. Try `emunah ndb`, `... stats`, `... fields`, "
+      .. "`... capture`.", tostring(arg))
 end
 
---- Everything known about one person.
+--- Why someone stands where they stand. A derived answer nobody can trace is one nobody
+--- trusts, and the trace is three words.
+local function because(person, standing)
+   if person.iff and person.iff ~= "auto" then return "declared by you" end
+   if person.cityenemy or person.houseenemy or person.orderenemy then
+      local which = {}
+      if person.cityenemy then which[#which + 1] = "city" end
+      if person.houseenemy then which[#which + 1] = "house" end
+      if person.orderenemy then which[#which + 1] = "order" end
+      return "enemied to your " .. table.concat(which, ", ")
+   end
+   if standing == "ally" then return "shares your organisation" end
+   if standing == "enemy" then return "in an organisation you marked hostile" end
+   return "nothing on record places them for or against you"
+end
+
+--- Everything known about one person, as a card.
+---
+--- The dossier is the one view worth the vertical space: it is read once, about one person,
+--- usually because something is about to happen. Everything else in this section is a
+--- scanning view, and the split is deliberate -- a roster that tried to show this much per
+--- row would show four people per screen.
 M.handlers.whois = function(arg)
    if not arg then log.warn("Usage: emunah whois <person>") return end
    local ndb = emunah.namedb
    local person = ndb.get(arg)
    if not person then
-      log.info("%s is not in the name database.", arg)
+      log.info("%s is not in the name database. Trying the web API...", arg)
+      -- Not being in the database is not the same as not existing, and the API can settle
+      -- it in one request. This is the single most common way a record gets created by
+      -- hand, so it happens without the user having to know a second command.
+      ndb.api.enrich(arg, function(record)
+         if record then
+            log.info("Found %s. `emunah whois %s`.", record.name, record.name)
+         else
+            log.warn("The web API does not know a character called %s.", arg)
+         end
+      end)
       return
    end
 
-   header("whois " .. (person.fullname or person.name))
-   row("relationship", ndb.relationship(person.name),
-      ndb.isEnemy(person.name) and "ansi_light_red"
-      or ndb.isAlly(person.name) and "ansi_light_green" or "reset")
-   row("declared", person.iff or "auto")
-   for _, field in ipairs({ "class", "city", "house", "order", "rank", "might" }) do
-      if person[field] then row(field, person[field]) end
+   local relation = ndb.relationship(person.name)
+   local standing = STANDING[relation] or STANDING.neutral
+   local function or_(value, fallback) return value ~= nil and value or (fallback or "-") end
+
+   ndbTitle(person.name, standing.label:upper())
+   if person.fullname and person.fullname ~= person.name then
+      decho("\n  " .. theme().dc("text") .. person.fullname)
    end
-   if person.seen then
-      row("last seen", string.format("%.0fs ago", emunah.util.now() - person.seen))
+
+   decho(string.format("\n  %s%-12s%s%-16s%s",
+      theme().dc("textDim"), "standing",
+      theme().dc(standing.colour), standing.label,
+      faint("(" .. because(person, relation) .. ")")))
+
+   ndbRule()
+   ndbGrid({
+      { "class",     or_(person.class) },
+      { "city",      or_(person.city) .. (person.cityrank and person.cityrank > 0
+                       and ("  CR" .. person.cityrank) or ""), nameColour(person.name) },
+      { "house",     or_(person.house) },
+      { "order",     or_(person.order) },
+      { "clan",      or_(person.clan) },
+      { "level",     or_(person.level) },
+      { "xp rank",   or_(person.xprank) },
+      { "explorer",  or_(person.explorerrank) },
+      { "mob kills", or_(person.mobkills) },
+      { "pk",        or_(person.playerkills) },
+      -- Might is a ratio against US, not a 0-100 statistic: 510% means five times over.
+      { "might",     person.might and (person.might .. "% of yours") or "-" },
+      { "importance", or_(person.importance, "0") },
+      { "race",      or_(person.race) },
+      { "age",       or_(person.age) },
+      { "honours",   or_(person.deeds) },
+   })
+   if person.credibility then
+      decho("\n  " .. theme().dc("textDim") .. "credible    "
+         .. theme().dc("text") .. person.credibility)
    end
-   for _, note in ipairs(person.notes or {}) do
-      cecho(string.format("\n  <ansi_light_black>note<reset>  %s", note.text))
+   if person.motto then
+      decho("\n  " .. theme().dc("textDim") .. "motto       "
+         .. theme().dc("text") .. "'" .. person.motto .. "'")
    end
+
+   -- The flags, on their own line and in the warning tone: these are the facts that change
+   -- how you treat someone on sight, and burying them in the grid above would lose them.
+   local marks = {}
+   if person.dragon then marks[#marks + 1] = "Dragon" end
+   if person.mark then
+      marks[#marks + 1] = "Mark of " .. emunah.util.capitalise(tostring(person.mark))
+   end
+   if ndb.infamy(person.name) >= 1 then
+      marks[#marks + 1] = "infamy " .. ndb.infamy(person.name)
+   end
+   if person.immortal then marks[#marks + 1] = "Immortal" end
+   for _, org in ipairs({ "city", "house", "order" }) do
+      if person[org .. "enemy"] then marks[#marks + 1] = org .. " enemy" end
+   end
+   if #marks > 0 then
+      decho("\n  " .. theme().dc("warning") .. table.concat(marks, faint("   ")))
+   end
+
+   -- Where they were, last time anything told us. The most perishable thing in the record
+   -- and often the only one that matters, so it gets its own line with an explicit age.
+   if person.sensed then
+      ndbRule()
+      decho(string.format("\n  %s%-12s%s%s%s",
+         theme().dc("textDim"), "last sensed", theme().dc("text"),
+         person.sensed.where or "?",
+         person.sensed.health and string.format("   %d hp / %d mp",
+            person.sensed.health, person.sensed.mana or 0) or ""))
+      decho(faint("   " .. ago(person.sensed.at) .. " ago"))
+   end
+
+   -- What HONOURS said that nobody has established the meaning of -- "He is one of The
+   -- Dauntless.", "She is a Dominion in Mhaldor." Shown verbatim, under a heading that says
+   -- so. The alternative to displaying these is guessing at them or losing them, and this
+   -- is neither.
+   if person.honours and #person.honours > 0 then
+      ndbRule()
+      decho("\n  " .. faint("from HONOURS, not interpreted:"))
+      for _, line in ipairs(person.honours) do
+         decho("\n    " .. theme().dc("textDim") .. line)
+      end
+   end
+
+   local notes = ndb.notes(person.name)
+   if #notes > 0 then
+      ndbRule()
+      for index, note in ipairs(notes) do
+         decho(string.format("\n  %s%-2d %s%s",
+            theme().dc("inactive"), index, theme().dc("text"), note.text))
+      end
+   end
+
+   ndbRule()
+   -- Provenance. "The database says Mhaldor" and "the database said Mhaldor five weeks ago
+   -- and has not been able to check since" are different claims, and only one of them is
+   -- worth acting on.
+   local freshness
+   if not person.api then
+      freshness = "never looked up"
+   elseif person.api.ok then
+      freshness = "web API " .. ago(person.api.at) .. " ago"
+   else
+      freshness = "web API failed " .. ago(person.api.at) .. " ago: "
+         .. tostring(person.api.why)
+   end
+   decho(string.format("\n  %sseen %s ago%s   %s%s",
+      theme().dc("textDim"), ago(person.seen),
+      person.sightings and (", " .. person.sightings .. " time"
+         .. (person.sightings == 1 and "" or "s")) or "",
+      faint(freshness),
+      person.highlight == false and faint("   [not highlighted]") or ""))
+   decho("\n  " .. faint("emunah ndb note " .. person.name .. " <text>  |  emunah iff "
+      .. person.name .. " ally|enemy|auto  |  emunah ndb refresh " .. person.name))
 end
 
 --- Declare a relationship. The one thing in the database that beats derivation.
@@ -263,6 +1071,63 @@ M.handlers.iff = function(arg, rest)
    end
    local ok, why = emunah.namedb.iff(arg, rest)
    if not ok then log.warn(tostring(why)) end
+end
+
+--- Name highlighting in the game text.
+M.handlers.names = function(arg, rest)
+   local names = emunah.ui.names
+   arg = arg and arg:lower() or nil
+
+   if arg == "on" then names.start() emunah.config.save() return end
+   if arg == "off" then names.stop() emunah.config.save() return end
+
+   if arg == "ignore" and rest then
+      local ok, why = names.ignore(rest, true)
+      log.info(ok and ("%s will not be highlighted."):format(rest) or tostring(why))
+      emunah.config.save()
+      return
+   end
+
+   if arg == "unignore" and rest then
+      local ok, why = names.ignore(rest, false)
+      log.info(ok and ("%s will be highlighted again."):format(rest) or tostring(why))
+      return
+   end
+
+   if arg == "tint" and rest then
+      emunah.config.set("names.cityTint", rest:lower() == "on")
+      emunah.config.save()
+      log.info("Neutral names are %s.", rest:lower() == "on"
+         and "tinted by city" or "all one tone")
+      return
+   end
+
+   ndbTitle("name highlighting", names.enabled and "ON" or "OFF")
+   decho("\n  " .. dim("colour says standing or city; weight says what is unusual"))
+   for _, entry in ipairs({
+      { "enemy", "affliction", "bold" },
+      { "ally", "defence" },
+      { "neutral, city unknown", "textDim" },
+   }) do
+      decho(string.format("\n  %s%-24s %s",
+         theme().dc(entry[2]), entry[1], faint(entry[3] or "")))
+   end
+   for _, city in ipairs(emunah.namedb.CITIES) do
+      decho(string.format("\n  %s%-24s %s", hexdc(names.cityColour[city:lower()]), city,
+         faint(emunah.config.get("names.cityTint", true) and "" or "(tint off)")))
+   end
+   ndbRule()
+   decho("\n  " .. dim("bold   dragon, or an importance you set"))
+   decho("\n  " .. dim("under  a Mark"))
+   decho("\n  " .. dim("italic infamous"))
+
+   local ignored = names.ignored()
+   if #ignored > 0 then
+      ndbRule()
+      decho("\n  " .. dim("ignored: ") .. theme().dc("text") .. table.concat(ignored, ", "))
+   end
+   decho("\n  " .. faint("emunah names on|off | ignore <person> | unignore <person> "
+      .. "| tint on|off"))
 end
 
 M.handlers.gmcp = function(arg)
@@ -302,6 +1167,13 @@ M.handlers.learn = function(arg)
    if arg == "on" then detect.startLearning()
    elseif arg == "off" then detect.stopLearning()
    else detect.toggleLearning() end
+end
+
+M.handlers.affpop = function(arg)
+   local detect = emunah.curing.detect
+   if arg == "on" then detect.startWalk()
+   elseif arg == "off" then detect.stopCapture()
+   else detect.toggleWalk() end
 end
 
 M.handlers.detect = function()
@@ -437,7 +1309,7 @@ M.handlers.walk = function(arg, rest)
    if arg == "start" or arg == "area" then
       walker.start()
    elseif arg == "stop" then
-      walker.stop("requested")
+      if not walker.stop("requested") then log.info("Walk was not running.") end
    elseif arg == "pause" then
       walker.pause()
    elseif arg == "resume" then
@@ -502,8 +1374,15 @@ end
 --- underneath because each is useful alone (clear one room; explore without fighting).
 M.handlers.hunt = function(arg)
    if arg == "off" or arg == "stop" then
-      emunah.bashing.stop("requested")
-      emunah.walker.stop("requested")
+      -- Both return false with no message when they were already stopped -- which is
+      -- exactly the state a safety stop leaves them in. Without this, `emunah hunt off`
+      -- issued after one had already fired produced no output at all, and read as the
+      -- command having failed rather than there being nothing left to stop.
+      local stoppedBash = emunah.bashing.stop("requested")
+      local stoppedWalk = emunah.walker.stop("requested")
+      if not stoppedBash and not stoppedWalk then
+         log.info("Hunt was not running.")
+      end
       return
    end
    -- Walker first: bashing runs a tick as it starts, and that tick decides whether the
@@ -520,16 +1399,31 @@ end
 M.handlers.bash = function(arg, rest)
    local bash = emunah.bashing
    if arg == "on" or arg == "start" then bash.start()
-   elseif arg == "off" or arg == "stop" then bash.stop("requested")
+   elseif arg == "off" or arg == "stop" then
+      if not bash.stop("requested") then log.info("Bashing was not running.") end
    elseif arg == "attack" and rest then
-      emunah.config.set("bashing.attack", rest); emunah.config.save()
-      log.info("Attack command: %s", rest)
+      -- A quoted multi-word command is the natural thing to type, but the dispatcher never
+      -- strips quotes (see M.dispatch) and Achaea itself treats a leading `"` as SAY
+      -- shorthand. Confirmed live: `emunah bash attack "angel sear"` stored the quotes
+      -- literally, so every attack went out as `"angel sear" <id>` and Achaea read it as
+      -- `say Angel sear <id>` rather than the ability -- "You say, "Angel sear" 235781."
+      -- Strip one matching pair before storing, so quoting or not both do the right thing.
+      local command = rest:match('^"(.+)"$') or rest:match("^'(.+)'$") or rest
+      emunah.config.set("bashing.attack", command); emunah.config.save()
+      log.info("Attack command: %s", command)
    elseif arg == "balance" and rest then
       if rest ~= "eq" and rest ~= "bal" and rest ~= "both" then
          log.warn("Usage: emunah bash balance eq|bal|both")
       else
          emunah.config.set("bashing.balance", rest); emunah.config.save()
          log.info("Attack uses: %s", rest)
+      end
+   elseif arg == "consumes" and rest then
+      if rest ~= "eq" and rest ~= "bal" then
+         log.warn("Usage: emunah bash consumes eq|bal")
+      else
+         emunah.config.set("bashing.consumes", rest); emunah.config.save()
+         log.info("Attack spends: %s", rest)
       end
    elseif arg == "health" and rest then
       emunah.config.set("bashing.stopBelowHealth", tonumber(rest) or 50); emunah.config.save()
@@ -542,6 +1436,7 @@ M.handlers.bash = function(arg, rest)
          r.classLoaded and "ansi_light_green" or "ansi_light_red")
       row("attack", r.attack .. " <replica>")
       row("costs", r.balance)
+      row("spends", r.consumes)
       row("current target", tostring(r.target or "-"))
       row("target health", r.targetHealth and (r.targetHealth .. "%") or "-")
       -- nil means its health is not moving, which is the useful reading: the attack is
@@ -555,7 +1450,7 @@ M.handlers.bash = function(arg, rest)
       row("damage taken", r.taken)
       row("rooms cleared", r.rooms)
       if r.running then row("elapsed", util.duration(r.elapsed)) end
-      cecho("\n  <ansi_light_black>emunah bash on|off|attack <cmd>|balance eq|bal|both|health <n><reset>")
+      cecho("\n  <ansi_light_black>emunah bash on|off|attack <cmd>|balance eq|bal|both|consumes eq|bal|health <n><reset>")
       row("walker", emunah.walker.enabled and "running" or "stopped",
          emunah.walker.enabled and "ansi_light_green" or "ansi_yellow")
       row("room items", emunah.gmcp.items.roomFresh() and "current" or "WAITING",
@@ -574,6 +1469,9 @@ M.handlers.pvp = function(arg, rest)
       else
          pvp.setTarget(rest)
       end
+   elseif arg == "attack" and rest then
+      emunah.config.set("pvp.attackAtAfflictions", tonumber(rest) or 2); emunah.config.save()
+      log.info("Attack withheld until the opponent has %s+ tracked afflictions.", rest)
    else
       local r = pvp.report()
       header("PvP")
@@ -586,11 +1484,12 @@ M.handlers.pvp = function(arg, rest)
          row("target afflictions", #afflictions > 0 and table.concat(afflictions, ", ") or "-")
       end
       row("attacks sent", r.attacks)
+      row("verses recited", r.recited)
       if r.running then row("elapsed", util.duration(r.elapsed)) end
       local here = emunah.gmcp.room.playerNames()
       row("players here", #here > 0 and table.concat(here, ", ") or "-",
          "ansi_light_black")
-      cecho("\n  <ansi_light_black>emunah pvp on|off|target <name>|target off  -- never auto-targets<reset>")
+      cecho("\n  <ansi_light_black>emunah pvp on|off|target <name>|target off|attack <n>  -- never auto-targets<reset>")
    end
 end
 
@@ -606,6 +1505,75 @@ M.handlers.loot = function(arg)
          emunah.config.get("loot.gold", true) and "ansi_light_green" or "ansi_light_red")
       row("picked up", emunah.loot.stats.picked)
       cecho("\n  <ansi_light_black>emunah loot on|off|now<reset>")
+   end
+end
+
+M.handlers.shop = function(arg, rest)
+   local shop = emunah.shop
+   if arg == "limit" then
+      if rest == "off" or rest == nil then
+         shop.setConfirmAbove(nil)
+         log.info("Shop: confirm limit cleared.")
+      else
+         local gp = tonumber(rest)
+         if not gp then
+            log.warn("Usage: emunah shop limit <gp>|off")
+            return
+         end
+         shop.setConfirmAbove(gp)
+         log.info("Shop: purchases over %dgp will be held rather than sent.", gp)
+      end
+   elseif arg == "spent" then
+      header("Shop spending this session")
+      row("total", shop.ledger.total .. "gp")
+      row("purchases", shop.ledger.count)
+      for _, entry in ipairs(shop.ledger.log) do
+         row(entry.id, string.format("%s x%d -- %dgp (%s ago)",
+            entry.desc, entry.qty, entry.cost, span(emunah.util.now() - entry.time)))
+      end
+   else
+      -- Default: redraw the most recently seen shop, in case it scrolled off screen.
+      -- `arg` doubles as an explicit proprietor name for `emunah shop <name>`.
+      local name = arg or shop.current
+      local items = shop.list(name)
+      if #items == 0 then
+         cecho("\n  <ansi_light_black>No shop seen yet this session -- stand in one and "
+            .. "type WARES.<reset>")
+         return
+      end
+      header(name or "Shop")
+      local category = nil
+      for _, item in ipairs(items) do
+         if item.category ~= category then
+            category = item.category
+            if category then cecho("\n  <ansi_light_black>-- " .. category .. "<reset>") end
+         end
+         row(item.id, string.format("%s (%d in stock, %d%s%s)",
+            item.desc, item.stock, item.price, item.currency, item.bulk and " ea" or ""))
+      end
+      cecho("\n  <ansi_light_black>emunah shop spent | emunah shop limit <gp>|off<reset>")
+   end
+end
+
+M.handlers.pipes = function(arg)
+   local pipes = emunah.pipes
+   if arg == "on" then pipes.start()
+   elseif arg == "off" then pipes.stop()
+   elseif arg == "now" then pipes.poll(true)
+   else
+      local on = emunah.config.get("pipes.enabled", true) ~= false
+      header("Pipes")
+      row("keep-up", on and "on" or "off", on and "ansi_light_green" or "ansi_light_red")
+      local list = pipes.list()
+      if #list == 0 then
+         row("state", "not seen yet -- 'emunah pipes now'")
+      end
+      for _, pipe in ipairs(list) do
+         row(pipe.token, string.format("%-4s %-22s %d puffs",
+            pipe.status, pipe.herb or pipe.contents, pipe.puffs),
+            pipe.status == "lit" and "ansi_light_green" or "ansi_yellow")
+      end
+      cecho("\n  <ansi_light_black>emunah pipes on|off|now<reset>")
    end
 end
 
@@ -678,8 +1646,10 @@ M.handlers.keys = function(arg)
    elseif arg == "off" then keys.setEnabled(false)
    elseif arg == "rebuild" then
       local ok = keys.build()
-      log.info("Numpad rebuild: %s (%d bindings).",
-         ok and "ok" or "failed", keys.count())
+      local okActions = keys.buildActions()
+      log.info("Numpad rebuild: %s (%d bindings). Action keys: %s (%d bindings).",
+         ok and "ok" or "failed", keys.count(),
+         okActions and "ok" or "failed", keys.actionCount())
    else
       header("Numpad movement (" ..
          (emunah.config.get("keys.numpad", true) and "on" or "off") .. ")")
@@ -696,7 +1666,10 @@ M.handlers.keys = function(arg)
       cecho("\n  <ansi_light_black>  1 sw    2 s     3 se<reset>")
       cecho("\n  <ansi_light_black>  0 in    . out   + up   - down<reset>")
       cecho("\n  <ansi_light_black>bound for both Num Lock states; a movement key stops the walker<reset>")
-      cecho("\n  <ansi_light_black>emunah keys on|off<reset>")
+      cecho("\n  <ansi_light_black>emunah keys on|off|rebuild<reset>")
+      -- Independent of the numpad toggle above -- see keys.buildActions().
+      cecho(("\n  <ansi_light_black>action keys (%d bound): Ctrl+F5 reload, "
+         .. "F11 hunt on, F12 hunt off<reset>"):format(keys.actionCount()))
    end
 end
 
@@ -704,41 +1677,44 @@ M.handlers.reload = function()
    emunahReload()
 end
 
-M.handlers.help = function()
-   header("Emunah commands")
-   local lines = {
-      { "emunah",                  "this summary" },
-      { "emunah status",           "system and character state" },
-      { "emunah cure on|off",      "toggle the curing engine" },
-      { "emunah affs",             "tracked afflictions and their cure vectors" },
-      { "emunah defs ...",         "on|off|add <def>|remove <def>|list" },
-      { "emunah have [thing]",     "capability report, or check one item/skill" },
-      { "emunah gmcp [refresh]",   "tracked GMCP state" },
-      { "emunah chat [rebuild]",   "chat capture vs rendering -- which half is working" },
-      { "emunah ndb ...",          "set|note|hostile|here|export, or a roster" },
-      { "emunah whois <person>",   "everything known about one person" },
-      { "emunah iff <person> ...", "ally|enemy|auto -- declaration beats derivation" },
-      { "emunah learn on|off",     "log candidate affliction messages to a file" },
-      { "emunah detect",           "detection pattern coverage" },
-      { "emunah walk ...",         "start|stop|pause|auto on|off|delay <s>|avoid <id>" },
-      { "emunah keys [on|off]",    "numpad movement bindings" },
-      { "emunah mobs ...",         "here|target|add|skip|kill|forget|areas" },
-      { "emunah hunt [off]",       "walk the area AND kill things" },
-      { "emunah bash ...",         "on|off|attack <cmd>|balance|health <n>" },
-      { "emunah pvp ...",          "on|off|target <name>|target off (never auto-targets)" },
-      { "emunah loot [on|off|now]", "pick up gold from corpses" },
-      { "emunah prio <aff> <vec> <n>", "override a cure priority" },
-      { "emunah set [key] [value]", "read or write a setting" },
-      { "emunah ui [rebuild|reset|show]", "toggle, rebuild or reset the interface" },
-      { "emunah ui map [height <n>|on|off|centre|raw]", "map status, size, or control" },
-      { "emunah debug", "toggle verbose logging, including every command sent to the game" },
-      { "emunah debug gmcp", "toggle a trace of every GMCP message sent and received" },
-      { "emunah debug handlers|timers|queue", "internals" },
-      { "emreload",                "reload all modules from disk" },
-   }
-   for _, line in ipairs(lines) do
-      cecho(string.format("\n  <ansi_cyan>%-32s<reset> <ansi_light_black>%s<reset>", line[1], line[2]))
+--- Bare `!` (or bare `emunah`): the thing most people actually see, most often, so it
+--- stays short. The full reference used to be printed here instead -- forty-odd lines for
+--- someone who typed nothing but the prefix -- which is what made it worth splitting.
+---
+--- Rendered from help.lua's data rather than a list kept here, because the list kept here
+--- had already drifted from the commands it described and nothing could tell.
+M.handlers.quick = function()
+   emunah.help.renderQuick()
+end
+
+--- `! help` (or `emunah help`): everything, grouped by what it is for rather than one
+--- alphabetical wall -- the flat version was the actual complaint this replaced.
+--- `emunah chyron <text>`: queue an announcement on the scrolling strip at the top of the
+--- console. The manual entry point to the same M.send() anything else in the codebase would
+--- call programmatically -- see ui/chyron.lua.
+M.handlers.chyron = function(arg, rest)
+   if arg == "clear" then
+      emunah.ui.chyron.clear()
+      log.info("Chyron cleared.")
+      return
    end
+   local text = util.trim((arg or "") .. (rest and (" " .. rest) or ""))
+   if text == "" then
+      log.warn("Usage: emunah chyron <text> | emunah chyron clear")
+      return
+   end
+   emunah.ui.chyron.send(text)
+end
+
+--- `! help` / `emunah help`: the same index `emhelp` prints.
+---
+--- Kept as a handler because it is what the system has always answered to, and because
+--- `emunah help` reads better inside a script than `emhelp` does. It USED to be sixty-odd
+--- lines of hardcoded `cecho` here -- forty-one entries against thirty-three handlers, with
+--- no per-command detail, no settings at all, and no way for anything to notice when it
+--- fell behind. See help.lua's header for what replaced it and why.
+M.handlers.help = function(arg, rest)
+   emunah.help.render(util.trim((arg or "") .. (rest and (" " .. rest) or "")))
 end
 
 -- ---------------------------------------------------------------------------
@@ -748,7 +1724,7 @@ end
 function M.dispatch(input)
    input = util.trim(input or "")
    if input == "" then
-      M.handlers.help()
+      M.handlers.quick()
       return
    end
 
@@ -758,7 +1734,8 @@ function M.dispatch(input)
 
    local handler = M.handlers[command]
    if not handler then
-      log.warn("Unknown command %q. Try 'emunah' for the list.", command)
+      log.warn("Unknown command %q. Try 'emunah' for the quick list, or 'emhelp' for everything.",
+         command)
       return
    end
 
@@ -785,9 +1762,155 @@ table.insert(registry(), tempAlias([[^emunah\s*(.*)$]], function()
    M.dispatch(matches[2])
 end))
 
--- Short form for the thing you toggle most in a fight.
-table.insert(registry(), tempAlias("^ec$", function()
-   emunah.curing.engine.toggle()
+-- `emset` is the short form of the same prefix. `!` USED to be, and is gone -- not
+-- deprecated, removed, and the tests assert it now falls through to the game untouched.
+--
+-- Why a word rather than punctuation: `emset` sits in the `em` family this package already
+-- owns -- `emhelp`, `emdefs`, `emreload`. Punctuation was a separate vocabulary that had to
+-- be explained on its own ("`!` and `emunah` are the same thing"), and every document
+-- describing a command had to pick one of the two. They picked differently, which is how the
+-- in-game help came to say `!` while the website said `emunah`.
+--
+-- `emunah` remains the long form, and is what appears in comments, log lines and scripts.
+-- `emset` is what you type.
+--
+-- NOT CONFIRMED FREE IN ACHAEA. `!` was checked against the game before being wired up (it
+-- binds nothing there, unlike some MUD clients); `EMSET` has not been. If Achaea does claim
+-- it, this is a one-line change -- and until it is confirmed, read a strange response to
+-- `emset <something>` as this alias swallowing a real game command rather than as a bug in
+-- the dispatcher.
+--
+-- Two aliases rather than one with an optional group, for the reason recorded at the pipes
+-- aliases below: tempAlias takes a PCRE regex, but the test mock translates it to a Lua
+-- pattern, and Lua patterns have no `(?:...)`.
+table.insert(registry(), tempAlias([[^\s*emset\s+(.+)$]], function()
+   M.dispatch(matches[2])
 end))
+
+table.insert(registry(), tempAlias([[^\s*emset\s*$]], function()
+   M.dispatch("")
+end))
+
+-- `emhelp ...`, the command reference, without the prefix.
+--
+-- Its own alias rather than only `! help` because it is the one command someone types
+-- BEFORE they know that `!` is the prefix -- and a help system you have to already know the
+-- syntax of to reach is not much of one. Prefixed `em` rather than named `help` on its own
+-- for the reason this whole file funnels through `emunah`: Achaea has a large command
+-- vocabulary and HELP is very much part of it.
+--
+-- Two aliases rather than one with an optional group, for the reason recorded at the pipes
+-- aliases below: tempAlias takes a PCRE regex, but the test mock translates it to a Lua
+-- pattern, and Lua patterns have no `(?:...)`.
+table.insert(registry(), tempAlias([[^\s*emhelp\s+(.+)$]], function()
+   emunah.help.render(matches[2])
+end))
+
+table.insert(registry(), tempAlias([[^\s*emhelp\s*$]], function()
+   emunah.help.render("")
+end))
+
+-- Short form for the thing you toggle most in a fight -- curing and defence keep-up
+-- together (M.handlers.pause above). Used to be `ec` / curing alone; folded together
+-- because pausing curing without pausing keep-up left defences still going up mid-pause.
+table.insert(registry(), tempAlias("^pp$", function()
+   M.handlers.pause()
+end))
+
+-- The defence grid, as one word. `emunah defs` remains the scriptable form; this is the one
+-- you actually type, because the grid is a thing you sit and click at rather than a report
+-- you read.
+--
+-- Prefixed `em` rather than named `defs` on its own: Achaea has a large command vocabulary
+-- and colliding with it is easy, which is the whole reason commands.lua funnels through
+-- `emunah` in the first place.
+table.insert(registry(), tempAlias([[^\s*emdefs\s*$]], function()
+   M.handlers.keepup()
+end))
+
+-- `ndb ...` without the prefix. The name database is consulted mid-fight, about a name that
+-- just walked in, and five extra keystrokes at that moment is the difference between
+-- looking someone up and not bothering. Everything `emunah ndb` accepts works here,
+-- including `ndb show <person>`.
+--
+-- Two aliases rather than one with an optional group, for the reason recorded at the pipes
+-- aliases below: tempAlias takes a PCRE regex, but the test mock translates it to a Lua
+-- pattern, and Lua patterns have neither alternation nor `(?:...)`.
+table.insert(registry(), tempAlias([[^\s*ndb\s+(.+)$]], function()
+   M.dispatch("ndb " .. matches[2])
+end))
+
+table.insert(registry(), tempAlias([[^\s*ndb\s*$]], function()
+   M.handlers.ndb()
+end))
+
+-- SLEEP, typed on its own.
+--
+-- The one place this file deliberately shadows an Achaea command rather than hiding behind
+-- the `emunah` prefix -- because the collision IS the mechanism. The character has to sleep
+-- from time to time, and being asleep is otherwise indistinguishable from an opponent
+-- having put you there: same affliction, same GMCP payload, same blocked state. The only
+-- evidence that a sleep was wanted is that you asked for it a moment earlier, and this is
+-- where that evidence exists.
+--
+-- Anchored to SLEEP ALONE. `sleep` with an argument is a different command with different
+-- consequences, and a system that swallowed those into a pass-through would be guessing at
+-- syntax it has never seen. Anything that is not a bare SLEEP falls through to the game
+-- untouched, as it should.
+--
+-- The command still goes to the game: this records intent, it does not replace the verb.
+-- curing/detect decides what to do with that intent when (and only if) a sleep actually
+-- lands -- see M.SLEEP_INTENT for why a refused SLEEP has to be able to lapse.
+-- Pipe keep-up, as a bare command. `emunah pipes ...` does the same thing; this is the short
+-- form for the one thing you actually toggle, in the same spirit as `pp`.
+--
+-- Three aliases rather than one with an optional group: tempAlias takes a PCRE regex, but
+-- test/mock_mudlet.lua translates those to Lua patterns to match them, and Lua patterns have
+-- neither alternation nor `(?:...)`. A single `^pipes(?:\s+(on|off))?$` would work in Mudlet
+-- and silently match nothing in the tests.
+table.insert(registry(), tempAlias([[^\s*pipes\s+on\s*$]], function()
+   emunah.pipes.start()
+end))
+
+table.insert(registry(), tempAlias([[^\s*pipes\s+off\s*$]], function()
+   emunah.pipes.stop()
+end))
+
+table.insert(registry(), tempAlias([[^\s*pipes\s*$]], function()
+   M.handlers.pipes()
+end))
+
+-- The manna rite, as one word. Three commands with waits between them -- see manna.lua.
+table.insert(registry(), tempAlias([[^\s*manna\s*$]], function()
+   emunah.manna.start()
+end))
+
+-- Affliction corpus walk, as one word -- sends AFFLICTION LIST, answers MORE on its own,
+-- then AFFLICTION SHOW <name> for every name it found, in the same spirit as `pp` and
+-- `pipes`. `emunah affpop on|off` does the same thing. Three aliases rather than one with
+-- an optional group, for the same reason as `pipes on|off` above.
+table.insert(registry(), tempAlias([[^\s*affpop\s+on\s*$]], function()
+   emunah.curing.detect.startWalk()
+end))
+
+table.insert(registry(), tempAlias([[^\s*affpop\s+off\s*$]], function()
+   emunah.curing.detect.stopCapture()
+end))
+
+table.insert(registry(), tempAlias([[^\s*affpop\s*$]], function()
+   emunah.curing.detect.toggleWalk()
+end))
+
+table.insert(registry(), tempAlias([[^\s*sleep\s*$]], function()
+   local detect = emunah.curing and emunah.curing.detect
+   if detect then detect.intendSleep() end
+   send("sleep")
+end))
+
+-- Reflect whatever curing/keep-up state a fresh load (or a reload mid-session) actually
+-- starts in. ui/echo.lua registers the ongoing on/off listeners itself, but it loads
+-- before curing.engine and curing.defkeepup exist, so it cannot check their initial state
+-- -- this file loads last, once everything it reads is guaranteed to be there.
+emunah.ui.echo.refreshPauseBanner()
 
 return M

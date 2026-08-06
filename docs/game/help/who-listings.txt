@@ -1,0 +1,198 @@
+Verbatim who-listing output, captured in play on 2026-08-02 with a timestamped prompt
+(CONFIG PROMPT CUSTOM, *s). Everything namedb/capture.lua matches is written against the
+text below and nothing else.
+
+Note the prompt is interleaved on the same physical line as the echoed command, which is
+what `H:100% M:100% E:100% W:100%  ex-  T:  11:01:40.94-cw` is. The listing proper starts
+on the following line.
+
+=============================================================================== CW
+H:100% M:100% E:100% W:100%  ex-  T:  11:01:40.94-cw
+Citizen                                                   Rank CT  Class
+-------                                                   ---- --  -----
+'The' Mistell Magnet, Thelek Ar'kena                        2  On  Monk
+Lady Sultana Erishka Khalimat, Auroran Knight               6  On  Paladin
+Xarya, Candidate for Redemption                             1  On  Priest
+Seeker Kaellyn, Oathsworn of Targossas                      2  On  Paladin
+Unsworn Ceredia, Candidate for Redemption                   1  On  Monk
+Caefir Knight Aeowynn Banazir, Justiciar of the Nin...      3  On  Priest
+Saemora, of Targossas                                       1  On  Priest
+
+WHAT IS AND IS NOT ESTABLISHED HERE
+- Four columns: honorific fullname, Rank, CT, Class.
+- The fullname is TRUNCATED with a literal "..." when it is too long for the column
+  (see Aeowynn). Any matching against a fullname has to tolerate that.
+- The character's own name is NOT at a fixed position inside the fullname. Observed:
+  last-word-before-comma (Thelek Ar'kena -> Thelek is AFTER the comma), first word
+  (Xarya, Saemora), second word (Kaellyn, Ceredia), third word (Erishka, Aeowynn).
+  There is no positional rule. This is why capture.lua resolves the name against a known
+  set rather than slicing the string.
+- "Rank" is read as the city rank, consistent with 1-6 here and with CR1..CR6 in game.
+- "CT" is NOT interpreted. It reads On/Off and its meaning has not been established, so
+  nothing is stored from it. Do not guess.
+- Whether `CW <othercity>` is even a legal syntax has not been established. Nothing here
+  sets a city, because a bare CW is only known to list our OWN city.
+
+=============================================================================== QW
+H:100% M:100% E:100% W:100%  ex-  T:  11:02:31.79-qw
+Aeowynn, Akri, Aletheia, Amira, Arivar, Aultorius, Ceredia, Clodhna, Crixos, Elius, Erishka,
+Giddieon, Jexa, Kaellyn, Kassie, Khalayx, Kimora, Llewell, Llialesam, Lokri, Luz, Majin, Meldia,
+Milabar, Minsideon, Miriew, Mycen, Naz, Oxton, Saemora, Saibel, Shiora, Tashigawa, Telox, Thelek,
+Thiev, Thundarsa, Tru, Tsia, Ulvin, Veldrin, Vesperyn, Xarya, Xorr, Zalydd, and Zargoth.
+Plus another 8 whose presence you cannot fully sense (46 total).
+
+WHAT IS AND IS NOT ESTABLISHED HERE
+- Bare names, comma-separated, WRAPPED across several lines with a trailing space before
+  the wrap. The last name is preceded by "and" and the list ends in a full stop.
+- The terminating line is distinctive and is what capture.lua anchors on:
+  "Plus another 8 whose presence you cannot fully sense (46 total)."
+  Whether that line appears when nobody is hidden has NOT been observed.
+- There is no header line, so the START of the list cannot be detected. capture.lua
+  therefore reads BACKWARDS from the terminator through a rolling line buffer.
+
+=============================================================================== CLWHO
+H:100% M:100% E:100% W:100%  ex-  T:  11:02:52.42-clwho
+The following members of the clan of Mudlet Clan are in the realms:
+Amira
+Saemora, of Targossas
+Khaalis Saibel Aristata
+Lokri, Tenebrous Operative
+Tiny toad Telox, of the Ticklish Toes
+Aspiring Champion Llialesam, the Haphazard
+Shiora Madgocerus-Blackcap (off channel)
+Magelord Veldrin Crescent Concordia (off channel)
+Caefir Knight Aeowynn Banazir, Justiciar of the Nine Vows
+Sir Milabar 'Retired' Si'Talvace, Lion Chevalier of Sol
+Kruellagh Aramar, Warden of the Outer Wilds
+Xorr Solstrale, the Iridescent Swordsman
+Hierophant Vesperyn Ancyrion, Tendril of the Moonflower
+Ser Ulvin Devi (off channel)
+Director Thundarsa Desmijr, Exploring Farstrider
+Knight Commander Giddieon Montenegro (off channel)
+Friendliest Frog Ficus, Oracle of Goldentide
+Clodhna Anemides-Rousseau
+Leviathan Bait Kimora, Laytronian Nightguard
+
+WHAT IS AND IS NOT ESTABLISHED HERE
+- A header names the clan, then one honorific fullname per line.
+- "(off channel)" may be appended. Nothing else has been observed appended.
+- Same name-position problem as CW, and worse: "Khaalis Saibel Aristata" has the name in
+  the middle with no comma anywhere, and "Amira" is a bare name with no honorific at all.
+- Some names here are NOT in the QW output above (Kruellagh, Ficus, Aramar): a clan spans
+  cities and QW only reports what you can sense.
+
+=============================================================================== angel sense
+H:100% M:100% E:100% W:100%  ex-  T:  11:03:29.77-
+You bid your guardian angel to seek out life presences nearby.
+Your guardian angel senses Erishka at Fish Street, on a health of 6831 and a mana of 4678.  (2098,
+2097, 2171, ...) (Targossas)
+Equilibrium used: 2.50s.
+
+WHAT IS AND IS NOT ESTABLISHED HERE
+- The sense line gives name, room name, absolute health and absolute mana.
+- The trailing "  (2098, \n2097, 2171, ...) (Targossas)" is NOT part of what we read. It
+  wraps onto a following line, its meaning has not been established, and the user was
+  explicit that it and every variation of it are to be ignored. capture.lua's pattern is
+  anchored at "^Your guardian angel senses", so the continuation line cannot match it --
+  that anchoring is load-bearing, not incidental.
+- In particular the "(Targossas)" in that tail is NOT read as a city. The web API is the
+  authority on someone's city; this is not.
+
+=============================================================================== HONOURS
+Captured 2026-08-02. Two subjects, chosen because they differ in almost every optional line.
+
+H:100% M:100% E:100% W:100%  ex-  T:  11:32:04.58-honours Khalayx
+Khalayx, Tzin Ahuacatl (male Grook).
+------------------------------------
+He is 693 years old, having been born on the 16th of Miraman, 317 years after the fall of the
+Seleucarian Empire.
+He is ranked 116th in Achaea.
+He is an extremely credible character.
+He is not known for acts of infamy.
+He is one of The Dauntless.
+He is Tzin Ahuacatl.
+He is a member of the Magi class.
+He is considered to be approximately 510% of your might.
+He is a mentor and able to take on proteges.
+See HONOURS DEEDS KHALAYX to view his 26 special honours.
+Equilibrium used: 2.00s.
+
+H:100% M:100% E:100% W:100%  ex-  T:  11:32:31.80-honours Saibel
+Khaalis Saibel Aristata (female Mhun).
+--------------------------------------
+She is 668 years old, having been born on the 4th of Mayan, 342 years after the fall of the
+Seleucarian Empire.
+She is ranked 279th in Achaea.
+She is an extremely credible character.
+She is not known for acts of infamy.
+She is a Dominion in Mhaldor.
+She is a Crimson Paragon(5) in the army of Mhaldor.
+She originates from the City of Mhaldor.
+She is a member of the Serpent class.
+She is considered to be approximately 470% of your might.
+She is a mentor and able to take on proteges.
+Her motto: 'A dirk in the dark is worth a thousand swords at dawn.'
+She has been divorced once.
+She bears the arms: Argent, a pair of arrows in saltire Sable.
+See HONOURS DEEDS SAIBEL to view her 25 special honours.
+Equilibrium used: 2.00s.
+
+WHAT IS ESTABLISHED HERE
+- Header is "<honorific fullname> (<sex> <race>).", underlined by a rule of dashes exactly
+  as long as it. Every body line begins with the subject's pronoun.
+- The NAME appears, unambiguously and in capitals, only on the LAST line:
+  "See HONOURS DEEDS KHALAYX to view his 26 special honours."
+  That is the one place in the whole block the name can be read without guessing, which is
+  why capture.lua buffers the block and applies it when that line arrives. Note the header
+  is no help: "Khalayx, Tzin Ahuacatl" has it first, "Khaalis Saibel Aristata" has it in
+  the middle.
+- Safely readable: age, "ranked Nth in Achaea" (xp rank), class, might, mentor, motto,
+  the deed count, and the credibility phrase.
+- MIGHT IS RELATIVE. "approximately 510% of your might" is a ratio against the READER, not
+  an absolute 0-100 statistic. Anything treating it as a percentage of a fixed scale is
+  wrong, and a field capped at 100 rejects every real reading.
+- Infamy: "He is not known for acts of infamy." is unambiguous and is read as 0. The
+  POSITIVE wording has not been observed, so no pattern claims to match it.
+
+WHAT IS DELIBERATELY NOT READ, AND WHY
+- "She originates from the City of Mhaldor." is where someone is FROM. Whether it tracks a
+  change of citizenship has not been established, and the web API gives current city
+  authoritatively, so nothing here sets a city.
+- "She is a Dominion in Mhaldor." / "a Crimson Paragon(5) in the army of Mhaldor." are a
+  city rank title and an army rank. The title sets are unknown, so neither is parsed.
+- "He is one of The Dauntless." -- unknown whether this is a House, an Order or something
+  else. Khalayx has this line and NO "originates from" line; Saibel has the reverse.
+- Marriage, heraldry, and "He is Tzin Ahuacatl." (a title restated) are not read.
+- Every unrecognised body line is kept VERBATIM on the record and shown in the dossier, so
+  nothing above is lost -- it is simply not interpreted.
+
+=============================================================================== DIAG
+Captured 2026-08-02, 13:55:02.85. The character had `blind` up as a deliberate DEFENCE
+(DEF listed "You are blind." among 12 defences at 13:47:44) and was genuinely afflicted by
+thin blood, which `touch tree` then cured ("You feel your blood thickening.").
+
+H:100% M:100% E:100% W:100%  exb  T:  13:54:59.17-diag
+You are:
+blind.
+afflicted by thin blood.
+Equilibrium used: 1.00s.
+
+WHAT IS ESTABLISHED HERE
+- Header is exactly "You are:". Entries follow, one per line, each ending in a full stop.
+- TWO FORMS, and the difference matters:
+    "afflicted by <name>."   an affliction
+    "<name>."                a bare state
+  In this sample the bare one is `blind`, which the character was holding deliberately as a
+  defence. So a bare line is NOT safe to treat as something to cure. Only "afflicted by"
+  lines are read as afflictions; bare lines are reported and left alone.
+- The block ends at the cost line, "Equilibrium used: 1.00s." Entries are lowercase and
+  that line is not, which is what lets the parser stop without a separate terminator.
+- Names may contain SPACES: "thin blood". Emunah's affliction table has no entry for it
+  under any spelling, so DIAG found something the cure table does not cover -- which is
+  exactly the sort of gap reading this output is meant to surface.
+
+WHAT IS NOT ESTABLISHED
+- Whether the two forms are reliably "state" vs "affliction", or whether that is a
+  coincidence of this one sample. The conservative reading is used until a second sample
+  says otherwise.
+- The GMCP affliction name for "thin blood".

@@ -97,8 +97,18 @@ end
 --- (herbs or their mineral equivalents). This is the restocking list: the things that live
 --- in the rift and have to be pulled out before they can be eaten or smoked.
 ---
---- Salves and elixirs are deliberately absent -- they are vials, refilled with FILL rather
---- than pulled with OUTR, and a vial is not something you carry three of.
+--- Three sources, all drawing from the same rift: affliction cures (afflist.afflictions),
+--- defence cures (afflist.defenceCures -- cohosh for insomnia, echinacea for thirdeye,
+--- skullcap for deathsight/rebounding, myrrh), and deflist.lua's bare-command defences that
+--- carry an explicit `item` (bayberry for blind, hawthorn for deaf). Before defence cures
+--- were included here, keep-up would raise a defence like insomnia until the rift ran dry
+--- and then just sit there refused, because nothing kept its herb topped up the way an
+--- affliction cure's herb was.
+---
+--- Elixirs are deliberately absent -- they are vials, refilled with FILL rather than pulled
+--- with OUTR, and a vial is not something you carry three of. Salves used to be excluded for
+--- the same reason, but that turned out to be wrong about the mechanism, not just the
+--- bookkeeping -- see M.restockableSalves() below.
 local restockCache = {}
 
 function M.restockables()
@@ -109,19 +119,108 @@ function M.restockables()
    if restockCache[method] then return restockCache[method] end
 
    local seen, out = {}, {}
-   for _, definition in pairs(emunah.curing.afflist.afflictions) do
-      for _, option in ipairs(definition.cures or {}) do
-         if option.vector == "herb" or option.vector == "smoke" then
-            local item = M.resolveItem(option)
-            if item and not seen[item] then
-               seen[item] = true
-               out[#out + 1] = item
-            end
-         end
+   local function collect(item, vector)
+      if (vector == "herb" or vector == "smoke") and item and not seen[item] then
+         seen[item] = true
+         out[#out + 1] = item
       end
    end
+
+   for _, definition in pairs(emunah.curing.afflist.afflictions) do
+      for _, option in ipairs(definition.cures or {}) do
+         collect(M.resolveItem(option), option.vector)
+      end
+   end
+   for _, option in pairs(emunah.curing.afflist.defenceCures) do
+      collect(M.resolveItem(option), option.vector)
+   end
+   local deflist = emunah.curing.deflist
+   if deflist then
+      for _, entry in pairs(deflist.commands) do
+         collect(entry.item, entry.vector)
+      end
+   end
+
    table.sort(out)   -- stable order, so the pull sequence is predictable and testable
    restockCache[method] = out
+   return out
+end
+
+--- Memoised alongside restockCache and keyed the same way; see M.restockablesWithIrid().
+local restockIridCache = {}
+
+--- M.restockables() plus irid moss, which is what the engine's restock pass actually wants.
+---
+--- The engine used to build this per tick, by hand:
+---
+---     local wanted = {}
+---     for _, item in ipairs(curelist.restockables()) do wanted[#wanted + 1] = item end
+---     wanted[#wanted + 1] = "irid"
+---
+--- The copy was load-bearing and the comment there explained why: appending "irid" straight
+--- onto restockables() grew the MEMOISED list by one every tick, forever, so each pass got
+--- an iteration slower than the last. Copying fixed the bug and left a nineteen-slot table
+--- allocated on every prompt to show for it.
+---
+--- Memoising the combined list keeps the fix and drops the allocation: the answer changes
+--- only when `curing.method` does, exactly like the list it is built from, and the caller
+--- gets a shared list it must not mutate -- which is the rule for every list this module
+--- hands out.
+function M.restockablesWithIrid()
+   local method = tostring(emunah.config.get("curing.method", "herbs"))
+   local hit = restockIridCache[method]
+   if hit then return hit end
+
+   local out = {}
+   for _, item in ipairs(M.restockables()) do out[#out + 1] = item end
+   -- Irid moss is not in the cure tables -- it treats no affliction, it refills health and
+   -- mana -- but it is eaten from inventory like everything else here, so it stocks alike.
+   out[#out + 1] = "irid"
+
+   restockIridCache[method] = out
+   return out
+end
+
+--- Every salve the cure tables call for, refilled with FILL rather than pulled with OUTR.
+---
+--- Confirmed live for epidermal only: `FILL EMPTY WITH EPIDERMAL FROM RIFT`. Reported in
+--- play as "epidermal is in the rift, not in hand" going uncured for the whole fight,
+--- because nothing ever tried to get it into a tin -- unlike herbs, no salve was ever
+--- restocked at all, so `have.cure()`'s "in the rift" answer was structurally permanent
+--- rather than a round trip away.
+---
+--- The other salves (mending, restoration, caloric, mass, sileris) are extended the same
+--- command on the strength of the pattern rather than individual confirmation -- Achaea
+--- already uses `FILL <container> WITH <fluid> FROM RIFT` for elixir vials (see
+--- engine.elixirMissing()'s warning text), and "EMPTY" reads as the generic empty-container
+--- word rather than something epidermal-specific. If any of them turns out to need
+--- different phrasing, the generic "You do not have that/any of those/the" backstop in
+--- detect/patterns.lua resyncs inventory and says so rather than looping silently.
+local restockSalveCache = {}
+
+function M.restockableSalves()
+   local method = tostring(emunah.config.get("curing.method", "herbs"))
+   if restockSalveCache[method] then return restockSalveCache[method] end
+
+   local seen, out = {}, {}
+   local function collect(item, vector)
+      if vector == "salve" and item and not seen[item] then
+         seen[item] = true
+         out[#out + 1] = item
+      end
+   end
+
+   for _, definition in pairs(emunah.curing.afflist.afflictions) do
+      for _, option in ipairs(definition.cures or {}) do
+         collect(M.resolveItem(option), option.vector)
+      end
+   end
+   for _, option in pairs(emunah.curing.afflist.defenceCures) do
+      collect(M.resolveItem(option), option.vector)
+   end
+
+   table.sort(out)
+   restockSalveCache[method] = out
    return out
 end
 
@@ -152,9 +251,23 @@ function M.command(option)
    return string.format(vector.command, item), item
 end
 
+--- Config paths for the per-vector recovery override, built once.
+---
+--- `"curing.recovery." .. vector` is a string concatenation, and this is called from
+--- have.spend() on every cure that goes out. The set of vectors is fixed, so the paths are
+--- too; building them on demand and keeping them is one allocation per vector, ever, instead
+--- of one per cure.
+local recoveryPaths = setmetatable({}, {
+   __index = function(self, vector)
+      local path = "curing.recovery." .. tostring(vector)
+      self[vector] = path
+      return path
+   end,
+})
+
 --- Fallback recovery time for a vector, honouring any config override.
 function M.recovery(vector)
-   local configured = emunah.config.get("curing.recovery." .. tostring(vector))
+   local configured = emunah.config.get(recoveryPaths[vector])
    if configured then return tonumber(configured) or 2.0 end
    local definition = M.vectors[vector]
    return definition and definition.recovery or 2.0
@@ -162,6 +275,9 @@ end
 
 --- Is this a vector we know how to drive?
 function M.knownVector(vector)
+   -- Bare key first: every caller on the hot path holds one of M.VECTORS already, and
+   -- tostring() on a string still costs a call.
+   if M.vectors[vector] ~= nil then return true end
    return M.vectors[tostring(vector or "")] ~= nil
 end
 

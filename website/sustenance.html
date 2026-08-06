@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sustenance &amp; Economy — Emunah</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="commands.html">Command Reference</a></li>
+    <li><a href="api.html">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="people.html">People &amp; Names</a></li>
+    <li><a href="sustenance.html" class="active">Sustenance &amp; Economy</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main class="with-toc">
+<div class="content">
+
+<h1>Sustenance &amp; Economy</h1>
+<p class="lede">
+Pipes, the manna rite, shops and gold. The unglamorous half, and the half that stops a cure
+from being possible when it is missing.
+</p>
+
+<h2 id="pipes">Pipes</h2>
+<p>
+The <code>smoke</code> cure vector needs a lit pipe with the right herb in it. Nothing else
+maintains that, and when it is not maintained the failure does not look like a pipe problem
+&mdash; it looks like a missing herb, or a cure that silently never fires.
+</p>
+<p>
+<code>pipes.lua</code> polls the pipe list, refills what has run out, and lights what has gone
+out. It reads <code>curing/curelist.lua</code> for which herbs are smoked and
+<code>have.item()</code> for what is actually carried, so it cannot try to pack a pipe with
+something that is in the rift.
+</p>
+<pre><code>pipes            # state: keep-up on or off, and each pipe's herb and puffs
+pipes on|off     # the keep-up loop
+emset pipes now # check immediately rather than on the next poll</code></pre>
+<table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>pipes.enabled</code></td><td><code>true</code></td><td>Keep the pipes filled and lit.</td></tr>
+<tr><td><code>pipes.assign</code></td><td>unset</td><td>Which herb goes in which pipe.</td></tr>
+<tr><td><code>pipes.poll</code></td><td><code>300</code></td><td>Seconds between checks.</td></tr>
+</tbody>
+</table>
+
+<h2 id="manna">The manna rite</h2>
+<p>
+Three commands with real waits between them &mdash; perform the rite, get the bowl, drink the
+bowl. One word because it is something you do several times a day and the sequence is fiddly
+to type correctly under any distraction at all.
+</p>
+<pre><code>manna</code></pre>
+<p>
+Each step goes through <code>core/act.lua</code> like everything else, so a step that the game
+would refuse is held rather than sent and lost. The waits are real waits, not guesses: see
+<code>docs/game/mechanics.md</code>, "The manna rite".
+</p>
+
+<h2 id="shops">Shops</h2>
+<p>
+Achaea's <code>WARES</code> listing is a wall of text with replica numbers in it. Emunah keeps
+the last one seen and redraws it grouped by category, with every item clickable.
+</p>
+<pre><code>emset shop                # redraw the last WARES seen, clickable
+emset shop &lt;proprietor&gt;   # a particular shop, when several have been seen
+emset shop spent          # the session ledger, itemised
+emset shop limit &lt;gp&gt;     # hold back any single purchase over this
+emset shop limit off</code></pre>
+<div class="callout callout-warn">
+<div class="callout-title">Why there is a spend limit</div>
+<p>
+In a listing that buys by replica number, a click is one keystroke away from a very expensive
+mistake. <code>emset shop limit</code> holds any purchase above the figure rather than
+sending it, and says what it held.
+</p>
+</div>
+<p>
+The gold ledger is verified against <code>Char.Status</code> rather than assumed from what was
+sent &mdash; a purchase the game refused should not appear as money spent.
+</p>
+
+<h2 id="loot">Loot</h2>
+<p>
+Gold on the floor, picked up by replica number.
+</p>
+<pre><code>emset loot          # state, and how many piles taken
+emset loot on|off
+emset loot now      # sweep once regardless of the setting</code></pre>
+<table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>loot.gold</code></td><td><code>true</code></td><td>Pick gold up at all.</td></tr>
+<tr><td><code>loot.aloneOnly</code></td><td><code>true</code></td><td>Only when nobody else is in the room.</td></tr>
+<tr><td><code>loot.ownKillsOnly</code></td><td><code>false</code></td><td>Only from kills believed to be ours.</td></tr>
+<tr><td><code>loot.noDenizens</code></td><td><code>true</code></td><td>Do not stop to loot while something is still alive.</td></tr>
+<tr><td><code>loot.stowIn</code></td><td>a backpack id</td><td>Where gold goes. The shipped default is one character's backpack and will not be yours.</td></tr>
+</tbody>
+</table>
+
+<div class="bug">
+<h4>Gold used to stall the hunt</h4>
+<p>
+A pile that could not yet be lifted &mdash; no balance, no equilibrium &mdash; held the room
+so the walker would not move on before it was taken. Correct, until the pile was one that
+could never be lifted, at which point the hunt stopped forever.
+</p>
+<p>
+The hold is now bounded: gold is never allowed to stall the loop indefinitely, and gold that
+is not ours does not create a hold at all. Both are asserted in the test suite.
+</p>
+</div>
+
+
+<footer>
+See <a href="interface.html">Interface</a> next, or the <a href="commands.html#economy">Shop, loot &amp; sustenance commands</a>.
+</footer>
+
+<div class="page-nav">
+  <div><span class="dir">Back</span><a href="people.html">&larr; People &amp; Names</a></div>
+  <div class="next"><span class="dir">Next</span><a href="interface.html">Interface &rarr;</a></div>
+</div>
+
+</div>
+<div class="toc">
+  <div class="toc-title">On this page</div>
+  <a href="#pipes">Pipes</a>
+  <a href="#manna">The manna rite</a>
+  <a href="#shops">Shops</a>
+  <a href="#loot">Loot</a>
+</div>
+</main>
+</div>
+</body>
+</html>

@@ -18,6 +18,16 @@
 ---             checked for EVERY command regardless of what it asks for, which is why it
 ---             is not something a caller can declare a need for.
 ---
+---   asleep    The same shape as stunned -- "You are asleep and can do nothing. WAKE will
+---             attempt to wake you." -- with exactly one exception, which the game names in
+---             its own rejection: WAKE. That one caller passes `whileAsleep = true`.
+---
+---             This is not a theoretical case. Achaea applies `prone` alongside `sleeping`,
+---             so the knockdown response fires while asleep: in the 06:03 capture, STAND
+---             went out three times over twelve seconds and drew that rejection every time,
+---             because nothing knew the character was asleep. One check here covers every
+---             call site, which is the whole argument for this module.
+---
 ---   prone     Only things that need you upright are refused ("You must be standing
 ---             first."). Deliberately NOT applied to everything: eating a herb and drinking
 ---             an elixir work perfectly well while flat on your back, and blocking curing
@@ -73,6 +83,10 @@ function M.blocked(needs)
    local detect = emunah.curing and emunah.curing.detect
 
    if detect and detect.isStunned() then return "stunned" end
+   -- Opt-OUT rather than opt-in, unlike `standing` and `alive`: the game's own rejection
+   -- says nothing works but WAKE, so the safe default is to block, and WAKE is the single
+   -- caller that declares itself an exception.
+   if not needs.whileAsleep and detect and detect.isAsleep() then return "asleep" end
    if needs.standing and detect and detect.isProne() then return "prone" end
 
    -- Death is opt-in rather than global, deliberately. It is verified for the things that

@@ -19,7 +19,7 @@ local log     = emunah.log
 local event   = emunah.event
 local queue   = emunah.queue
 local have    = emunah.have
-local afflist = emunah.curing.afflist
+local deflist = emunah.curing.deflist
 
 --- Priority floor. Everything curing does uses ranks well below this, so keep-up can only
 --- claim a vector no cure wanted this tick.
@@ -27,46 +27,168 @@ M.PRIORITY = 900
 
 M.enabled = false
 
---- Defences we know how to raise but that are not in afflist.defenceCures -- these are
---- plain commands rather than item cures. Extend via `emunah def add <name> <command>`.
-M.commands = {
-   -- name        = { vector, command }
-   insomnia     = { vector = "herb",        command = "eat cohosh" },
-   deathsight   = { vector = "herb",        command = "eat skullcap" },
-   thirdeye     = { vector = "herb",        command = "eat echinacea" },
-   rebounding   = { vector = "smoke",       command = "smoke skullcap" },
-   speed        = { vector = "elixir",      command = "drink speed" },
-   levitation   = { vector = "elixir",      command = "drink levitation" },
-   frost        = { vector = "elixir",      command = "drink frost" },
-   venom        = { vector = "elixir",      command = "drink venom" },
-   immunity     = { vector = "elixir",      command = "drink immunity" },
-   -- Equilibrium-cost defences. Skills, not items, so they are gated on have.skill().
-   cloak        = { vector = "equilibrium", command = "cloak",        skill = "cloak" },
-   shield       = { vector = "balance",     command = "touch shield", skill = "shield" },
-   nightsight   = { vector = "equilibrium", command = "nightsight",   skill = "nightsight" },
-   mindseye     = { vector = "equilibrium", command = "mindseye",     skill = "mindseye" },
-   deaf         = { vector = "equilibrium", command = "deaf",         skill = "deaf" },
-   blind        = { vector = "equilibrium", command = "blind",        skill = "blind" },
-   fangbarrier  = { vector = "balance",     command = "fangbarrier",  skill = "fangbarrier" },
-}
-
---- The list of defences to maintain. Persisted in config so it survives reloads.
-function M.wanted()
-   return emunah.config.get("defences.keepup", {}) or {}
+--- Ask the game for a fresh prompt.
+---
+--- Keep-up only ever decides anything on a prompt-driven tick, because `emunah.tick` comes
+--- from Char.Vitals. Toggling a defence changes what SHOULD be up, and without a new prompt
+--- that change sits idle until the game happens to send something -- standing still out of
+--- combat, that can be a long time, and it reads as the toggle not having worked.
+---
+--- A blank line costs nothing and produces one immediately.
+function M.nudge()
+   if not M.enabled then return false end
+   send("")
+   return true
 end
 
---- Start maintaining a defence.
+-- ---------------------------------------------------------------------------
+-- Modes
+-- ---------------------------------------------------------------------------
+--
+-- Two ways to want a defence, and the difference is entirely about what happens when it
+-- LATER goes away:
+--
+--   "defup"   bring it up once. Satisfied the moment Char.Defences shows it, and a
+--             subsequent expiry is ignored. This is the login pass -- get everything
+--             standing, then leave it alone.
+--   "keepup"  bring it up whenever it is missing, indefinitely.
+--
+-- Both raise identically; only re-raising differs. Note that defup is NOT "send the command
+-- once and stop": a refused command has raised nothing, so it keeps trying within the same
+-- three-attempt budget as keepup, and stops when the defence actually appears.
+
+M.MODES = { "defup", "keepup" }
+
+--- Which defences are wanted, and how. name -> "defup" | "keepup".
 ---
---- An explicit command can be supplied for anything this file does not already know how to
+--- Stored as a MAP where it used to be an array of names. config.lua's migration 3 converts
+--- an existing list, taking every entry as "keepup" -- that is what the old list meant, so
+--- nobody's setup changes underneath them.
+function M.modes()
+   local stored = emunah.config.get("defences.keepup", {}) or {}
+   -- Tolerate the old array shape in memory too. A reload restores config.data verbatim
+   -- from _persist, so a profile can reach this function before the migration has been
+   -- applied to the table this process is holding.
+   if stored[1] ~= nil then
+      local converted = {}
+      for _, name in ipairs(stored) do converted[tostring(name):lower()] = "keepup" end
+      return converted
+   end
+   return stored
+end
+
+--- The mode for one defence, or nil when it is switched off.
+function M.mode(name)
+   return M.modes()[deflist.canonical(name)]
+end
+
+--- Every defence currently switched on, in either mode, sorted.
+function M.wanted()
+   local out = {}
+   for name in pairs(M.modes()) do out[#out + 1] = name end
+   table.sort(out)
+   return out
+end
+
+--- Defences in defup mode that have been seen up, so are done with.
+---
+--- In memory rather than in the config, deliberately: this is "I have already brought it up
+--- this session", which is exactly the thing that should not survive a restart. A reload
+--- clears it too, and re-running the defup pass after a reload is the right behaviour.
+M.satisfied = {}
+
+--- Set the mode, or switch a defence off with nil.
+--- @return string|nil the mode now in force
+function M.setMode(name, mode)
+   -- Through the alias map, so `venom` configures `poisonresist` rather than creating a
+   -- second entry for a name Char.Defences will never report.
+   name = deflist.canonical(name)
+   if name == "" then return nil end
+   if mode ~= nil and mode ~= "defup" and mode ~= "keepup" then
+      log.warn("Mode must be defup or keepup, not %q.", tostring(mode))
+      return M.mode(name)
+   end
+
+   local modes = M.modes()
+   modes[name] = mode
+   emunah.config.set("defences.keepup", modes)
+   emunah.config.save()
+
+   -- Changing the mode is a fresh statement of intent, so it clears both the attempt
+   -- history and any "already done" from a previous defup pass.
+   M.resetBudget(name)
+   M.satisfied[name] = nil
+   return mode
+end
+
+--- Cycle a defence: off -> defup -> keepup -> off. What a click does.
+--- @return string|nil the mode now in force
+function M.cycle(name)
+   local current = M.mode(name)
+   if current == nil then return M.setMode(name, "defup") end
+   if current == "defup" then return M.setMode(name, "keepup") end
+   return M.setMode(name, nil)
+end
+
+--- Start a defup pass again, forgetting what has already been brought up.
+function M.redoDefup()
+   M.satisfied = {}
+   M.resetBudget()
+   return true
+end
+
+--- What a defence looks like right now, for a display.
+--- @return table { name, mode, up, raisable, satisfied, vector, command, source,
+---   unconfirmable }
+function M.state(name)
+   name = deflist.canonical(name)
+   local vector, command, _, _, unconfirmable = deflist.resolve(name)
+   return {
+      name      = name,
+      mode      = M.mode(name),
+      up        = deflist.isUp(name),
+      -- False means we hold no command for it: it can sit switched on forever and nothing
+      -- will ever go out. Worth showing, because it is indistinguishable from "keeps
+      -- failing" otherwise.
+      raisable  = command ~= nil,
+      satisfied = M.satisfied[name] == true,
+      -- The defence that must be up first, when it is not. `blind` and `deaf` without
+      -- `mindseye` leave the character genuinely unable to see or hear.
+      blockedBy = M.blockedBy(name),
+      vector    = vector,
+      command   = command,
+      source    = deflist.source(name),
+      -- Never shows `up`, whatever mode it is in -- Char.Defences produces no line for it
+      -- at all. Worth surfacing so a display can say why rather than leave it looking like
+      -- an ordinary MISSING that just never resolves.
+      unconfirmable = unconfirmable == true,
+   }
+end
+
+--- Every defence we know how to raise, plus anything switched on. Sorted.
+function M.known()
+   return deflist.known(M.wanted())
+end
+
+-- Thin delegates. The tables moved to deflist.lua, but "how do I raise X" is still a
+-- reasonable question to ask the module that raises things, and every existing caller and
+-- test asks it here.
+function M.resolve(name) return deflist.resolve(name) end
+function M.source(name)  return deflist.source(name)  end
+
+--- Switch a defence on in a given mode, optionally pairing it with a command.
+---
+--- An explicit command can be supplied for anything deflist does not already know how to
 --- raise -- `emunah defs add moss touch moss`. That matters for tattoos in particular: the
 --- name Char.Defences reports is not something to guess at, because a wrong one means the
 --- defence silently never goes up, and the command that raises it costs a full balance
 --- whether or not it was needed. Read the real name from `emunah gmcp` and pair it here.
 --- @param name string the name as Char.Defences reports it
---- @param command string|nil what raises it; omit for a defence already in M.commands
+--- @param command string|nil what raises it; omit for one deflist already knows
 --- @param vector string|nil which balance that command spends; defaults to balance
-function M.add(name, command, vector)
-   name = tostring(name or ""):lower()
+--- @param mode string|nil "defup" or "keepup"; defaults to keepup
+function M.add(name, command, vector, mode)
+   name = deflist.canonical(name)
    if name == "" then return false end
 
    if command and command ~= "" then
@@ -75,52 +197,31 @@ function M.add(name, command, vector)
       emunah.config.set("defences.commands", custom)
    end
 
-   local list = M.wanted()
-   if not util.contains(list, name) then
-      table.insert(list, name)
-      emunah.config.set("defences.keepup", list)
+   M.setMode(name, mode or "keepup")
+
+   -- "Keeping up X" IS NOT TRUE WHILE KEEP-UP IS OFF, and it was said anyway.
+   --
+   -- `defences.enabled` ships false and `add` never touched it, so the whole sequence
+   -- -- `emunah defs add inspiration` -> "Keeping up inspiration." -> nothing ever happens,
+   -- and the roster and the UI both show it MISSING in red -- was reachable with no
+   -- indication anywhere that the subsystem was switched off. Reported from play at
+   -- 13:03:03.43. The list is maintained either way; only the claim was wrong.
+   if not M.enabled then
+      log.warn("Added <ansi_cyan>%s<ansi_yellow> (%s) -- but defences are "
+         .. "<ansi_light_red>OFF<ansi_yellow>, so nothing will raise it. "
+         .. "Turn them on with `emunah defs on`.", name, mode or "keepup")
+   else
+      log.info("<ansi_cyan>%s<ansi_yellow>: %s.", name, mode or "keepup")
    end
-   emunah.config.save()
-   log.info("Keeping up <ansi_cyan>%s<ansi_yellow>.", name)
    return true
 end
 
 function M.drop(name)
-   name = tostring(name or ""):lower()
-   local list = M.wanted()
-   for index, entry in ipairs(list) do
-      if entry == name then
-         table.remove(list, index)
-         emunah.config.set("defences.keepup", list)
-         emunah.config.save()
-         log.info("No longer keeping up <ansi_cyan>%s<ansi_yellow>.", name)
-         return true
-      end
-   end
-   return false
-end
-
---- Resolve how to raise a defence.
---- @return string|nil vector, string|nil command
-local function resolveDefence(name)
-   -- A command supplied through `emunah defs add <name> <command>` wins: it is the only
-   -- source that came from someone looking at the real defence name.
-   local custom = (emunah.config.get("defences.commands", {}) or {})[name]
-   if custom and custom.command then
-      return custom.vector or "balance", custom.command
-   end
-
-   -- Item-based defences share the cure machinery.
-   local cure = afflist.defenceCures[name]
-   if cure then
-      local command = emunah.curing.curelist.command(cure)
-      return cure.vector, command
-   end
-
-   local entry = M.commands[name]
-   if not entry then return nil, nil end
-   if entry.skill and not have.skill(entry.skill) then return nil, nil end
-   return entry.vector, entry.command
+   name = deflist.canonical(name)
+   if not M.mode(name) then return false end
+   M.setMode(name, nil)
+   log.info("No longer raising <ansi_cyan>%s<ansi_yellow>.", name)
+   return true
 end
 
 -- ---------------------------------------------------------------------------
@@ -143,15 +244,98 @@ M.ATTEMPTS = 3
 
 local attempts, warned = {}, {}
 
+--- Defences we have already explained are waiting on a prerequisite. Only for saying it
+--- once rather than on every prompt -- NOT the answer to "is it blocked", which is
+--- computed below.
+local blockedOn = {}
+
+--- Defences we have already explained are waiting on their item to be restocked into hand.
+--- Only for saying it once -- recomputed fresh from have.item() below, same as blockedOn.
+local waitingOn = {}
+
+--- Which defence is holding this one back right now, or nil.
+---
+--- Computed rather than read from the cache above: the cache is written on a tick, so a
+--- prerequisite that has just come up would still read as blocking until the next prompt --
+--- and the grid would show a defence waiting on something that is plainly already there.
+function M.blockedBy(name)
+   name = deflist.canonical(name)
+   local prerequisite = deflist.requires(name)
+   if not prerequisite then return nil end
+   local defences = emunah.gmcp.defences
+   if defences and defences.has(prerequisite) then return nil end
+   return prerequisite
+end
+
 --- Has this defence any attempts left?
+--- Names Char.Defences is reporting that nothing in deflist claims.
+---
+--- When a raise works but the defence never appears, the name we asked for is not the name
+--- the game uses -- and the game is already telling us the right one, in this list. Watched
+--- live: `drink venom` succeeded ("your resistance to damage by poison increases", and DEF
+--- then listed it), while keep-up went on raising `venom` because Char.Defences never used
+--- that word. The answer was on screen the whole time and nothing put the two together.
+--- @return table array of names
+function M.unclaimed()
+   local defences = emunah.gmcp.defences
+   if not defences then return {} end
+
+   local claimed = {}
+   for _, name in ipairs(deflist.known()) do claimed[name] = true end
+
+   local out = {}
+   for _, name in ipairs(defences.names()) do
+      if not claimed[name] then out[#out + 1] = name end
+   end
+   table.sort(out)
+   return out
+end
+
 function M.withinBudget(name)
+   -- Every other accessor here canonicalizes (mode, setMode, state, add, drop,
+   -- blockedBy) so that the elixir's name and the defence's name are one budget, not two.
+   -- This one did not, and it went unnoticed only because M.tick() always calls it with a
+   -- name already canonical from M.wanted() -- an external caller asking by the elixir's
+   -- own name (`withinBudget("frost")`, matching how `mode("frost")` already works) would
+   -- silently consult an empty budget while `abandon()` had exhausted the real one.
+   name = deflist.canonical(name)
    if (attempts[name] or 0) < M.ATTEMPTS then return true end
    if not warned[name] then
       warned[name] = true
-      log.warn("Raised %s %d times and it never appeared in Char.Defences -- stopping. "
-         .. "Check the name matches what `emunah gmcp` reports.", name, attempts[name])
+      log.warn("Raised %s %d times and it never appeared in Char.Defences -- stopping.",
+         name, attempts[name])
+      -- Narrow it down instead of sending them to go and look. A raise that worked leaves
+      -- its defence sitting in Char.Defences under some other name, and that name is
+      -- almost always one of these.
+      local unclaimed = M.unclaimed()
+      if #unclaimed > 0 then
+         log.warn("  Char.Defences is reporting these, which nothing here claims: %s",
+            table.concat(unclaimed, ", "))
+         log.warn("  If one of them IS %s, pair them: emunah defs add <that name> %s",
+            name, tostring(select(2, deflist.resolve(name)) or "<command>"))
+      end
    end
    return false
+end
+
+--- Give up on a defence without burning the remaining attempts.
+---
+--- For when the game has told us plainly that raising it achieved nothing -- not that it
+--- failed, but that there was nothing to do. Retrying that is the one case where the budget
+--- is not protection but delay.
+function M.abandon(name, why)
+   name = deflist.canonical(name)
+   attempts[name] = M.ATTEMPTS
+   if not warned[name] then
+      warned[name] = true
+      log.warn("Not raising %s again: %s", name, tostring(why))
+      local unclaimed = M.unclaimed()
+      if #unclaimed > 0 then
+         log.warn("  Char.Defences is reporting these, which nothing here claims: %s",
+            table.concat(unclaimed, ", "))
+      end
+   end
+   return true
 end
 
 --- Forget the attempt history, for one defence or all of them.
@@ -168,39 +352,139 @@ event.register("emunah.defence.added", function(_, name)
    M.resetBudget(tostring(name or ""):lower())
 end, "curing.defkeepup")
 
---- Which wanted defences are currently missing.
+--- Which switched-on defences are currently missing AND still want raising.
+---
+--- The whole difference between the two modes lives here. A defup defence drops out of this
+--- list for good once it has been seen up; a keepup one never does.
 function M.missing()
-   local defences = emunah.gmcp.defences
-   if not defences then return {} end
-   return defences.missingFrom(M.wanted())
+   local out = {}
+   for _, name in ipairs(M.wanted()) do
+      if not deflist.isUp(name) and (M.mode(name) == "keepup" or not M.satisfied[name]) then
+         out[#out + 1] = name
+      end
+   end
+   return out
 end
+
+-- A defup defence that has appeared is done with: it was asked to bring the defence up
+-- once, and it has. Recorded on the event rather than checked in missing(), because by the
+-- time it expires it is no longer in Char.Defences and there would be nothing left to see.
+event.register("emunah.defence.added", function(_, name)
+   name = tostring(name or ""):lower()
+   if M.mode(name) == "defup" then M.satisfied[name] = true end
+end, "curing.defkeepup")
+
+--- Note anything already up when a full list arrives -- a login, or a reconnect. Without
+--- this, a defup pass would raise defences that were standing the whole time.
+event.register("emunah.defences.list", function()
+   local defences = emunah.gmcp.defences
+   if not defences then return end
+   for name in pairs(M.modes()) do
+      if M.mode(name) == "defup" and defences.has(name) then M.satisfied[name] = true end
+   end
+end, "curing.defkeepup")
 
 --- One pass. Queues at most one defence per vector, at a priority no cure will lose to.
 function M.tick()
    if not M.enabled then return end
 
    -- Do not fight the curing engine for a balance while afflicted; cures come first, and
-   -- a defence raised mid-lock is usually stripped again immediately.
+   -- a defence raised mid-lock is usually stripped again immediately. Deliberate defences
+   -- held on purpose (blind/deaf) do not count: they sit in engine.count() permanently once
+   -- up, and gating on the raw count here would mean keep-up -- including mindseye, which
+   -- blind/deaf require -- never runs again for the rest of the session.
    local engine = emunah.curing.engine
-   if engine and engine.enabled and engine.count() > 0 then return end
+   if engine and engine.enabled and engine.curableCount() > 0 then return end
 
    for _, name in ipairs(M.missing()) do
-      local vector, command = resolveDefence(name)
+      local vector, command, needs, item, unconfirmable = deflist.resolve(name)
+
+      -- A PREREQUISITE THAT IS NOT UP BLOCKS THE RAISE ENTIRELY.
+      --
+      -- Not merely unhelpful: `blind` and `deaf` without `mindseye` leave the character
+      -- genuinely unable to see or hear. Held rather than abandoned, and it costs no
+      -- attempt -- the prerequisite going up is the ordinary way this resolves, and it may
+      -- be a defence keep-up is about to raise on this very pass.
+      local prerequisite = M.blockedBy(name)
+      if prerequisite then
+         if not blockedOn[name] then
+            blockedOn[name] = prerequisite
+            log.info("Not raising %s until %s is up -- without it you cannot see or hear.",
+               name, prerequisite)
+         end
+         vector, command = nil, nil
+      else
+         blockedOn[name] = nil
+      end
+
+      -- NOT IN HAND IS NOT THE SAME AS NEVER COMING. curelist.restockables() pulls this
+      -- same item from the rift on its own vector, usually within a tick or two -- but
+      -- sending the raise anyway does not wait for that: it burns the whole attempt budget
+      -- against "What do you want to eat?" before restocking gets a turn. Watched at login,
+      -- 17:03:45-48: `eat skullcap` refused three times in under three seconds while the
+      -- rift still held 96 -- deathsight retired for the rest of the session, and the very
+      -- restock that would have fed it went out only seconds later. Held, not abandoned, the
+      -- same as a blocked prerequisite: the item arriving is the ordinary way this resolves.
+      -- have/capabilities.lua's own M.cure() already treats "in the rift, not in hand" this
+      -- way for curing; this is the same fact reaching keep-up's item-based raises too.
+      --
+      -- SMOKE NEEDS A LIT PIPE, NOT THE HERB IN HAND -- have.cure() draws the same
+      -- distinction. Checking possession instead here would hold `rebounding` forever on a
+      -- character who smokes from a pipe but does not also carry loose skullcap.
+      if vector and command and item then
+         local held = (vector == "smoke") and have.pipe(item) or (have.item(item) > 0)
+         if not held then
+            if not waitingOn[name] then
+               waitingOn[name] = true
+               log.info("Not raising %s yet -- no %s in hand; restocking should catch up.",
+                  name, item)
+            end
+            vector, command = nil, nil
+         else
+            waitingOn[name] = nil
+         end
+      end
+
       if vector and command and M.withinBudget(name) then
          queue.push(vector, command, {
             priority = M.PRIORITY,
             tag      = "def:" .. name,
+            -- Held rather than dropped when these are not met, so the raise goes out the
+            -- moment they are -- and, critically, does NOT burn an attempt meanwhile.
+            needs    = needs,
             -- The defence may come back on its own while this waits for a balance, and
             -- raising one that is already up costs the balance for nothing -- a full four
             -- seconds for a tattoo.
-            valid    = function()
-               local defences = emunah.gmcp.defences
-               return not (defences and defences.has(name))
-            end,
+            valid    = function() return not deflist.isUp(name) end,
             confirm  = emunah.config.get("curing.confirmWait", 2.0),
             onSent   = function()
                attempts[name] = (attempts[name] or 0) + 1
-               if vector ~= "balance" and vector ~= "equilibrium" then
+
+               -- UNCONFIRMABLE: SATISFIED ON SEND, NOT ON Char.Defences. `bliss` produces no
+               -- Char.Defences line ever, so the ordinary "defup done once confirmed" event
+               -- listener below never fires for it -- waiting for that would mean waiting
+               -- forever, and the defence would sit MISSING despite being genuinely up.
+               -- Keepup mode is unaffected: `M.missing()` does not consult `satisfied` for
+               -- keepup, so it is still bounded only by the ordinary attempt budget.
+               if unconfirmable and M.mode(name) == "defup" then
+                  M.satisfied[name] = true
+               end
+
+               if vector == "equilibrium" then
+                  -- HOLD THE VECTOR UNTIL THE GAME CONFIRMS THE COST.
+                  --
+                  -- Char.Vitals omits eq when it has not changed, so the next push -- fired
+                  -- by something unrelated, like damage taken the same round -- can still
+                  -- read eq=true and let a second raise go out into the gap. Exactly the
+                  -- case vitals.spend() was written for, and it matters more here than for
+                  -- the cheap defences: `perform inspiration` costs 3.50s of equilibrium,
+                  -- so the window is wide.
+                  --
+                  -- Not a fixed cost timer -- the "Equilibrium used: N.NNs." trigger starts
+                  -- `cure.equilibrium` from the game's own figure the moment it replies.
+                  -- This only covers the round trip before that arrives.
+                  emunah.gmcp.vitals.spend("eq")
+               elseif vector ~= "balance" then
                   have.spend(vector)
                end
             end,
@@ -215,12 +499,14 @@ function M.start()
    M.enabled = true
    emunah.config.set("defences.enabled", true)
    log.info("Defence keep-up <ansi_light_green>on<ansi_yellow>.")
+   event.raise("defkeepup.enabled")
 end
 
 function M.stop()
    M.enabled = false
    emunah.config.set("defences.enabled", false)
    log.info("Defence keep-up <ansi_light_red>off<ansi_yellow>.")
+   event.raise("defkeepup.disabled")
 end
 
 function M.toggle()

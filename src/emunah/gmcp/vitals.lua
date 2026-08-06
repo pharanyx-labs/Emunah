@@ -61,8 +61,22 @@ local RESOURCES = { "hp", "mp", "ep", "wp" }
 --- Entries look like "Bleed: 0", "Kai: 0%", "Stance: None", "Devotion: 100%". The set
 --- varies by class, so we parse generically rather than against a fixed list -- this is
 --- what lets the same code serve Monk (Kai/Stance) and Priest (Devotion) without change.
+--- Filled in place by parseCharstats() rather than replaced.
+---
+--- Achaea sends `charstats` with essentially every Char.Vitals, so this ran on every prompt
+--- and allocated two fresh tables each time -- plus, per entry, a match and two trims. The
+--- KEY SET only changes when the class does; the values change constantly. So the tables are
+--- reused and stale keys are swept, which costs one extra pass over a table of three or four
+--- entries and saves two allocations per prompt.
+local statsScratch, textScratch = {}, {}
+
 local function parseCharstats(list)
-   local stats, text = {}, {}
+   local stats, text = statsScratch, textScratch
+   -- Mark, fill, sweep. A key that was present last prompt and is absent now has to go: a
+   -- Monk's `Stance` lingering after a class change would be read as current.
+   for key in pairs(stats) do stats[key] = nil end
+   for key in pairs(text)  do text[key]  = nil end
+
    for _, entry in ipairs(list or {}) do
       local key, value = tostring(entry):match("^%s*([^:]+):%s*(.*)$")
       if key then
@@ -89,11 +103,12 @@ local function onVitals()
    local v = gmcp.Char.Vitals
    if type(v) ~= "table" then return end
 
-   -- Snapshot before mutating, so damage taken this tick is derivable.
-   M.last = {
-      hp = M.hp, mp = M.mp, ep = M.ep, wp = M.wp,
-      bal = M.bal, eq = M.eq,
-   }
+   -- Snapshot before mutating, so damage taken this tick is derivable. Written in place:
+   -- the shape is fixed and this runs on every prompt, so a fresh six-key table here is a
+   -- table's worth of garbage per prompt for no benefit.
+   local last = M.last
+   last.hp, last.mp, last.ep, last.wp = M.hp, M.mp, M.ep, M.wp
+   last.bal, last.eq = M.bal, M.eq
 
    for _, key in ipairs(RESOURCES) do
       local maxKey = "max" .. key

@@ -4,121 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lua API — Emunah</title>
-<style>
-:root{
-  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
-  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
-  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
-  --yellow:#facc15; --purple:#c084fc;
-  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
-  font-size:16px; line-height:1.65;
-}
-a{color:var(--accent); text-decoration:none}
-a:hover{text-decoration:underline}
-code, pre, kbd{font-family:var(--font-mono)}
-code{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
-  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
-}
-pre{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
-  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
-}
-pre code{border:none; padding:0; background:none; color:var(--text)}
-h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
-h1{font-size:2.1em; margin:0 0 .3em}
-h2{font-size:1.5em; margin:2.2em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
-h3{font-size:1.05em; margin:1.6em 0 .3em; color:var(--text-bright); font-family:var(--font-mono)}
-h4{font-size:1em; margin:1.2em 0 .4em}
-p{margin:.8em 0}
-ul,ol{margin:.8em 0; padding-left:1.4em}
-li{margin:.3em 0}
-.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
-nav.sidebar{
-  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
-  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
-}
-.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
-.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
-.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
-.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
-nav.sidebar ul{list-style:none; margin:0; padding:0}
-nav.sidebar li{margin:0}
-nav.sidebar a{
-  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
-  font-size:.92em; margin-bottom:2px;
-}
-nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
-nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
-.nav-group-title{
-  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
-  margin:20px 0 6px; padding:0 10px;
-}
-.nav-group-title:first-child{margin-top:0}
-main{flex:1; min-width:0; padding:40px 48px 100px; display:flex; gap:40px}
-.content{max-width:720px; flex:1; min-width:0}
-.toc{
-  width:190px; flex-shrink:0; position:sticky; top:40px; align-self:flex-start;
-  font-size:.85em;
-}
-.toc-title{font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin-bottom:8px}
-.toc a{display:block; padding:4px 0; color:var(--text-dim)}
-.toc a:hover{color:var(--accent); text-decoration:none}
-table{width:100%; border-collapse:collapse; margin:1em 0; font-size:.92em}
-th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
-th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
-tr:last-child td{border-bottom:none}
-.cmd-block{
-  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
-  padding:16px 20px; margin:1em 0 1.6em;
-}
-.cmd-syntax{
-  font-family:var(--font-mono); font-size:.95em; color:var(--accent-dim); background:var(--bg-code);
-  border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-bottom:10px;
-  color:#67e8f9; display:inline-block;
-}
-.cmd-block p{margin:.5em 0; font-size:.92em}
-.cmd-block ul{margin:.5em 0; font-size:.92em}
-.callout{
-  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
-  padding:12px 18px; margin:1.2em 0;
-}
-.callout p{margin:.4em 0}
-.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
-.callout-warn{border-left-color:var(--red)}
-.callout-warn .callout-title{color:var(--red)}
-.callout-tip{border-left-color:var(--green)}
-.callout-tip .callout-title{color:var(--green)}
-.callout-note .callout-title{color:var(--accent)}
-footer{
-  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
-  color:var(--text-dim); font-size:.85em;
-}
-.page-nav{
-  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
-  border-top:1px solid var(--border); gap:20px;
-}
-.page-nav a{font-size:.92em}
-.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
-.page-nav .next{text-align:right}
-@media (max-width:1150px){ .toc{display:none} }
-@media (max-width:900px){
-  .layout{flex-direction:column}
-  nav.sidebar{
-    width:100%; height:auto; position:relative; border-right:none;
-    border-bottom:1px solid var(--border); padding:18px;
-  }
-  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
-  .nav-group-title{display:none}
-  main{padding:28px 20px 60px; flex-direction:column}
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
@@ -135,14 +21,18 @@ footer{
   <ul>
     <li><a href="curing.html">Curing Engine</a></li>
     <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="people.html">People &amp; Names</a></li>
+    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="interface.html">Interface</a></li>
     <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
   </ul>
   <div class="nav-group-title">Project</div>
   <ul>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main>
+<main class="with-toc ref">
 <div class="content">
 
 <h1>Lua API</h1>
@@ -177,7 +67,7 @@ emunah.act.send("smite " .. target, { standing = true, bal = true })</code></pre
 
 <div class="cmd-block">
 <span class="cmd-syntax">emunah.act.send(command, needs) &rarr; boolean</span>
-<p>Sends the command if the character can act, and returns whether it actually went. Logs the decision either way under <code>emunah debug</code>, so a held command is visible rather than looking like the system hung.</p>
+<p>Sends the command if the character can act, and returns whether it actually went. Logs the decision either way under <code>emset debug</code>, so a held command is visible rather than looking like the system hung.</p>
 </div>
 
 <div class="cmd-block">
@@ -365,7 +255,7 @@ end, "myscript")</code></pre>
 
 <h2>emunah.config &mdash; settings</h2>
 
-<p>Dotted paths, persisted per profile. Everything <code>emunah set</code> touches is reachable here.</p>
+<p>Dotted paths, persisted per profile. Everything <code>emset set</code> touches is reachable here.</p>
 
 <pre><code>emunah.config.get("bashing.attack", "smite")
 emunah.config.set("bashing.stopBelowHealth", 60)
@@ -391,6 +281,47 @@ emunah.config.save()</code></pre>
 <p><strong>Targets are replica numbers, not names.</strong> <code>denizens.here()</code> returns ids like <code>308635</code> because <code>smite pixie</code> lets Achaea choose which pixie, and its choice shifts as they move and die. Pass the id through to any attack.</p>
 </div>
 
+<h2 id="rest">The rest of the namespace</h2>
+<p>
+Everything the manifest publishes, in load order. The modules above are the ones a third-party
+script is most likely to build on; these are the rest, and they are reachable the same way.
+</p>
+<table>
+<thead><tr><th>Namespace</th><th>What it owns</th></tr></thead>
+<tbody>
+<tr><td><code>emunah.help</code></td><td>The command reference as data &mdash; <code>topics</code>, <code>settings</code>, <code>keys()</code>, plus <code>find()</code>, <code>search()</code> and the renderers <code>emhelp</code> calls. Add an entry here and the test suite stops complaining that your command is undocumented.</td></tr>
+<tr><td><code>emunah.curing.deflist</code></td><td>What raises each defence, and which afflictions are a defence held on purpose. <code>deliberate(name)</code> is the guard that stops the engine curing your own blindness.</td></tr>
+<tr><td><code>emunah.curing.diag</code></td><td>Parses <code>DIAG</code>. What answers <code>loki</code>, the one affliction <code>Char.Afflictions</code> does not report honestly.</td></tr>
+<tr><td><code>emunah.namedb</code></td><td>The roster. <code>get</code>, <code>record</code>, <code>set</code>, <code>relationship</code>, <code>findNames</code>, <code>generation</code> (bumped whenever the set of names changes).</td></tr>
+<tr><td><code>emunah.namedb.api</code></td><td>The Achaea web API, with its own serialised queue and hit/miss caches.</td></tr>
+<tr><td><code>emunah.namedb.capture</code></td><td>Reads names out of <code>CW</code>, <code>CLWHO</code>, <code>QW</code>, <code>HONOURS</code> and the guardian angel. <code>recent(n)</code> reads the rolling line buffer.</td></tr>
+<tr><td><code>emunah.shop</code></td><td>WARES listings, buying by replica number, the session gold ledger.</td></tr>
+<tr><td><code>emunah.pipes</code></td><td>Keeps pipes filled and lit &mdash; which is what makes the <code>smoke</code> cure vector usable at all.</td></tr>
+<tr><td><code>emunah.manna</code></td><td>The sustenance rite as one sequenced command.</td></tr>
+<tr><td><code>emunah.watch</code></td><td>Resource floors and damage-spike detection. The thing that stops every loop when health falls too far.</td></tr>
+<tr><td><code>emunah.ih</code></td><td>Linkifies Achaea's own <code>ih</code> item listing.</td></tr>
+<tr><td><code>emunah.ui.echo</code></td><td><code>combatEcho</code>, <code>oecho</code>, and keyed floating labels &mdash; including the persistent <code>** PAUSED **</code> banner.</td></tr>
+<tr><td><code>emunah.ui.chyron</code></td><td><code>send(text, colour)</code> puts a message on the scrolling top strip. Up to three scroll on a loop.</td></tr>
+<tr><td><code>emunah.ui.names</code></td><td>Name highlighting. <code>styleFor(name)</code> is the colour-and-weight policy, reused by the room panel so the two cannot disagree.</td></tr>
+<tr><td><code>emunah.ui.theme</code></td><td>The palette, plus <code>paint(console, key, body)</code> &mdash; draw a whole console body in one call, and not at all if it is unchanged.</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-tip">
+<div class="callout-title">Two functions worth knowing about</div>
+<p>
+<code>emunah.have.quantity(name)</code> counts a consumable in inventory, memoised against
+<code>gmcp.items.generation</code> and dropped wholesale whenever anything moves &mdash; a
+stale count is what makes an engine queue a cure it cannot perform.
+</p>
+<p>
+<code>emunah.ui.theme.paint()</code> is how every panel draws. If you add one, use it: it
+collapses a body into a single <code>decho</code> and skips the call entirely when nothing
+changed, which is the difference between a panel that costs nothing and one that costs a
+frame on every game event.
+</p>
+</div>
+
 <h2>Example: a script built on Emunah</h2>
 
 <p>A worked example that ties the pieces together &mdash; drink a health elixir when hurt, without ever fighting the curing engine for the vector or firing into a rejection:</p>
@@ -411,6 +342,16 @@ end, "myscript")</code></pre>
 <p>Note what this does <em>not</em> do: it never calls <code>send()</code>, never checks whether you are stunned, and never worries about sip balance. Pushing onto the <code>elixir</code> vector means the queue holds it until that balance is genuinely free, <code>act</code> holds it further if the character cannot act at all, and a higher-priority cure can pre-empt it if something worse lands in the meantime.</p>
 
 <p>Register with your own <code>owner</code> string and <code>emreload</code> will not leave a duplicate behind.</p>
+
+<footer>
+See <a href="architecture.html">Architecture</a> for how these modules fit together, or the
+<a href="commands.html">Command Reference</a> for the user-facing side.
+</footer>
+
+<div class="page-nav">
+  <div><span class="dir">Back</span><a href="commands.html">&larr; Command Reference</a></div>
+  <div class="next"><span class="dir">Next</span><a href="curing.html">Curing Engine &rarr;</a></div>
+</div>
 
 </div>
 </main>

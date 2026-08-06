@@ -4,129 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Architecture — Emunah</title>
-<style>
-:root{
-  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
-  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
-  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
-  --yellow:#facc15; --purple:#c084fc;
-  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
-  font-size:16px; line-height:1.65;
-}
-a{color:var(--accent); text-decoration:none}
-a:hover{text-decoration:underline}
-code, pre, kbd{font-family:var(--font-mono)}
-code{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
-  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
-}
-pre{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
-  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
-}
-pre code{border:none; padding:0; background:none; color:var(--text)}
-h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
-h1{font-size:2.1em; margin:0 0 .3em}
-h2{font-size:1.5em; margin:2em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
-h3{font-size:1.15em; margin:1.5em 0 .5em; color:var(--accent)}
-h4{font-size:1em; margin:1.2em 0 .4em}
-p{margin:.8em 0}
-ul,ol{margin:.8em 0; padding-left:1.4em}
-li{margin:.3em 0}
-.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
-nav.sidebar{
-  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
-  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
-}
-.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
-.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
-.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
-.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
-nav.sidebar ul{list-style:none; margin:0; padding:0}
-nav.sidebar li{margin:0}
-nav.sidebar a{
-  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
-  font-size:.92em; margin-bottom:2px;
-}
-nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
-nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
-.nav-group-title{
-  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
-  margin:20px 0 6px; padding:0 10px;
-}
-.nav-group-title:first-child{margin-top:0}
-main{flex:1; min-width:0; padding:40px 48px 100px; display:flex; gap:40px}
-.content{max-width:740px; flex:1; min-width:0}
-.toc{
-  width:190px; flex-shrink:0; position:sticky; top:40px; align-self:flex-start;
-  font-size:.85em;
-}
-.toc-title{font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin-bottom:8px}
-.toc a{display:block; padding:4px 0; color:var(--text-dim)}
-.toc a:hover{color:var(--accent); text-decoration:none}
-table{width:100%; border-collapse:collapse; margin:1.2em 0; font-size:.92em}
-th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
-th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
-tr:last-child td{border-bottom:none}
-.callout{
-  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
-  padding:12px 18px; margin:1.2em 0;
-}
-.callout p{margin:.4em 0}
-.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
-.callout-warn{border-left-color:var(--red)}
-.callout-warn .callout-title{color:var(--red)}
-.callout-tip{border-left-color:var(--green)}
-.callout-tip .callout-title{color:var(--green)}
-.callout-note .callout-title{color:var(--accent)}
-.tree{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
-  padding:18px 20px; font-family:var(--font-mono); font-size:.84em; line-height:1.7;
-  overflow-x:auto; white-space:pre;
-}
-.tree .dir{color:var(--accent)}
-.tree .comment{color:var(--text-dim)}
-.bug{
-  background:var(--bg-panel); border:1px solid var(--border); border-left:3px solid var(--yellow);
-  border-radius:0 8px 8px 0; padding:14px 18px; margin:14px 0;
-}
-.bug h4{margin:0 0 6px; color:var(--yellow)}
-.bug p{margin:.4em 0; font-size:.94em}
-.credit{
-  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
-  padding:16px 20px; margin:14px 0;
-}
-.credit h4{margin:0 0 4px}
-.credit p{margin:.3em 0; font-size:.9em; color:var(--text-dim)}
-footer{
-  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
-  color:var(--text-dim); font-size:.85em;
-}
-.page-nav{
-  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
-  border-top:1px solid var(--border); gap:20px;
-}
-.page-nav a{font-size:.92em}
-.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
-.page-nav .next{text-align:right}
-@media (max-width:1150px){ .toc{display:none} }
-@media (max-width:900px){
-  .layout{flex-direction:column}
-  nav.sidebar{
-    width:100%; height:auto; position:relative; border-right:none;
-    border-bottom:1px solid var(--border); padding:18px;
-  }
-  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
-  .nav-group-title{display:none}
-  main{padding:28px 20px 60px; flex-direction:column}
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
@@ -143,14 +21,18 @@ footer{
   <ul>
     <li><a href="curing.html">Curing Engine</a></li>
     <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="people.html">People &amp; Names</a></li>
+    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="interface.html">Interface</a></li>
     <li><a href="architecture.html" class="active">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
   </ul>
   <div class="nav-group-title">Project</div>
   <ul>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main>
+<main class="with-toc">
 <div class="content">
 
 <h1>Architecture</h1>
@@ -167,17 +49,25 @@ design is structured the way it is.
   <span class="dir">core/</span>     util log event config timers queue act
   <span class="dir">gmcp/</span>     init vitals status afflictions defences items skills room comm ire
   <span class="dir">have/</span>     capabilities              <span class="comment">-- the "can I actually do this" gate</span>
-  <span class="dir">curing/</span>   afflist curelist engine defkeepup detect/ (init, patterns, opponent)
-  <span class="dir">ui/</span>       theme layout vitals affpanel chat roompanel map
+  <span class="dir">curing/</span>   afflist curelist deflist engine defkeepup detect/ (init, patterns, opponent, opponent_patterns, diag)
+  <span class="dir">ui/</span>       theme echo layout chyron vitals affpanel chat roompanel map names
+  <span class="dir">namedb/</span>   (namedb.lua) api capture  <span class="comment">-- who is a person, and what are they</span>
   walker.lua                          <span class="comment">-- area walker</span>
   keys.lua                            <span class="comment">-- numpad movement bindings</span>
   denizens.lua                        <span class="comment">-- per-area kill list, targets by replica number</span>
+  ih.lua                              <span class="comment">-- linkifies the `ih` listing</span>
+  watch.lua                           <span class="comment">-- resource floors and damage spikes</span>
   bashing.lua                         <span class="comment">-- walk -&gt; target -&gt; attack -&gt; next -&gt; move loop</span>
   pvp.lua                             <span class="comment">-- PvP loop, opt-in target only</span>
   loot.lua                            <span class="comment">-- pick up gold by replica number</span>
+  shop.lua                            <span class="comment">-- WARES, buying by replica number, a gold ledger</span>
+  pipes.lua                           <span class="comment">-- keeps the pipes filled and lit (the smoke vector)</span>
+  manna.lua                           <span class="comment">-- the sustenance rite, as one command</span>
   <span class="dir">class/</span>    adapter priest            <span class="comment">-- interface + auto-detection</span>
+  help.lua                            <span class="comment">-- the command reference, as data</span>
   commands.lua
-<span class="comment">test/</span>       mock_mudlet.lua run.lua   <span class="comment">-- 470+ behavioural tests</span>
+<span class="comment">test/</span>       mock_mudlet.lua run.lua   <span class="comment">-- 1666 behavioural tests</span>
+            bench.lua profile.lua     <span class="comment">-- per-prompt cost, and where it goes</span>
 <span class="comment">package/</span>    .mpackage build project
 <span class="comment">tools/</span>       build-xml.py syntax_check.py run_tests.py</div>
 
@@ -338,8 +228,8 @@ See the <a href="roadmap.html">Roadmap</a> for what's being built next, or go ba
 </footer>
 
 <div class="page-nav">
-  <div><span class="dir">Back</span><a href="combat.html">&larr; Combat &amp; PvP</a></div>
-  <div class="next"><span class="dir">Next</span><a href="roadmap.html">Roadmap &rarr;</a></div>
+  <div><span class="dir">Back</span><a href="interface.html">&larr; Interface</a></div>
+  <div class="next"><span class="dir">Next</span><a href="performance.html">Performance &rarr;</a></div>
 </div>
 
 </div>

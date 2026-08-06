@@ -72,6 +72,30 @@ M.writhes = {
    dragonflex = true,
 }
 
+--- Both arms disabled at once blocks touching a tattoo -- it takes a working hand to reach
+--- it. Reported in play: `touch tree` refused with both arms broken, the same way paralysis
+--- refuses it (see queue.WHILE_PARALYSED and its 2026-08-03 evidence).
+---
+--- THE REAL TIERS, per an informant (Anzerloi) live in-game 2026-08-05 -- not HELP-verified,
+--- but explicit and specific, and kept alongside the tiers already modelled below rather
+--- than replacing them (see the crippled*/mutilated* entries' own note): `brokenleftarm`
+--- (tier 1, cured by mending) -> `damagedleftarm` (tier 2, cured by restoration) ->
+--- `mangledleftarm` (tier 3). Accumulative: "if you have damagedleftarm, you definitely have
+--- brokenleftarm" -- a higher tier does not replace a lower one, it stacks on top of it.
+---
+--- Any severity tier counts on each side for the tattoo-block check -- crippled/mangled/
+--- mutilated and broken/damaged/mangled are both escalating damage to the SAME arm, not
+--- independent thresholds for whether it still reaches a tattoo, so every name is listed per
+--- side. `unknowncrippledarm`/`unknowncrippledlimb` are deliberately absent: the name does
+--- not say which arm, so it cannot be ANDed against a specific side without guessing which
+--- one.
+M.armAfflictions = {
+   left  = { "crippledleftarm",  "mangledleftarm",  "mutilatedleftarm",
+             "brokenleftarm",    "damagedleftarm" },
+   right = { "crippledrightarm", "mangledrightarm", "mutilatedrightarm",
+             "brokenrightarm",   "damagedrightarm" },
+}
+
 --- Defences maintained with the same machinery as cures. Kept here so
 --- curing/defkeepup.lua can restore them with the right command, rather than duplicating
 --- the herb knowledge.
@@ -141,6 +165,29 @@ M.afflictions = {
       cures = { { vector = "salve", item = "epidermal", alt = "sensory", location = "head" } },
       priority = { salve = 32 },
    },
+   -- Per an informant (Anzerloi), live in-game 2026-08-05: tier 1 of the limb-break scale
+   -- (arms AND legs, both sides), cured by mending -- distinct from, and one rung below,
+   -- damagedleft*/damagedright* (tier 2, restoration; see there). Accumulative: whenever a
+   -- higher tier is present, this one is too. Tier 2/3 breaks "generally only happen from
+   -- limb damage events, namely equalling or exceeding 100% accumulated damage to that limb
+   -- before its reset" -- per the same informant. See M.armAfflictions' own note for the
+   -- full tier chain.
+   brokenleftarm = {
+      cures = { { vector = "salve", item = "mending", alt = "renewal", location = "arms" } },
+      priority = { salve = 11 },
+   },
+   brokenleftleg = {
+      cures = { { vector = "salve", item = "mending", alt = "renewal", location = "legs" } },
+      priority = { salve = 7 },
+   },
+   brokenrightarm = {
+      cures = { { vector = "salve", item = "mending", alt = "renewal", location = "arms" } },
+      priority = { salve = 12 },
+   },
+   brokenrightleg = {
+      cures = { { vector = "salve", item = "mending", alt = "renewal", location = "legs" } },
+      priority = { salve = 8 },
+   },
    caloric = {
       cures = { { vector = "salve", item = "caloric", alt = "exothermic", location = "body" } },
       priority = { salve = 36 },
@@ -180,20 +227,55 @@ M.afflictions = {
       cures = { { vector = "salve", item = "health", alt = "health", location = "torso" } },
       priority = { salve = 43 },
    },
+   -- Tier 2 of the limb-break scale, one rung above broken* (see there for the full chain
+   -- and its provenance) -- per the same informant, live in-game 2026-08-05. Head and torso
+   -- are different from arms/legs: no tier-1 "broken" state for them at all ("you only break
+   -- them with prep damage"), and restoration is applied by location ("apply restoration to
+   -- head"/"...to torso") rather than the generic "arms"/"legs" the paired limbs take.
+   -- damagedhead's name is independently corroborated: it appears verbatim as real Achaea
+   -- text in an unrelated live transcript from earlier the same session (a Jester target's
+   -- status line showed "(damagedleftleg) (damagedhead)").
+   damagedhead = {
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "head" } },
+      priority = { salve = 19 },
+   },
+   damagedleftarm = {
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "arms" } },
+      priority = { salve = 23 },
+   },
+   damagedleftleg = {
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "legs" } },
+      priority = { salve = 20 },
+   },
+   damagedrightarm = {
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "arms" } },
+      priority = { salve = 24 },
+   },
+   damagedrightleg = {
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "legs" } },
+      priority = { salve = 21 },
+   },
+   damagedtorso = {
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "torso" } },
+      priority = { salve = 25 },
+   },
+   -- Confirmed live by the user, 2026-08-05: restoration/reconstructive, not mending/renewal
+   -- -- matching mangledleftarm/mangledrightarm/etc below, the next tier up on the same
+   -- escalating scale (see M.armAfflictions' comment). mending was simply wrong here.
    crippledleftarm = {
-      cures = { { vector = "salve", item = "mending", alt = "renewal", location = "arms" } },
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "arms" } },
       priority = { salve = 16 },
    },
    crippledleftleg = {
-      cures = { { vector = "salve", item = "mending", alt = "renewal", location = "legs" } },
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "legs" } },
       priority = { salve = 9 },
    },
    crippledrightarm = {
-      cures = { { vector = "salve", item = "mending", alt = "renewal", location = "arms" } },
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "arms" } },
       priority = { salve = 15 },
    },
    crippledrightleg = {
-      cures = { { vector = "salve", item = "mending", alt = "renewal", location = "legs" } },
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "legs" } },
       priority = { salve = 10 },
    },
    darkshade = {
@@ -351,6 +433,14 @@ M.afflictions = {
       cures = { { vector = "smoke", item = "valerian", alt = "realgar" } },
       priority = { smoke = 8 },
    },
+   -- The higher (and, per the informant, final) of head's two levels -- confirmed directly,
+   -- live in-game 2026-08-05, name and all: "there are damagedhead and mangledhead
+   -- afflictions the curing system acknowledges, that's how they should show on gmcp events
+   -- as well." See damagedhead's own note above for the head/torso tier chain.
+   mangledhead = {
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "head" } },
+      priority = { salve = 26 },
+   },
    mangledleftarm = {
       cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "arms" } },
       priority = { salve = 17 },
@@ -366,6 +456,15 @@ M.afflictions = {
    mangledrightleg = {
       cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "legs" } },
       priority = { salve = 13 },
+   },
+   -- NOT independently confirmed like mangledhead was -- inferred by symmetry with head's
+   -- own two-level chain ("head and torso are slightly different... they go up 2 levels,
+   -- both requiring restoration"), same informant, same session. If this name turns out
+   -- wrong live, torso's tier-2 affliction will surface as an unknown DIAG/GMCP name rather
+   -- than silently mis-cure -- see afflist.known()'s callers.
+   mangledtorso = {
+      cures = { { vector = "salve", item = "restoration", alt = "reconstructive", location = "torso" } },
+      priority = { salve = 27 },
    },
    masochism = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" }, { vector = "focus" } },
@@ -412,6 +511,31 @@ M.afflictions = {
    mycalium = {
       cures = { { vector = "herb", item = "goldenseal", alt = "plumbum" } },
       priority = { herb = 65 },
+   },
+   -- CONFIRMED live 2026-08-03 15:52:00-15:52:11 against a bard (Anzerloi): both cure
+   -- strings came straight off Char.Afflictions.Add, not a guess --
+   --   {cure="EAT GINSENG" desc="Nausea causes intermittent, painful vomiting."
+   --    name="nausea"}
+   -- Before this it was untracked entirely: the engine logged "Tracking unknown affliction
+   -- nausea" and never queued a cure for it, because the herb vector was monopolised every
+   -- tick by paralysis/addiction and the server-suggestion fallback in engine.lua only fires
+   -- when a vector has nothing else queued. Appended after the existing ranked herb list for
+   -- the same reason as mycalium above -- no priority data exists yet.
+   nausea = {
+      cures = { { vector = "herb", item = "ginseng", alt = "ferrum" } },
+      priority = { herb = 67 },
+   },
+   -- CONFIRMED live 2026-08-03 15:52:03-15:52:17, same bout as nausea above. Previously
+   -- listed in docs/afflictions.md's open questions as "observed named but no confirmed
+   -- cure" (with horror, pyre and the unweaving* effects) -- this closes that for crescendo.
+   -- Verbatim: {cure="EAT ASH" desc="" name="crescendo (1)"} through "(6)", the number
+   -- being the stack count gmcp/afflictions.lua strips before lookup. The engine already
+   -- treated it correctly via the server-suggestion fallback ("No cure defined for
+   -- crescendo -- using the server's own suggestion: eat ash"); this just gives it a real
+   -- table entry instead of leaning on that fallback every time.
+   crescendo = {
+      cures = { { vector = "herb", item = "ash", alt = "stannum" } },
+      priority = { herb = 68 },
    },
    pacifism = {
       cures = { { vector = "herb", item = "bellwort", alt = "cuprum" }, { vector = "focus" } },
@@ -539,9 +663,17 @@ M.afflictions = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" } },
       priority = { herb = 16 },
    },
+   -- HERB CURE REMOVED, INTERIM. `goldenseal` had no provenance in docs/afflictions.md
+   -- (unlike the ~75 entries checked against the published help) and confirmed live
+   -- 20:57:29-20:58:04 it does not work: with no opponent present, the engine pulled
+   -- goldenseal from the rift and ate it every ~5s for at least five cycles, and
+   -- `stupidity` was still tracked after every one. Focus is left in place -- these three
+   -- tests were never exercising the herb path (no goldenseal in hand or rift in any of
+   -- them) -- pending `AFFLICTION SHOW STUPIDITY` (see `affpop` in curing/detect/init.lua)
+   -- to say what actually cures it, if anything does.
    stupidity = {
-      cures = { { vector = "herb", item = "goldenseal", alt = "plumbum" }, { vector = "focus" } },
-      priority = { herb = 7, focus = 2 },
+      cures = { { vector = "focus" } },
+      priority = { focus = 2 },
    },
    stuttering = {
       cures = { { vector = "salve", item = "epidermal", alt = "sensory", location = "head" } },
@@ -610,8 +742,35 @@ M.afflictions = {
 -- queries
 -- ---------------------------------------------------------------------------
 
+--- Shared empty result. Returned instead of a fresh `{}` from the query functions below,
+--- which are called dozens of times per prompt and whose empty answer is the common one.
+--- Never handed out anywhere that mutates it.
+---
+--- Declared HERE, above the first query that returns it, and not further down beside
+--- curesVia() where it used to live: a `local` is only in scope for what follows it, so a
+--- function written above this line would silently read a nil GLOBAL of the same name and
+--- return nil where it promised a list.
+local EMPTY = {}
+
+-- WHY EVERY QUERY BELOW TRIES THE BARE KEY FIRST
+-- ----------------------------------------------
+-- `tostring(name or ""):lower()` costs 0.149us and allocates a string, and these functions
+-- are asked ~164 times per prompt between them -- about 24us, roughly a fifth of the tick,
+-- spent turning "paralysis" into "paralysis".
+--
+-- It is the same shape as the inventory bug in docs/performance.md #1: normalising on read
+-- what was already normalised on write. engine.add() lowercases before it stores, so every
+-- key in engine.tracked is ALREADY lowercase, and the engine is what does the asking.
+--
+-- So: look the name up as given, and only normalise if that misses. An already-lowercase
+-- name costs one hash lookup and allocates nothing; a name typed by a human still works
+-- exactly as before, one lookup later. No second set of raw* entry points to keep in step,
+-- and no cache to invalidate -- the tables these read are written at load and never mutated.
+
 --- Definition for an affliction, or nil if we do not know it.
 function M.get(name)
+   local direct = M.afflictions[name]
+   if direct ~= nil then return direct end
    return M.afflictions[tostring(name or ""):lower()]
 end
 
@@ -628,10 +787,16 @@ end
 M.STATES = {
    prone   = "curing/detect (STAND)",
    stunned = "curing/detect (waits it out)",
+   -- The GMCP name is "sleeping", not "asleep" -- confirmed from a live Char.Afflictions.Add
+   -- at 06:02:59 ({cure="" desc="While asleep, you can do little but dream, and wake up."
+   -- name="sleeping"}). It arrives with an EMPTY cure field, so engine.serverCure() cannot
+   -- help either; the response is WAKE and it lives in curing/detect.
+   sleeping = "curing/detect (WAKE)",
 }
 
 --- Is this handled as a state rather than by a cure vector?
 function M.isState(name)
+   if M.STATES[name] ~= nil then return true end
    return M.STATES[tostring(name or ""):lower()] ~= nil
 end
 
@@ -641,47 +806,102 @@ end
 
 --- Which vectors, if any, this affliction shuts down. Always a list -- anorexia shuts two.
 function M.blockedVectors(name)
-   return M.blocks[tostring(name or ""):lower()] or {}
+   local direct = M.blocks[name]
+   if direct ~= nil then return direct end
+   return M.blocks[tostring(name or ""):lower()] or EMPTY
 end
 
 function M.isWrithe(name)
+   if M.writhes[name] == true then return true end
    return M.writhes[tostring(name or ""):lower()] == true
 end
 
+--- affliction -> vector -> list of cure options, built on first use.
+---
+--- M.afflictions is a static table -- it is written at load and never mutated at runtime --
+--- so the answer for a given pair cannot change, and recomputing it per call was pure waste:
+--- resolve() asks this for every tracked affliction on every one of the six vectors, every
+--- prompt, and each call allocated a list to hold one or two entries.
+local viaCache = {}
+
 --- Cure options for an affliction that use a given vector.
+---
+--- The returned list is shared and must be treated as read-only.
 function M.curesVia(name, vector)
-   local definition = M.get(name)
-   if not definition then return {} end
-   local out = {}
-   for _, cure in ipairs(definition.cures or {}) do
-      if cure.vector == vector then out[#out + 1] = cure end
+   -- The cache is keyed on the name AS GIVEN, so an already-lowercase name -- which is what
+   -- the engine always has -- resolves in one lookup and never normalises. A mixed-case name
+   -- gets its own cache entry pointing at the same inner table; the cost is one extra slot
+   -- for a table that is bounded by the affliction list, not by anything a user can grow.
+   local byVector = viaCache[name]
+   if not byVector then
+      name = tostring(name or ""):lower()
+      byVector = viaCache[name]
    end
-   return out
+   if not byVector then
+      local definition = M.afflictions[name]
+      if not definition then return EMPTY end
+      byVector = {}
+      for _, cure in ipairs(definition.cures or EMPTY) do
+         local list = byVector[cure.vector]
+         if not list then
+            list = {}
+            byVector[cure.vector] = list
+         end
+         list[#list + 1] = cure
+      end
+      viaCache[name] = byVector
+   end
+   return byVector[vector] or EMPTY
 end
 
 --- Rank of an affliction within one vector's priority list; nil when the affliction
 --- cannot be cured by that vector at all.
 function M.priority(name, vector)
-   local definition = M.get(name)
-   if not definition then return nil end
+   local definition = M.afflictions[name]
+   if definition == nil then
+      name = tostring(name or ""):lower()
+      definition = M.afflictions[name]
+      if not definition then return nil end
+   end
    -- A user override always wins.
-   local overrides = emunah.config.get("priorities", {})
-   local override = overrides[tostring(name):lower()]
-   if type(override) == "table" and override[vector] then return override[vector] end
-   return (definition.priority or {})[vector]
+   -- The fallback is the shared EMPTY rather than a literal `{}`: Lua builds the default
+   -- table on every call whether or not it is used, and this is one of the hottest calls
+   -- in the engine -- once per tracked affliction per vector per prompt.
+   local overrides = emunah.config.get("priorities", EMPTY)
+   -- `next()` rather than a length test: `priorities` is a map, and it is empty for
+   -- essentially every user. Skipping the lookup entirely in that case is what makes the
+   -- common path a single table read.
+   if next(overrides) ~= nil then
+      local override = overrides[name]
+      if type(override) == "table" and override[vector] then return override[vector] end
+   end
+   return (definition.priority or EMPTY)[vector]
 end
 
+--- affliction -> ordered vector list, built on first use. Same argument as viaCache above:
+--- M.afflictions never changes at runtime, so this answer cannot either.
+local vectorsCache = {}
+
 --- Every vector that can cure this affliction, in the table's preference order.
+---
+--- The returned list is shared and must be treated as read-only. It used to allocate TWO
+--- tables per call (the list and a `seen` set) and is asked once per affliction per repaint
+--- by ui/affpanel.lua, which redraws on every affliction event in a fight.
 function M.vectorsFor(name)
+   local hit = vectorsCache[name]
+   if hit then return hit end
+
    local definition = M.get(name)
-   if not definition then return {} end
+   if not definition then return EMPTY end
+
    local out, seen = {}, {}
-   for _, cure in ipairs(definition.cures or {}) do
+   for _, cure in ipairs(definition.cures or EMPTY) do
       if not seen[cure.vector] then
          seen[cure.vector] = true
          out[#out + 1] = cure.vector
       end
    end
+   vectorsCache[name] = out
    return out
 end
 

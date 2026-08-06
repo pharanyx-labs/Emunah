@@ -4,110 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Getting Started — Emunah</title>
-<style>
-:root{
-  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
-  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
-  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
-  --yellow:#facc15; --purple:#c084fc;
-  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
-  font-size:16px; line-height:1.65;
-}
-a{color:var(--accent); text-decoration:none}
-a:hover{text-decoration:underline}
-code, pre, kbd{font-family:var(--font-mono)}
-code{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
-  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
-}
-pre{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
-  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
-}
-pre code{border:none; padding:0; background:none; color:var(--text)}
-h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
-h1{font-size:2.1em; margin:0 0 .3em}
-h2{font-size:1.5em; margin:1.8em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
-h3{font-size:1.15em; margin:1.5em 0 .5em; color:var(--accent)}
-h4{font-size:1em; margin:1.2em 0 .4em}
-p{margin:.8em 0}
-ul,ol{margin:.8em 0; padding-left:1.4em}
-li{margin:.3em 0}
-.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
-nav.sidebar{
-  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
-  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
-}
-.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
-.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
-.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
-.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
-nav.sidebar ul{list-style:none; margin:0; padding:0}
-nav.sidebar li{margin:0}
-nav.sidebar a{
-  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
-  font-size:.92em; margin-bottom:2px;
-}
-nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
-nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
-.nav-group-title{
-  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
-  margin:20px 0 6px; padding:0 10px;
-}
-.nav-group-title:first-child{margin-top:0}
-main{flex:1; min-width:0; padding:40px 48px 100px}
-.content{max-width:840px}
-table{width:100%; border-collapse:collapse; margin:1.2em 0; font-size:.92em}
-th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
-th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
-tr:last-child td{border-bottom:none}
-.callout{
-  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
-  padding:12px 18px; margin:1.2em 0;
-}
-.callout p{margin:.4em 0}
-.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
-.callout-warn{border-left-color:var(--red)}
-.callout-warn .callout-title{color:var(--red)}
-.callout-tip{border-left-color:var(--green)}
-.callout-tip .callout-title{color:var(--green)}
-.callout-note .callout-title{color:var(--accent)}
-.step{display:flex; gap:16px; margin:24px 0}
-.step-num{
-  flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--bg-panel);
-  border:1px solid var(--accent); color:var(--accent); display:flex; align-items:center;
-  justify-content:center; font-family:var(--font-mono); font-weight:700; font-size:.95em;
-}
-.step-body{flex:1; padding-top:2px}
-.step-body h3{margin-top:0}
-footer{
-  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
-  color:var(--text-dim); font-size:.85em;
-}
-.page-nav{
-  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
-  border-top:1px solid var(--border); gap:20px;
-}
-.page-nav a{font-size:.92em}
-.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
-.page-nav .next{text-align:right}
-@media (max-width:900px){
-  .layout{flex-direction:column}
-  nav.sidebar{
-    width:100%; height:auto; position:relative; border-right:none;
-    border-bottom:1px solid var(--border); padding:18px;
-  }
-  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
-  .nav-group-title{display:none}
-  main{padding:28px 20px 60px}
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
@@ -124,7 +21,11 @@ footer{
   <ul>
     <li><a href="curing.html">Curing Engine</a></li>
     <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="people.html">People &amp; Names</a></li>
+    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="interface.html">Interface</a></li>
     <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
   </ul>
   <div class="nav-group-title">Project</div>
   <ul>
@@ -177,7 +78,7 @@ footer{
     <p>Run this once — Mudlet remembers it per profile:</p>
 <pre><code>lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()</code></pre>
     <p>You should see:</p>
-<pre><code>[emunah] v0.1.0 loaded -- 42 modules.</code></pre>
+<pre><code>[emunah] v0.1.0 loaded -- 53 modules.</code></pre>
     <p>That's it — Emunah is running. Try <code>emunah</code> in Mudlet's command line to see the full command list.</p>
   </div>
 </div>
@@ -187,10 +88,10 @@ footer{
 <thead><tr><th>Command</th><th>What it shows you</th></tr></thead>
 <tbody>
 <tr><td><code>emunah</code></td><td>the full command list</td></tr>
-<tr><td><code>emunah status</code></td><td>character, class, curing state, tracked afflictions, skills indexed, inventory count</td></tr>
-<tr><td><code>emunah ui show</code></td><td>turns the interface on if it isn't already — vitals strip, affliction panel, chat, room panel, map</td></tr>
-<tr><td><code>emunah have</code></td><td>a full capability report: which cure vectors are ready, blocked, or recovering</td></tr>
-<tr><td><code>emunah gmcp</code></td><td>a raw dump of everything Emunah currently knows from GMCP</td></tr>
+<tr><td><code>emset status</code></td><td>character, class, curing state, tracked afflictions, skills indexed, inventory count</td></tr>
+<tr><td><code>emset ui show</code></td><td>turns the interface on if it isn't already — vitals strip, affliction panel, chat, room panel, map</td></tr>
+<tr><td><code>emset have</code></td><td>a full capability report: which cure vectors are ready, blocked, or recovering</td></tr>
+<tr><td><code>emset gmcp</code></td><td>a raw dump of everything Emunah currently knows from GMCP</td></tr>
 </tbody>
 </table>
 
@@ -201,12 +102,12 @@ footer{
 Settings persist per Mudlet profile in <code>emunah-config.lua</code> (in your Mudlet home
 directory), so two characters in the same Mudlet installation keep separate priorities,
 defence lists, and UI layout without any extra work. Read or write any setting directly
-with <code>emunah set</code> — see the <a href="commands.html#config">Configuration</a>
+with <code>emset set</code> — see the <a href="commands.html#config">Configuration</a>
 section of the command reference.
 </p>
 <div class="callout callout-note">
 <div class="callout-title">Nothing runs until it is enabled</div>
-<p>The curing engine and defence keep-up never auto-enable on a fresh install; they are turned on explicitly with <code>emunah cure on</code> and <code>emunah defs on</code>. The same applies to the walker, hunting and PvP.</p>
+<p>The curing engine and defence keep-up never auto-enable on a fresh install; they are turned on explicitly with <code>emset cure on</code> and <code>emset defs on</code>. The same applies to the walker, hunting and PvP.</p>
 </div>
 
 <h3>Healing thresholds</h3>
@@ -224,7 +125,7 @@ percentage.
 <tr><td><code>curing.handsThreshold</code></td><td>50%</td><td>Equilibrium</td></tr>
 </tbody>
 </table>
-<pre><code>emunah set curing.healthThreshold 75</code></pre>
+<pre><code>emset set curing.healthThreshold 75</code></pre>
 <p>
 The configuration file carries a schema version. When a shipped default is found to be
 wrong, a migration corrects the stored value on load — a stored setting otherwise outlives
@@ -240,7 +141,7 @@ loader's manifest. No re-importing a package, no restarting Mudlet.
 </p>
 
 <h3>Running the test suite</h3>
-<p>Emunah ships with 470+ behavioural tests that run the real modules against a Mudlet mock — no live client needed:</p>
+<p>Emunah ships with 1666 behavioural tests that run the real modules against a Mudlet mock — no live client needed:</p>
 <pre><code># with a Lua interpreter installed:
 lua test/run.lua
 
@@ -265,7 +166,7 @@ cd package &amp;&amp; muddle</code></pre>
 <tr>
   <td><code>No class module loaded -- nothing knows how to attack.</code></td>
   <td>
-  <code>emunah bash on</code> / <code>emunah hunt</code> / <code>emunah pvp on</code> all
+  <code>emset bash on</code> / <code>emset hunt</code> / <code>emset pvp on</code> all
   refuse to start without a recognised class. Right now that's Priest only — see
   <a href="combat.html#classes">Class Support</a>. The class is auto-detected from
   <code>Char.Status</code> once you log in, so this usually means you haven't logged your
@@ -275,11 +176,11 @@ cd package &amp;&amp; muddle</code></pre>
 </tr>
 <tr>
   <td>The map/UI panel is missing or the wrong size</td>
-  <td><code>emunah ui map</code> with no argument runs a full diagnostic (Geyser present? mapper widget built? map database populated?) rather than toggling anything.</td>
+  <td><code>emset ui map</code> with no argument runs a full diagnostic (Geyser present? mapper widget built? map database populated?) rather than toggling anything.</td>
 </tr>
 <tr>
   <td>A setting doesn't seem to take effect</td>
-  <td>Check it actually saved: <code>emunah set &lt;key&gt;</code> with no value reads the current value back. Booleans and numbers are coerced automatically; anything else is stored as a string.</td>
+  <td>Check it actually saved: <code>emset set &lt;key&gt;</code> with no value reads the current value back. Booleans and numbers are coerced automatically; anything else is stored as a string.</td>
 </tr>
 <tr>
   <td>Reloading after adding a new file does nothing</td>

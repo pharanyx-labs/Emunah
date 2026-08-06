@@ -4,119 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Curing Engine — Emunah</title>
-<style>
-:root{
-  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
-  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
-  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
-  --yellow:#facc15; --purple:#c084fc;
-  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
-  font-size:16px; line-height:1.65;
-}
-a{color:var(--accent); text-decoration:none}
-a:hover{text-decoration:underline}
-code, pre, kbd{font-family:var(--font-mono)}
-code{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
-  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
-}
-pre{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
-  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
-}
-pre code{border:none; padding:0; background:none; color:var(--text)}
-h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
-h1{font-size:2.1em; margin:0 0 .3em}
-h2{font-size:1.5em; margin:2em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
-h3{font-size:1.15em; margin:1.5em 0 .5em; color:var(--accent)}
-h4{font-size:1em; margin:1.2em 0 .4em}
-p{margin:.8em 0}
-ul,ol{margin:.8em 0; padding-left:1.4em}
-li{margin:.3em 0}
-.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
-nav.sidebar{
-  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
-  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
-}
-.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
-.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
-.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
-.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
-nav.sidebar ul{list-style:none; margin:0; padding:0}
-nav.sidebar li{margin:0}
-nav.sidebar a{
-  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
-  font-size:.92em; margin-bottom:2px;
-}
-nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
-nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
-.nav-group-title{
-  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
-  margin:20px 0 6px; padding:0 10px;
-}
-.nav-group-title:first-child{margin-top:0}
-main{flex:1; min-width:0; padding:40px 48px 100px; display:flex; gap:40px}
-.content{max-width:740px; flex:1; min-width:0}
-.toc{
-  width:190px; flex-shrink:0; position:sticky; top:40px; align-self:flex-start;
-  font-size:.85em;
-}
-.toc-title{font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin-bottom:8px}
-.toc a{display:block; padding:4px 0; color:var(--text-dim)}
-.toc a:hover{color:var(--accent); text-decoration:none}
-table{width:100%; border-collapse:collapse; margin:1.2em 0; font-size:.92em}
-th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
-th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
-tr:last-child td{border-bottom:none}
-.callout{
-  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
-  padding:12px 18px; margin:1.2em 0;
-}
-.callout p{margin:.4em 0}
-.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
-.callout-warn{border-left-color:var(--red)}
-.callout-warn .callout-title{color:var(--red)}
-.callout-tip{border-left-color:var(--green)}
-.callout-tip .callout-title{color:var(--green)}
-.callout-note .callout-title{color:var(--accent)}
-.flow{
-  display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:20px 0;
-  font-family:var(--font-mono); font-size:.85em;
-}
-.flow .step{
-  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
-  padding:10px 14px; color:var(--text-bright);
-}
-.flow .arrow{color:var(--text-dim)}
-footer{
-  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
-  color:var(--text-dim); font-size:.85em;
-}
-.page-nav{
-  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
-  border-top:1px solid var(--border); gap:20px;
-}
-.page-nav a{font-size:.92em}
-.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
-.page-nav .next{text-align:right}
-@media (max-width:1150px){ .toc{display:none} }
-@media (max-width:900px){
-  .layout{flex-direction:column}
-  nav.sidebar{
-    width:100%; height:auto; position:relative; border-right:none;
-    border-bottom:1px solid var(--border); padding:18px;
-  }
-  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
-  .nav-group-title{display:none}
-  main{padding:28px 20px 60px; flex-direction:column}
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
@@ -133,14 +21,18 @@ footer{
   <ul>
     <li><a href="curing.html" class="active">Curing Engine</a></li>
     <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="people.html">People &amp; Names</a></li>
+    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="interface.html">Interface</a></li>
     <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
   </ul>
   <div class="nav-group-title">Project</div>
   <ul>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main>
+<main class="with-toc">
 <div class="content">
 
 <h1>Curing Engine</h1>
@@ -175,7 +67,7 @@ So each vector is resolved independently, against its own ranking, every tick:
 
 <h2 id="afflist">The affliction table</h2>
 <p>
-<code>src/emunah/curing/afflist.lua</code> holds 117 afflictions, each with:
+<code>src/emunah/curing/afflist.lua</code> holds 131 afflictions, each with:
 </p>
 <ul>
 <li>one or more cure <strong>options</strong>, in preference order — a vector, an item, its Alchemist mineral equivalent, and (for salves) a body location</li>
@@ -292,8 +184,8 @@ Keep-up always runs at a fixed low priority — any cure outranks it. And it def
 while the engine is tracking any affliction: re-raising a defence mid-lock usually just gets
 it stripped again immediately, so it waits until you're clear.
 </p>
-<pre><code>emunah defs add rebounding
-emunah defs on</code></pre>
+<pre><code>emset defs add rebounding
+emset defs on</code></pre>
 
 <h2 id="detection">Detection: GMCP and triggers</h2>
 <p>
@@ -305,14 +197,54 @@ This is the part worth understanding before trusting the engine in a real fight,
 <tbody>
 <tr>
   <td><strong>GMCP</strong> (<code>Char.Afflictions</code>)</td>
-  <td>Reliable, but reports only what Achaea <em>chooses</em> to announce. Complete enough for PvE bashing. Incomplete in PvP — being afflicted with things you weren't told about is often the entire point of an opponent's strategy.</td>
+  <td>Authoritative, including in PvP, with exactly two exceptions: <code>loki</code> and <code>blackout</code>. This is the opposite of the assumption the system was built under, and correcting it changed what the trigger corpus is <em>for</em>.</td>
+</tr>
+<tr>
+  <td><strong><code>DIAG</code></strong></td>
+  <td>What answers <code>loki</code>. Sent when the list is in doubt, and parsed by <code>curing/detect/diag.lua</code>. Under loki the list the engine would resolve against is the thing in question, so establishing what is real comes before resolving any cure.</td>
 </tr>
 <tr>
   <td><strong>Triggers</strong> (game text)</td>
-  <td>The way to close that gap — parsing Achaea's own affliction messages as they scroll past, which is what every mature curing system relies on for PvP.</td>
+  <td>Confirmation, not substitution. Cure-side patterns free a vector the moment the game says a cure landed, rather than waiting out the fallback timer — which is a round trip saved on every cure.</td>
 </tr>
 </tbody>
 </table>
+
+<div class="callout callout-warn">
+<div class="callout-title">Three exceptions, and only three</div>
+<p>
+<code>loki</code> hides afflictions from <code>Char.Afflictions</code>; <code>DIAG</code>
+reports them anyway, and <code>curing/detect/diag.lua</code> reconciles the answer.
+<code>blackout</code> suppresses the feed entirely for its duration — nothing sees through
+it, and the response is to survive it rather than to cure through it.
+<code>recklessness</code> is the subtle one: it does not hide anything, it lies about
+vitals, reporting health and mana at maximum. Any healing decision made from vitals is
+wrong while it is up.
+</p>
+<p>
+Everything else in the affliction list can be believed. See
+<code>docs/game/mechanics.md</code> &mdash; "Where GMCP stops being authoritative" &mdash;
+for the evidence.
+</p>
+</div>
+
+<h3>Defences held on purpose</h3>
+<p>
+<code>curing/deflist.lua</code> answers a question the cure table cannot: which afflictions
+are actually a <em>defence</em>. <code>blindness</code> and <code>deafness</code> are the
+worked examples — the game reports the resulting state as an affliction, so a naive engine
+sees <code>blindness</code> and reaches for epidermal while you are deliberately blind, then
+does it again every time keep-up restores the defence.
+</p>
+<p>
+The guard is gated on <code>Char.Defences</code> actually reporting the defence, so it lapses
+the instant the defence does: a real blinding, with no <code>blind</code> defence up, cures
+normally. It also consults defence keep-up directly, because <code>Char.Defences</code> can
+lag the affliction message on login — watched live, the engine spent a whole tick chasing
+epidermal for a defence held on purpose, because the only source consulted had not answered
+yet.
+</p>
+
 
 <div class="callout callout-warn">
 <div class="callout-title">Why the shipped trigger set is small on purpose</div>
@@ -333,12 +265,12 @@ say exactly what's wrong. Everything else grows from evidence, not assumption.
 </div>
 
 <h3>Growing the corpus from evidence</h3>
-<pre><code>emunah learn on     # log candidate lines while you fight
+<pre><code>emset learn on     # log candidate lines while you fight
 # ... fight, or spar in the arena ...
-emunah learn off
-emunah detect        # coverage report</code></pre>
+emset learn off
+emset detect        # coverage report</code></pre>
 <p>
-<code>emunah learn on</code> logs lines matching Achaea's typical affliction-message shape
+<code>emset learn on</code> logs lines matching Achaea's typical affliction-message shape
 ("You ..." / "Your ...", short, present tense) to <code>emunah-learn.txt</code>. After the
 fight, read the file, and add exactly what you saw:
 </p>
@@ -379,7 +311,7 @@ See <a href="combat.html">Combat &amp; PvP</a> next, or the <a href="commands.ht
 </footer>
 
 <div class="page-nav">
-  <div><span class="dir">Back</span><a href="commands.html">&larr; Command Reference</a></div>
+  <div><span class="dir">Back</span><a href="api.html">&larr; Lua API</a></div>
   <div class="next"><span class="dir">Next</span><a href="combat.html">Combat &amp; PvP &rarr;</a></div>
 </div>
 

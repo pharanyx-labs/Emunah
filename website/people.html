@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>People &amp; Names — Emunah</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="commands.html">Command Reference</a></li>
+    <li><a href="api.html">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="people.html" class="active">People &amp; Names</a></li>
+    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main class="with-toc">
+<div class="content">
+
+<h1>People &amp; Names</h1>
+<p class="lede">
+A roster, a dossier, and the same judgement rendered into the scroll where you will actually
+read it.
+</p>
+
+<h2 id="why">Why a database at all</h2>
+<p>
+The name database knows who is an enemy. That is worth very little if reading it means typing
+a command &mdash; the moment it matters is the moment a name goes past in a room description
+or a shout, and you have about a second. So the database is rendered into the game text
+itself: known names take on colour and weight in place.
+</p>
+<p>
+Everything else here exists to fill that database honestly. A roster built from guesses would
+colour an ally red once and never be trusted again.
+</p>
+
+<h2 id="standing">Standing: declared and derived</h2>
+<p>
+Two independent mechanisms, and <strong>declaration always wins</strong>.
+</p>
+<table>
+<thead><tr><th>Source</th><th>How it is set</th></tr></thead>
+<tbody>
+<tr><td><strong>Declared</strong></td><td><code>emset iff &lt;person&gt; ally|enemy|auto</code>. Survives an import, and survives the derived rules changing under it.</td></tr>
+<tr><td><strong>Derived</strong></td><td>From city, house and order hostility &mdash; <code>ndb hostile city Mhaldor</code> marks every recorded Mhaldorian an enemy without touching a single record.</td></tr>
+</tbody>
+</table>
+<p>
+<code>auto</code> hands the decision back to derivation. The distinction matters because the
+derived rules are broad by design: an org-wide marking is the efficient way to express a war,
+and an explicit exception is the way to express the person inside it you are not fighting.
+</p>
+
+<h2 id="highlighting">Highlighting: colour and weight</h2>
+<p>
+Two channels doing two different jobs, and keeping them separate is the whole point.
+</p>
+<table>
+<thead><tr><th>Channel</th><th>Answers</th></tr></thead>
+<tbody>
+<tr><td><strong>Colour</strong></td><td>Where do they stand relative to me &mdash; enemy, ally, or which city.</td></tr>
+<tr><td><strong>Weight</strong></td><td>Is there something about this person &mdash; a Dragon, a Mark, infamy, or an importance you set yourself.</td></tr>
+</tbody>
+</table>
+<p>
+They stack. A Mhaldorian Dragon who is also enemied to your city reads as enemy-red and bold
+and underlined, and each of those three is independently recoverable by eye. A scheme that
+folded them into one colour ramp would make the common case (an ordinary citizen of a hostile
+city) and the rare one (a Dragon Mark) look alike, which is the opposite of what a highlighter
+is for.
+</p>
+<p>
+A candidate is only ever styled if it is <em>already</em> a record. Nothing is ever invented
+from a capitalised noun at the start of a sentence. Your own name is never highlighted &mdash;
+it is on almost every line worth reading, and marking it turns the signal into noise.
+</p>
+
+<div class="callout callout-tip">
+<div class="callout-title">The opt-out</div>
+<p>
+<code>emset names ignore &lt;person&gt;</code>, for the ally whose name is a common word or
+the shopkeeper you see forty times an hour. It forgets nothing else about them.
+</p>
+</div>
+
+<div class="bug">
+<h4>The highlighter used to run on nearly every line</h4>
+<p>
+Its trigger was <code>[A-Z][a-z]</code> &mdash; "contains a capitalised word" &mdash; on the
+reasoning that this is the cheapest pre-filter Mudlet can apply. Both halves of that were
+true and the conclusion was still wrong, because the pre-filter did not filter: in Achaea
+essentially every line contains a capitalised word. Measured, it matched <strong>88% of
+lines</strong>, each costing a full database scan.
+</p>
+<p>
+The trigger is now built from the roster itself &mdash; one alternation regex, rebuilt when
+the database changes &mdash; and fires on <strong>12%</strong> of lines, which is the lines
+that actually name somebody. See <a href="performance.html">Performance</a>.
+</p>
+</div>
+
+<h2 id="capture">Where records come from</h2>
+<p>
+GMCP names people exactly, which is why it is the only fully automatic source. Everyone who
+walks into the room and everyone who speaks gets a record; neither says anything about
+allegiance, so neither ever sets a relationship.
+</p>
+<p>The game-text listings fill in the rest:</p>
+<table>
+<thead><tr><th>Source</th><th>What it gives</th></tr></thead>
+<tbody>
+<tr><td><code>CW</code></td><td>City roster: name, rank, city.</td></tr>
+<tr><td><code>CLWHO</code></td><td>Clan membership.</td></tr>
+<tr><td><code>QW</code></td><td>Who is nearby. Has no header line, so it is read <em>backwards</em> from its terminator &mdash; the walk stops at the first line that is not a comma-separated list of capitalised words, which is what makes it safe without one.</td></tr>
+<tr><td><code>HONOURS</code></td><td>The richest single source: full name, sex, race, city, house, order, level, and more. Its header alone is a weak signature, so it only arms a candidate that the rule of dashes on the next line has to confirm.</td></tr>
+<tr><td>Guardian angel</td><td>Location and health for a named person. The most perishable and most actionable thing the database holds.</td></tr>
+</tbody>
+</table>
+<p>
+<code>ndb capture</code> reports which of these have actually produced anything, which is how
+you tell "not implemented" from "never seen one".
+</p>
+
+<h2 id="api">The Achaea web API</h2>
+<p>
+<code>namedb/api.lua</code> reads <code>api.achaea.com/characters/&lt;name&gt;.json</code>,
+which is how <code>emset whois</code> can answer for someone never seen in play. Observed
+behaviour, from <code>docs/game/api.md</code>:
+</p>
+<ul>
+  <li><strong>Every value is a string</strong>, including the numeric ones.</li>
+  <li><strong><code>mob_kills</code> is sometimes abbreviated</strong> &mdash; <code>"451k"</code>, which <code>tonumber</code> reads as <code>451</code>. The single most dangerous field in the payload, and the reason it is stored as text.</li>
+  <li><strong>A missing character returns 403</strong>, not 404.</li>
+  <li><code>city</code>, <code>house</code> and <code>class</code> come back lowercase; <code>"(none)"</code> means absent.</li>
+</ul>
+<div class="callout callout-warn">
+<div class="callout-title">Self-imposed rate limiting</div>
+<p>
+The endpoint sends no rate-limit headers, so the limit is unknown and finding it
+experimentally seemed unwise. Requests are serialised through a one-per-second queue, hits
+are cached for six hours and misses for twenty-four. A <em>timeout</em> is deliberately not
+cached &mdash; that is a network problem, not an answer.
+</p>
+</div>
+
+<h2 id="sharing">Export and import</h2>
+<p>
+<code>ndb export</code> writes the database out; <code>ndb export fields &lt;a,b,c&gt;</code>
+writes a subset, with notes excluded because those are yours. <code>ndb import</code> merges
+someone else's in.
+</p>
+<p>
+Import is <strong>additive on purpose</strong>. Someone else's file is evidence about people
+you have not met, not a correction of the judgement you have already recorded about people you
+have &mdash; so your own <code>iff</code> and your own notes survive a merge intact.
+</p>
+<p>
+<code>ndb forget all</code> confirms twice and names the count at stake. <code>ndb prune</code>
+drops records that are only a name; anything declared, noted, or given a single fact by hand
+survives, so it can never quietly discard judgement.
+</p>
+
+
+<footer>
+See <a href="sustenance.html">Sustenance &amp; Economy</a> next, or the <a href="commands.html#people">People commands</a> reference.
+</footer>
+
+<div class="page-nav">
+  <div><span class="dir">Back</span><a href="combat.html">&larr; Combat &amp; PvP</a></div>
+  <div class="next"><span class="dir">Next</span><a href="sustenance.html">Sustenance &amp; Economy &rarr;</a></div>
+</div>
+
+</div>
+<div class="toc">
+  <div class="toc-title">On this page</div>
+  <a href="#why">Why a database</a>
+  <a href="#standing">Standing</a>
+  <a href="#highlighting">Highlighting</a>
+  <a href="#capture">Where records come from</a>
+  <a href="#api">The web API</a>
+  <a href="#sharing">Export and import</a>
+</div>
+</main>
+</div>
+</body>
+</html>

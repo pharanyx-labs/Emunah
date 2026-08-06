@@ -1,0 +1,110 @@
+6.8 SHOPS
+
+            | Elections, Referendums,                           |
+        6.7 < and Politics                       Selling Things > 6.8.1
+
+(See also: HELP COMMSHOPS, HELP SELLING, HELP BUYING WEAPONS,
+           HELP BUYING ARMOUR)
+
+You've made some money, and it is undoubtedly burning a hole in your
+pocket! Find a shop, view goods with WARES, and buy things with BUY!
+
+Commands
+--------
+   DIRECTORY <item you're looking for>
+   WARES [BRIEF] [<pattern>] [CODE <accesscode>]
+   BUY [<howmany>] <item> [CODE accesscode]
+   ASK <denizen> WARES [<pattern>]
+   BUY <item> FROM <denizen>
+
+Finding items to buy
+--------------------
+With the vast variety of items and merchants, it can be a time-consuming effort
+to visit multiple shops looking for a specific item. You may use the DIRECTORY
+command to search for a specific item. Looking for health elixir? Use
+DIRECTORY HEALTH. Looking for a stylish new tunic? Use DIRECTORY TUNIC.
+
+Directory will only show shops in the current area or city.
+
+Prices listed via DIRECTORY are what items are stocked at, these do not reflect
+any pricing changes due to shopkeeper policies.
+
+Wares
+-----
+Many fine merchants inhabit the land, plying their trade in the various shops
+of Achaea. When in a location that looks as if it may be a shop (Central Market
+of Ashtan, for instance), WARES will tell you if it is. If it is a shop, it
+will also show you the proprietor (owner) of the shop, and what is for sale.
+Example:
+
+Proprietor: Rurin the Crafter
+--------(Item)-------(Description)---------------------------(Stock)--(Price)-
+         pie13485: a lemon pie                                    2     500gp
+        pike61672: a pike                                         5     300gp
+      rapier20480: an ornate steel rapier                         5    2000gp
+       vial122778: an elixir of health (blue ceramic vial)       21    1000gp
+       myrrh85123: myrrh balls                                  270  100gp ea
+
+The first item on each line is what you use to buy it. The second item is a
+description. The third is how many are in stock. The last item is the price,
+either in gold (gp), credits (cr), or Mayan Crowns <mc>.
+
+For player owned shops, groupable items can be sold in bulk, and the price
+will display how much each individual item costs with "gp ea".
+
+WARES <pattern> searches for things matching that pattern. For example WARES
+SWORD will show you things with sword in the name somewhere, like longsword or
+bastard sword.
+
+
+Special
+-------
+If you have the vision ability of Weaponlist or Armourlist, then WARES
+or WARES <pattern> will give substantially more information about the
+weapons or armours listed.
+
+WARES BRIEF [pattern] will suppress that extra information.
+
+
+Buying
+------
+Use the full name, with number, to be sure you're buying the right thing!
+
+For example, BUY vial122778 to purchase a blue ceramic vial containing an
+elixir of health. Never use two words. Don't BUY VIAL 23456, for example!
+
+
+Buying in Quantity
+------------------
+Buy more than one this way: BUY 7 PIKE to purchase 7 pikes (assuming that many
+are for sale).
+
+
+Buying From Master Shopkeepers With Codes
+-----------------------------------------
+Some master shopkeepers are able to set up special codes so that only those who
+know the code can buy things, or even see that they are for sale. If you are
+one of the privileged few to be given a code by a master shopkeeper, here's how
+to use it:
+
+   WARES CODE mycode
+   BUY item12345 CODE mycode
+
+If you use the proper code, then you will see new things in WARES, and you will
+be able to purchase things with the BUY command.
+
+
+Buying Directly From Denizen Merchants
+--------------------------------------
+Many merchants wander the lands but do not have visible shops. You can still
+buy direct from them. If you happen to meet one, try asking what is for sale:
+
+   ASK <merchant> WARES [<pattern>]
+
+As with other versions of the WARES command, the <pattern> helps you look at
+only things that match the pattern.
+
+If you wish to take a closer look at something that a denizen merchant has
+for sale, you may do so in this way:
+
+   ASK <merchant> <item# of an item from the wares list>

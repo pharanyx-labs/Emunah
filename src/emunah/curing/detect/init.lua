@@ -58,6 +58,55 @@ function M.isStunned()
    return M.stunned
 end
 
+--- True while asleep -- put there by an opponent, or by your own SLEEP.
+---
+--- Blocks every command bar WAKE (see core/act.lua). A third state alongside prone and
+--- stunned rather than a flavour of either: Achaea applies `prone` at the same time, so the
+--- two coincide and clear separately, and unlike stunned there IS a command that ends it.
+M.asleep = false
+
+function M.isAsleep()
+   return M.asleep
+end
+
+--- True while the guardian angel is summoned. Set and cleared by the two lines in
+--- patterns.lua -- there is no GMCP field for this at all, unlike prone/stunned/asleep.
+--- Confirmed live via `emunah debug gmcp` 07:44:45-07:45:32: `angel summon` and `angel fade`
+--- produced only the ordinary Char.Vitals equilibrium update, no Char.Defences and no
+--- Char.Status naming the angel. curing/deflist.lua's M.SYNTHETIC reads this directly, the
+--- same way it reads a wielded item straight off Char.Items for the mace -- neither has a
+--- Char.Defences entry to be "up" in.
+M.angel = false
+
+function M.isAngelSummoned()
+   return M.angel
+end
+
+--- True when this sleep is one the character asked for.
+---
+--- The character has to SLEEP from time to time, and an automation that WAKEs them out of
+--- it immediately is worse than no automation at all. So a SLEEP typed by hand suppresses
+--- the auto-wake for the whole of that sleep; everything else stays blocked, which is the
+--- point -- the system goes quiet until you are up.
+M.voluntary = false
+
+--- Deadline by which a sleep must arrive for it to count as ours. See M.intendSleep().
+M.sleepIntent = nil
+
+--- How long a hand-typed SLEEP explains an incoming `sleeping`.
+---
+--- Measured at ~3.1s from the command to the affliction in the 06:02:59 capture, which is
+--- one prompt; this is generous on top of that. It has to LAPSE, though, and that is the
+--- whole reason it is a window rather than a flag: a SLEEP the game refuses (wrong room,
+--- in combat) would otherwise leave the auto-wake suppressed indefinitely, and the next
+--- sleep to land would be one an opponent put there.
+M.SLEEP_INTENT = 8.0
+
+--- Record that the character asked to sleep. Called by the SLEEP alias in commands.lua.
+function M.intendSleep()
+   M.sleepIntent = emunah.util.now() + M.SLEEP_INTENT
+end
+
 --- Get up.
 ---
 --- STAND COSTS BALANCE. Confirmed live: knocked down at 08:12:57.54 with the prompt reading
@@ -97,6 +146,93 @@ end
 --- was genuinely missed, never in place of the real one.
 M.STUN_GUARD  = 6.0
 M.PRONE_GUARD = 10.0
+
+--- Bleed level at or below which CLOT is not worth sending.
+---
+--- CLOT costs no balance and no equilibrium, so the only price is mana -- but mana is the
+--- resource an enemy Priest's kill route drains, and `perform hands` spends it too. A trickle
+--- bleed clots itself off in a few ticks and does not justify paying for it every one.
+---
+--- READ FROM THE `Bleed` CHARSTAT, not from the number in "You bleed N health.". That is the
+--- same call watch.lua already made, for the reason given there: the damage message only
+--- appears when you actually lose health to it, so it says nothing about how hard you are
+--- bleeding, while the charstat arrives with every prompt. Override with
+--- `emunah set curing.clotThreshold <n>`.
+M.CLOT_THRESHOLD = 30
+
+--- How long to refuse a second WAKE after sending one.
+---
+--- WAKE costs neither balance nor equilibrium, so a wasted one costs only the round trip --
+--- but the game says it will "attempt" to wake you, which reads as something that can fail,
+--- so it is worth repeating rather than sending once and hoping. Sized like STAND_GUARD for
+--- the same reason: one attempt per round trip, not one per prompt.
+M.WAKE_GUARD = 1.0
+
+--- Backstop for an INVOLUNTARY sleep whose end is never reported.
+---
+--- Sleep runs a variable length, up to about ten seconds, so this is roughly double the
+--- longest expected. Deliberately NOT armed for a voluntary sleep: that one ends when the
+--- character decides it does, and a timer that unblocked the system mid-nap would be the
+--- automation interfering, which is exactly what M.voluntary exists to prevent.
+---
+--- Being wrong here is cheap and self-correcting, unlike the prone and stun guards. If this
+--- fires while still asleep, the next command draws "You are asleep and can do nothing.",
+--- and that line re-asserts the flag -- so the cost is one wasted round trip rather than a
+--- system that has quietly stopped believing in a state it is still in.
+M.SLEEP_GUARD = 20.0
+
+--- Wake up, at most once per round trip.
+---
+--- Declares `whileAsleep` because it is the one command that works from here -- the game's
+--- own rejection names it. No balance or equilibrium requirement: confirmed that WAKE
+--- neither requires nor consumes either, which is what makes it safe to retry.
+function M.wakeUp()
+   if not M.asleep then return false end
+   -- The character asked for this sleep. Waking them out of it is the interference.
+   if M.voluntary then return false end
+   if not emunah.timers.ready("wake.inflight") then return false end
+   local sent = emunah.act.send("wake", { whileAsleep = true })
+   if sent then emunah.timers.start("wake.inflight", M.WAKE_GUARD) end
+   return sent
+end
+
+--- Enter the asleep state. Safe to call again while already asleep.
+---
+--- The one place the voluntary/involuntary decision is made, because it can only be made on
+--- the edge: once asleep, nothing in the game text or GMCP distinguishes a nap from a
+--- Somnolence, and the only evidence either way is whether we sent SLEEP a moment ago.
+function M.onSleep()
+   if M.asleep then return end
+   M.asleep = true
+
+   M.voluntary = M.sleepIntent ~= nil and emunah.util.now() < M.sleepIntent
+   M.sleepIntent = nil
+
+   if M.voluntary then
+      log.info("Asleep by your own SLEEP -- holding everything until you wake.")
+      return
+   end
+
+   log.debug("Asleep -- waking.")
+   emunah.timers.start("sleep.guard", M.SLEEP_GUARD, function()
+      if M.asleep then
+         log.debug("No wake confirmation after %.1fs -- assuming awake.", M.SLEEP_GUARD)
+         M.onWake()
+      end
+   end)
+   M.wakeUp()
+end
+
+--- Leave it. Clears the voluntary flag too: the next sleep is a new question, and one nap
+--- must not buy an opponent a free Somnolence afterwards.
+function M.onWake()
+   if not M.asleep then return end
+   M.asleep = false
+   M.voluntary = false
+   emunah.timers.stop("sleep.guard")
+   emunah.timers.stop("wake.inflight")
+   event.raise("recovered")
+end
 
 local LEARN_PATH = getMudletHomeDir() .. "/emunah-learn.txt"
 
@@ -284,6 +420,190 @@ end
 M.learnPath = LEARN_PATH
 
 -- ---------------------------------------------------------------------------
+-- affliction corpus walk ("affpop")
+-- ---------------------------------------------------------------------------
+--
+-- `learn` mode above catches affliction MESSAGES seen in combat. This drives the game's
+-- own reference commands instead -- `AFFLICTION LIST` (every name Achaea knows) and
+-- `AFFLICTION SHOW <name>` (that name's Diagnose/Cure(s)/Description block), both real
+-- commands, confirmed live 21:02-21:03 -- and captures every answer. Existing afflist.lua
+-- entries were built from memory and the published help pages; this walks the game itself
+-- instead, which is the higher-authority source per docs/afflictions.md.
+--
+-- WHY RAW CAPTURE, NOT A PARSER: one sample of AFFLICTION SHOW is not enough to know the
+-- field set is fixed (whether every affliction has exactly the same boolean flags at the
+-- end, for instance), and guessing a parser onto an unverified shape is exactly the mistake
+-- this file's own header warns about for pattern data. Dump verbatim, review by hand, and
+-- write a parser once several real blocks are on hand to check it against.
+--
+-- THE SHAPE OF THE WALK, confirmed live: AFFLICTION LIST prints a page of bare names ending
+-- either in `[Type MORE if you wish to continue reading. (NN% shown)]` -- answer MORE and
+-- another page follows -- or, on the last page, nothing of the kind at all; output just
+-- stops. There is no distinct "100%" or "end of list" line, so completion is read from
+-- silence: if nothing relevant has arrived for AFFPOP_SETTLE seconds, the list is done.
+-- Once it is, AFFLICTION SHOW <name> is sent for every name collected, one at a time, paced
+-- by AFFPOP_SHOW_INTERVAL -- answers run several lines and interleaving two of them would
+-- leave nothing in the file to tell them apart.
+--
+-- DELIBERATELY LOOSE PATTERNS, same reasoning as CANDIDATE above, and separate triggers
+-- rather than one combined regex for the same reason `pipes on|off` is three aliases, not
+-- one: tempAlias/tempRegexTrigger take a PCRE regex, but test/mock_mudlet.lua translates
+-- that to a Lua pattern to match it in tests, and Lua patterns have no alternation.
+local AFFPOP_PATH = getMudletHomeDir() .. "/emunah-affliction-corpus.txt"
+
+--- A bare capitalised word alone on its line -- one entry from `AFFLICTION LIST`.
+local AFFPOP_LISTED = [[^[A-Z][A-Za-z]*$]]
+
+--- `Label:   value` -- one field from `AFFLICTION SHOW <name>`, e.g. "Cure(s):  Apply
+--- Health To Arms" or "Diagnose:  suffering from...".
+local AFFPOP_FIELD = [[^[A-Za-z()' ]+:\s+.+$]]
+
+--- Section markers worth keeping so the file reads as blocks rather than a word-salad:
+--- the "All afflictions" header, its rule, and `[File continued via MORE]`.
+local AFFPOP_MARKER = [[^(All afflictions|-{5,}|\[.+\])$]]
+
+--- The MORE prompt itself, answered automatically while listing. Seen verbatim on more than
+--- just AFFLICTION LIST (ability descriptions page the same way), so this is Achaea's
+--- general pagination prompt, not something specific to this one command.
+local AFFPOP_MORE = [[^\[Type MORE if you wish to continue reading\..*\]$]]
+
+--- Gap between successive AFFLICTION SHOW sends. Paced the same way gmcp/init.lua paces
+--- GMCP requests: one command out, then a cooldown, rather than a burst.
+local AFFPOP_SHOW_INTERVAL = 1.5
+
+--- Silence, in seconds, after which a page with no MORE prompt is read as the last one.
+local AFFPOP_SETTLE = 2.5
+
+M.capturing = false   -- true while the corpus triggers are armed
+M.walking   = false   -- true from AFFLICTION LIST until the last AFFLICTION SHOW is sent
+
+--- True only while collecting names off AFFLICTION LIST -- a bare capitalised word can
+--- appear plenty of other places, and outside the list this must not add a phantom name to
+--- the walk.
+local listing = false
+
+local walkNames, walkIndex = {}, 0
+
+--- Names collected from the current or most recent walk. Exposed for `emunah affpop` and
+--- for tests -- a copy, so nothing outside this module can mutate the walk mid-flight.
+function M.affpopNames()
+   local copy = {}
+   for i, name in ipairs(walkNames) do copy[i] = name end
+   return copy
+end
+
+local function logCapture(line)
+   local file = io.open(AFFPOP_PATH, "a")
+   if not file then return end
+   file:write(os.date("%H:%M:%S "), line, "\n")
+   file:close()
+end
+
+--- Send AFFLICTION SHOW for the next collected name, then re-arm for the one after it.
+function M.walkNext()
+   walkIndex = walkIndex + 1
+   local name = walkNames[walkIndex]
+   if not name then
+      M.walking = false
+      log.info("Affliction walk complete: %d entries -- see %s", #walkNames, AFFPOP_PATH)
+      return
+   end
+   if not emunah.act.send("affliction show " .. name, {}) then
+      -- Blocked (stunned, asleep...) -- retry the same name next tick rather than skip it.
+      walkIndex = walkIndex - 1
+   end
+   emunah.timers.start("affpop.walk", AFFPOP_SHOW_INTERVAL, M.walkNext)
+end
+
+local function armSettle()
+   emunah.timers.start("affpop.settle", AFFPOP_SETTLE, function()
+      if not listing then return end
+      listing = false
+      log.info("AFFLICTION LIST complete: %d names -- walking AFFLICTION SHOW now.",
+         #walkNames)
+      M.walkNext()
+   end)
+end
+
+function M.startCapture()
+   if M.capturing then return false end
+   M.capturing = true
+
+   local ids = {}
+   for _, pattern in ipairs({ AFFPOP_FIELD, AFFPOP_MARKER }) do
+      local id = tempRegexTrigger(pattern, function()
+         local line = matches and matches[1]
+         if type(line) == "string" then logCapture(line) end
+      end)
+      if id then ids[#ids + 1] = id end
+   end
+
+   local listedId = tempRegexTrigger(AFFPOP_LISTED, function()
+      local line = matches and matches[1]
+      if type(line) ~= "string" then return end
+      logCapture(line)
+      if listing then
+         walkNames[#walkNames + 1] = line
+         armSettle()
+      end
+   end)
+   if listedId then ids[#ids + 1] = listedId end
+
+   local moreId = tempRegexTrigger(AFFPOP_MORE, function()
+      local line = matches and matches[1]
+      if type(line) == "string" then logCapture(line) end
+      if listing then
+         emunah.act.send("more", {})
+         armSettle()
+      end
+   end)
+   if moreId then ids[#ids + 1] = moreId end
+
+   emunah._persist.affpopTriggers = ids
+   log.info("Affliction capture on -> <ansi_cyan>%s<ansi_yellow>", AFFPOP_PATH)
+   return true
+end
+
+function M.stopCapture()
+   if not M.capturing then return false end
+   M.capturing, listing, M.walking = false, false, false
+   emunah.timers.stop("affpop.settle")
+   emunah.timers.stop("affpop.walk")
+   for _, id in ipairs(emunah._persist.affpopTriggers or {}) do
+      killTrigger(id)
+   end
+   emunah._persist.affpopTriggers = nil
+   log.info("Affliction capture off. Captured lines are in %s", AFFPOP_PATH)
+   return true
+end
+
+--- Start the full walk: AFFLICTION LIST, MORE answered automatically until the list runs
+--- out, then AFFLICTION SHOW <name> for every name it named, one at a time.
+function M.startWalk()
+   if M.walking then return false end
+   if not M.capturing then M.startCapture() end
+
+   M.walking, listing = true, true
+   walkNames, walkIndex = {}, 0
+
+   if not emunah.act.send("affliction list", {}) then
+      M.walking, listing = false, false
+      log.warn("Could not send AFFLICTION LIST -- try again in a moment.")
+      return false
+   end
+   armSettle()
+   log.info("Walking AFFLICTION LIST -- MORE is answered automatically.")
+   return true
+end
+
+function M.toggleWalk()
+   if M.walking or M.capturing then M.stopCapture() else M.startWalk() end
+   return M.walking
+end
+
+M.affpopPath = AFFPOP_PATH
+
+-- ---------------------------------------------------------------------------
 -- load
 -- ---------------------------------------------------------------------------
 
@@ -323,6 +643,11 @@ end
 
 event.register("sysDisconnectionEvent", function()
    M.stopLearning()
+   -- A voluntary sleep arms no guard, by design -- so it is the one state here that can
+   -- outlive the session that created it, and it blocks every command. Reconnecting awake
+   -- with the flag still set would look exactly like the system having hung.
+   M.onWake()
+   M.sleepIntent = nil
 end, "curing.detect")
 
 -- GMCP IS THE AUTHORITY FOR THESE, NOT OUR PATTERNS.
@@ -334,11 +659,33 @@ end, "curing.detect")
 -- affliction is complete where a hand-built corpus cannot be.
 --
 -- Adding another state is one line in afflist.STATES plus one here.
-local STATE_FLAGS = { prone = "prone", stunned = "stunned" }
+--
+-- `sleeping` is the GMCP name and `asleep` is our flag; they differ because the affliction
+-- names the state and the flag reads as a predicate at the call sites. Sleep is GMCP-driven
+-- by preference and not merely by fallback -- the wake message observed
+-- ("You open your eyes and stretch languidly...") is the one for a natural, rested wake,
+-- and what a WAKE out of an enemy Somnolence prints has never been seen. Char.Afflictions
+-- reported both edges cleanly in the 06:03 capture, so the patterns in patterns.lua are the
+-- backstop here and not the mechanism.
+local STATE_FLAGS = { prone = "prone", stunned = "stunned", sleeping = "asleep" }
+
+local GUARD_TIMER = { prone = "prone.guard", stunned = "stun.guard", asleep = "sleep.guard" }
 
 event.register("emunah.affliction.added", function(_, name)
-   local flag = STATE_FLAGS[tostring(name or ""):lower()]
-   if flag and not M[flag] then
+   name = tostring(name or ""):lower()
+   local flag = STATE_FLAGS[name]
+   if not flag then return end
+
+   -- Sleep owns its own edge: the flag, the voluntary decision and the first WAKE are one
+   -- transaction, and splitting them across the generic path would run the decision after
+   -- the flag was already set.
+   if flag == "asleep" then
+      if not M.asleep then log.debug("GMCP reports %s.", name) end
+      M.onSleep()
+      return
+   end
+
+   if not M[flag] then
       log.debug("GMCP reports %s.", name)
       M[flag] = true
       if flag == "prone" then M.standUp() end
@@ -347,17 +694,30 @@ end, "curing.detect")
 
 event.register("emunah.affliction.removed", function(_, name)
    local flag = STATE_FLAGS[tostring(name or ""):lower()]
-   if flag and M[flag] then
-      M[flag] = false
-      emunah.timers.stop(flag == "prone" and "prone.guard" or "stun.guard")
-      event.raise("recovered")
+   if not flag or not M[flag] then return end
+
+   if flag == "asleep" then
+      M.onWake()
+      return
    end
+
+   M[flag] = false
+   emunah.timers.stop(GUARD_TIMER[flag])
+   event.raise("recovered")
 end, "curing.detect")
 
 -- Keep trying while we are down. Self-limiting: standing spends the balance it requires, so
 -- a successful attempt blocks the next tick's, and "You stand up." clears the flag anyway.
+--
+-- Not while asleep. Achaea applies `prone` WITH `sleeping`, so without that clause this is
+-- the exact line that produced three refused STANDs in the 06:03 capture. act.blocked()
+-- would hold them anyway, but the two flags coinciding is the normal case rather than an
+-- edge, and it is worth reading here that we know it.
 event.register("emunah.tick", function()
-   if M.prone and not M.stunned then M.standUp() end
+   if M.prone and not M.stunned and not M.asleep then M.standUp() end
+   -- Retried per tick rather than sent once: WAKE "will attempt" to wake you, and it costs
+   -- nothing, so the guard rather than the send is what paces it.
+   if M.asleep then M.wakeUp() end
 end, "curing.detect")
 
 return M

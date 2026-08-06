@@ -128,9 +128,31 @@ end
 --- Is a lit pipe with this herb available? Smoking needs one, and "I have valerian" is
 --- not the same question as "I have a pipe with valerian in it".
 ---
---- Achaea names pipes descriptively ("a pipe filled with valerian"), so we match on the
---- herb name appearing in a pipe's description.
+--- PIPELIST ANSWERS THIS PROPERLY; the inventory scan below does not, and never did.
+---
+--- The fallback assumes Achaea names pipes descriptively ("a pipe filled with valerian").
+--- Real ones are not: three pipes holding skullcap, elm and valerian are all called
+--- "a white stone pipe", so the herb never appears in the description and this always fell
+--- through to the permissive branch at the bottom. Every smoke cure was therefore allowed
+--- unconditionally, which is right often enough to hide the problem and wrong exactly when
+--- the pipe has gone out or run dry.
+---
+--- emunah.pipes tracks Status and Contents from PIPELIST, so when it has seen one it can say
+--- what the description cannot. It has to be LIT as well as loaded -- a pipe that has gone
+--- cold holds the herb and cannot be smoked.
 function M.pipe(herb)
+   local pipes = emunah.pipes
+   if pipes and next(pipes.pipes) ~= nil then
+      for _, pipe in ipairs(pipes.list()) do
+         if pipe.herb == tostring(herb):lower() and pipe.status == "lit" and pipe.puffs > 0 then
+            return true
+         end
+      end
+      -- PIPELIST has been seen and does not show a lit pipe of this herb. That is a real
+      -- answer rather than an absence of one, so it is not softened the way the fallback is.
+      return false
+   end
+
    local items = emunah.gmcp.items
    if not items then return false end
    for _, item in ipairs(items.at("inv")) do
@@ -218,19 +240,70 @@ end
 ---
 --- Reads the curing engine's tracked afflictions when it is running, and falls back to
 --- the server's list otherwise, so this is meaningful even with curing switched off.
-function M.blockedBy(vector)
-   local afflist = emunah.curing.afflist
-   local engine  = emunah.curing.engine
-   for affliction, blocked in pairs(afflist.blocks) do
-      for _, shut in ipairs(blocked) do
-         if shut == vector then
-            local present = engine and engine.has and engine.has(affliction)
-               or M.affliction(affliction)
-            if present then return affliction end
+--- vector -> the afflictions that shut it, inverted from afflist.blocks on first use.
+---
+--- blockedBy() used to walk the whole of afflist.blocks and each entry's vector list looking
+--- for one vector. That is a nested scan answering a question with a fixed answer: the table
+--- is written at load and never mutated, so the inversion cannot go stale. It matters
+--- because this is asked eleven times per prompt by have.cure(), and five more times per
+--- repaint by ui/vitals.lua's vector lights.
+local blockedByVector = nil
+
+local function shutBy(vector)
+   if not blockedByVector then
+      blockedByVector = {}
+      for affliction, blocked in pairs(emunah.curing.afflist.blocks) do
+         for _, shut in ipairs(blocked) do
+            local list = blockedByVector[shut]
+            if not list then
+               list = {}
+               blockedByVector[shut] = list
+            end
+            list[#list + 1] = affliction
          end
       end
+      -- Stable order, so which affliction is named as the blocker does not depend on hash
+      -- iteration order -- two afflictions can shut the same vector, and a report that
+      -- changes its mind between prompts reads as a bug.
+      for _, list in pairs(blockedByVector) do table.sort(list) end
+   end
+   return blockedByVector[vector]
+end
+
+--- Is a vector currently blocked by an affliction?
+--- Returns the blocking affliction's name, or nil.
+---
+--- Reads the curing engine's tracked afflictions when it is running, and falls back to
+--- the server's list otherwise, so this is meaningful even with curing switched off.
+function M.blockedBy(vector)
+   local candidates = shutBy(vector)
+   if not candidates then return nil end
+
+   local engine = emunah.curing.engine
+   local has = engine and engine.has
+   for index = 1, #candidates do
+      local affliction = candidates[index]
+      local present = (has and has(affliction)) or M.affliction(affliction)
+      if present then return affliction end
    end
    return nil
+end
+
+--- Is this whole arm disabled, at any severity tier?
+local function armDisabled(side)
+   local afflist = emunah.curing.afflist
+   local engine  = emunah.curing.engine
+   for _, name in ipairs(afflist.armAfflictions[side] or {}) do
+      local present = (engine and engine.has and engine.has(name)) or M.affliction(name)
+      if present then return true end
+   end
+   return false
+end
+
+--- Both arms disabled at once -- touching a tattoo needs a working hand, and is refused the
+--- same way paralysis refuses it. See afflist.armAfflictions for provenance.
+function M.bothArmsBroken()
+   return armDisabled("left") and armDisabled("right")
 end
 
 --- Can we perform this specific cure option right now?
@@ -260,11 +333,43 @@ function M.cure(option)
       local item = curelist.resolveItem(option)
       if not item then return false, "no item resolved" end
 
+      -- EPIDERMAL CURES BLIND, DEAF AND ANOREXIA ALIKE, and reported in play: applying it
+      -- for one can cure the others too, regardless of which affliction actually queued it
+      -- or which location it is applied to. `blindness`/`deafness` themselves are already
+      -- guarded (deflist.deliberate() in engine.resolve()'s loop skips ranking them at all
+      -- while held on purpose) -- but that guard is keyed to the affliction BEING cured,
+      -- and says nothing about a DIFFERENT affliction, like anorexia, that also wants
+      -- epidermal. Refusing the item outright while either defence is deliberately up is
+      -- the safe direction: anorexia stays uncured a little longer and falls through to
+      -- focus, rather than risk stripping a defence raised on purpose mid-fight.
+      if item == "epidermal" then
+         local deflist = emunah.curing.deflist
+         if deflist and (deflist.deliberate("blindness") or deflist.deliberate("deafness")) then
+            return false, "epidermal would also cure blind/deaf, which are held on purpose"
+         end
+      end
+
       if vector == "smoke" then
          if not M.pipe(item) then
             return false, ("no pipe of %s"):format(item)
          end
       elseif M.item(item) <= 0 then
+         -- NEITHER LIST HAS ARRIVED YET is a third state, distinct from "confirmed empty" in
+         -- both places -- and it is not rare: it is every login and reload, for as long as
+         -- Char.Items.Inv and IRE.Rift.List take to answer. Live at login 2026-08-03
+         -- 16:29:25.58, already paralysed: this branch read zero in both inventory and rift
+         -- (neither had actually landed) and warned "Out of bloodroot" -- wrong, and the
+         -- warning is once-per-item with nothing at this call site to ever clear it, so a
+         -- REAL "out of bloodroot" later in the same session would have stayed silent behind
+         -- it. Three seconds later, once IRE.Rift.List actually arrived, the identical
+         -- refusal correctly became "bloodroot is in the rift, not in hand". Distinguishing
+         -- this here means the loud, once-only warning is reserved for when it is true.
+         local items = emunah.gmcp.items
+         local ire   = emunah.gmcp.ire
+         if not ((items and items.inventoryKnown()) and (ire and ire.riftKnown())) then
+            return false, "inventory/rift not loaded yet"
+         end
+
          -- IN HAND, NOT IN THE RIFT. supply() counts both, and that is the right question
          -- for "can I get this" -- it is the wrong one for "can I eat this now". A death
          -- drops the pack while the rift keeps its 750 bloodroot, so the cure read as
@@ -327,9 +432,14 @@ function M.cure(option)
       end
    end
 
-   if vector == "tree" and not M.def("tree") then
-      -- The Tree of Life tattoo has to be inked before it can be touched.
-      return false, "no tree tattoo"
+   if vector == "tree" then
+      if not M.def("tree") then
+         -- The Tree of Life tattoo has to be inked before it can be touched.
+         return false, "no tree tattoo"
+      end
+      if M.bothArmsBroken() then
+         return false, "both arms are broken"
+      end
    end
 
    return true

@@ -36,9 +36,36 @@ M.locations = { inv = {}, room = {} }
 --- ash and 6 bloodroot came from against a target of 3.
 M.inventoryListed = false
 
+--- Whether we can currently perceive NEW item movements.
+---
+--- Char.Items.Add/Update/Remove go silent while blind without mindseye up -- the initial
+--- Char.Items.Inv answers normally, but the incremental stream does not, the same shape as
+--- Char.Afflictions during blackout (see curing/engine.lua's M.BLINDING). Confirmed with
+--- `emunah debug gmcp` 16:22:24-16:22:31: every `outr` pull in that window produced
+--- IRE.Rift.Change and the room's own "You remove N X..." confirmation, but no
+--- Char.Items.Add -- so the pull was never recorded, and queueRestock() kept re-pulling
+--- against a phantom zero, eventually giving up with "Pulled X 3 times and still count 0."
+--- The instant `touch mindseye` landed (Char.Defences.Add name="mindseye" at 16:22:35), the
+--- very next `outr` produced a normal Char.Items.Add.
+function M.sighted()
+   local defences = emunah.gmcp.defences
+   if not defences then return true end
+   -- Char.Defences calls this defence `blindness`, not `blind` -- confirmed the same way
+   -- curing/deflist.lua's M.commands.blindness was: keep-up raising `blind` (`eat bayberry`)
+   -- never registered, and its own diagnostic named `blindness` as an unclaimed Char.Defences
+   -- name. Kept as a literal here rather than a dependency on deflist -- this module sits
+   -- below curing/ and only needs the one fact, not the lookup machinery.
+   if not defences.has("blindness") then return true end
+   return defences.has("mindseye")
+end
+
 --- True once inventory is known well enough to make decisions about what we are carrying.
+---
+--- Requires sight too: a snapshot taken before going blind is not wrong, but anything that
+--- happened during the blind window since is invisible to it, and a restocker or looter
+--- acting on it would be making decisions against data it has no way to know is stale.
 function M.inventoryKnown()
-   return M.inventoryListed
+   return M.inventoryListed and M.sighted()
 end
 
 --- IRE attribute letters. Used by attrib() below; the full set is worth documenting
@@ -50,21 +77,68 @@ M.ATTRIBUTES = {
    D = "dangerous", x = "special",
 }
 
+--- Shared empty list, returned for a location we know nothing about.
+---
+--- Never handed to anything that mutates it. M.at() used to answer a miss with a fresh
+--- `{}`, which is a table allocated per call in the middle of the query path -- and a miss
+--- is not rare, since every room query before the first Char.Items.Room is one.
+local NOTHING = {}
+
 --- Normalise a GMCP location to our key: "inv", "room", or the bare container id.
 local function locationKey(location)
+   -- The two common cases first, and without tostring(): this sits under every item query
+   -- in the system, and "inv" is what nearly all of them pass.
+   if location == "inv" or location == "room" then return location end
    location = tostring(location or "")
    if location == "inv" or location == "room" then return location end
    return location:match("%d+$") or location
 end
 
+--- Items at an ALREADY-NORMALISED key.
+---
+--- The query functions below normalise once and then pass the key down; going back through
+--- M.at() would normalise it a second time on every call.
+local function rawAt(key)
+   return M.locations[key] or NOTHING
+end
+
+--- Bumped every time anything at any location changes.
+---
+--- count() and quantity() memoise against this, because the questions they are asked are
+--- both few and repeated: restocking asks "how many bloodroot" once per prompt with the
+--- same thirty names, while the answer only changes when Achaea sends a Char.Items message
+--- -- which in a fight is a handful of times, not several times a second.
+---
+--- ONE COUNTER FOR EVERY LOCATION, deliberately. Per-location generations would be finer
+--- grained and would also be one more thing to get wrong; a room list arriving does not
+--- make an inventory query expensive enough to be worth that risk. The dangerous failure
+--- here is a STALE count -- believing we hold a herb we have already eaten, which would
+--- have the engine queue a cure that cannot fire -- so every mutation site below calls
+--- touch(), and the memo is dropped wholesale rather than surgically.
+M.generation = 0
+
+local function touch()
+   M.generation = M.generation + 1
+end
+
 --- Defensive copy of an item, so we never retain a reference into the live gmcp table.
 local function copyItem(item)
    if type(item) ~= "table" then return nil end
+   local name = item.name and tostring(item.name)
    return {
       id     = item.id and tostring(item.id),
-      name   = item.name and tostring(item.name),
+      name   = name,
       icon   = item.icon and tostring(item.icon),
       attrib = item.attrib and tostring(item.attrib) or "",
+      -- Lowercased once, here, because this is the only place an item enters storage and
+      -- because every lookup below is a case-insensitive substring match.
+      --
+      -- This was THE hot spot of the whole system, by a factor of three over anything else.
+      -- Restocking asks have.quantity() for every consumable the cure tables can call for
+      -- -- around thirty items -- on every prompt, and each of those calls used to lowercase
+      -- every name in the inventory again. Thirty scans times a full pack, several times a
+      -- second, all recomputing a string that only changes when Achaea sends Char.Items.
+      search = name and name:lower(),
    }
 end
 
@@ -117,6 +191,7 @@ local function onList()
    end
 
    M.locations[key] = items
+   touch()
    if key == "inv" then M.inventoryListed = true end
 
    if key == "room" then
@@ -162,6 +237,7 @@ local function onAdd()
    end
 
    table.insert(M.locations[key], item)
+   touch()
    if key == "inv" and isContainer(item) then requestContents(item) end
 
    event.raise("items.added", key, item)
@@ -184,6 +260,7 @@ local function onRemove()
    for index, stored in ipairs(bucket) do
       if stored.id == id then
          table.remove(bucket, index)
+         touch()
          event.raise("items.removed", key, stored)
          return
       end
@@ -206,6 +283,7 @@ local function onUpdate()
    for index, stored in ipairs(bucket) do
       if stored.id == item.id then
          bucket[index] = item          -- the incoming item, not a copy of the old one
+         touch()
          if key == "inv" and isContainer(item) then requestContents(item) end
          event.raise("items.updated", key, item)
          return
@@ -222,7 +300,19 @@ end
 
 --- Everything at a location.
 function M.at(location)
-   return M.locations[locationKey(location)] or {}
+   return M.locations[locationKey(location)] or NOTHING
+end
+
+--- Does this item's name contain `needle`? `needle` must already be lowercased.
+---
+--- Reads the `search` field copyItem() built rather than lowercasing again. The fallback
+--- is for an item that predates that field -- it should not happen, since copyItem() is the
+--- only way into M.locations, but a nil here would silently stop matching an item the
+--- character really is carrying, and failing to find a herb you hold is the expensive
+--- direction to be wrong in.
+local function matches(item, needle)
+   local haystack = item.search or (item.name and item.name:lower())
+   return haystack ~= nil and haystack:find(needle, 1, true) ~= nil
 end
 
 --- Find items whose name contains `pattern` (plain substring, case-insensitive).
@@ -231,27 +321,77 @@ end
 function M.find(pattern, location)
    local needle = tostring(pattern):lower()
    local out = {}
-   for _, item in ipairs(M.at(location or "inv")) do
-      if item.name and item.name:lower():find(needle, 1, true) then
-         out[#out + 1] = item
-      end
+   for _, item in ipairs(rawAt(locationKey(location or "inv"))) do
+      if matches(item, needle) then out[#out + 1] = item end
    end
    return out
 end
 
 --- First match, or nil.
+---
+--- Stops at the first hit instead of building the whole list and taking [1]. This is the
+--- form have.pipe() and the loot scan use, where the answer is "is there one" and the rest
+--- of the list was allocated only to be discarded.
 function M.first(pattern, location)
-   return M.find(pattern, location)[1]
+   local needle = tostring(pattern):lower()
+   for _, item in ipairs(rawAt(locationKey(location or "inv"))) do
+      if matches(item, needle) then return item end
+   end
+   return nil
 end
 
 --- How many items match. With no pattern, how many items are at the location -- this is
 --- the form gmcp/init.lua's snapshot uses.
+--- Memoised answers, keyed location -> needle -> number, valid for one generation.
+---
+--- Dropped wholesale the moment anything moves; see M.generation. Two separate tables
+--- rather than one holding a pair, so a hit costs two hash lookups and no allocation.
+local countCache, quantityCache = {}, {}
+local cachedGeneration = -1
+
+--- Drop the memo if anything has moved since it was filled.
+--- Callers read countCache/quantityCache *after* calling this: they are upvalues shared
+--- with the assignment below, so both see whatever this rebound them to.
+local function freshen()
+   if cachedGeneration ~= M.generation then
+      countCache, quantityCache = {}, {}
+      cachedGeneration = M.generation
+   end
+end
+
+--- The per-location bucket inside one of the memo roots.
+local function bucketIn(root, key)
+   local bucket = root[key]
+   if not bucket then
+      bucket = {}
+      root[key] = bucket
+   end
+   return bucket
+end
+
 function M.count(pattern, location)
    if pattern == "inv" or pattern == "room" then
       return #M.at(pattern)
    end
    if not pattern then return #M.at(location or "inv") end
-   return #M.find(pattern, location)
+
+   -- Counted in place rather than via find(). have.cure() asks this for every cure option
+   -- it considers, which in a lock is dozens of times per prompt, and every one of those
+   -- built a table purely to read its length.
+   local key    = locationKey(location or "inv")
+   local needle = tostring(pattern):lower()
+
+   freshen()
+   local bucket = bucketIn(countCache, key)
+   local hit = bucket[needle]
+   if hit then return hit end
+
+   local n = 0
+   for _, item in ipairs(rawAt(key)) do
+      if matches(item, needle) then n = n + 1 end
+   end
+   bucket[needle] = n
+   return n
 end
 
 --- How MANY of a thing we are carrying, as opposed to how many inventory entries mention
@@ -271,12 +411,27 @@ end
 --- not -- and engine.queueRestock() stops after a bounded number of pulls that do not move
 --- the count, so an unrecognised wording cannot empty the rift into the pack.
 function M.quantity(pattern, location)
+   -- Summed in place, for the same reason count() is, and memoised for the same reason
+   -- again: this is the single most-called query in the system -- restocking asks it once
+   -- per restockable consumable on every prompt, and the two string matches below run per
+   -- matching entry.
+   local key    = locationKey(location or "inv")
+   local needle = tostring(pattern):lower()
+
+   freshen()
+   local bucket = bucketIn(quantityCache, key)
+   local hit = bucket[needle]
+   if hit then return hit end
+
    local total = 0
-   for _, item in ipairs(M.find(pattern, location)) do
-      local name = item.name or ""
-      local count = tonumber(name:match("group of (%d+)")) or tonumber(name:match("^(%d+)%s"))
-      total = total + (count or 1)
+   for _, item in ipairs(rawAt(key)) do
+      if matches(item, needle) then
+         local name = item.name or ""
+         local count = tonumber(name:match("group of (%d+)")) or tonumber(name:match("^(%d+)%s"))
+         total = total + (count or 1)
+      end
    end
+   bucket[needle] = total
    return total
 end
 
@@ -284,13 +439,38 @@ function M.has(pattern, location)
    return M.first(pattern, location) ~= nil
 end
 
+--- Decoded attrib strings, keyed by the raw string itself.
+---
+--- Keyed on the STRING, not the item: Achaea sends the same handful of attrib strings ("m",
+--- "t", "c", "mt", "") for every item in the game, so the cache is tiny and shared across
+--- every item that carries the same flags -- and it needs no invalidation at all, because
+--- the decoding of a given string cannot change. Keying on the item would need the
+--- generation dance that count()/quantity() use, and would still miss on every new item.
+---
+--- Worth caching because ui/roompanel.lua asks once per room item per repaint, and each miss
+--- allocates a fourteen-key table and runs fourteen string.find calls.
+local attribCache = {}
+
+--- Shared answer for an item with no attrib string at all. Read-only, like every shared
+--- table this codebase hands out.
+local NO_ATTRIB = {}
+
 --- Decode an item's attrib string into named booleans.
+---
+--- The returned table is shared and must be treated as read-only.
 function M.attrib(item)
-   local out = {}
+   local raw = item and item.attrib
+   if type(raw) ~= "string" then return NO_ATTRIB end
+
+   local hit = attribCache[raw]
+   if hit then return hit end
+
+   hit = {}
    for letter, name in pairs(M.ATTRIBUTES) do
-      out[name] = (item and item.attrib and item.attrib:find(letter, 1, true)) ~= nil
+      hit[name] = raw:find(letter, 1, true) ~= nil
    end
-   return out
+   attribCache[raw] = hit
+   return hit
 end
 
 --- Containers currently in inventory.
@@ -304,9 +484,23 @@ end
 
 --- Ask for a full re-read of inventory and room.
 function M.refresh()
-   emunah.gmcp.request("Char.Items.Inv")
+   M.refreshInventory()
    M.roomPollOutstanding = true   -- ours -- see resync()
    emunah.gmcp.request("Char.Items.Room")
+end
+
+--- Ask for a full re-read of inventory only.
+---
+--- Split out of M.refresh() because "What do you want to eat?" needs this and nothing
+--- else -- it is a question about what we hold, not where we are standing. Watched in an
+--- arena death 2026-08-03 15:52:18-23: the eat-failure handler called M.refresh(), which
+--- also polled Char.Items.Room and, via onList()'s per-container requestContents(), fired
+--- six more Char.Items.Contents round trips -- none of which curing needs, since container
+--- contents are never merged into "inv" for have.quantity() to see. That ran the character
+--- through five real seconds of silence, taking only bleed damage, before the next cure
+--- went out.
+function M.refreshInventory()
+   emunah.gmcp.request("Char.Items.Inv")
 end
 
 event.gmcp("Char.Items.List",   onList,   "gmcp.items")
@@ -316,8 +510,28 @@ event.gmcp("Char.Items.Update", onUpdate, "gmcp.items")
 
 event.register("sysDisconnectionEvent", function()
    M.locations = { inv = {}, room = {} }
+   touch()
    M.inventoryListed = false
 end, "gmcp.items")
+
+-- SIGHT REGAINED -- CATCH UP. Whatever picked up while blind without mindseye never sent
+-- Char.Items.Add, so the moment sight returns, `M.locations.inv` is missing everything that
+-- happened during the gap. inventoryKnown() already stops decisions being made ON that gap
+-- (see M.sighted() above); this is what closes it, the same role M.reconcile() plays for
+-- afflictions when blackout lifts.
+local wasSighted = true
+
+local function checkSight()
+   local isSighted = M.sighted()
+   if isSighted and not wasSighted then
+      log.info("Sight restored -- resyncing inventory against whatever Char.Items missed.")
+      resync("inv")
+   end
+   wasSighted = isSighted
+end
+
+event.register("emunah.defence.added", checkSight, "gmcp.items")
+event.register("emunah.defence.lost", checkSight, "gmcp.items")
 
 -- ---------------------------------------------------------------------------
 -- room contents on entry
@@ -393,6 +607,7 @@ local function requestRoom(attempt)
          "as empty.", M.ROOM_RETRIES)
       M.roomPollOutstanding = false
       M.locations.room = {}
+      touch()
       M.roomListVerified = true
       event.raise("items.list", "room", 0)
       return

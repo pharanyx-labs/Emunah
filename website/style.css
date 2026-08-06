@@ -1,0 +1,259 @@
+/* Emunah documentation site -- one stylesheet for every page.
+ *
+ * This used to be a <style> block copied into all eight pages. They had drifted: three
+ * different h2 margins, three different h3 treatments, four different content widths, and
+ * two different `main` layouts -- none of it deliberate, all of it the result of editing
+ * one page and not the others. Consolidating means a theme change happens once, and the
+ * browser caches it across the whole site.
+ *
+ * Two page shapes, selected with a class on <main>:
+ *   <main>              prose page   -- one column
+ *   <main class="with-toc">          -- prose plus a sticky table of contents
+ *
+ * Reference pages (the command and API listings) additionally set class="ref" on <main>,
+ * which switches h3 to the monospace style those pages use for signatures.
+ */
+
+:root{
+  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
+  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
+  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
+  --yellow:#facc15; --purple:#c084fc;
+  --code-text:#a5f3fc;
+  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+}
+
+/* The site is designed dark; light is a courtesy for anyone whose OS asks for it, and for
+ * printing. Only the surface and text tokens move -- the accent hues are chosen to carry. */
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#fbfcfd; --bg-panel:#f2f5f8; --bg-code:#f4f7fa; --border:#d6dee7;
+    --text:#2b3644; --text-dim:#5c6b7d; --text-bright:#0f1720;
+    --accent:#0e7490; --accent-dim:#22d3ee;
+    --green:#15803d; --red:#b91c1c; --yellow:#a16207; --purple:#7e22ce;
+    --code-text:#0e5f75;
+  }
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
+  font-size:16px; line-height:1.65;
+}
+
+/* ---- reconciled typography ------------------------------------------------ */
+h2{font-size:1.5em; margin:2em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border)}
+h3{font-size:1.15em; margin:1.5em 0 .5em; color:var(--accent)}
+
+/* Reference pages use h3 for signatures, where monospace reads better than accent. */
+main.ref h3{font-size:1.05em; margin:1.6em 0 .3em; color:var(--text-bright); font-family:var(--font-mono)}
+
+/* roadmap.html pairs each h2 with a status pill. */
+h2.with-pill{display:flex; align-items:center; gap:12px}
+
+table{width:100%; border-collapse:collapse; margin:1.2em 0; font-size:.92em}
+
+/* ---- page shapes ---------------------------------------------------------- */
+main{flex:1; min-width:0; padding:40px 48px 100px}
+main.with-toc{display:flex; gap:40px}
+.content{max-width:840px}
+main.with-toc .content{max-width:740px; flex:1; min-width:0}
+
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+code, pre, kbd{font-family:var(--font-mono)}
+code{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
+  padding:.15em .4em; font-size:.88em; color:var(--code-text);
+}
+pre{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
+  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
+}
+pre code{border:none; padding:0; background:none; color:var(--text)}
+h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
+h1{font-size:2.1em; margin:0 0 .3em}
+h4{font-size:1em; margin:1.2em 0 .4em}
+p{margin:.8em 0}
+ul,ol{margin:.8em 0; padding-left:1.4em}
+li{margin:.3em 0}
+.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
+nav.sidebar{
+  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
+  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
+}
+.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
+.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
+.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
+.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
+nav.sidebar ul{list-style:none; margin:0; padding:0}
+nav.sidebar li{margin:0}
+nav.sidebar a{
+  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
+  font-size:.92em; margin-bottom:2px;
+}
+nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
+nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
+.nav-group-title{
+  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
+  margin:20px 0 6px; padding:0 10px;
+}
+.nav-group-title:first-child{margin-top:0}
+.hero{margin-bottom:8px}
+.hero p.lede{font-size:1.15em; color:var(--text-dim); max-width:640px}
+.badge-row{display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 30px}
+.badge{
+  font-family:var(--font-mono); font-size:.78em; padding:4px 10px; border-radius:20px;
+  border:1px solid var(--border); color:var(--text-dim); background:var(--bg-panel);
+}
+.cta-row{display:flex; gap:12px; flex-wrap:wrap; margin:26px 0 10px}
+.btn{
+  display:inline-block; padding:10px 18px; border-radius:8px; font-weight:600;
+  font-size:.92em; border:1px solid var(--border);
+}
+.btn-primary{background:var(--accent); color:#03181c; border-color:var(--accent)}
+.btn-primary:hover{background:#67e8f9; text-decoration:none}
+.btn-secondary{color:var(--text); background:var(--bg-panel)}
+.btn-secondary:hover{border-color:var(--accent); text-decoration:none}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin:20px 0}
+.card{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:10px;
+  padding:18px 20px;
+}
+.card h3{margin-top:0; color:var(--text-bright); font-size:1em}
+.card p{margin:.4em 0 0; color:var(--text-dim); font-size:.92em}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top}
+th{color:var(--text-bright); font-weight:600; border-bottom:2px solid var(--border)}
+tr:last-child td{border-bottom:none}
+td code, th code{white-space:nowrap}
+.status{font-family:var(--font-mono); font-size:.82em; padding:2px 8px; border-radius:4px; font-weight:600}
+.status-complete{background:rgba(74,222,128,.12); color:var(--green)}
+.status-working{background:rgba(34,211,238,.12); color:var(--accent)}
+.status-seed{background:rgba(250,204,21,.12); color:var(--yellow)}
+.callout{
+  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
+  padding:12px 18px; margin:1.2em 0;
+}
+.callout p{margin:.4em 0}
+.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
+.callout-warn{border-left-color:var(--red)}
+.callout-warn .callout-title{color:var(--red)}
+.callout-tip{border-left-color:var(--green)}
+.callout-tip .callout-title{color:var(--green)}
+.callout-note .callout-title{color:var(--accent)}
+footer{
+  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
+  color:var(--text-dim); font-size:.85em;
+}
+.page-nav{
+  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
+  border-top:1px solid var(--border); gap:20px;
+}
+.page-nav a{font-size:.92em}
+.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
+.toc{
+  width:190px; flex-shrink:0; position:sticky; top:40px; align-self:flex-start;
+  font-size:.85em;
+}
+.toc-title{font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin-bottom:8px}
+.toc a{display:block; padding:4px 0; color:var(--text-dim)}
+.toc a:hover{color:var(--accent); text-decoration:none}
+.cmd-block{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
+  padding:16px 20px; margin:1em 0 1.6em;
+}
+.cmd-syntax{
+  font-family:var(--font-mono); font-size:.95em; color:var(--accent-dim); background:var(--bg-code);
+  border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-bottom:10px;
+  color:#67e8f9; display:inline-block;
+}
+.cmd-block p{margin:.5em 0; font-size:.92em}
+.cmd-block ul{margin:.5em 0; font-size:.92em}
+.page-nav .next{text-align:right}
+.tree{
+  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
+  padding:18px 20px; font-family:var(--font-mono); font-size:.84em; line-height:1.7;
+  overflow-x:auto; white-space:pre;
+}
+.tree .dir{color:var(--accent)}
+.tree .comment{color:var(--text-dim)}
+.bug{
+  background:var(--bg-panel); border:1px solid var(--border); border-left:3px solid var(--yellow);
+  border-radius:0 8px 8px 0; padding:14px 18px; margin:14px 0;
+}
+.bug h4{margin:0 0 6px; color:var(--yellow)}
+.bug p{margin:.4em 0; font-size:.94em}
+.credit{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
+  padding:16px 20px; margin:14px 0;
+}
+.credit h4{margin:0 0 4px}
+.credit p{margin:.3em 0; font-size:.9em; color:var(--text-dim)}
+.callout-pvp{border-left-color:var(--purple)}
+.callout-pvp .callout-title{color:var(--purple)}
+.flow{
+  display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:20px 0;
+  font-family:var(--font-mono); font-size:.85em;
+}
+.flow .step{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
+  padding:10px 14px; color:var(--text-bright);
+}
+.flow .arrow{color:var(--text-dim)}
+.step{display:flex; gap:16px; margin:24px 0}
+.step-num{
+  flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--bg-panel);
+  border:1px solid var(--accent); color:var(--accent); display:flex; align-items:center;
+  justify-content:center; font-family:var(--font-mono); font-weight:700; font-size:.95em;
+}
+.step-body{flex:1; padding-top:2px}
+.step-body h3{margin-top:0}
+.pill{
+  font-family:var(--font-mono); font-size:.7em; padding:3px 10px; border-radius:20px;
+  font-weight:700; letter-spacing:.02em;
+}
+.pill-done{background:rgba(74,222,128,.15); color:var(--green)}
+.pill-open{background:rgba(148,163,184,.15); color:var(--text-dim)}
+.pill-blocked{background:rgba(250,204,21,.15); color:var(--yellow)}
+.item{
+  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
+  padding:14px 18px; margin:10px 0; display:flex; gap:14px; align-items:flex-start;
+}
+.item .mark{font-family:var(--font-mono); font-size:1.1em; line-height:1.4; flex-shrink:0}
+.item.done .mark{color:var(--green)}
+.item.open .mark{color:var(--text-dim)}
+.item-body{flex:1}
+.item-body p{margin:.3em 0; font-size:.94em; color:var(--text-dim)}
+.item-body strong{color:var(--text-bright)}
+.phase-summary{color:var(--text-dim); font-size:.95em; margin-top:-6px}
+
+/* ---- responsive ----------------------------------------------------------- */
+@media (max-width:1150px){
+  .toc{display:none}
+  main.with-toc{display:block}
+  main.with-toc .content{max-width:840px}
+}
+@media (max-width:900px){
+  .layout{flex-direction:column}
+  nav.sidebar{
+    width:100%; height:auto; position:relative; border-right:none;
+    border-bottom:1px solid var(--border); padding:18px;
+  }
+  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
+  main{padding:28px 20px 60px}
+  .grid{grid-template-columns:1fr}
+}
+
+/* Tables are the one thing that cannot reflow; let them scroll rather than push the page
+ * sideways. */
+@media (max-width:640px){
+  table{display:block; overflow-x:auto; white-space:nowrap}
+}
+
+@media print{
+  nav.sidebar,.toc,.page-nav{display:none}
+  .layout{display:block}
+  main{padding:0}
+}

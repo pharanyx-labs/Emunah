@@ -20,7 +20,7 @@ local PATH = getMudletHomeDir() .. "/emunah-config.lua"
 --- reload does not even get that far -- config.data is restored wholesale from
 --- emunah._persist. So a bad default, once written or once carried across a reload, is
 --- permanent until something rewrites it. That is what MIGRATIONS is for.
-local SCHEMA = 2
+local SCHEMA = 9
 
 local MIGRATIONS = {
    -- bashing.balance shipped as "bal" long after smite was confirmed to need balance AND
@@ -57,6 +57,103 @@ local MIGRATIONS = {
          return "healing thresholds: " .. table.concat(moved, ", ")
       end
    end,
+
+   -- `defences.keepup` was an ARRAY of names, and became a MAP of name -> mode when
+   -- defences grew a defup mode alongside keepup. An existing list means exactly one thing
+   -- -- keep all of these up -- so every entry converts to "keepup" and nobody's setup
+   -- changes underneath them. Left unconverted, the array reads as an empty map and every
+   -- defence anyone had configured would silently switch itself off.
+   [3] = function(data)
+      local list = data.defences and data.defences.keepup
+      if type(list) ~= "table" or list[1] == nil then return end
+      local modes = {}
+      for _, name in ipairs(list) do modes[tostring(name):lower()] = "keepup" end
+      data.defences.keepup = modes
+      return "defences.keepup: " .. #list .. " entries moved to keepup mode"
+   end,
+
+   -- `venom` is the elixir; `poisonresist` is what Char.Defences calls the defence it
+   -- grants. A saved entry under the elixir's name can never match, so keep-up raises it
+   -- forever -- three elixirs and three balances before the attempt budget stops it. The
+   -- mode is carried across so nobody has to notice and redo it.
+   [4] = function(data)
+      local modes = data.defences and data.defences.keepup
+      if type(modes) ~= "table" or modes.venom == nil then return end
+      modes.poisonresist = modes.poisonresist or modes.venom
+      modes.venom = nil
+      return "defences.keepup: venom -> poisonresist (the name Char.Defences uses)"
+   end,
+
+   -- Same bug, same fix, a session later: `blind` raises the defence but Char.Defences
+   -- reports it as `blindness`. A saved entry under `blind` can never match, so keep-up
+   -- raises it forever -- confirmed live, three raises of `eat bayberry` each answering
+   -- "You are already blind" without ever registering, then the attempt budget stopping and
+   -- naming `blindness` as an unclaimed Char.Defences name. See deflist.lua.
+   [5] = function(data)
+      local modes = data.defences and data.defences.keepup
+      if type(modes) ~= "table" or modes.blind == nil then return end
+      modes.blindness = modes.blindness or modes.blind
+      modes.blind = nil
+      return "defences.keepup: blind -> blindness (the name Char.Defences uses)"
+   end,
+
+   -- Confirmed live the same session as [5]: `deaf` raises the defence but Char.Defences
+   -- reports it as `deafness` -- "Raised deaf 3 times and it never appeared in
+   -- Char.Defences -- stopping", with `deafness` named as unclaimed. See deflist.lua.
+   [6] = function(data)
+      local modes = data.defences and data.defences.keepup
+      if type(modes) ~= "table" or modes.deaf == nil then return end
+      modes.deafness = modes.deafness or modes.deaf
+      modes.deaf = nil
+      return "defences.keepup: deaf -> deafness (the name Char.Defences uses)"
+   end,
+
+   -- Same family again: `levitation` is the elixir; Char.Defences reports the defence it
+   -- grants as `levitating`. Confirmed live 18:20:50-18:21:03: three sips of the levitation
+   -- elixir each answered "The elixir flows down your throat without effect", and the
+   -- attempt budget's own diagnostic named `levitating` as unclaimed while DEF's own
+   -- readout listed "You are walking on a small cushion of air." the whole time. See
+   -- deflist.lua.
+   [7] = function(data)
+      local modes = data.defences and data.defences.keepup
+      if type(modes) ~= "table" or modes.levitation == nil then return end
+      modes.levitating = modes.levitating or modes.levitation
+      modes.levitation = nil
+      return "defences.keepup: levitation -> levitating (the name Char.Defences uses)"
+   end,
+
+   -- `immunity` is not a naming mismatch like the others above -- it IS `poisonresist`, the
+   -- same defence venom grants. Confirmed live 18:28:28-18:28:48: it produces the exact DEF
+   -- line poisonresist already shows, and sipping it while poisonresist was already up did
+   -- not just waste the sip -- "As the antivenom ravages your system, you feel very unwell.
+   -- You are confused as to the effects of the venom." An entry saved under `immunity` would
+   -- keep sending a redundant, harmful dose forever. See deflist.lua.
+   [8] = function(data)
+      local modes = data.defences and data.defences.keepup
+      if type(modes) ~= "table" or modes.immunity == nil then return end
+      modes.poisonresist = modes.poisonresist or modes.immunity
+      modes.immunity = nil
+      return "defences.keepup: immunity -> poisonresist (the same defence venom grants)"
+   end,
+
+   -- Same family again: `frost` is the elixir; Char.Defences reports the defence it grants
+   -- as `temperance`. Confirmed live 18:39:57.43-18:39:57.62: a sip answered "The elixir
+   -- flows down your throat without effect", and the attempt budget's own diagnostic named
+   -- `temperance` as unclaimed. See deflist.lua.
+   [9] = function(data)
+      local modes = data.defences and data.defences.keepup
+      if type(modes) ~= "table" or modes.frost == nil then return end
+      modes.temperance = modes.temperance or modes.frost
+      modes.frost = nil
+      return "defences.keepup: frost -> temperance (the name Char.Defences uses)"
+   end,
+
+   -- NOTE: bashing.attack moving from "smite" to "angel sear" is NOT a migration here, on
+   -- purpose. Every entry above corrects a shipped default that was factually wrong --
+   -- smite genuinely needed BOTH, the array genuinely became a map. Switching attacks is a
+   -- deliberate strategy choice the user made (2026-08-04), not a bug, so an existing
+   -- character keeps smite until it is changed on purpose: `emunah bash attack "angel sear"`
+   -- and `emunah bash consumes eq`. Only a fresh config picks up the new default automatically.
 }
 
 local DEFAULTS = {
@@ -112,9 +209,24 @@ local DEFAULTS = {
       gold = true,
    },
 
+   namedb = {
+      -- Read CW, CLWHO, QW and the guardian angel's report; see namedb/capture.lua.
+      capture   = true,
+      -- Look a newly-seen name up on the Achaea web API. Off means the database still
+      -- fills with names, just not with what they are.
+      autoFetch = true,
+   },
+
+   names = {
+      enabled  = true,   -- highlight known names in the game text
+      -- Tint neutral strangers by their city. Off leaves every neutral the same dim tone,
+      -- which some people prefer during a fight -- colour then means only enemy or ally.
+      cityTint = true,
+   },
+
    bashing = {
-      attack          = "smite",  -- class attack command; target is appended
-      -- What the attack costs: "eq" | "bal" | "both".
+      attack          = "angel sear",  -- class attack command; target is appended
+      -- What the attack REQUIRES to be present: "eq" | "bal" | "both".
       --
       -- THIS IS THE VALUE THAT WINS, not the fallback at the call site. config.get()
       -- returns whatever it finds here and only falls back when the key is ABSENT, so
@@ -123,8 +235,17 @@ local DEFAULTS = {
       -- default here was never moved with it -- so canAttack() never once consulted
       -- equilibrium, and three smites went into every penitence cooldown for as long as
       -- that was true (10:32:28, 10:45:48, 12:39:13, each spaced by the in-flight guard
-      -- rather than by any balance).
+      -- rather than by any balance). Angel Sear needs BOTH too (confirmed by the user,
+      -- 2026-08-04), so this value carries over unchanged even though the attack itself did
+      -- not.
       balance         = "both",
+      -- Which ONE of the required resources the attack actually CONSUMES: "bal" | "eq".
+      -- Smite required both but only ever spent balance; Sear requires both but only ever
+      -- spends equilibrium (HELP SEAR: "Cooldown: 2.50 seconds of equilibrium", confirmed
+      -- against balance too by the user, 2026-08-04) -- the mirror image. See
+      -- class/priest.lua's M.attack for why arming the guard on the wrong one of these
+      -- reopens the exact double-send bug it exists to close.
+      consumes        = "eq",
       stopBelowHealth = 50,
       maxAttempts     = 40,       -- give up on a target that will not die
       walkWhenClear   = true,     -- hand back to the walker when the room is empty
@@ -169,15 +290,80 @@ end
 
 config.data = util.copy(DEFAULTS)
 
+--- Memoised path resolution: path -> { parent table, final key }.
+---
+--- WHY THIS IS MEMOISED. Splitting a path costs a gmatch, and gmatch allocates an iterator
+--- on every call -- garbage produced in the one place that can least afford it. The curing
+--- engine reads a couple of dozen settings per prompt (thresholds, confirm waits, every
+--- feature switch, and the priority overrides once per tracked affliction per vector), and
+--- settings change when a human types `emunah set`, which is to say almost never.
+---
+--- WHAT IS CACHED IS THE ROUTE, NOT THE ANSWER, and that distinction is the whole design.
+--- Caching resolved VALUES looked obviously right and was wrong: anything that assigns into
+--- config.data directly -- `config.data.bashing.balance = nil` -- changes the setting without
+--- going through set(), and a value cache goes on answering with what it saw first. The
+--- suite caught it immediately (the shipped-default assertions read nil through a stale
+--- MISS), and a live version of that bug is a setting the user has changed that nothing
+--- honours until the next reload.
+---
+--- Holding the parent table and re-reading the final key costs one extra hash lookup and
+--- makes every leaf write visible, however it was made. Only REPLACING an intermediate table
+--- can invalidate a cached route, and the three places that do -- set(), load(), reset() --
+--- all call invalidate().
+local cache = {}
+
+--- A path that resolves through something that does not exist. Distinct from a cached nil,
+--- which is simply a cache miss.
+local MISS = {}
+
+--- Drop the memo. Anything that REPLACES a table inside config.data has to call this;
+--- assigning a leaf value does not need to.
+function config.invalidate()
+   cache = {}
+end
+
+--- Walk a dotted path to the table holding its final key.
+--- @return table|nil parent, string|nil key
+local function route(path)
+   local node = config.data
+   local key = nil
+   for part in path:gmatch("[^.]+") do
+      if key ~= nil then
+         -- The previous part was not the last after all, so descend through it.
+         if type(node) ~= "table" then return nil end
+         node = node[key]
+         if type(node) ~= "table" then return nil end
+      end
+      key = part
+   end
+   if key == nil or type(node) ~= "table" then return nil end
+   return node, key
+end
+
 --- Read a dotted setting: config.get("curing.confirmWait")
 function config.get(path, fallback)
-   local node = config.data
-   for part in tostring(path):gmatch("[^.]+") do
-      if type(node) ~= "table" then return fallback end
-      node = node[part]
-      if node == nil then return fallback end
+   -- Only string paths are memoised; anything else is rare enough not to be worth a key.
+   if type(path) ~= "string" then
+      local node = config.data
+      for part in tostring(path):gmatch("[^.]+") do
+         if type(node) ~= "table" then return fallback end
+         node = node[part]
+         if node == nil then return fallback end
+      end
+      return node
    end
-   return node
+
+   local hit = cache[path]
+   if hit == nil then
+      local parent, key = route(path)
+      hit = parent and { parent, key } or MISS
+      cache[path] = hit
+   end
+   if hit == MISS then return fallback end
+
+   local value = hit[1][hit[2]]
+   if value == nil then return fallback end
+   return value
 end
 
 --- Write a dotted setting. Does not save to disk; call config.save() for that.
@@ -191,6 +377,10 @@ function config.set(path, value)
       node = node[parts[i]]
    end
    node[parts[#parts]] = value
+   -- Wholesale, not just this path: writing "curing" replaces the table that
+   -- "curing.confirmWait" resolves through, and writing a leaf can create the intermediate
+   -- tables that other paths were previously missing through.
+   config.invalidate()
    return true
 end
 
@@ -235,12 +425,14 @@ function config.load()
    fill(loaded, DEFAULTS)
 
    config.data = loaded
+   config.invalidate()
    log.setLevel(config.data.logLevel or "info")
    return config.data
 end
 
 function config.reset()
    config.data = util.copy(DEFAULTS)
+   config.invalidate()
    log.setLevel(config.data.logLevel)
    return config.data
 end
@@ -258,6 +450,7 @@ emunah._persist = emunah._persist or {}
 
 if emunah._persist.configData then
    config.data = emunah._persist.configData
+   config.invalidate()
    -- A reload restores this table verbatim, which is exactly how a wrong default outlives
    -- the fix for it. Migrate here too, or `emreload` is the one path that never corrects.
    config.migrate(config.data)

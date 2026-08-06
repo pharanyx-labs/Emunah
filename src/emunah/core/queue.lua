@@ -113,12 +113,17 @@ end
 --- that blocked everything would lock the character out of its own escape. Observed in the
 --- arena as sips, hands and salves going out repeatedly into rejections while the one
 --- command that would have worked waited behind them.
---- `tree` is here without evidence, deliberately. Whether paralysis blocks touching a
---- tattoo has not been observed, and the two errors are not equal: sending it into a
---- refusal costs one round trip, while withholding it removes the last resort from a
---- character that is, by definition, already stuck.
+---
+--- `tree` is NOT here, and now on evidence rather than its absence. Confirmed live
+--- 2026-08-03 16:14:25.08: `touch tree` sent while paralysed (and anorexic, per the DIAG at
+--- 16:14:13.90 moments earlier) came back "Frustratingly, your body won't respond to your
+--- call to action." -- the exact paralysis-refusal text already registered in
+--- detect/patterns.lua. So touching the tattoo is blocked the same as everything else;
+--- letting it through would only spend the round trip queueTree() is trying to avoid in the
+--- first place, on the one occasion it matters most (nothing else curable, tree the last
+--- resort).
 queue.WHILE_PARALYSED = {
-   herb = true, moss = true, free = true, writhe = true, tree = true,
+   herb = true, moss = true, free = true, writhe = true,
 }
 
 local function paralysed()

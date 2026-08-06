@@ -14,6 +14,7 @@ because a gap prompts a question and a guess ships a bug.
 |---|---|
 | `mechanics.md` | How the game behaves: balances, incapacitation, command rejections |
 | `gmcp.md` | What GMCP actually sends, with real payloads |
+| `api.md` | The Achaea web API: real payloads, and what is NOT in them |
 | `help/` | Verbatim `HELP` output, one file per topic |
 
 ## Adding a source

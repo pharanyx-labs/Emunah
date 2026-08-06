@@ -42,10 +42,28 @@ local function format(fmt, ...)
    return ok and result or tostring(fmt)
 end
 
-function log.debug(fmt, ...) emit("debug", format(fmt, ...)) end
-function log.info(fmt, ...)  emit("info",  format(fmt, ...)) end
-function log.warn(fmt, ...)  emit("warn",  format(fmt, ...)) end
-function log.error(fmt, ...) emit("error", format(fmt, ...)) end
+--- Would a message at this level actually print?
+---
+--- THE GUARD HAS TO COME BEFORE format(), not inside emit(). Every log call used to build
+--- its message first and discard it in emit() a moment later, and the debug calls are the
+--- ones that matter: engine.tick() reaches log.debug several times per prompt -- once per
+--- resolved cure, once per queue push that loses its slot, once per command sent, once per
+--- command held -- and each one ran a pcall and a string.format whose result nothing ever
+--- saw, because the default level is `info`.
+---
+--- That is per-prompt work in the one code path that cannot afford any, and it is paid by
+--- every user who is not actively debugging. Formatting is now the caller's cost only when
+--- something will be printed.
+function log.enabled(level)
+   return LEVELS[level or "info"] >= LEVELS[log.level or "info"]
+end
+
+local enabled = log.enabled
+
+function log.debug(fmt, ...) if enabled("debug") then emit("debug", format(fmt, ...)) end end
+function log.info(fmt, ...)  if enabled("info")  then emit("info",  format(fmt, ...)) end end
+function log.warn(fmt, ...)  if enabled("warn")  then emit("warn",  format(fmt, ...)) end end
+function log.error(fmt, ...) if enabled("error") then emit("error", format(fmt, ...)) end end
 
 --- Print a table to the console for inspection. Thin wrapper over Mudlet's display()
 --- that keeps the emunah prefix so output is attributable.
@@ -62,6 +80,12 @@ end
 -- with every prompt and several more messages per room change, so folding this into
 -- `emunah debug` would bury the thing you turned debug on to see. `emunah debug gmcp` opts
 -- into the firehose separately.
+--
+-- Defaults OFF: Char.Vitals alone fires on every prompt, so a fresh session opened this
+-- with the firehose already running before anyone asked for it. This is not persisted
+-- config (module state is deliberately NOT carried across a reload, see emunah.lua's
+-- loader), so every session starts from whatever is hardcoded here regardless. `emunah
+-- debug gmcp` (or `! debug gmcp`) turns it on for the rest of the session.
 
 log.traceGmcp = false
 
@@ -93,14 +117,38 @@ end
 
 log.summarise = summarise
 
+--- Make a traced payload safe to hand to cecho.
+---
+--- Every other GMCP field traced here is clean JSON. `Comm.Channel.Text` is not: it
+--- carries RAW ANSI, including IRE's own ESC...EOT terminator that `gmcp/comm.lua`
+--- documents having to strip before render. cecho reads a bare "<" as the start of colour
+--- markup, and a raw ESC or EOT byte or an unescaped "<" in a channel message (a smiley, a
+--- comparison, anything) broke cecho's parser outright -- confirmed live: with tracing on,
+--- Comm.Channel.Text rendered nowhere, not the trace line and not the chat window, because
+--- the failure happened inside this call, before onText() in gmcp/comm.lua ever ran and
+--- before the message reached its own history buffer. Turning tracing off was the whole
+--- fix from the outside. `<<` is cecho's own escape for a literal "<"; control bytes are
+--- dropped outright since none of them are meant to be seen in a one-line trace anyway.
+local function sanitize(text)
+   text = tostring(text):gsub("%c", "")
+   return (text:gsub("<", "<<"))
+end
+
 --- Trace one GMCP message. `direction` is "<<" for received, ">>" for sent.
 function log.gmcp(direction, message, payload)
    if not log.traceGmcp then return end
-   local detail = payload ~= nil and (" " .. summarise(payload)) or ""
-   cecho(string.format(
+   local detail = payload ~= nil and (" " .. sanitize(summarise(payload))) or ""
+   -- A logging call must never be the thing that breaks a GMCP handler -- sanitize()
+   -- covers every case found in play, but pcall is the backstop for whatever it does not.
+   local ok = pcall(cecho, string.format(
       "\n<ansi_light_black>[<reset><ansi_magenta>gmcp<reset><ansi_light_black>]<reset> " ..
       "<ansi_light_black>%s<reset> <ansi_cyan>%s<reset><ansi_light_black>%s<reset>",
       direction, tostring(message), detail))
+   if not ok then
+      cecho(string.format(
+         "\n<ansi_light_black>[<reset><ansi_magenta>gmcp<reset><ansi_light_black>]<reset> " ..
+         "%s %s (payload could not be traced)\n", direction, tostring(message)))
+   end
 end
 
 return log

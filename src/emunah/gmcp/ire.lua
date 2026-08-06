@@ -21,6 +21,19 @@ local event = emunah.event
 --- Rift: commodity name (lower) -> { name, amount, desc }
 M.rift = {}
 
+--- Have we actually SEEN a rift list, as opposed to not having asked yet?
+---
+--- Same distinction gmcp/items.lua's M.inventoryListed draws, and for the same reason: an
+--- empty M.rift means both "confirmed empty" and "the reply has not arrived", and a caller
+--- that cannot tell them apart acts on the wrong one. Live at login 2026-08-03 16:29:25.58,
+--- already paralysed: `have.cure()` read zero in both inventory and rift (neither had
+--- landed yet) and warned "Out of bloodroot" -- wrong, and worse, that warning is
+--- once-per-item and nothing at that call site ever clears it, so a real "out of bloodroot"
+--- later in the same session would have stayed silent. Three seconds later, once
+--- IRE.Rift.List actually arrived, the exact same refusal correctly became "bloodroot is in
+--- the rift, not in hand".
+M.riftListed = false
+
 --- Current target.
 M.target = { id = nil, description = nil, health = nil }
 
@@ -47,17 +60,40 @@ local function riftKey(name, desc)
    return name
 end
 
+--- Every word that resolves to an entry -- its key, its `desc`, and its `name` -- pointing
+--- at the entry itself.
+---
+--- riftFind() used to fall back to a linear `pairs` scan of the whole rift whenever the
+--- caller's word was not a key, which is the COMMON case and not the rare one: qualified
+--- entries are keyed "irid moss" and every caller asks for "irid". have.inRift() is called
+--- fifteen times per prompt by the restock pass, so that was fifteen full scans of the rift
+--- per prompt.
+---
+--- Built at the same six sites that write M.rift, so it cannot drift from it.
+local riftAlias = {}
+
+local function riftIndex(record)
+   riftAlias[record.key] = record
+   -- The qualifier is what OUTR takes and what the cure tables name, so it is the alias
+   -- that actually gets used. It wins over the bare commodity name deliberately: two mosses
+   -- share a `name` and only the `desc` tells them apart.
+   if record.name and riftAlias[record.name] == nil then riftAlias[record.name] = record end
+   if record.desc then riftAlias[record.desc] = record end
+end
+
 local function riftRecord(entry)
    if type(entry) ~= "table" or not entry.name then return nil end
    local name = tostring(entry.name):lower()
    local desc = entry.desc and tostring(entry.desc):lower() or nil
    local key  = riftKey(name, desc)
-   M.rift[key] = {
+   local record = {
       name   = name,
       desc   = desc,
       key    = key,
       amount = util.num(entry.amount, 0),
    }
+   M.rift[key] = record
+   riftIndex(record)
    return key
 end
 
@@ -65,8 +101,18 @@ local function onRiftList()
    local list = gmcp.IRE.Rift.List
    if type(list) ~= "table" then return end
    M.rift = {}
+   -- Rebuilt wholesale with the table it indexes. A surgical update here would be a stale
+   -- alias pointing at a commodity the rift no longer holds, which reads as "we have it"
+   -- and has the restocker pull something that is not there.
+   riftAlias = {}
    for _, entry in ipairs(list) do riftRecord(entry) end
+   M.riftListed = true
    event.raise("rift.list", util.count(M.rift))
+end
+
+--- True once the rift has actually been listed, as opposed to just starting empty.
+function M.riftKnown()
+   return M.riftListed
 end
 
 local function onRiftChange()
@@ -81,16 +127,14 @@ end
 --- sometimes the entry's `name` and sometimes its `desc`. Both are tried before giving up,
 --- exact matches only: a substring fallback would let "moss" claim the irid.
 function M.riftFind(query)
+   -- The bare word first: callers on the hot path already hold a lowercase commodity name,
+   -- and the index answers them in one lookup with no allocation.
+   local hit = riftAlias[query]
+   if hit then return hit end
+
    query = tostring(query or ""):lower()
    if query == "" then return nil end
-
-   local direct = M.rift[query]
-   if direct then return direct end
-
-   for _, entry in pairs(M.rift) do
-      if entry.desc == query or entry.name == query then return entry end
-   end
-   return nil
+   return riftAlias[query]
 end
 
 --- How many of a commodity are in the rift.
@@ -181,6 +225,8 @@ event.gmcp("IRE.Time.Update",  onTimeUpdate,  "gmcp.ire")
 
 event.register("sysDisconnectionEvent", function()
    M.target = { id = nil, description = nil, health = nil }
+   M.rift = {}
+   M.riftListed = false
 end, "gmcp.ire")
 
 if gmcp and gmcp.IRE then

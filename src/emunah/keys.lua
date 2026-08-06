@@ -57,6 +57,39 @@ local function registry()
    return emunah._persist.keyBindings
 end
 
+--- Standalone function-key bindings: direct actions, not movement, so none of M.go()'s
+--- "manual movement takes over from automation" logic applies to them -- there is nothing
+--- here for automation to fight over.
+---
+--- Kept in their own registry, separate from the numpad layout's, so `emunah keys off`
+--- (which is specifically about numpad movement -- see M.setEnabled) has no bearing on
+--- these, and so the numpad bindings' own count() stays exactly what it was.
+M.ACTIONS = {
+   { name = "reload",   modifier = "Control", key = "F5",
+     fn = function() emunahReload() end },
+   { name = "hunt on",  modifier = "None",     key = "F11",
+     fn = function() emunah.commands.dispatch("hunt") end },
+   { name = "hunt off", modifier = "None",     key = "F12",
+     fn = function() emunah.commands.dispatch("hunt off") end },
+}
+
+local function actionRegistry()
+   emunah._persist = emunah._persist or {}
+   emunah._persist.keyActionBindings = emunah._persist.keyActionBindings or {}
+   return emunah._persist.keyActionBindings
+end
+
+--- Remove every action binding we own.
+function M.killActions()
+   local reg = actionRegistry()
+   local n = 0
+   for _, id in ipairs(reg) do
+      if killKey(id) then n = n + 1 end
+   end
+   emunah._persist.keyActionBindings = {}
+   return n
+end
+
 --- Remove every binding we own.
 function M.killAll()
    local reg = registry()
@@ -193,6 +226,65 @@ function M.build()
    return true
 end
 
+--- Install the action keys (Ctrl+F5 reload, F11 hunt on, F12 hunt off).
+---
+--- Deliberately independent of `keys.numpad`: that setting is specifically about the
+--- numpad, and a function key has no bearing on it -- turning numpad movement off must not
+--- also cost you emreload and hunt toggling. Independent of the Keypad-modifier check too,
+--- for the same reason: nothing here shares the numpad's ambiguity with the digit row.
+function M.buildActions()
+   if type(tempKey) ~= "function" then
+      log.warn("Action key bindings not installed: tempKey is not available.")
+      return false
+   end
+   if type(mudlet) ~= "table" or type(mudlet.key) ~= "table"
+      or type(mudlet.keymodifier) ~= "table" then
+      log.warn("Action key bindings not installed: mudlet.key/mudlet.keymodifier "
+         .. "are not available.")
+      return false
+   end
+
+   M.killActions()
+
+   local reg = actionRegistry()
+   local bound, missing, failed = 0, {}, {}
+
+   for _, entry in ipairs(M.ACTIONS) do
+      local code = mudlet.key[entry.key]
+      local modifier = mudlet.keymodifier[entry.modifier]
+      if code and modifier ~= nil then
+         local ok, id = pcall(tempKey, modifier, code, entry.fn)
+         if ok and id then
+            table.insert(reg, id)
+            bound = bound + 1
+         else
+            failed[#failed + 1] = string.format("%s (%s+%s): %s",
+               entry.name, entry.modifier, entry.key, tostring(id))
+         end
+      else
+         missing[#missing + 1] = string.format("%s (%s+%s)", entry.name, entry.modifier, entry.key)
+      end
+   end
+
+   if #missing > 0 then
+      log.warn("Unknown action key/modifier names, not bound: %s", table.concat(missing, ", "))
+   end
+   if #failed > 0 then
+      log.warn("%d action key binding(s) refused by Mudlet: %s",
+         #failed, table.concat(failed, "; "))
+   end
+   if bound < #M.ACTIONS then
+      log.warn("Action keys: only %d of %d bindings installed.", bound, #M.ACTIONS)
+   else
+      log.debug("Action keys: %d bindings (reload, hunt on, hunt off).", bound)
+   end
+   return bound > 0
+end
+
+function M.actionCount()
+   return #actionRegistry()
+end
+
 function M.setEnabled(enabled)
    emunah.config.set("keys.numpad", enabled)
    emunah.config.save()
@@ -232,5 +324,6 @@ event.register("sysDisconnectionEvent", function()
 end, "keys")
 
 M.build()
+M.buildActions()
 
 return M

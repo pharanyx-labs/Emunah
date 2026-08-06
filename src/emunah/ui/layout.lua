@@ -24,23 +24,40 @@ local theme = emunah.ui.theme
 --- Layout:
 ---
 ---   +----------+---------------------------+-------------+
----   | left     |                           | CHAT (top)  |
----   | affs +   |      main game console    |  ---------  |
----   | defences |                           | room/items  |
----   |          |                           |  + target   |
----   |          |                           |  ---------  |
+---   |          |     CHYRON (console width | only)       |
+---   | room/    |---------------------------+-------------+
+---   | items    |                           | CHAT (top)  |
+---   | -------- |      main game console    |  ---------  |
+---   | affs     |                           |  defences   |
+---   |          |                           |             |
 ---   |          |                           |  MAP        |
 ---   +----------+---------------------------+-------------+
----   |            vitals strip (HP MP EP WP, balances)     |
+---   |  target health bar (full width)                     |
+---   |  HP  MP  EP  WP                                      |
+---   |  BAL EQ  vectors  XP  class stats                    |
 ---   +-----------------------------------------------------+
 ---
 --- The vitals strip is deliberately the full width at the very bottom, so it sits
 --- directly under the last line of game text -- i.e. immediately above the prompt, where
 --- you are already looking during a fight. Health you have to glance away for is health
---- you notice too late.
+--- you notice too late. The target's own health belongs in that same eyeline, not tucked
+--- into a side column, so it lives there too as the top row of the same strip -- see
+--- ui/vitals.lua.
+---
+--- The chyron is the opposite of the vitals strip on purpose: scoped to the console's own
+--- width rather than the full window, because it sits directly above the room/chat columns
+--- and running it under them would either overlap their own top edge or read as wider than
+--- the announcement it is carrying warrants. See ui/chyron.lua.
 M.WIDTH_LEFT    = "17%"
 M.WIDTH_RIGHT   = "26%"
-M.HEIGHT_BOTTOM = "9%"
+--- Tall enough for three rows now: target bar, resource gauges, balance/stats. A little
+--- taller than the three rows strictly need (16% vs. ~13%), so the whole strip -- and the
+--- target bar sitting at its top -- clears the game console's own input line above it.
+M.HEIGHT_BOTTOM = "16%"
+--- One line plus padding for the scrolling chyron. Reserved like HEIGHT_BOTTOM is -- it
+--- pushes the console down rather than floating over its top line of text, the same
+--- reasoning the bottom strip already follows.
+M.HEIGHT_TOP    = "5%"
 
 --- Default height of the map region, as a percentage of the whole window.
 --- Overridable at runtime with `emunah ui map height <n>`.
@@ -60,7 +77,7 @@ function M.mapHeightPct()
 end
 
 --- Where the chat console ends inside the right-hand container, as a percentage OF THAT
---- CONTAINER. Chat above, room/items/target below.
+--- CONTAINER. Chat above, defences below.
 M.CHAT_SPLIT = "57%"
 
 --- THE MAP IS NOT IN A CONTAINER, AND THAT IS DELIBERATE
@@ -184,15 +201,24 @@ function M.build()
    -- strip spans the whole window and nothing overlaps it.
    local columnHeight = string.format("%d%%", 100 - M.percentOf(M.HEIGHT_BOTTOM))
 
+   -- Console-width only -- see the module header. Anchored off WIDTH_LEFT/WIDTH_RIGHT so a
+   -- change to either one cannot silently leave the chyron overlapping a side column.
+   local consoleWidth = string.format("%d%%",
+      100 - M.percentOf(M.WIDTH_LEFT) - M.percentOf(M.WIDTH_RIGHT))
+   make("emunah.top", {
+      x = M.WIDTH_LEFT, y = 0, width = consoleWidth, height = M.HEIGHT_TOP,
+      titleText = "Chyron",
+   })
+
    make("emunah.left", {
       x = 0, y = 0, width = M.WIDTH_LEFT, height = columnHeight,
-      titleText = "Afflictions",
+      titleText = "Room Data",
    })
 
    -- Stops above the map region so the container's background label cannot paint over it.
    make("emunah.right", {
       x = "-" .. M.WIDTH_RIGHT, y = 0, width = M.WIDTH_RIGHT, height = M.rightHeight(),
-      titleText = "Chat / Room",
+      titleText = "Chat",
    })
 
    make("emunah.bottom", {
@@ -228,7 +254,7 @@ function M.resizeConsole()
    setBorderLeft(math.floor(width * fraction(M.WIDTH_LEFT)))
    setBorderRight(math.floor(width * fraction(M.WIDTH_RIGHT)))
    setBorderBottom(math.floor(height * fraction(M.HEIGHT_BOTTOM)))
-   setBorderTop(0)
+   setBorderTop(math.floor(height * fraction(M.HEIGHT_TOP)))
 end
 
 function M.clearConsoleBorders()
@@ -267,7 +293,7 @@ function M.toggle()
 end
 
 --- Names of the containers we own, used for save-file cleanup.
-M.NAMES = { "emunah.left", "emunah.right", "emunah.bottom" }
+M.NAMES = { "emunah.top", "emunah.left", "emunah.right", "emunah.bottom" }
 
 --- Delete the saved geometry and rebuild from defaults.
 ---

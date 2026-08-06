@@ -1,6 +1,6 @@
 # The affliction table
 
-`src/emunah/curing/afflist.lua` maps 117 afflictions to the cures that remove them, the
+`src/emunah/curing/afflist.lua` maps 131 afflictions to the cures that remove them, the
 vector each cure runs on, and the priority of each within that vector. `curing/engine.lua`
 resolves one cure per vector per tick from this data alone.
 
@@ -158,13 +158,44 @@ wrong.
 **5. `fear` resolves through the `focus` vector**, but the published page names the action
 "Compose". Possibly terminology only, since the `focus` vector issues `FOCUS` elsewhere.
 
-**6. Afflictions observed without cure data.** `horror`, `pyre`, `crescendo` and three
-`unweaving*` effects have been seen named but have no confirmed cure, so they are absent
-from the table rather than guessed into it.
+**6. Afflictions observed without cure data.** `horror`, `pyre` and three `unweaving*`
+effects have been seen named but have no confirmed cure, so they are absent from the table
+rather than guessed into it. `crescendo` was in this list until 2026-08-03 -- see the change
+history below.
+
+**7. `stupidity`'s herb cure (`goldenseal`) does not work.** Unlike the ~75 entries checked
+against the published help, this one had no recorded provenance at all, and confirmed live
+20:57:29-20:58:04 (no opponent present): the engine pulled goldenseal from the rift and ate
+it every ~5 seconds for at least five cycles, and `stupidity` was still tracked after every
+one. The herb option is removed; `focus` is left in place, untested by that transcript.
+`AFFLICTION SHOW STUPIDITY` (the game's own reference command, confirmed to exist the same
+session -- see `affpop` in `curing/detect/init.lua`) would settle both what actually cures
+it and whether `focus` is right either.
 
 ## Change history
 
 Substantive corrections to the data, most recent first.
+
+**`nausea` and `crescendo` added.** Confirmed live 2026-08-03 15:52:00-15:52:17 against a
+bard in the arena: Char.Afflictions.Add carried `cure="EAT GINSENG"` for nausea and
+`cure="EAT ASH"` for crescendo (the latter closing open question #6 above). Before this,
+`crescendo` was untracked by design (open question #6) and `nausea` was simply never seen;
+both showed up in the log only as "Tracking unknown affliction ... (no cure defined)". The
+server-suggestion fallback in `curing/engine.lua` covered crescendo well enough in the same
+fight, but nausea shares the herb vector with paralysis and addiction, both of which were
+also up, and that fallback only runs when a vector has nothing else queued for it -- so
+nausea went uncured for the rest of the bout with no entry in the table to give it a turn.
+
+**DIAG's removal no longer waits for a fully-understood block.** `curing/detect/diag.lua`
+used to skip clearing anything from `M.tracked` if even one line in a DIAG reply named an
+affliction not in this table -- conservative on purpose, so a partial reading never cured
+less than before. In practice the game reports far more afflictions than this table knows,
+so one unmapped word in an otherwise-normal DIAG silently disabled every removal for that
+reading. Confirmed live 20:57:29-20:58:04: `stupidity` sat in `M.tracked` and was re-cured
+every ~5 seconds (goldenseal pulled from the rift, then `focus`) with no opponent present
+for the whole stretch, because nothing ever got the chance to clear it. DIAG spends a whole
+equilibrium specifically to re-establish ground truth; removal now runs unconditionally
+(the `loki` exception and the bare-state-confirms-deliberate exception are unchanged).
 
 **Four afflictions were uncurable.** `crackedribs`, `skullfractures`, `torntendons` and
 `wristfractures` shipped with an empty `priority` table. `afflist.priority()` returns `nil`

@@ -4,114 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Roadmap — Emunah</title>
-<style>
-:root{
-  --bg:#0b0f14; --bg-panel:#11161d; --bg-code:#090c10; --border:#1f2937;
-  --text:#cbd5e1; --text-dim:#8b98a9; --text-bright:#f1f5f9;
-  --accent:#22d3ee; --accent-dim:#0e7490; --green:#4ade80; --red:#f87171;
-  --yellow:#facc15; --purple:#c084fc;
-  --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
-  --font-mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-  margin:0; background:var(--bg); color:var(--text); font-family:var(--font-body);
-  font-size:16px; line-height:1.65;
-}
-a{color:var(--accent); text-decoration:none}
-a:hover{text-decoration:underline}
-code, pre, kbd{font-family:var(--font-mono)}
-code{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:4px;
-  padding:.15em .4em; font-size:.88em; color:#a5f3fc;
-}
-pre{
-  background:var(--bg-code); border:1px solid var(--border); border-radius:8px;
-  padding:16px 18px; overflow-x:auto; font-size:.88em; line-height:1.6;
-}
-pre code{border:none; padding:0; background:none; color:var(--text)}
-h1,h2,h3,h4{color:var(--text-bright); font-weight:600; line-height:1.3}
-h1{font-size:2.1em; margin:0 0 .3em}
-h2{font-size:1.5em; margin:2em 0 .6em; padding-bottom:.3em; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px}
-h3{font-size:1.1em; margin:1.4em 0 .4em; color:var(--text-bright)}
-p{margin:.8em 0}
-ul,ol{margin:.8em 0; padding-left:1.4em}
-li{margin:.4em 0}
-.layout{display:flex; min-height:100vh; max-width:1400px; margin:0 auto}
-nav.sidebar{
-  width:230px; flex-shrink:0; padding:28px 18px; position:sticky; top:0;
-  align-self:flex-start; height:100vh; overflow-y:auto; border-right:1px solid var(--border);
-}
-.brand{display:flex; align-items:baseline; gap:8px; margin-bottom:4px}
-.brand .glyph{color:var(--accent); font-family:var(--font-mono); font-weight:700; font-size:1.3em}
-.brand-name{font-weight:700; font-size:1.25em; color:var(--text-bright); font-family:var(--font-mono)}
-.tagline{color:var(--text-dim); font-size:.82em; margin:0 0 24px}
-nav.sidebar ul{list-style:none; margin:0; padding:0}
-nav.sidebar li{margin:0}
-nav.sidebar a{
-  display:block; padding:8px 10px; border-radius:6px; color:var(--text);
-  font-size:.92em; margin-bottom:2px;
-}
-nav.sidebar a:hover{background:var(--bg-panel); text-decoration:none}
-nav.sidebar a.active{background:rgba(34,211,238,.12); color:var(--accent); font-weight:600}
-.nav-group-title{
-  font-size:.72em; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim);
-  margin:20px 0 6px; padding:0 10px;
-}
-.nav-group-title:first-child{margin-top:0}
-main{flex:1; min-width:0; padding:40px 48px 100px}
-.content{max-width:780px}
-.callout{
-  border-left:3px solid var(--accent); background:var(--bg-panel); border-radius:0 8px 8px 0;
-  padding:12px 18px; margin:1.2em 0;
-}
-.callout p{margin:.4em 0}
-.callout-title{font-weight:700; font-size:.85em; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px}
-.callout-warn{border-left-color:var(--red)}
-.callout-warn .callout-title{color:var(--red)}
-.callout-tip{border-left-color:var(--green)}
-.callout-tip .callout-title{color:var(--green)}
-.pill{
-  font-family:var(--font-mono); font-size:.7em; padding:3px 10px; border-radius:20px;
-  font-weight:700; letter-spacing:.02em;
-}
-.pill-done{background:rgba(74,222,128,.15); color:var(--green)}
-.pill-open{background:rgba(148,163,184,.15); color:var(--text-dim)}
-.pill-blocked{background:rgba(250,204,21,.15); color:var(--yellow)}
-.item{
-  background:var(--bg-panel); border:1px solid var(--border); border-radius:8px;
-  padding:14px 18px; margin:10px 0; display:flex; gap:14px; align-items:flex-start;
-}
-.item .mark{font-family:var(--font-mono); font-size:1.1em; line-height:1.4; flex-shrink:0}
-.item.done .mark{color:var(--green)}
-.item.open .mark{color:var(--text-dim)}
-.item-body{flex:1}
-.item-body p{margin:.3em 0; font-size:.94em; color:var(--text-dim)}
-.item-body strong{color:var(--text-bright)}
-.phase-summary{color:var(--text-dim); font-size:.95em; margin-top:-6px}
-footer{
-  margin-top:60px; padding-top:24px; border-top:1px solid var(--border);
-  color:var(--text-dim); font-size:.85em;
-}
-.page-nav{
-  display:flex; justify-content:space-between; margin-top:60px; padding-top:20px;
-  border-top:1px solid var(--border); gap:20px;
-}
-.page-nav a{font-size:.92em}
-.page-nav .dir{display:block; color:var(--text-dim); font-size:.78em; text-transform:uppercase; letter-spacing:.04em}
-.page-nav .next{text-align:right}
-@media (max-width:900px){
-  .layout{flex-direction:column}
-  nav.sidebar{
-    width:100%; height:auto; position:relative; border-right:none;
-    border-bottom:1px solid var(--border); padding:18px;
-  }
-  nav.sidebar ul{display:flex; flex-wrap:wrap; gap:4px}
-  .nav-group-title{display:none}
-  main{padding:28px 20px 60px}
-}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="layout">
@@ -128,7 +21,11 @@ footer{
   <ul>
     <li><a href="curing.html">Curing Engine</a></li>
     <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="people.html">People &amp; Names</a></li>
+    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="interface.html">Interface</a></li>
     <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
   </ul>
   <div class="nav-group-title">Project</div>
   <ul>
@@ -159,38 +56,7 @@ ships.
 </tbody>
 </table>
 
-<h2 id="gaps">The two gaps</h2>
-
-<h3>Affliction detection is GMCP-driven</h3>
-<p>
-The trigger framework in <code>src/emunah/curing/detect/</code> is complete and data-driven.
-Its corpus is deliberately small, because <code>Char.Afflictions</code> reports only what
-Achaea chooses to announce — sufficient for hunting, incomplete for player combat by design.
-</p>
-<p>
-Closing it requires real message text, which cannot be written from documentation. Achaea's
-published help supplies affliction names, cure vocabulary and the class structure, but no
-message wording, balance figures or stacking rules. It serves as a completeness checklist,
-not a pattern source.
-</p>
-<p>The workflow is <code>emunah learn on</code>, fight or spar, <code>emunah learn off</code>, then add what was observed. In priority order:</p>
-<ol>
-  <li>Onset detection for the blocking afflictions: anorexia, asthma, slickness, paralysis.</li>
-  <li>Cure-side confirmation for the writhe-class binds.</li>
-  <li>Common lock-setup afflictions, named from the checklist, worded from transcripts.</li>
-  <li>The long tail, driven by what curing actually needs.</li>
-</ol>
-<div class="callout callout-note">
-<div class="callout-title">Why hunting transcripts have not closed this</div>
-<p>
-Combat logs gathered so far have been productive, but for mechanics rather than afflictions:
-balance behaviour, knockdown and stun handling, rejection wording, healing costs. None has
-produced an affliction <em>onset</em> message, because hunting denizens does not afflict the
-character. The corpus needs sparring or player combat specifically — the afflictions above
-are ones another player applies deliberately, and no amount of PvE logging will surface
-them.
-</p>
-</div>
+<h2 id="gaps">The gaps</h2>
 
 <h3>Offence is single-attack</h3>
 <p>
@@ -198,6 +64,30 @@ them.
 <code>handleShield</code> as an explicit refusal rather than a guess. There is no affliction
 sequencing, and only one class is implemented.
 </p>
+
+<h3>The trigger corpus is small &mdash; and that matters less than it did</h3>
+<p>
+This used to be the headline gap, on the reasoning that <code>Char.Afflictions</code> reports
+only what Achaea chooses to announce and is therefore unusable for PvP. That reasoning was
+wrong, and finding out cost less than acting on it would have.
+</p>
+<p>
+<strong>GMCP can be relied on for every affliction in PvP except <code>loki</code> and
+<code>blackout</code></strong>, with <code>recklessness</code> as a third case that falsifies
+vitals rather than hiding afflictions. <code>DIAG</code> answers <code>loki</code>, and
+<code>curing/detect/diag.lua</code> ships that. So the corpus is no longer the thing standing
+between the system and player combat; it is an optimisation — cure-side patterns free a
+vector a round trip earlier than the fallback timer would.
+</p>
+<div class="callout callout-note">
+<div class="callout-title">What that changed</div>
+<p>
+The plan had been to grow a few hundred onset patterns from sparring transcripts before PvP
+could be trusted at all. Most of that work is now unnecessary. It is recorded here rather
+than quietly deleted because the reversal is the useful part: the assumption was plausible,
+load-bearing, held for months, and never checked against the game.
+</p>
+</div>
 
 <h2 id="planned">Planned</h2>
 <div class="grid">
@@ -214,8 +104,16 @@ sequencing, and only one class is implemented.
     <p>Unimplemented until a shield-break mechanic is confirmed in play. The hunting loop treats the refusal as "cannot handle this" and stops, which is correct for an unknown.</p>
   </div>
   <div class="card">
+    <h3>Tattoo keep-up</h3>
+    <p>Defences raised by touching a tattoo — <code>boar</code>, <code>moss</code> — rather than by a skill. The mechanism already exists: <code>emset defs add &lt;name&gt; &lt;command&gt;</code> supplies the raising command, and the grid shows <code>[-]</code> for a defence wanted with no command available. What is missing is the shipped set.</p>
+  </div>
+  <div class="card">
+    <h3><code>CON</code>-based difficulty</h3>
+    <p>Using a denizen's <code>CON</code> to decide whether it is worth attacking, and whether the health floor should be higher for it. Blocked on confirming what the values actually mean in play.</p>
+  </div>
+  <div class="card">
     <h3>Open data questions</h3>
-    <p>Seven items need in-game confirmation, most significantly whether five table entries are defences mismodelled as afflictions.</p>
+    <p>Six items need in-game confirmation, most significantly whether five table entries are defences mismodelled as afflictions.</p>
   </div>
 </div>
 
@@ -241,7 +139,7 @@ See <a href="curing.html#detection">Curing → Detection</a> for the workflow th
 </footer>
 
 <div class="page-nav">
-  <div><span class="dir">Back</span><a href="architecture.html">&larr; Architecture</a></div>
+  <div><span class="dir">Back</span><a href="performance.html">&larr; Performance</a></div>
   <div class="next"><span class="dir">Start over</span><a href="index.html">Overview &rarr;</a></div>
 </div>
 

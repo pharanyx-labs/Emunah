@@ -50,4 +50,10 @@ opponent.add("epilepsy",    [[^(\w+) begins to shake uncontrollably\.$]])
 opponent.addCure("roped",      [[^(\w+) has writhed free of \w+ entanglement by tied ropes\.$]])
 opponent.addCure("transfixed", [[^(\w+) has writhed free of \w+ state of transfixation\.$]])
 
+-- Confirmed live, 2026-08-05, immediately after `recite guilt <name>`: the target ate a
+-- lobelia seed (guilt's own cure herb, see afflist.lua) and this line followed. No onset
+-- (landing) message was seen for guilt or justice -- see class/priest.lua's header on the
+-- Zeal verses for why no M.add() gain pattern exists for either yet.
+opponent.addCure("guilt", [[^(\w+) straightens, as if some great burden had been lifted from \w+ shoulders\.$]])
+
 return true

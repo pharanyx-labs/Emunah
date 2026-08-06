@@ -26,6 +26,12 @@ M.details = {}     -- array: "shop", "bank", ...
 --- name (lower) -> fullname
 M.players = {}
 
+--- name (lower) -> true-case short name, e.g. "anzerloi" -> "Anzerloi". A parallel table
+--- rather than a field on M.players' values: namedb.lua and namedb/capture.lua already
+--- iterate `pairs(room.players)` expecting a plain fullname string, and changing that
+--- shape would break both for the sake of a display-only need here.
+M.playerShort = {}
+
 local function onInfo()
    local info = gmcp.Room.Info
    if type(info) ~= "table" then return end
@@ -53,6 +59,7 @@ local function onInfo()
    -- and showing the previous room's occupants for a beat is worse than showing none.
    if previous ~= M.num then
       M.players = {}
+      M.playerShort = {}
    end
 
    event.raise("room", M.num, M.name)
@@ -95,12 +102,14 @@ local function onPlayers()
    if type(players) ~= "table" then return end
 
    M.players = {}
+   M.playerShort = {}
    for _, player in ipairs(players) do
       if player.name then
          local name = tostring(player.name)
          -- Exclude ourselves; every consumer wants "others here".
          if not M.isSelf(name) then
             M.players[name:lower()] = player.fullname and tostring(player.fullname) or name
+            M.playerShort[name:lower()] = name
          end
       end
    end
@@ -117,6 +126,7 @@ local function onAddPlayer()
    -- is a thing several consumers stop dead for.
    if M.isSelf(name) then return end
    M.players[name:lower()] = player.fullname and tostring(player.fullname) or name
+   M.playerShort[name:lower()] = name
    event.raise("room.playerEntered", name)
 end
 
@@ -127,6 +137,7 @@ local function onRemovePlayer()
    if not name then return end
    name = tostring(name)
    M.players[name:lower()] = nil
+   M.playerShort[name:lower()] = nil
    event.raise("room.playerLeft", name)
 end
 
@@ -147,6 +158,15 @@ end
 function M.playerNames()
    local out = {}
    for _, fullname in pairs(M.players) do out[#out + 1] = fullname end
+   table.sort(out)
+   return out
+end
+
+--- Sorted true-case SHORT names (no honorific/title), for display where the full name is
+--- too long to be useful -- e.g. the room panel, which has one line to work with.
+function M.playerShortNames()
+   local out = {}
+   for _, name in pairs(M.playerShort) do out[#out + 1] = name end
    table.sort(out)
    return out
 end

@@ -37,6 +37,11 @@ M.enabled = false
 M.target  = nil      -- replica number currently being attacked
 M.stats   = { killed = 0, rooms = 0, startedAt = 0, attacks = 0, dealt = 0, taken = 0 }
 
+--- Set only by the health-threshold branch of unsafe(). While true, maybeResume() watches
+--- for health to climb back out and restarts bashing on its own -- see the comment there
+--- for why this is scoped to exactly that one stop reason and no other.
+M.awaitingHealthResume = false
+
 --- Target health when we first saw it, and most recently, as percentages. Achaea reports
 --- this per hit via IRE.Target.Info, which is a far better signal than counting attacks:
 --- it says whether we are actually hurting the thing.
@@ -79,6 +84,11 @@ M.config = {
    -- Never attack with another player in the room. On by default: being seen auto-killing
    -- is the thing most worth not doing.
    soloOnly = true,
+   -- Percentage points ABOVE stopBelowHealth required before maybeResume() restarts
+   -- bashing on its own. Never the same line that stopped us -- a fight that put you at
+   -- 49% will put you there again on the very next hit, and resuming exactly on the
+   -- boundary is how the loop flaps on and off mid-swing instead of settling.
+   resumeMargin = 10,
 }
 
 local function setting(key)
@@ -108,6 +118,8 @@ function M.start()
    M.target = nil
    M.attemptsAtTarget = 0
    M.movedFrom = nil
+   M.lootHold = nil
+   M.awaitingHealthResume = false
    M.stats = { killed = 0, rooms = 0, startedAt = emunah.util.now(), attacks = 0, dealt = 0, taken = 0 }
 
    -- Take over pacing. Otherwise the walker's own timer speedwalks us out of a room
@@ -125,6 +137,14 @@ end
 --- @param reason string|nil why
 --- @param halt boolean|nil also stop the walk, for stops that mean "things are going wrong"
 function M.stop(reason, halt)
+   -- Cleared unconditionally, ABOVE the "already stopped" guard below. `emunah hunt off`
+   -- issued after a safety stop had already fired -- exactly the case this exists for --
+   -- reaches this function with M.enabled already false, and a reset placed after the
+   -- guard would never run for it: the pending resume would survive an explicit stop and
+   -- fire anyway the next time health recovered. tick() re-arms this immediately afterward
+   -- for the one reason that gets to resume itself -- see unsafe() and maybeResume().
+   M.awaitingHealthResume = false
+
    if not M.enabled then return false end
    M.enabled = false
    M.target = nil
@@ -169,12 +189,15 @@ end
 
 --- Should we stop for safety?
 --- @return string|nil reason
+--- @return boolean|nil resumable -- true only for the health-threshold case; every other
+---   reason (a watched resource, a player arriving) stays a manual restart on purpose. See
+---   maybeResume().
 local function unsafe()
    local vitals = emunah.gmcp.vitals
    local threshold = tonumber(setting("stopBelowHealth")) or 50
 
    if vitals and threshold > 0 and vitals.percent.hp < threshold then
-      return ("health below %d%%"):format(threshold)
+      return ("health below %d%%"):format(threshold), true
    end
 
    -- Everything that is not a flat health floor -- death, a damage spike, endurance,
@@ -210,6 +233,17 @@ end
 --- The room we have already asked the walker to leave, so we ask only once.
 M.movedFrom = nil
 
+--- How long to hold a cleared room for gold that is still on the floor.
+---
+--- Sized from what the wait is actually for: GET needs balance and equilibrium, the killing
+--- blow has just spent both, and a smite's balance is 2.8s. A shorter bound would expire
+--- before the thing it is waiting for could possibly happen, which is the same as not
+--- waiting at all.
+M.LOOT_WAIT = 4.0
+
+--- Room we are holding for loot, and until when. Bounded on purpose -- see roomClear().
+M.lootHold = nil
+
 --- Room is clear: hand back to the walker, or stop.
 ---
 --- Asking ONCE per room matters. tick() runs on every prompt, so an unguarded request
@@ -225,6 +259,45 @@ local function roomClear()
    if not (walker and walker.enabled) then return end
 
    local here = emunah.gmcp.room and emunah.gmcp.room.num
+
+   -- DO NOT WALK OUT ON GOLD WE ARE ABOUT TO PICK UP.
+   --
+   -- The room goes clear the moment the last denizen dies, and the gold from that kill
+   -- lands at the same instant -- but GET costs the balance and equilibrium the killing
+   -- blow just spent, so the first attempt is refused and the retry waits on
+   -- `balance.gained`. Without this the walker left first and the retry fired in the next
+   -- room, which is why a hunt finished with an empty pack and a trail of sovereigns
+   -- behind it.
+   --
+   -- CHECKED BEFORE THE movedFrom GUARD, and that ordering is the whole point. Achaea
+   -- normally sends the corpse, the spill and the prompt in one burst, so the gold is
+   -- already on the floor by the time this runs -- but not always. When the denizen's
+   -- removal and the prompt arrive first, the room is declared clear and movedFrom is set a
+   -- moment BEFORE the gold appears, and a check sitting after that guard would never run
+   -- again for this room. That is the case the bounded test covers.
+   --
+   -- BOUNDED, because the alternative is worse than losing the gold. loot.pending() already
+   -- answers false for anything permanently refused, but a bound is what makes a
+   -- miscategorised case cost four seconds instead of the rest of the session -- the same
+   -- argument as the attempt budgets in curing/engine.lua and loot.stowGold().
+   local loot = emunah.loot
+   if loot and loot.pending and loot.pending() then
+      local now = emunah.util.now()
+      if not (M.lootHold and M.lootHold.room == here) then
+         M.lootHold = { room = here, until_ = now + M.LOOT_WAIT }
+      end
+      if now < M.lootHold.until_ then
+         -- Re-open the room. If it was already declared clear, the request to leave has to
+         -- be made again once the gold is dealt with, or the hold would simply swallow it.
+         -- No raise happens on this path, so this cannot become the speedwalk-restart loop
+         -- the guard exists to prevent.
+         M.movedFrom = nil
+         return
+      end
+      log.debug("Gold still here after %.1fs -- moving on without it.", M.LOOT_WAIT)
+   end
+   M.lootHold = nil
+
    if M.movedFrom == here then return end
    M.movedFrom = here
 
@@ -238,9 +311,10 @@ end
 function M.tick()
    if not M.enabled then return end
 
-   local reason = unsafe()
+   local reason, resumable = unsafe()
    if reason then
       M.stop(reason, true)   -- halt the walk too; see M.stop
+      M.awaitingHealthResume = resumable == true
       return
    end
 
@@ -335,6 +409,21 @@ function M.tick()
    if not emunah.act.can({ standing = true }) then return end
 
    if class.canAttack() then
+      -- Battlerage amplifier, checked first: unlike penitence it costs neither balance nor
+      -- equilibrium, only its own 23s cooldown and rage, so there is no fight-length
+      -- calculation to make -- just "is it ready, and is it aimed at an actual denizen".
+      -- Nested inside canAttack() rather than run unconditionally so it lands exactly where
+      -- it was asked for: right before the attack that would otherwise have gone out this
+      -- tick. See priest.shouldDesolation().
+      if class.active and class.active.shouldDesolation
+         and denizens.isDenizen(M.target)
+         and class.active.shouldDesolation(M.target) then
+         if class.active.desolation(M.target) then
+            log.debug("Desolation on %s.", M.target)
+            return
+         end
+      end
+
       -- Amplify first, when the fight is long enough to repay it. This deliberately spends
       -- a turn that would otherwise be an attack -- penitence costs the same equilibrium
       -- smite does -- so it only happens once per target and only on the evidence of how
@@ -401,11 +490,14 @@ function M.report()
    return {
       running   = M.enabled,
       target    = M.target,
-      attack    = emunah.config.get("bashing.attack", "smite"),
+      attack    = emunah.config.get("bashing.attack", "angel sear"),
       -- Same default as priest.requirement(). It read "bal" here, so `emunah bash` reported
       -- a requirement the attack no longer uses -- exactly the wrong thing to be looking at
       -- when checking why an attack went out without equilibrium.
       balance   = emunah.config.get("bashing.balance", "both"),
+      -- Same shape of trap as above, for the resource actually spent rather than required --
+      -- see class/priest.lua's consumption().
+      consumes  = emunah.config.get("bashing.consumes", "eq"),
       killed    = M.stats.killed,
       attacks   = M.stats.attacks,
       rooms     = M.stats.rooms,
@@ -419,12 +511,59 @@ function M.report()
    }
 end
 
+--- Resume attacking on our own, once health has climbed back out past the margin -- but
+--- only from OUR OWN health-triggered stop (M.awaitingHealthResume), and only if there is
+--- still something here worth fighting.
+---
+--- Walking stays off regardless. This calls M.start(), never walker.start(): the walker
+--- was told "never walk home in an emergency" for a reason (see M.stop), and a resume that
+--- also started moving would undo that the moment the current room happened to be empty.
+--- roomClear() already refuses to raise walker.move while walker.enabled is false, so even
+--- an empty room here is harmless -- bashing just sits on, idle, rather than marching
+--- anywhere -- but there is no reason to leave it on for nothing, so we do not resume at
+--- all when the room already has nobody left to fight.
+local function maybeResume()
+   if M.enabled or not M.awaitingHealthResume then return end
+   local vitals = emunah.gmcp.vitals
+   if not vitals then return end
+
+   local threshold = tonumber(setting("stopBelowHealth")) or 50
+   local margin = tonumber(setting("resumeMargin")) or 10
+   if vitals.percent.hp < threshold + margin then return end
+
+   if #emunah.denizens.here() == 0 then
+      -- Nothing left here to resume onto, and nothing will change that without walking,
+      -- which this deliberately does not do. Stop watching rather than re-check forever.
+      M.awaitingHealthResume = false
+      return
+   end
+
+   M.awaitingHealthResume = false
+   log.info("Health recovered above %d%% -- resuming.", threshold + margin)
+   M.start()
+end
+
 -- ---------------------------------------------------------------------------
 -- wiring
 -- ---------------------------------------------------------------------------
 
 -- The prompt drives everything.
-event.register("emunah.tick", function() M.tick() end, "bashing")
+--
+-- ONE registration, not three. This module used to register three separate handlers on
+-- `emunah.tick` -- the loop, the resume check, and the damage tally -- and every prompt paid
+-- three dispatches to reach them. They are listed here in the order they were registered in
+-- before, and that order is not cosmetic: maybeResume() can switch M.enabled back on, and
+-- the damage tally reads that flag.
+event.register("emunah.tick", function()
+   M.tick()
+   maybeResume()
+
+   -- Damage taken, for the session report. vitals.damageTaken() has existed since the start
+   -- and had no callers.
+   if not M.enabled then return end
+   local vitals = emunah.gmcp.vitals
+   if vitals then M.stats.taken = M.stats.taken + vitals.damageTaken() end
+end, "bashing")
 
 -- ...except that the prompt is not enough on its own. Char.Vitals arrives when something
 -- HAPPENS, so an attack that becomes possible during a quiet moment waits for the next
@@ -432,8 +571,17 @@ event.register("emunah.tick", function() M.tick() end, "bashing")
 -- did not go out until 06:54:13.72, when the denizen's next hit finally produced a prompt.
 -- Three quarters of a second per swing, for nothing. Our own cooldown lapsing is exactly
 -- the signal that the wait is over, so act on it directly.
+--
+-- BOTH TIMERS, NOT JUST attack.balance. That was the whole guard while smite was the only
+-- attack ever configured -- it always consumed balance, so attack.balance was always the
+-- one that mattered. Angel Sear (the shipped default since 2026-08-04) consumes equilibrium
+-- instead and guards cure.equilibrium (see class/priest.lua's consumption()), so listening
+-- to attack.balance alone left the exact same stall this comment already describes, just on
+-- the other resource: equilibrium came back, and the follow-on attack waited for whatever
+-- unrelated event happened to produce the next prompt. Reported live, 2026-08-04.
 event.register("emunah.timer.expired", function(_, name)
-   if M.enabled and name == "attack.balance" then M.tick() end
+   if not M.enabled then return end
+   if name == "attack.balance" or name == "cure.equilibrium" then M.tick() end
 end, "bashing")
 
 event.register("emunah.items.removed", onRemoved, "bashing")
@@ -449,14 +597,6 @@ event.register("emunah.damage.dealt", function(_, amount)
    if M.enabled then M.stats.dealt = M.stats.dealt + (tonumber(amount) or 0) end
 end, "bashing")
 
--- Damage taken, for the session report. vitals.damageTaken() has existed since the start
--- and had no callers.
-event.register("emunah.tick", function()
-   if not M.enabled then return end
-   local vitals = emunah.gmcp.vitals
-   if vitals then M.stats.taken = M.stats.taken + vitals.damageTaken() end
-end, "bashing")
-
 -- Arriving somewhere new: forget the previous room's target and start on this one.
 event.register("emunah.walker.arrived", function()
    if not M.enabled then return end
@@ -466,6 +606,7 @@ event.register("emunah.walker.arrived", function()
    M.target = nil
    M.attemptsAtTarget = 0
    M.movedFrom = nil      -- a new room may need clearing and then leaving again
+   M.lootHold = nil       -- the hold was about the room we have just left
 end, "bashing")
 
 -- The walk ending ends the hunt. Without this the loop kept ticking over an exhausted

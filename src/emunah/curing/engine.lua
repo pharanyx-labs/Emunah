@@ -41,6 +41,7 @@ local event    = emunah.event
 local queue    = emunah.queue
 local have     = emunah.have
 local afflist  = emunah.curing.afflist
+local deflist  = emunah.curing.deflist
 local curelist = emunah.curing.curelist
 
 --- affliction name -> { since, source }
@@ -161,6 +162,21 @@ function M.count()
    return util.count(M.tracked)
 end
 
+--- Tracked afflictions that are not a defence held on purpose.
+---
+--- defkeepup.lua uses a nonzero count to mean "curing is fighting for a vector, stand down
+--- until it is not" -- but `blind`/`deaf` kept up deliberately never leave M.tracked once
+--- the character holds them, so gating on M.count() there would starve keep-up, including
+--- mindseye, the one defence that makes holding them survivable, forever. See the guard in
+--- defkeepup.lua's M.tick().
+function M.curableCount()
+   local n = 0
+   for name in pairs(M.tracked) do
+      if not deflist.deliberate(name) then n = n + 1 end
+   end
+   return n
+end
+
 --- Tracked afflictions sorted by onset, oldest first.
 function M.list()
    local out = {}
@@ -243,12 +259,70 @@ end
 -- cure resolution
 -- ---------------------------------------------------------------------------
 
+-- WHY THE TRACKED LIST IS SORTED ONCE PER TICK AND NOT ONCE PER VECTOR
+-- --------------------------------------------------------------------
+-- resolve() below runs for each of the six vectors, and it used to walk the whole of
+-- M.tracked every time -- asking deflist.deliberate(), afflist.known() and afflist.isState()
+-- about the same eight afflictions six times over, plus a second full pass per idle vector
+-- for the server-cure fallback. With eight afflictions up that is 53 deliberate() calls per
+-- prompt for eight afflictions' worth of answer.
+--
+-- None of those three questions depends on the vector. So they are asked once, here, and the
+-- vector loop reads the result. What IS per-vector -- priority and whether a cure is
+-- performable -- stays in resolve().
+
+--- Tracked afflictions worth resolving a cure for, and tracked afflictions afflist has never
+--- heard of. Plain arrays with an explicit count, reused across ticks: this runs on every
+--- prompt, and a fresh table per tick is exactly the kind of garbage that gets collected on
+--- the UI thread mid-lock.
+local curable, curableCount = {}, 0
+local unknown, unknownCount = {}, 0
+
+--- Split M.tracked into those two sets. Call once per tick, after anything that can change
+--- what is tracked and before the vector loop reads them.
+local function classify()
+   curableCount, unknownCount = 0, 0
+
+   for name in pairs(M.tracked) do
+      -- NEVER CURE A DEFENCE THE CHARACTER IS HOLDING ON PURPOSE.
+      --
+      -- `blind` and `deaf` are defences, and the game reports the resulting state as an
+      -- affliction too -- so this loop sees `blindness` and reaches for epidermal while the
+      -- user is deliberately blind. Watched at 13:55:02: "Cannot cure blindness: epidermal
+      -- is in the rift, not in hand", with DEF listing "You are blind." among twelve
+      -- defences at that moment. Only the salve being out of reach stopped it undoing a
+      -- defence that had been put up on purpose, and it would have kept undoing it for as
+      -- long as keep-up kept restoring it.
+      --
+      -- Gated on Char.Defences reporting the defence, so it lapses the instant the defence
+      -- does: a real blinding, with no `blind` defence up, cures normally.
+      if not deflist.deliberate(name) then
+         if afflist.known(name) then
+            curableCount = curableCount + 1
+            curable[curableCount] = name
+         -- afflist.isState() excludes `prone`, `stunned`, `sleeping`: those already have a
+         -- dedicated response in curing/detect (STAND, wait, WAKE), driven off the same GMCP
+         -- flag through emunah.affliction.added, not off this loop at all. Without this
+         -- check, `prone` fell into the "afflist has never heard of it" branch just like a
+         -- real unknown affliction, M.serverCure() saw Char.Afflictions' "STAND" suggestion,
+         -- and since STAND is a body-position command rather than a vector verb
+         -- (M.CURE_VERBS), logged "not acting on it" -- true of THIS loop, false of the
+         -- character, which was already standing back up via curing/detect.
+         elseif not afflist.isState(name) then
+            unknownCount = unknownCount + 1
+            unknown[unknownCount] = name
+         end
+      end
+   end
+end
+
 --- Best cure to perform on one vector right now.
 --- @return table|nil option, string|nil affliction
 local function resolve(vector)
    local bestOption, bestAffliction, bestRank
 
-   for name in pairs(M.tracked) do
+   for index = 1, curableCount do
+      local name = curable[index]
       local rank = afflist.priority(name, vector)
       if rank and (not bestRank or rank < bestRank) then
          for _, option in ipairs(afflist.curesVia(name, vector)) do
@@ -313,6 +387,24 @@ M.CURE_VERBS = {
 --- Rank for a server-suggested cure. Above every real priority, so a cure from afflist --
 --- which knows what is urgent -- always wins the vector.
 M.GMCP_CURE_PRIORITY = 500
+
+--- How long to wait between resends of the server's own suggested cure for one affliction.
+---
+--- Not "this cannot work" -- the suggestion is often exactly right, and unlike a normal
+--- afflist cure there is no have.cure() check gating it first, so nothing here can tell in
+--- advance whether it will succeed. This is purely "the game already answered this tick,
+--- stop asking again next tick regardless of what the answer was" -- the same shape as
+--- M.CURE_GUARD, but keyed by name rather than left to the queue's own confirm window,
+--- because a live rejection clears that window almost immediately and the resend follows
+--- right behind it.
+---
+--- Confirmed live 2026-08-05: "apply mending to arms" (the server's own suggestion for two
+--- simultaneously broken arms, tracked under a name afflist did not recognise) went back out
+--- on essentially every prompt for close to 30 seconds, each time rejected outright ("Your
+--- left arm is too severely damaged to permit that." / "Both your arms must be free and
+--- functioning to do that.") -- a real, mechanically-blocked case (see armAfflictions) that
+--- no retry cadence, however patient, would ever resolve on its own.
+M.SERVER_CURE_RETRY = 5.0
 
 local warnedVerb = {}
 
@@ -384,6 +476,25 @@ local function elixirAvailable(fluid)
    return emunah.timers.ready("elixir.missing." .. fluid)
 end
 
+--- How often to repeat "wanted to heal, no vial available" while it stays true.
+---
+--- M.elixirMissing() already warns once, at the moment the fluid is first found missing --
+--- but that is the only place it says so, and MISSING_RETRY holds the suppression for 120s.
+--- A fight that starts after the one-time warning has scrolled off sees nothing at all: the
+--- elixir vector just stops being used, with no line anywhere connecting that to a missing
+--- vial rather than a bug. Throttled rather than logged every tick for the same reason every
+--- other repeated-cause warning in this file is.
+M.ELIXIR_GAP_REMIND = 15
+
+--- Say why the elixir vector is idle while it is actually wanted.
+local function warnElixirGap(fluid, percent)
+   local key = "elixir.gapwarn." .. fluid
+   if not emunah.timers.ready(key) then return end
+   emunah.timers.start(key, M.ELIXIR_GAP_REMIND)
+   log.warn("Wanted to drink %s at %d%% but no %s vial is available -- this vector stays "
+      .. "idle until the missing-fluid window clears.", fluid, percent, fluid)
+end
+
 --- Health and mana as a percentage, for a threshold decision.
 ---
 --- Returns 0 for a resource Char.Vitals is lying about, which makes every threshold below
@@ -438,10 +549,28 @@ local function queueHealing()
    if hp < handsAt then
       queue.push("equilibrium", "perform hands", {
          priority = 0, tag = "healhands",
+         -- IT NEEDS BALANCE TOO, not just equilibrium.
+         --
+         -- Live at 12:01:18.64, 12:01:22.98 and 12:01:27.70: `perform hands` sent with the
+         -- prompt reading "e-" (equilibrium up, balance down, because smite had just taken
+         -- it) came back "You must regain balance first." every time. The two sent with
+         -- "ex-" at 12:01:30.94 and 12:01:34.31 both landed. Five for five.
+         --
+         -- Without this the loop is pathological rather than merely wasteful: smite takes
+         -- balance for 2.8s, which is most of the time during a fight, so nearly every
+         -- attempt is refused -- and each refusal was ALSO re-arming the herb timer (see
+         -- detect/patterns.lua), so failing to heal one way delayed healing the other way.
+         -- Declared as a `needs` rather than folded into have.balance("equilibrium")
+         -- because it is a fact about this COMMAND: `diag` shares the vector and has never
+         -- been observed to need balance.
+         needs    = { bal = true },
          -- Equilibrium is the most contested vector there is -- attacking and penitence
          -- both want it -- so this can wait seconds, and health recovers in that time.
          valid    = function() return healthPercent(vitals, "hp") < handsAt end,
-         confirm  = emunah.config.get("curing.confirmWait", 2.0),
+         -- Longer than the generic wait, for the reason ELIXIR_CONFIRM is: the equilibrium
+         -- it costs is 3s, so a 2s confirm window lapsed before the ability had finished
+         -- even when it worked perfectly, logging a re-arm for every successful heal.
+         confirm  = M.HANDS_EQUILIBRIUM + 1.0,
          onSent   = function()
             emunah.gmcp.vitals.spend("eq")
             emunah.timers.start("cure.equilibrium", M.HANDS_EQUILIBRIUM)
@@ -452,20 +581,36 @@ local function queueHealing()
    -- The availability check is part of the condition, not a wrapper around the push, so a
    -- fluid we cannot drink falls through to the next branch rather than blocking it. Health
    -- and mana share one vector; a missing health vial must not also stop mana.
-   if hp < healthAt and elixirAvailable("health") then
-      queue.push("elixir", "drink health", {
-         priority = 0, tag = "healhealth",
-         valid    = function() return healthPercent(vitals, "hp") < healthAt end,
-         confirm  = emunah.config.get("curing.elixirConfirm", M.ELIXIR_CONFIRM),
-         onSent   = function() have.spend("elixir") end,
-      })
-   elseif mp < manaAt and elixirAvailable("mana") then
-      queue.push("elixir", "drink mana", {
-         priority = 0, tag = "healmana",
-         valid    = function() return healthPercent(vitals, "mp") < manaAt end,
-         confirm  = emunah.config.get("curing.elixirConfirm", M.ELIXIR_CONFIRM),
-         onSent   = function() have.spend("elixir") end,
-      })
+   --
+   -- elixirAvailable() being false is silent everywhere else -- M.elixirMissing() logs once,
+   -- when the fluid is first found missing, and MISSING_RETRY holds that suppression for a
+   -- full 120s. Watched in an arena death 2026-08-03 15:52: health fell from 74% to 0% over
+   -- the second half of the fight with no further "Sent [elixir]" anywhere in the log and no
+   -- explanation for the gap -- the one-time warning, if it happened at all, was minutes
+   -- earlier and long since scrolled away. Re-announcing here, throttled, means a fight lost
+   -- to "no vial in hand" says so in the log instead of just going quiet.
+   if hp < healthAt then
+      if elixirAvailable("health") then
+         queue.push("elixir", "drink health", {
+            priority = 0, tag = "healhealth",
+            valid    = function() return healthPercent(vitals, "hp") < healthAt end,
+            confirm  = emunah.config.get("curing.elixirConfirm", M.ELIXIR_CONFIRM),
+            onSent   = function() have.spend("elixir") end,
+         })
+      else
+         warnElixirGap("health", hp)
+      end
+   elseif mp < manaAt then
+      if elixirAvailable("mana") then
+         queue.push("elixir", "drink mana", {
+            priority = 0, tag = "healmana",
+            valid    = function() return healthPercent(vitals, "mp") < manaAt end,
+            confirm  = emunah.config.get("curing.elixirConfirm", M.ELIXIR_CONFIRM),
+            onSent   = function() have.spend("elixir") end,
+         })
+      else
+         warnElixirGap("mana", mp)
+      end
    end
 end
 
@@ -531,11 +676,12 @@ end
 -- cure that did not happen. So carry a few of each ahead of time.
 --
 -- THE CEILING IS THE POINT. Inventory is lost on death and the rift is not, so this is not
--- "carry as many as possible" -- three of each covers a lock without turning a death into
--- a shopping trip. Raise it with `emunah config curing.stockTarget` if you would rather
--- risk the loss.
+-- "carry as many as possible". Set to 1 on request -- carrying only one of each trades away
+-- the buffer that covered a lock (a herb used mid-fight now waits on a fresh OUTR round
+-- trip before the same cure can fire again) in exchange for minimising what a death drops.
+-- Raise it with `emunah set curing.stockTarget <n>` if that trade stops being worth it.
 
-M.STOCK_TARGET = 3
+M.STOCK_TARGET = 1
 
 --- How many pulls of one item are allowed without the held count moving, before we stop.
 ---
@@ -610,10 +756,11 @@ local function queueRestock()
    local target = tonumber(emunah.config.get("curing.stockTarget", M.STOCK_TARGET))
       or M.STOCK_TARGET
 
-   local wanted = curelist.restockables()
-   -- Irid moss is not in the cure tables -- it treats no affliction, it refills health and
-   -- mana -- but it is eaten from inventory like everything else here, so it stocks alike.
-   wanted[#wanted + 1] = "irid"
+   -- Shared and read-only. This used to be copied here per tick, because appending "irid"
+   -- to curelist.restockables() grew the memoised list itself; curelist now memoises the
+   -- combined answer, so the copy is neither needed nor paid for. See
+   -- curelist.restockablesWithIrid() for the whole story -- nothing below may mutate it.
+   local wanted = curelist.restockablesWithIrid()
 
    for _, item in ipairs(wanted) do
       local held = have.quantity(item)
@@ -673,6 +820,75 @@ local function queueRestock()
    end
 end
 
+--- FILLING A SALVE TIN -- confirmed live for epidermal only:
+--- `FILL EMPTY WITH EPIDERMAL FROM RIFT`. See curelist.restockableSalves() for how far that
+--- is extended to the rest of the salve list, and why.
+---
+--- Simpler than queueRestock(): a tin is either usable right now or it is not, so this asks
+--- presence, not a target count, and shares the rift vector -- one pull or one fill in
+--- flight at a time, same as herbs. The bounded-attempts guard is the same shape as
+--- queueRestock()'s, for the same reason: a FILL that silently resolves the wrong tin, or
+--- produces an item name have.item()'s substring match does not recognise, must stop asking
+--- rather than retry forever.
+local salvePulls, salveWarned = {}, {}
+
+--- Reset the salve-restocking ledger. Same triggers as M.forgetStock(): a death or reload
+--- makes the previous attempt counts meaningless.
+function M.forgetSalveStock()
+   salvePulls, salveWarned = {}, {}
+end
+
+local function queueSalveRestock()
+   -- OFF BY DEFAULT, and not on a whim: confirmed live 2026-08-03 16:43 that `have.item()`
+   -- never recognises a filled vial as holding the salve it now holds -- ELIST shows the
+   -- vial's own name ("Oaken vial418713") and its fluid ("a caloric salve") as separate
+   -- columns, so a filled vial almost certainly never carries the substance name in the
+   -- Char.Items `name` field the way a loose herb stack does. That means the "is it in hand
+   -- yet" check this loop's stopping condition depends on can never turn true, so it never
+   -- stops -- three consecutive `fill empty with caloric from rift` went out a few seconds
+   -- apart, each one draining 200 sips from the rift (1000 -> 800 -> 600 -> 400) and eating
+   -- another empty vial, until the user manually paused curing to stop it. Left here,
+   -- disabled, until there is a confirmed way to read a vial's contents back from GMCP --
+   -- turning this on without that fix reproduces the drain.
+   if emunah.config.get("curing.restockSalves", false) ~= true then return end
+   -- Shares the rift vector with herb pulls: never in competition with a pull that is
+   -- actually needed right now.
+   if queue.pending("rift") or queue.awaiting("rift") then return end
+
+   local items = emunah.gmcp.items
+   if not (items and items.inventoryKnown()) then return end
+   local ire = emunah.gmcp.ire
+   if not (ire and ire.riftKnown()) then return end
+
+   for _, item in ipairs(curelist.restockableSalves()) do
+      if have.item(item) > 0 then
+         -- In hand again: whatever was filled worked, so the budget resets for next time.
+         salvePulls[item] = 0
+      elseif have.inRift(item) > 0 then
+         local spent = salvePulls[item] or 0
+         if spent >= M.STOCK_ATTEMPTS then
+            if not salveWarned[item] then
+               salveWarned[item] = true
+               log.warn("Filled towards %s %d times and still none in hand -- not trying "
+                  .. "again. Check FILL's wording against what this expects.", item, spent)
+            end
+         else
+            queue.push("rift", string.format("fill empty with %s from rift", item), {
+               priority = 55,
+               tag      = "restock-salve",
+               needs    = { alive = true },
+               confirm  = emunah.config.get("curing.riftConfirm", 1.5),
+               onSent   = function()
+                  have.spend("rift")
+                  salvePulls[item] = (salvePulls[item] or 0) + 1
+               end,
+            })
+            return
+         end
+      end
+   end
+end
+
 -- ---------------------------------------------------------------------------
 -- TOUCH TREE -- the last resort
 -- ---------------------------------------------------------------------------
@@ -706,6 +922,12 @@ local function queueTree()
    -- have.cure() for an ordinary cure; this path builds its own command, so it asks here.
    if not have.def("tree") then return end
    if not have.balance("tree") then return end
+   -- BOTH ARMS BROKEN, and touching a tattoo needs a working hand. Reported in play: this
+   -- is refused the same way paralysis is (see queue.WHILE_PARALYSED). No entry in
+   -- afflist.lua calls out `tree` as a vector, so have.cure() never sees this option --
+   -- queueTree() builds the command itself and has to ask the same question have.cure()
+   -- would have for any other vector.
+   if have.bothArmsBroken and have.bothArmsBroken() then return end
 
    local now = util.now()
    for name, record in pairs(M.tracked) do
@@ -768,6 +990,7 @@ end
 function M.restockNow()
    if not M.enabled then return end
    queueRestock()
+   queueSalveRestock()
    queue.flush()
 end
 
@@ -819,7 +1042,11 @@ function M.tick()
    local restockEvery = tonumber(emunah.config.get("curing.restockEvery", 1)) or 1
    if vitals and restockEvery > 0 and (vitals.ticks % restockEvery) == 0 then
       queueRestock()
+      queueSalveRestock()
    end
+
+   -- One pass over what is tracked, feeding both loops below. See classify().
+   classify()
 
    for _, vector in ipairs(M.VECTORS) do
       local option, affliction, rank = resolve(vector)
@@ -828,10 +1055,24 @@ function M.tick()
       -- the server has suggested a cure for something we are tracking but do not know how
       -- to treat -- the case afflist has simply never heard of.
       if not option then
-         for name in pairs(M.tracked) do
-            if not afflist.known(name) then
+         for index = 1, unknownCount do
+            local name = unknown[index]
+            -- `unknown` has already excluded defences held on purpose, and for the same
+            -- reason resolve() does: the server's own "cure" suggestion undoes a defence
+            -- exactly as readily as afflist's table does. `insomnia` has no afflist entry at
+            -- all, so this loop was the only thing that ever tried to cure it -- and did,
+            -- straight through the guard that stops every other vector. See
+            -- deflist.M.DELIBERATE.
+            --
+            -- timers.ready() is the resend pace, not a success/failure check -- see
+            -- M.SERVER_CURE_RETRY. It is armed unconditionally on send, so a genuine
+            -- success and a live rejection are throttled exactly alike; the difference is
+            -- that a success also removes the tracked affliction, which is what actually
+            -- stops this loop from reaching it again.
+            if emunah.timers.ready("cure.servercure." .. name) then
                local suggestedVector, suggestedCommand = M.serverCure(name)
                if suggestedVector == vector and suggestedCommand then
+                  emunah.timers.start("cure.servercure." .. name, M.SERVER_CURE_RETRY)
                   queue.push(vector, suggestedCommand, {
                      priority = M.GMCP_CURE_PRIORITY,
                      tag      = name .. " (server-suggested)",
@@ -977,7 +1218,10 @@ M.RESTOCK_CHAIN = 0.05
 
 -- Death drops the pack. Every count in the ledger now describes inventory that is on the
 -- floor of wherever you died, and the settle windows describe commands about it.
-event.register("emunah.character.died", function() M.forgetStock() end, "curing.engine")
+event.register("emunah.character.died", function()
+   M.forgetStock()
+   M.forgetSalveStock()
+end, "curing.engine")
 
 event.register("emunah.balance.recovered", function(_, vector)
    if vector ~= "rift" then return end
@@ -990,6 +1234,7 @@ event.register("sysDisconnectionEvent", function()
    -- Inventory and rift counts are both re-listed on connect, and a death may have emptied
    -- the pack in between, so the restocking ledger from the last session means nothing.
    M.forgetStock()
+   M.forgetSalveStock()
 end, "curing.engine")
 
 -- Restore the previous on/off state, but never auto-enable on a fresh install.

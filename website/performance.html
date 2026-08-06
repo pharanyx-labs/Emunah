@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Performance — Emunah</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
+  <p class="tagline">An Achaea system for Mudlet</p>
+  <ul>
+    <li><a href="index.html">Overview</a></li>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="commands.html">Command Reference</a></li>
+    <li><a href="api.html">Lua API</a></li>
+  </ul>
+  <div class="nav-group-title">How it works</div>
+  <ul>
+    <li><a href="curing.html">Curing Engine</a></li>
+    <li><a href="combat.html">Combat &amp; PvP</a></li>
+    <li><a href="people.html">People &amp; Names</a></li>
+    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html" class="active">Performance</a></li>
+  </ul>
+  <div class="nav-group-title">Project</div>
+  <ul>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main class="with-toc">
+<div class="content">
+
+<h1>Performance</h1>
+<p>
+Achaea combat is decided on round trips. A cure that resolves after the prompt it was
+needed on is a cure that did not happen. Mudlet runs every installed package in a single
+Lua state on the UI thread, so time spent here is time the whole client is not drawing, not
+reading input, and not sending — and the garbage produced here is collected at the exact
+moment the character is being locked.
+</p>
+<p>
+This page records what the hot paths are, what was wrong with them, and how to measure
+whether a change made things better. Everything below was measured, not reasoned about.
+</p>
+
+<h2 id="paths">The two paths that matter</h2>
+<p>
+Only two code paths run at game speed, and they have very different costs.
+</p>
+
+<table>
+<thead><tr><th>Path</th><th>Fires on</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td>Trigger matching</td><td>Every line of game output</td><td>Mudlet C++ PCRE — effectively free to us</td></tr>
+<tr><td><code>engine.tick()</code></td><td>Every prompt (<code>Char.Vitals</code>)</td><td>All of it ours</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-note">
+  <div class="callout-title">The per-line path is already optimal</div>
+  <p>
+  Every pattern in <code>curing/detect/</code> is registered with <code>tempRegexTrigger</code>,
+  which Mudlet matches in C++ before any Lua runs. There is no Lua handler on
+  <code>sysDataReceived</code> and there must not be one: a per-line Lua callback would run
+  for every line of a busy area's output, and that is the one budget in this system with no
+  slack in it at all.
+  </p>
+</div>
+
+<p>
+The per-prompt path is where the work is. <code>curing/engine.lua</code>'s <code>tick()</code>
+reconciles affliction state, resolves a cure on each of six vectors, checks healing across
+three independent balances, and maintains rift stock — on every prompt, which in a fight is
+several times a second.
+</p>
+
+<h2 id="cost">What it costs now</h2>
+<p>
+Measured with <code>test/bench.lua</code> under a realistic lock: eight afflictions tracked
+across every vector, herbs in hand, health and mana below all four healing thresholds.
+</p>
+
+<table>
+<thead><tr><th></th><th>Before</th><th>After</th></tr></thead>
+<tbody>
+<tr><td><code>engine.tick()</code></td><td>1851 µs</td><td><strong>321 µs</strong></td></tr>
+<tr><td><code>config.get("curing.confirmWait")</code></td><td>0.76 µs, 88 B</td><td>0.13 µs, <strong>0 B</strong></td></tr>
+<tr><td><code>afflist.priority(aff, vector)</code></td><td>0.92 µs, 152 B</td><td>0.49 µs, <strong>0 B</strong></td></tr>
+<tr><td><code>afflist.curesVia(aff, vector)</code></td><td>0.49 µs, 80 B</td><td>0.22 µs, <strong>0 B</strong></td></tr>
+<tr><td><code>curelist.restockables()</code></td><td>0.71 µs, 88 B</td><td>0.27 µs, <strong>0 B</strong></td></tr>
+</tbody>
+</table>
+
+<p>
+A <strong>5.8×</strong> reduction in the per-prompt cost, and the four queries the tick leans
+on hardest no longer allocate at all.
+</p>
+
+<h2 id="wrong">The five things that were wrong</h2>
+<p>
+Each of these was found by profiling, not by reading. The order is the order they mattered.
+</p>
+
+<h3>1. Re-lowercasing the entire inventory, thirty times per prompt</h3>
+<p>
+<code>gmcp/items.lua</code> matched item names case-insensitively by calling
+<code>name:lower()</code> on every entry, on every query. Restocking asks
+<code>have.quantity()</code> once per restockable consumable — eighteen of them — and
+<code>have.cure()</code> asks <code>count()</code> once per cure option it considers. That is
+dozens of full inventory scans per prompt, each rebuilding lowercase copies of strings that
+only change when Achaea sends a <code>Char.Items</code> message.
+</p>
+<p>
+Item names are now lowercased <strong>once</strong>, in <code>copyItem()</code>, the only way
+an item enters storage. This alone was worth roughly 40% of the tick.
+</p>
+
+<h3>2. Recomputing answers that only change when the game says so</h3>
+<p>
+Even with the lowercase fixed, <code>count()</code> and <code>quantity()</code> still walked
+the pack for each of the same eighteen names every prompt. Both are now memoised against
+<code>items.generation</code>, a counter bumped by every one of the six sites that mutates
+<code>M.locations</code>.
+</p>
+<div class="callout callout-warn">
+  <div class="callout-title">Why the memo is dropped wholesale</div>
+  <p>
+  The dangerous failure here is a stale count — believing the character still holds a herb it
+  has already eaten, which has the engine queue a cure that cannot fire. Invalidation is
+  therefore total rather than surgical, and <code>test/run.lua</code> asserts every edge
+  (add, remove, update, list, and per-location isolation), each <em>after</em> a read has
+  primed the cache, since that is the only ordering in which a missing invalidation shows up.
+  </p>
+</div>
+
+<h3>3. Formatting log messages nobody would read</h3>
+<p>
+<code>log.debug(fmt, ...)</code> built its message and <em>then</em> checked whether the level
+allowed printing it. At the default <code>info</code> level that is a <code>pcall</code> and a
+<code>string.format</code> run and discarded on every debug call — and <code>tick()</code>,
+<code>queue.flush()</code> and <code>act.send()</code> between them reach
+<code>log.debug</code> several times per prompt. The level check now comes first.
+</p>
+
+<h3>4. Allocating a table to say &ldquo;nothing&rdquo;</h3>
+<p>Three separate hot functions allocated a fresh <code>{}</code> per call:</p>
+<ul>
+  <li><code>config.get(path, {})</code> — the default table is built on every call whether
+      used or not, and <code>afflist.priority()</code> did this once per tracked affliction
+      per vector.</li>
+  <li><code>afflist.curesVia()</code> returned a new list every call, for a table that never
+      changes.</li>
+  <li><code>items.at()</code> answered an unknown location with a new empty table.</li>
+</ul>
+<p>
+All three now share read-only constants, and <code>curesVia()</code> builds a per-affliction
+index on first use — <code>afflist.afflictions</code> is written at load and never mutated at
+runtime, so the answer for a given pair cannot change.
+</p>
+
+<h3>5. Splitting the same dotted paths forever</h3>
+<p>
+<code>config.get("curing.confirmWait")</code> ran a <code>gmatch</code> per call, and
+<code>gmatch</code> allocates an iterator every time. The engine reads a couple of dozen
+settings per prompt; settings change when a human types <code>emset set</code>. Reads are now
+memoised by path, invalidated wholesale by <code>set()</code>, <code>load()</code> and
+<code>reset()</code>.
+</p>
+<p>
+Two details are load-bearing and both are tested: a cached <strong>miss</strong> must die when
+the path is later created, and the fallback belongs to the caller — two call sites may ask for
+the same missing path with different defaults, so the cache stores a sentinel rather than the
+first caller's default.
+</p>
+
+<h2 id="measuring">Measuring</h2>
+<pre><code>lua test/bench.lua [iterations]     # wall time and bytes per call
+lua test/profile.lua [iterations]   # sampling profiler, hottest lines</code></pre>
+
+<p>Two traps, both of which produced confidently wrong numbers before they were noticed:</p>
+
+<div class="callout callout-warn">
+  <div class="callout-title">os.clock is stubbed</div>
+  <p>
+  <code>mock.install()</code> replaces it with the manually-advanced test clock so cooldown
+  maths is deterministic. Timing against it measures the fake clock — the first version of
+  <code>bench.lua</code> reported a flat &ldquo;250000 µs/call&rdquo; because it stepped the
+  clock 0.25&nbsp;s per iteration. Use <code>mock.realClock</code>.
+  </p>
+</div>
+
+<div class="callout callout-warn">
+  <div class="callout-title">The profiler's own timings are meaningless</div>
+  <p>
+  <code>debug.sethook</code> at a 1000-instruction interval dominates the wall clock. Its
+  <em>relative</em> sample counts are what to read; take absolute figures from
+  <code>bench.lua</code>, which runs unhooked.
+  </p>
+</div>
+
+<h2 id="rules">Rules for changes to the tick</h2>
+<ul>
+  <li><strong>Nothing per-line in Lua.</strong> If a new detection need arises, it is a
+      <code>tempRegexTrigger</code>.</li>
+  <li><strong>Cache against a generation, not a timestamp.</strong> A time-based cache in a
+      curing system is a stale-state bug waiting for a fight to expose it. Bump a counter at
+      the mutation site.</li>
+  <li><strong>Every memo needs an invalidation test</strong>, written to prime the cache
+      first.</li>
+  <li><strong>Prefer a shared read-only constant to a fresh empty table</strong>, and never
+      hand one to something that mutates.</li>
+  <li><strong>Measure before and after.</strong> <code>git stash push -- src/</code> gives an
+      honest baseline; the benchmark files are untracked and survive the stash.</li>
+</ul>
+
+<footer>
+Everything on this page was measured, not reasoned about. The benchmark and profiler live in
+<code>test/bench.lua</code> and <code>test/profile.lua</code>; the draw-call budget is asserted
+in <code>test/run.lua</code>.
+</footer>
+
+<div class="page-nav">
+  <div><span class="dir">Back</span><a href="architecture.html">&larr; Architecture</a></div>
+  <div class="next"><span class="dir">Next</span><a href="roadmap.html">Roadmap &rarr;</a></div>
+</div>
+
+</div>
+<div class="toc">
+  <div class="toc-title">On this page</div>
+  <a href="#paths">The two paths</a>
+  <a href="#cost">What it costs now</a>
+  <a href="#wrong">What was wrong</a>
+  <a href="#measuring">Measuring</a>
+  <a href="#rules">Rules for the tick</a>
+</div>
+</main>
+</div>
+</body>
+</html>

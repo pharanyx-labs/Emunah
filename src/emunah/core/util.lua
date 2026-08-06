@@ -53,9 +53,16 @@ end
 -- strings
 -- ---------------------------------------------------------------------------
 
+--- One `match`, not two chained `gsub`s.
+---
+--- `s:gsub(...):gsub(...)` builds an intermediate string and then a second one, and returns
+--- a count alongside each that the parens then throw away. A single anchored lazy match does
+--- the same job with one allocation -- and none at all when there is no whitespace to trim,
+--- because Lua hands back the interned original rather than a copy. This is called from the
+--- charstats parse on every prompt and from every command handler that reads an argument.
 function util.trim(s)
    if type(s) ~= "string" then return "" end
-   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+   return s:match("^%s*(.-)%s*$")
 end
 
 --- Split on a Lua pattern.
