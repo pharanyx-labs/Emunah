@@ -11,7 +11,7 @@
 --- balance instead. Lower-priority pushes onto an occupied slot are dropped rather than
 --- stacked, because a backlog of stale cures is worse than none.
 
-local queue = {}
+local M = {}
 
 local log = emunah.log
 
@@ -19,7 +19,7 @@ local log = emunah.log
 --- `rift` is not a balance at all -- OUTR costs nothing. It is a vector so that one pull
 --- can be in flight at a time: the item does not appear in Char.Items instantly, and
 --- without a slot to hold, every tick in that window pulls another one.
-queue.VECTORS = {
+M.VECTORS = {
    "free", "balance", "equilibrium",
    "herb", "salve", "elixir", "smoke", "focus", "tree", "writhe", "special",
    "moss", "rift",
@@ -40,7 +40,7 @@ local function vectorReady(vector)
 end
 
 --- Queue an action.
---- @param vector string one of queue.VECTORS
+--- @param vector string one of M.VECTORS
 --- @param command string the game command to send
 --- @param opts table|nil { priority = number (lower wins, default 100),
 ---                         tag = string (what this is for, e.g. an affliction name),
@@ -49,7 +49,7 @@ end
 ---                         valid = function -> boolean, re-checked at send time,
 ---                         onSent = function, onTimeout = function }
 --- @return boolean queued
-function queue.push(vector, command, opts)
+function M.push(vector, command, opts)
    opts = opts or {}
    if type(command) ~= "string" or command == "" then return false end
 
@@ -122,7 +122,7 @@ end
 --- letting it through would only spend the round trip queueTree() is trying to avoid in the
 --- first place, on the one occasion it matters most (nothing else curable, tree the last
 --- resort).
-queue.WHILE_PARALYSED = {
+M.WHILE_PARALYSED = {
    herb = true, moss = true, free = true, writhe = true,
 }
 
@@ -133,15 +133,15 @@ local function paralysed()
    return afflictions and afflictions.has("paralysis") or false
 end
 
-function queue.flush()
+function M.flush()
    -- Cheap early out: stun refuses everything, so there is no point walking the vectors.
    if not emunah.act.can() then return 0 end
 
    local locked = paralysed()
 
    local sent = 0
-   for _, vector in ipairs(queue.VECTORS) do
-      if locked and not queue.WHILE_PARALYSED[vector] then
+   for _, vector in ipairs(M.VECTORS) do
+      if locked and not M.WHILE_PARALYSED[vector] then
          -- Skip: the game will refuse it, and the refusal costs a round trip in a fight
          -- where the eat that fixes this is waiting behind it.
       else
@@ -198,7 +198,7 @@ end
 
 --- Mark the in-flight action on a vector as confirmed by the game.
 --- @return table|nil the action that was confirmed
-function queue.confirm(vector)
+function M.confirm(vector)
    local action = inFlight[vector]
    if not action then return nil end
    if action.timeoutId then killTimer(action.timeoutId) end
@@ -207,17 +207,17 @@ function queue.confirm(vector)
 end
 
 --- What is waiting on a vector, if anything.
-function queue.pending(vector)
+function M.pending(vector)
    return slots[vector]
 end
 
 --- What has been sent on a vector but not yet confirmed.
-function queue.awaiting(vector)
+function M.awaiting(vector)
    return inFlight[vector]
 end
 
 --- Drop the pending action on one vector, or all of them.
-function queue.clear(vector)
+function M.clear(vector)
    if vector then
       slots[vector] = nil
       return
@@ -228,7 +228,7 @@ end
 --- Drop everything, pending and in-flight. Used on disconnect and when curing is
 --- switched off mid-fight -- leaving in-flight entries around would block the vectors
 --- when curing is switched back on.
-function queue.reset()
+function M.reset()
    for _, action in pairs(inFlight) do
       if action.timeoutId then killTimer(action.timeoutId) end
    end
@@ -236,9 +236,9 @@ function queue.reset()
 end
 
 --- Snapshot for the UI and for `emunah debug queue`.
-function queue.snapshot()
+function M.snapshot()
    local out = {}
-   for _, vector in ipairs(queue.VECTORS) do
+   for _, vector in ipairs(M.VECTORS) do
       if slots[vector] or inFlight[vector] then
          out[vector] = {
             pending  = slots[vector] and slots[vector].command,
@@ -250,7 +250,7 @@ function queue.snapshot()
 end
 
 emunah.event.register("sysDisconnectionEvent", function()
-   queue.reset()
+   M.reset()
 end, "queue")
 
-return queue
+return M

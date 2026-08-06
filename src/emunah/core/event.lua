@@ -16,7 +16,7 @@
 --- `emunah._handlers`, which the loader carries across reloads specifically so that the
 --- *new* generation can kill the *old* one before registering itself.
 
-local event = {}
+local M = {}
 
 local function registry()
    emunah._handlers = emunah._handlers or {}
@@ -28,7 +28,7 @@ end
 --- @param fn function|string handler function, or the name of a global function
 --- @param owner string|nil grouping key so a single module can drop all of its handlers
 --- @return number|nil handler id
-function event.register(name, fn, owner)
+function M.register(name, fn, owner)
    local id = registerAnonymousEventHandler(name, fn)
    if not id then
       emunah.log.error("Failed to register a handler for %s", name)
@@ -43,10 +43,10 @@ end
 
 --- Register handlers for several events sharing one callback.
 --- @param names table array of event names
-function event.registerAll(names, fn, owner)
+function M.registerAll(names, fn, owner)
    local ids = {}
    for _, name in ipairs(names or {}) do
-      ids[#ids + 1] = event.register(name, fn, owner)
+      ids[#ids + 1] = M.register(name, fn, owner)
    end
    return ids
 end
@@ -59,8 +59,8 @@ end
 --- a message is reported even when its handler bails out early on a malformed payload --
 --- "it arrived and we ignored it" and "it never arrived" are otherwise indistinguishable
 --- from the outside, and that distinction is usually the whole question.
-function event.gmcp(message, fn, owner)
-   return event.register("gmcp." .. message, function(...)
+function M.gmcp(message, fn, owner)
+   return M.register("gmcp." .. message, function(...)
       if emunah.log.traceGmcp then
          -- Resolve the live table by walking the message path: "Char.Vitals" -> gmcp.Char.Vitals
          local node = gmcp
@@ -77,7 +77,7 @@ end
 --- Drop every handler belonging to one owner. Called by modules that rebuild their own
 --- registrations without a full system reload.
 --- @return number handlers removed
-function event.kill(owner)
+function M.kill(owner)
    local reg = registry()
    local handlers = reg[owner]
    if not handlers then return 0 end
@@ -92,18 +92,18 @@ end
 --- Drop every handler the system owns. Called by the loader immediately before a reload
 --- rebuilds the namespace.
 --- @return number handlers removed
-function event.killAll()
+function M.killAll()
    local reg = registry()
    local n = 0
    for owner in pairs(reg) do
-      n = n + event.kill(owner)
+      n = n + M.kill(owner)
    end
    emunah._handlers = {}
    return n
 end
 
 --- Currently registered handlers, grouped by owner. For `emunah debug handlers`.
-function event.list()
+function M.list()
    local out = {}
    for owner, handlers in pairs(registry()) do
       local names = {}
@@ -116,8 +116,8 @@ end
 
 --- Raise a namespaced system event. Keeps the "emunah." prefix in one place so external
 --- scripts have a stable surface to hook.
-function event.raise(name, ...)
+function M.raise(name, ...)
    raiseEvent("emunah." .. name, ...)
 end
 
-return event
+return M

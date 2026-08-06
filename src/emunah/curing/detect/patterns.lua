@@ -316,7 +316,7 @@ end
 ---
 --- So failing to heal via equilibrium was delaying healing via herbs, at exactly the moment
 --- both were needed. What the message unambiguously states is that BALANCE is not there;
---- that much is always safe to record. The herb reading is kept -- mechanics.md has it as
+--- that much is always safe to record. The herb reading is kept -- balance.md has it as
 --- what a herb eaten too soon gets -- but only when there is a herb or moss action actually
 --- in flight to have earned it.
 local function onBalanceRefused()

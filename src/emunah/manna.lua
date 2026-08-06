@@ -7,7 +7,7 @@
 ---     get bowl                        needs balance AND equilibrium, so it must wait
 ---     drink bowl                      drains it
 ---
---- Transcribed from one live run at 07:07:08 -- see docs/game/mechanics.md. The player typed
+--- Transcribed from one live run at 07:07:08 -- see docs/game/sustenance.md. The player typed
 --- each command by hand with several seconds between them; the pauses in that transcript are
 --- a human waiting, not a required delay, and the actual constraint is narrower and exactly
 --- knowable: the rite announces "Equilibrium used: 3.00s." and GET needs equilibrium back.

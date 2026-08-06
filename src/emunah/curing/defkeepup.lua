@@ -495,23 +495,21 @@ function M.tick()
    queue.flush()
 end
 
-function M.start()
+--- @param silent boolean|nil skip the "Defence keep-up on." line -- for a caller (`pp`) that
+---   is about to print its own summary covering this and another module together
+function M.start(silent)
    M.enabled = true
    emunah.config.set("defences.enabled", true)
-   log.info("Defence keep-up <ansi_light_green>on<ansi_yellow>.")
+   if not silent then log.info("Defence keep-up <ansi_light_green>on<ansi_yellow>.") end
    event.raise("defkeepup.enabled")
 end
 
-function M.stop()
+--- @param silent boolean|nil see M.start()
+function M.stop(silent)
    M.enabled = false
    emunah.config.set("defences.enabled", false)
-   log.info("Defence keep-up <ansi_light_red>off<ansi_yellow>.")
+   if not silent then log.info("Defence keep-up <ansi_light_red>off<ansi_yellow>.") end
    event.raise("defkeepup.disabled")
-end
-
-function M.toggle()
-   if M.enabled then M.stop() else M.start() end
-   return M.enabled
 end
 
 event.register("emunah.tick", function()

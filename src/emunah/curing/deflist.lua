@@ -134,7 +134,7 @@ M.commands = {
    fangbarrier  = { vector = "balance",     command = "fangbarrier",  skill = "fangbarrier" },
 
    -- Priest (Devotion). `perform inspiration`, equilibrium 3.50s -- both verified, see
-   -- mechanics.md. Reported by GMCP as:
+   -- docs/game/defences.md. Reported by GMCP as:
    --   Char.Defences.Add    { desc = "Divine inspiration increases your strength.",
    --                          name = "inspiration" }
    --   Char.Defences.Remove { "inspiration" }

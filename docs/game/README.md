@@ -12,7 +12,12 @@ because a gap prompts a question and a guess ships a bug.
 
 | File | Holds |
 |---|---|
-| `mechanics.md` | How the game behaves: balances, incapacitation, command rejections |
+| `balance.md` | Balance and equilibrium: costs, rejection wording, what fails for free |
+| `incapacitation.md` | Stun, prone, sleep — what blocks a command and what clears it |
+| `priest-abilities.md` | Priest attacks, Devotion, Zeal verses, limb breaks, absolve |
+| `defences.md` | Tattoos, FOCUS, TOUCH TREE, DIAG, and defence-naming mismatches |
+| `sustenance.md` | Rift, containers, shops, pipes, the manna rite |
+| `prompt.md` | `CONFIG PROMPT CUSTOM` tokens |
 | `gmcp.md` | What GMCP actually sends, with real payloads |
 | `api.md` | The Achaea web API: real payloads, and what is NOT in them |
 | `help/` | Verbatim `HELP` output, one file per topic |
@@ -22,7 +27,9 @@ because a gap prompts a question and a guess ships a bug.
 Paste it in, or drop the file in yourself. Both work:
 
 - **A HELP file** → `help/<topic>.txt`, verbatim, including the `MORE` continuations.
-  Then add the derived fact to `mechanics.md` with a pointer to the file.
+  Then add the derived fact to whichever topic file it belongs under (`balance.md`,
+  `incapacitation.md`, `priest-abilities.md`, `defences.md`, `sustenance.md`, `prompt.md`),
+  with a pointer to the HELP file.
 - **A GMCP payload** → add it to `gmcp.md` under the message name, exactly as it arrived.
   `emunah debug gmcp` prints these.
 - **A transcript** showing a behaviour → quote the relevant lines with their timestamps in

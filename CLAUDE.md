@@ -12,7 +12,9 @@ to a character without the lesson. Herb balance treated as shared with attack ba
 
 Before writing code that depends on how the game behaves:
 
-1. **Grep `docs/game/`.** Verified facts live there, with the evidence that established them.
+1. **Grep `docs/game/`.** Verified facts live there, with the evidence that established
+   them, split by topic: `balance.md`, `incapacitation.md`, `priest-abilities.md`,
+   `defences.md`, `sustenance.md`, `prompt.md`, `gmcp.md`, `api.md`.
 2. **If it is not there, ask.** One question costs the user a paste. A wrong guess costs a
    play session, a bug report, and a round trip — and tends to surface as a *worse* bug than
    the one being fixed.
@@ -30,6 +32,9 @@ Landing a guess that "looks right" is the failure mode, not being slow.
   sessions rely on that provenance.
 - Prefer one targeted investigation over a broad refactor. If a change touches more than a
   few modules, say why first.
+- Before restructuring the core abstractions (`core/act.lua`, `core/queue.lua`, the
+  reload/manifest machinery in `emunah.lua`), read `docs/design.md` — it records why each is
+  shaped the way it is and which specific bug shaped it.
 
 ## Evidence beats reasoning
 
@@ -49,11 +54,18 @@ the case.
 
 Every behavioural fix gets a regression test that would have caught the original report.
 
+Performance-sensitive changes (anything touching `curing/engine.lua`'s per-prompt path or a
+UI repaint): `lua test/bench.lua` and `lua test/profile.lua` measure cost and locate it.
+`docs/performance.md` has the current numbers and the rules for keeping them that way.
+
 ## Style
 
 Comments explain *why*, especially where the obvious implementation is wrong — that is the
 house style and it is load-bearing. Match the surrounding density. Do not narrate what the
 code already says.
+
+`CONTRIBUTING.md` states these same rules for a human contributor browsing the repo; this
+file is the agent-facing version.
 
 ## graphify
 

@@ -778,7 +778,7 @@ eq(emunah.have.balance("herb"), true,
 -- the one unambiguous fact in the message.
 eq(emunah.gmcp.vitals.bal, false, "...and the refusal is taken as balance being gone")
 
--- ...but the herb reading is kept for the case it was written for. mechanics.md has this
+-- ...but the herb reading is kept for the case it was written for. balance.md has this
 -- as what a herb eaten too soon gets, and an eat actually in flight is the evidence for it.
 queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
@@ -2276,6 +2276,57 @@ eq(reloaded.people["passerby"].importance, 99,
 
 ndb.people = {}
 mock.store[ndb.path] = nil
+
+-- ===========================================================================
+suite("D3: destructive ndb commands ask twice, via one shared confirm helper")
+
+-- `ndb forget all` already asked twice before this change; `ndb unnote <person>` with no
+-- index did not -- it wiped every note against them on the first call. Both now go through
+-- the same `util.confirm()` helper (core/util.lua) rather than each hand-rolling its own
+-- pending-timestamp variable.
+;(function()
+local ndb = emunah.namedb
+local dispatch = emunah.commands.dispatch
+
+ndb.people = {}
+ndb.record("Anzerloi")
+ndb.note("Anzerloi", "verifies priest mechanics")
+ndb.note("Anzerloi", "trustworthy informant")
+eq(#ndb.notes("Anzerloi"), 2, "two notes recorded, to start")
+
+mock.echoed = {}
+dispatch("ndb unnote Anzerloi")
+eq(#ndb.notes("Anzerloi"), 2,
+   "the first `ndb unnote <person>` (no index) asks rather than wiping immediately")
+local askOutput = table.concat(mock.echoed, " ")
+ok(askOutput:find("[Dd]rop every note"), "...and says what it is about to drop", askOutput)
+ok(askOutput:find("2"), "...naming how many notes are at stake", askOutput)
+
+mock.echoed = {}
+dispatch("ndb unnote Anzerloi")
+eq(#ndb.notes("Anzerloi"), 0, "the repeat within the window confirms and wipes them")
+
+-- A single-note index removal is not a bulk wipe and was never gated -- confirm that stays
+-- true, so the new guard did not accidentally widen to cover it.
+ndb.note("Anzerloi", "one note")
+mock.echoed = {}
+dispatch("ndb unnote Anzerloi 1")
+eq(#ndb.notes("Anzerloi"), 0, "removing one note by index still happens immediately")
+
+-- `ndb forget all` behaves exactly as before the refactor: ask, then confirm within 15s.
+ndb.people = {}
+ndb.record("Passerby")
+mock.echoed = {}
+dispatch("ndb forget all")
+ok(ndb.get("Passerby") ~= nil, "the first `ndb forget all` asks rather than forgetting")
+mock.echoed = {}
+dispatch("ndb forget all")
+ok(ndb.get("Passerby") == nil, "the repeat within 15s confirms and forgets everyone")
+
+ndb.people = {}
+mock.store[ndb.path] = nil
+mock.echoed = {}
+end)()
 
 -- ===========================================================================
 suite("(continued)")
@@ -4648,10 +4699,35 @@ ok(table.concat(mock.echoed, " "):find("keepup"),
 defkeepup.drop("inspiration")
 
 -- ---------------------------------------------------------------------------
+-- AN UNRECOGNISED `defs` SUBCOMMAND USED TO TOGGLE KEEP-UP INSTEAD OF ERRORING.
+--
+-- The handler's final branch was `else keepup.toggle() end`, reached by ANY argument that
+-- did not match on/off/add/names/mode/remove/drop/list -- including a plain typo. `emunah
+-- defs sttaus` silently flipped defence keep-up on or off with no warning at all. Every
+-- sibling handler (bash, pvp, walk, shop, mobs) shows its default report on an unmatched
+-- argument instead; `defs` now does the same.
+defkeepup.enabled = false
+mock.echoed = {}
+emunah.commands.dispatch("defs sttaus")
+ok(not defkeepup.enabled,
+   "an unrecognised `defs` subcommand does not toggle keep-up", tostring(defkeepup.enabled))
+local unknownDefsOutput = table.concat(mock.echoed, " ")
+ok(unknownDefsOutput:find("Unknown"),
+   "...and warns that the subcommand was not recognised", unknownDefsOutput)
+ok(unknownDefsOutput:find("Defences"),
+   "...while still showing the ordinary report", unknownDefsOutput)
+
+defkeepup.enabled = true
+mock.echoed = {}
+emunah.commands.dispatch("defs sttaus")
+ok(defkeepup.enabled,
+   "...and the same holds when keep-up started on", tostring(defkeepup.enabled))
+
+-- ---------------------------------------------------------------------------
 -- INSPIRATION. A Priest defence that nothing strips -- it simply lapses after about ten
 -- minutes -- which is precisely the shape keep-up exists for.
 --
--- `perform inspiration`, equilibrium 3.50s (mechanics.md). It needs balance AND
+-- `perform inspiration`, equilibrium 3.50s (defences.md). It needs balance AND
 -- equilibrium AND to be standing: three requirements, only one of which the vector
 -- expresses, and with three attempts in the budget three refusals while prone would retire
 -- the defence for the rest of the session.
@@ -5520,6 +5596,33 @@ mock.advance(2.0)
 eq(walker.nextRoom, nil, "auto off: walker waits to be told to move")
 walker.move()
 ok(walker.nextRoom ~= nil, "auto off: an explicit move() still steps")
+walker.setAuto(true)
+
+-- D2 REGRESSION: `emunah walk auto <anything but "off">` used to enable auto-stepping --
+-- `walker.setAuto(rest ~= "off")` treats a typo, a stray word, or no argument at all the
+-- same as the literal word "on". An exact match is now required, like every other on/off
+-- pair in this file.
+walker.setAuto(false)
+mock.echoed = {}
+emunah.commands.dispatch("walk auto glorp")
+ok(not emunah.config.get("walker.auto", true),
+   "`walk auto glorp` does not enable auto-stepping", tostring(emunah.config.get("walker.auto")))
+local autoTypoOutput = table.concat(mock.echoed, " ")
+ok(autoTypoOutput:find("Usage"), "...and warns instead", autoTypoOutput)
+
+mock.echoed = {}
+emunah.commands.dispatch("walk auto")
+ok(not emunah.config.get("walker.auto", true),
+   "bare `walk auto` (no argument) does not enable it either",
+   tostring(emunah.config.get("walker.auto")))
+
+mock.echoed = {}
+emunah.commands.dispatch("walk auto on")
+ok(emunah.config.get("walker.auto", false), "`walk auto on` still enables it")
+
+mock.echoed = {}
+emunah.commands.dispatch("walk auto off")
+ok(not emunah.config.get("walker.auto", true), "`walk auto off` still disables it")
 walker.setAuto(true)
 
 -- Reset for the assertions that follow.
@@ -7750,7 +7853,7 @@ do
       table.concat(mock.sent, " | "))
 
    -- ---------------------------------------------------------------------------
-   -- Currency gating: only gp is automated -- see docs/game/mechanics.md ("Shops").
+   -- Currency gating: only gp is automated -- see docs/game/sustenance.md ("Shops").
    mock.sent = {}
    ok(mock.click(7), "a credit-priced row is still clickable")
    eq(#mock.sent, 0, "...but nothing is sent for it -- cr/mc purchases are not automated",
@@ -9173,6 +9276,302 @@ do
    emunah.event.kill("test.loot")
 end
 
+end)()
+
+-- ===========================================================================
+suite("D4: log.toggled() -- the on/off confirmation line, shared")
+
+-- Six modules (curing, defence keep-up, bashing, PvP, name highlighting) had already
+-- converged independently on "<Label> <green>on<yellow>." / "<Label> <red>off<yellow>.".
+-- commands.lua's `ui`/`debug` handlers and curing/detect/init.lua's learn/affpop messages
+-- each had their own different wording; all four now go through this one helper.
+;(function()
+mock.echoed = {}
+emunah.log.toggled("Curing", true)
+local onLine = table.concat(mock.echoed, " ")
+ok(onLine:find("Curing <ansi_light_green>on<ansi_yellow>%.", 1, false)
+   or onLine:find("Curing <ansi_light_green>on<ansi_yellow>."),
+   "log.toggled(label, true) matches the pattern six modules already use", onLine)
+
+mock.echoed = {}
+emunah.log.toggled("Curing", false)
+local offLine = table.concat(mock.echoed, " ")
+ok(offLine:find("Curing <ansi_light_red>off<ansi_yellow>."),
+   "log.toggled(label, false) uses red for off", offLine)
+
+mock.echoed = {}
+emunah.log.toggled("GMCP tracing", true, " Every message sent and received.")
+local suffixLine = table.concat(mock.echoed, " ")
+ok(suffixLine:find("GMCP tracing <ansi_light_green>on<ansi_yellow>%. Every message"),
+   "an optional suffix is appended after the colour resets to yellow", suffixLine)
+end)()
+
+-- ===========================================================================
+suite("D5: usage lines say `emset`, and `prio` goes through log.warn like everything else")
+
+-- Nine usage lines said "Usage: emunah <cmd> ..." while help.lua itself states `emset` is
+-- "what you type" -- the long form is for scripts, the short one is what every other usage
+-- line in this file already used. `prio` was also the one handler bypassing log.warn for a
+-- bespoke, inconsistently-coloured cecho pair; it now uses the same helper as the rest.
+;(function()
+mock.echoed = {}
+emunah.commands.dispatch("prio")
+local prioNoArgs = table.concat(mock.echoed, " ")
+ok(prioNoArgs:find("Usage: emset prio"), "`prio` with no arguments warns via log.warn now",
+   prioNoArgs)
+
+mock.echoed = {}
+emunah.commands.dispatch("prio paralysis notanumber")
+local prioBadArg = table.concat(mock.echoed, " ")
+ok(prioBadArg:find("Usage: emset prio"),
+   "...and so does a malformed vector/rank, with the same wording", prioBadArg)
+
+mock.echoed = {}
+emunah.commands.dispatch("whois")
+ok(table.concat(mock.echoed, " "):find("Usage: emset whois"),
+   "a sibling handler's usage line also says `emset`, not `emunah`")
+end)()
+
+-- ===========================================================================
+suite("D6: one rendering dialect -- header/row/flag now sit on decho + theme, not cecho")
+
+-- Roughly a hundred `row(...)` call sites across fifteen handlers passed the old fixed
+-- `<ansi_*>` colour names. header()/row()/flag() were rewritten to render through decho and
+-- the theme palette (the same primitives `ndbTitle`/`ndbGrid` already used for the name
+-- database and defence grid) WITHOUT changing any of those call sites -- ROW_COLOUR maps
+-- every legacy name that was ever passed to its palette equivalent.
+;(function()
+mock.echoed = {}
+emunah.commands.dispatch("status")
+local statusOutput = table.concat(mock.echoed, "\n")
+ok(not statusOutput:find("<ansi_", 1, true),
+   "a report built from header()/row() no longer contains any <ansi_*> cecho tag",
+   statusOutput:sub(1, 200))
+ok(statusOutput:find("%d+,%d+,%d+"),
+   "...and does contain decho's <r,g,b> triples instead")
+
+-- Every legacy colour name row() was ever called with still resolves to something, rather
+-- than falling through to a literal, unresolved key. `defs`'s row() lines (MISSING/up) are
+-- decho now; its separate hint/warning lines (log.warn, and the standalone "nothing
+-- configured" cecho) are a different system entirely and legitimately still `<ansi_*>` --
+-- D6 covers header()/row()/flag(), not every cecho call in the file.
+local keepup = emunah.curing.defkeepup
+keepup.add("rebounding")
+mock.echoed = {}
+emunah.commands.dispatch("defs")
+local defsRowLine = nil
+for _, line in ipairs(mock.echoed) do
+   if line:find("rebounding", 1, true) then defsRowLine = line end
+end
+ok(defsRowLine and not defsRowLine:find("<ansi_", 1, true),
+   "the defs report's row() line (MISSING/up) is decho, not cecho", defsRowLine)
+keepup.drop("rebounding")
+end)()
+
+-- ===========================================================================
+suite("D7: `pp` prints one confirmation line, not two plus a banner")
+
+-- `pp` used to call engine.stop() and keepup.stop() plain, and each logged its own "Curing
+-- off."/"Defence keep-up off." independently -- two lines with two different feature names
+-- for what pp's own design intent (see the handler's comment) calls one action. Both now
+-- take a `silent` flag pp passes, and pp prints its own single line instead.
+;(function()
+local engine = emunah.curing.engine
+local keepup = emunah.curing.defkeepup
+engine.start(); keepup.start()
+
+mock.echoed = {}
+mock.command("pp")
+local pausedLines = {}
+for _, line in ipairs(mock.echoed) do
+   if line:find("Curing", 1, true) or line:find("Defence keep%-up", 1, true)
+      or line:find("Paused", 1, true) then
+      pausedLines[#pausedLines + 1] = line
+   end
+end
+eq(#pausedLines, 1, "pausing both via pp prints exactly one relevant line",
+   table.concat(pausedLines, " | "))
+ok(pausedLines[1] and pausedLines[1]:find("Paused", 1, true),
+   "...and it says Paused", pausedLines[1])
+ok(not engine.enabled and not keepup.enabled, "...and both are actually off")
+
+mock.echoed = {}
+mock.command("pp")
+local resumedLines = {}
+for _, line in ipairs(mock.echoed) do
+   if line:find("Curing", 1, true) or line:find("Defence keep%-up", 1, true)
+      or line:find("Resumed", 1, true) then
+      resumedLines[#resumedLines + 1] = line
+   end
+end
+eq(#resumedLines, 1, "resuming both via pp also prints exactly one relevant line",
+   table.concat(resumedLines, " | "))
+ok(resumedLines[1] and resumedLines[1]:find("Resumed", 1, true),
+   "...and it says Resumed", resumedLines[1])
+
+-- Direct, single-module calls are unaffected -- `emunah cure on` still logs its own line.
+mock.echoed = {}
+engine.stop()
+ok(table.concat(mock.echoed, " "):find("Curing"),
+   "calling engine.stop() directly (not through pp) still logs its own line")
+engine.start(); keepup.start()
+end)()
+
+-- ===========================================================================
+suite("D8: bare `cure` reports status, like `defs`, instead of toggling")
+
+-- `cure` and `defs` used to disagree on what bare invocation means: bare `emunah cure`
+-- toggled curing on/off (`else emunah.curing.engine.toggle() end`), bare `emunah defs`
+-- showed the list. One rule now applies everywhere: bare or unrecognised shows the report,
+-- and only an explicit `on`/`off` mutates anything.
+;(function()
+local engine = emunah.curing.engine
+engine.stop()
+
+mock.echoed = {}
+emunah.commands.dispatch("cure")
+ok(not engine.enabled, "bare `cure` does not toggle curing on", tostring(engine.enabled))
+local bareOutput = table.concat(mock.echoed, " ")
+ok(bareOutput:find("Curing"), "...and shows a status report instead", bareOutput)
+
+mock.echoed = {}
+emunah.commands.dispatch("cure sttaus")
+ok(not engine.enabled, "an unrecognised `cure` argument does not toggle it either")
+ok(table.concat(mock.echoed, " "):find("Unknown"),
+   "...and warns that the argument was not recognised")
+
+mock.echoed = {}
+emunah.commands.dispatch("cure on")
+ok(engine.enabled, "`cure on` still turns it on")
+emunah.commands.dispatch("cure off")
+ok(not engine.enabled, "`cure off` still turns it off")
+end)()
+
+-- ===========================================================================
+suite("D9: `hunt` no longer starts on an unrecognised argument")
+
+-- Documented syntax is exactly `emset hunt [off]`. `arg == "off" or arg == "stop"` stopped
+-- it; everything else -- including a typo like `emset hunt stpo` -- fell through to the
+-- start branch and silently started bashing and walking. Stopping required an exact word;
+-- starting accepted anything. Only bare, "start", "off" and "stop" do anything now.
+;(function()
+emunah.walker.stop("test"); emunah.bashing.stop("test")
+
+mock.echoed = {}
+emunah.commands.dispatch("hunt stpo")
+ok(not emunah.walker.enabled, "a typo does not start the walker", tostring(emunah.walker.enabled))
+ok(not emunah.bashing.enabled, "...nor bashing", tostring(emunah.bashing.enabled))
+ok(table.concat(mock.echoed, " "):find("Unknown"), "...and warns instead")
+
+mock.echoed = {}
+emunah.commands.dispatch("hunt off")
+ok(table.concat(mock.echoed, " "):find("not running"),
+   "`hunt off` when nothing is running still says so, not silently")
+end)()
+
+-- ===========================================================================
+suite("docs stay in sync with the code, and with each other")
+
+-- Duplicated figures across README/website/docs/performance.md have drifted before: three
+-- different values for the same "modules" figure, two different pairs of numbers for the
+-- same engine.tick() benchmark, and website/commands.html silently missing commands the
+-- code already had (the `!`-vs-`emunah` split described in commands.lua's own comment).
+-- These checks exist so drift fails the suite instead of shipping quietly.
+
+;(function()
+local function readFile(path)
+   local f = assert(io.open(path, "r"), "could not open " .. path)
+   local content = f:read("*a")
+   f:close()
+   return content
+end
+
+local function decodeEntities(s)
+   return (s:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&amp;", "&"))
+end
+
+-- MODULE COUNT: the number of entries in emunah.lua's MANIFEST is ground truth.
+local emunahLua = readFile("src/emunah.lua")
+local manifestCount = 0
+for _ in emunahLua:gmatch("as%s*=") do manifestCount = manifestCount + 1 end
+ok(manifestCount > 40, "MANIFEST has a plausible number of entries", manifestCount)
+
+local readme = readFile("README.md")
+local readmeModules = tonumber(readme:match("v0%.1%.0 loaded %-%- (%d+) modules"))
+eq(readmeModules, manifestCount, "README's module count matches emunah.lua's MANIFEST")
+
+local indexHtml = readFile("website/index.html")
+local indexModules = tonumber(indexHtml:match('badge">(%d+) modules'))
+eq(indexModules, manifestCount, "website/index.html's module count matches MANIFEST")
+
+local gettingStarted = readFile("website/getting-started.html")
+local gsModules = tonumber(gettingStarted:match("v0%.1%.0 loaded %-%- (%d+) modules"))
+eq(gsModules, manifestCount, "website/getting-started.html's module count matches MANIFEST")
+
+-- TEST COUNT: README is treated as the source of truth the website copies from.
+local readmeTests = tonumber(readme:match("(%d+) behavioural tests"))
+ok(readmeTests and readmeTests > 1000, "README states a plausible test count", readmeTests)
+
+local architectureHtml = readFile("website/architecture.html")
+local archTests = tonumber(architectureHtml:match("(%d+) behavioural tests"))
+eq(archTests, readmeTests, "website/architecture.html's test count matches README")
+
+local gsTests = tonumber(gettingStarted:match("(%d+) behavioural tests"))
+eq(gsTests, readmeTests, "website/getting-started.html's test count matches README")
+
+local indexTests = tonumber(indexHtml:match('badge">(%d+) automated tests'))
+eq(indexTests, readmeTests, "website/index.html's test count matches README")
+
+-- PERFORMANCE NUMBERS: docs/performance.md is where a benchmark actually gets re-measured;
+-- README and the website copy the engine.tick() headline from it.
+local perfDoc = readFile("docs/performance.md")
+local perfBefore, perfAfter =
+   perfDoc:match("|%s*`engine%.tick%(%)`%s*|%s*([%d%.]+) µs%s*|%s*%*%*([%d%.]+) µs%*%*%s*|")
+ok(perfBefore and perfAfter, "docs/performance.md states an engine.tick() before/after pair",
+   tostring(perfBefore) .. " -> " .. tostring(perfAfter))
+
+local readmeAfter, readmeBefore =
+   readme:match("costs %*%*([%d%.]+) µs%*%*, down from ([%d%.]+) µs")
+eq(readmeAfter, perfAfter, "README's engine.tick() figure matches docs/performance.md")
+eq(readmeBefore, perfBefore, "README's engine.tick() baseline matches docs/performance.md")
+
+local perfHtml = readFile("website/performance.html")
+local htmlBefore, htmlAfter = perfHtml:match(
+   "<code>engine%.tick%(%)</code></td><td>([%d%.]+) µs</td><td><strong>([%d%.]+) µs</strong>")
+eq(htmlBefore, perfBefore,
+   "website/performance.html's engine.tick() baseline matches docs/performance.md")
+eq(htmlAfter, perfAfter,
+   "website/performance.html's engine.tick() figure matches docs/performance.md")
+
+-- COMMAND TABLE: website/commands.html must not silently drift from what help.lua
+-- documents -- the exact failure mode this project was already burned by once.
+local help = emunah.help
+local documentedSyntax = {}
+for _, row in ipairs(help.entries()) do
+   documentedSyntax[row.entry.syntax] = true
+end
+
+local commandsHtml = readFile("website/commands.html")
+local webSyntax = {}
+for span in commandsHtml:gmatch('cmd%-syntax">(.-)</span>') do
+   webSyntax[decodeEntities(span)] = true
+end
+
+local missingFromWeb = {}
+for syntax in pairs(documentedSyntax) do
+   if not webSyntax[syntax] then missingFromWeb[#missingFromWeb + 1] = syntax end
+end
+table.sort(missingFromWeb)
+eq(#missingFromWeb, 0, "every help.lua command form appears on website/commands.html",
+   table.concat(missingFromWeb, " | "))
+
+local staleOnWeb = {}
+for syntax in pairs(webSyntax) do
+   if not documentedSyntax[syntax] then staleOnWeb[#staleOnWeb + 1] = syntax end
+end
+table.sort(staleOnWeb)
+eq(#staleOnWeb, 0, "website/commands.html documents no command form that help.lua does not",
+   table.concat(staleOnWeb, " | "))
 end)()
 
 -- ===========================================================================

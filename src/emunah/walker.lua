@@ -464,7 +464,7 @@ function M.move()
       local room, direction = firstStep(target)
       if room then
          -- Movement costs BOTH balance and equilibrium -- confirmed by the player, and
-         -- recorded in docs/game/mechanics.md so this does not get re-litigated. It makes
+         -- recorded in docs/game/balance.md so this does not get re-litigated. It makes
          -- stepping directly rivalrous with attacking: smite spends balance, so a step
          -- taken straight after a kill waits out the full recovery, and the log fills with
          -- `Held "s" -- no balance`. That pause is the game's rule, not a bug here, and the

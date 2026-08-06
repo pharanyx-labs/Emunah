@@ -395,7 +395,8 @@ function M.startLearning()
 
    if id then
       emunah._persist.learnTrigger = id
-      log.info("Learn mode on. Candidate lines -> <ansi_cyan>%s<ansi_yellow>", LEARN_PATH)
+      log.toggled("Learn mode", true,
+         (" Candidate lines -> <ansi_cyan>%s<ansi_yellow>"):format(LEARN_PATH))
       log.info("Fight normally, then read that file and add the real messages.")
    end
    return true
@@ -408,7 +409,7 @@ function M.stopLearning()
       killTrigger(emunah._persist.learnTrigger)
       emunah._persist.learnTrigger = nil
    end
-   log.info("Learn mode off. Captured lines are in %s", LEARN_PATH)
+   log.toggled("Learn mode", false, (" Captured lines are in %s"):format(LEARN_PATH))
    return true
 end
 
@@ -560,7 +561,8 @@ function M.startCapture()
    if moreId then ids[#ids + 1] = moreId end
 
    emunah._persist.affpopTriggers = ids
-   log.info("Affliction capture on -> <ansi_cyan>%s<ansi_yellow>", AFFPOP_PATH)
+   log.toggled("Affliction capture", true,
+      (" Captured lines -> <ansi_cyan>%s<ansi_yellow>"):format(AFFPOP_PATH))
    return true
 end
 
@@ -573,7 +575,7 @@ function M.stopCapture()
       killTrigger(id)
    end
    emunah._persist.affpopTriggers = nil
-   log.info("Affliction capture off. Captured lines are in %s", AFFPOP_PATH)
+   log.toggled("Affliction capture", false, (" Captured lines are in %s"):format(AFFPOP_PATH))
    return true
 end
 

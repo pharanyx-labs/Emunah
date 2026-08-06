@@ -4,7 +4,7 @@
 --- in the same Mudlet installation keep separate priorities, defence lists and UI
 --- positions without any extra work.
 
-local config = {}
+local M = {}
 
 local util = emunah.util
 local log  = emunah.log
@@ -17,7 +17,7 @@ local PATH = getMudletHomeDir() .. "/emunah-config.lua"
 ---
 --- Changing DEFAULTS is not enough to fix a wrong one, and that is not obvious: a saved
 --- config keeps its own copy, and `fill()` below only supplies keys that are ABSENT. A
---- reload does not even get that far -- config.data is restored wholesale from
+--- reload does not even get that far -- M.data is restored wholesale from
 --- emunah._persist. So a bad default, once written or once carried across a reload, is
 --- permanent until something rewrites it. That is what MIGRATIONS is for.
 local SCHEMA = 9
@@ -36,7 +36,7 @@ local MIGRATIONS = {
 
    -- The healing thresholds were raised from 65/40 to 80/85, and a saved config kept the
    -- old numbers -- fill() only supplies keys that are ABSENT, and any command that calls
-   -- config.save() writes the whole table, so almost every profile has them stored.
+   -- M.save() writes the whole table, so almost every profile has them stored.
    --
    -- The symptom is specific and quiet: sitting at 73% health with nothing happening,
    -- because 73 is above the 65 that is actually in force while the documentation, the
@@ -228,7 +228,7 @@ local DEFAULTS = {
       attack          = "angel sear",  -- class attack command; target is appended
       -- What the attack REQUIRES to be present: "eq" | "bal" | "both".
       --
-      -- THIS IS THE VALUE THAT WINS, not the fallback at the call site. config.get()
+      -- THIS IS THE VALUE THAT WINS, not the fallback at the call site. M.get()
       -- returns whatever it finds here and only falls back when the key is ABSENT, so
       -- `config.get("bashing.balance", "both")` in class/priest.lua read "bal" and the
       -- fallback was dead code. Smite was confirmed to need BOTH at 09:09:41, but the
@@ -264,13 +264,13 @@ local DEFAULTS = {
 
 --- The shipped defaults, exposed so a test can assert against what actually ships rather
 --- than against a value it set itself. See the note on `bashing.balance`.
-config.DEFAULTS = DEFAULTS
-config.SCHEMA   = SCHEMA
+M.DEFAULTS = DEFAULTS
+M.SCHEMA   = SCHEMA
 
 --- Apply any corrections this config predates. Idempotent: it runs on every load and every
 --- reload, and does nothing once the stored schema has caught up.
 --- @return boolean whether anything changed
-function config.migrate(data)
+function M.migrate(data)
    if type(data) ~= "table" then return false end
    local from = tonumber(data.schema) or 0
    if from >= SCHEMA then return false end
@@ -288,7 +288,7 @@ function config.migrate(data)
    return changed
 end
 
-config.data = util.copy(DEFAULTS)
+M.data = util.copy(DEFAULTS)
 
 --- Memoised path resolution: path -> { parent table, final key }.
 ---
@@ -300,7 +300,7 @@ config.data = util.copy(DEFAULTS)
 ---
 --- WHAT IS CACHED IS THE ROUTE, NOT THE ANSWER, and that distinction is the whole design.
 --- Caching resolved VALUES looked obviously right and was wrong: anything that assigns into
---- config.data directly -- `config.data.bashing.balance = nil` -- changes the setting without
+--- M.data directly -- `M.data.bashing.balance = nil` -- changes the setting without
 --- going through set(), and a value cache goes on answering with what it saw first. The
 --- suite caught it immediately (the shipped-default assertions read nil through a stale
 --- MISS), and a live version of that bug is a setting the user has changed that nothing
@@ -316,16 +316,16 @@ local cache = {}
 --- which is simply a cache miss.
 local MISS = {}
 
---- Drop the memo. Anything that REPLACES a table inside config.data has to call this;
+--- Drop the memo. Anything that REPLACES a table inside M.data has to call this;
 --- assigning a leaf value does not need to.
-function config.invalidate()
+function M.invalidate()
    cache = {}
 end
 
 --- Walk a dotted path to the table holding its final key.
 --- @return table|nil parent, string|nil key
 local function route(path)
-   local node = config.data
+   local node = M.data
    local key = nil
    for part in path:gmatch("[^.]+") do
       if key ~= nil then
@@ -341,10 +341,10 @@ local function route(path)
 end
 
 --- Read a dotted setting: config.get("curing.confirmWait")
-function config.get(path, fallback)
+function M.get(path, fallback)
    -- Only string paths are memoised; anything else is rare enough not to be worth a key.
    if type(path) ~= "string" then
-      local node = config.data
+      local node = M.data
       for part in tostring(path):gmatch("[^.]+") do
          if type(node) ~= "table" then return fallback end
          node = node[part]
@@ -367,11 +367,11 @@ function config.get(path, fallback)
 end
 
 --- Write a dotted setting. Does not save to disk; call config.save() for that.
-function config.set(path, value)
+function M.set(path, value)
    local parts = {}
    for part in tostring(path):gmatch("[^.]+") do parts[#parts + 1] = part end
    if #parts == 0 then return false end
-   local node = config.data
+   local node = M.data
    for i = 1, #parts - 1 do
       if type(node[parts[i]]) ~= "table" then node[parts[i]] = {} end
       node = node[parts[i]]
@@ -380,12 +380,12 @@ function config.set(path, value)
    -- Wholesale, not just this path: writing "curing" replaces the table that
    -- "curing.confirmWait" resolves through, and writing a leaf can create the intermediate
    -- tables that other paths were previously missing through.
-   config.invalidate()
+   M.invalidate()
    return true
 end
 
-function config.save()
-   local ok, err = pcall(table.save, PATH, config.data)
+function M.save()
+   local ok, err = pcall(table.save, PATH, M.data)
    if not ok then
       log.error("Could not save settings: %s", tostring(err))
       return false
@@ -395,7 +395,7 @@ function config.save()
 end
 
 --- Load from disk, filling any gaps from DEFAULTS so upgrades are non-breaking.
-function config.load()
+function M.load()
    local loaded = {}
    local file = io.open(PATH, "r")
    if file then
@@ -421,27 +421,27 @@ function config.load()
    -- BEFORE fill, not after. `schema` is itself a default, so filling first would stamp
    -- the current version onto a config that predates every migration and the whole
    -- mechanism would no-op on exactly the files it exists for.
-   config.migrate(loaded)
+   M.migrate(loaded)
    fill(loaded, DEFAULTS)
 
-   config.data = loaded
-   config.invalidate()
-   log.setLevel(config.data.logLevel or "info")
-   return config.data
+   M.data = loaded
+   M.invalidate()
+   log.setLevel(M.data.logLevel or "info")
+   return M.data
 end
 
-function config.reset()
-   config.data = util.copy(DEFAULTS)
-   config.invalidate()
-   log.setLevel(config.data.logLevel)
-   return config.data
+function M.reset()
+   M.data = util.copy(DEFAULTS)
+   M.invalidate()
+   log.setLevel(M.data.logLevel)
+   return M.data
 end
 
-config.path = PATH
+M.path = PATH
 
 -- Reload behaviour.
 --
--- A reload re-requires this module, so `config.data` is rebuilt from DEFAULTS every time
+-- A reload re-requires this module, so `M.data` is rebuilt from DEFAULTS every time
 -- and the module table itself cannot carry settings forward -- the loader's assign()
 -- replaces emunah.config wholesale. The settings therefore live on emunah._persist,
 -- which the loader preserves verbatim, and the module table only ever holds a reference
@@ -449,26 +449,26 @@ config.path = PATH
 emunah._persist = emunah._persist or {}
 
 if emunah._persist.configData then
-   config.data = emunah._persist.configData
-   config.invalidate()
+   M.data = emunah._persist.configData
+   M.invalidate()
    -- A reload restores this table verbatim, which is exactly how a wrong default outlives
    -- the fix for it. Migrate here too, or `emreload` is the one path that never corrects.
-   config.migrate(config.data)
-   log.setLevel(config.data.logLevel or "info")
+   M.migrate(M.data)
+   log.setLevel(M.data.logLevel or "info")
 else
-   config.load()
+   M.load()
 end
 
 -- Keep the persistent reference pointing at whatever load()/reset() installed.
 local function republish(fn)
    return function(...)
       local result = fn(...)
-      emunah._persist.configData = config.data
+      emunah._persist.configData = M.data
       return result
    end
 end
-config.load  = republish(config.load)
-config.reset = republish(config.reset)
-emunah._persist.configData = config.data
+M.load  = republish(M.load)
+M.reset = republish(M.reset)
+emunah._persist.configData = M.data
 
-return config
+return M

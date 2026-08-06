@@ -25,7 +25,7 @@ emset status     system and character state
 **1. Clone the repository outside your Mudlet profile directory.**
 
 ```sh
-git clone <repository-url> ~/src/Emunah
+git clone https://github.com/pharanyx-labs/Emunah.git ~/src/Emunah
 ```
 
 > **Do not place the checkout inside the profile directory under the name `Emunah`, and do
@@ -46,7 +46,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 51 modules.
+[emunah] v0.1.0 loaded -- 53 modules.
 ```
 
 ## Capabilities
@@ -148,13 +148,13 @@ emhelp keys             the key bindings
 | `emset set [key] [value]` | Read or write a setting |
 | `emset ui [rebuild\|reset\|show]` | Toggle, rebuild or reset the interface |
 | `emset ui map [height <n>\|on\|off\|centre\|raw]` | Map status, size and control |
-| `emset ndb [ally\|enemy\|city <c>\|dragons\|marks\|infamous]` | The roster, filtered |
+| `ndb [ally\|enemy\|city <c>\|dragons\|marks\|infamous]` | The roster, filtered |
 | `ndb show <person>` | The full dossier — everything on one card |
-| `emset ndb here\|stats\|fields\|capture\|path` | Who is present, the population, the schema, the sources |
-| `emset ndb api\|refresh\|online\|learn` | The Achaea web API: state, re-fetch, who is online |
-| `emset ndb capture [on\|off]` | Reading CW, CLWHO, QW, HONOURS and angel reports |
-| `emset ndb set\|note\|unnote\|forget\|prune\|hostile` | Edit the database |
-| `emset ndb export [fields <a,b>] [path]\|import <path>` | Share a database, or merge one in |
+| `ndb here\|stats\|fields\|capture\|path` | Who is present, the population, the schema, the sources |
+| `ndb api\|refresh\|online\|learn` | The Achaea web API: state, re-fetch, who is online |
+| `ndb capture [on\|off]` | Reading CW, CLWHO, QW, HONOURS and angel reports |
+| `ndb set\|note\|unnote\|forget\|prune\|hostile` | Edit the database |
+| `ndb export [fields <a,b>] [path]\|import <path>` | Share a database, or merge one in |
 | `emset whois <person>` | The dossier on one person |
 | `emset iff <person> ally\|enemy\|auto` | Declare a relationship; beats derivation |
 | `emset names [on\|off\|ignore <p>\|tint on\|off]` | Highlight known names in the game text |
@@ -218,37 +218,18 @@ src/emunah/
   loot.lua                            -- collect gold by replica number
   class/    adapter priest            -- class interface + auto-detection
   commands.lua
-test/       mock_mudlet.lua run.lua   -- 1672 behavioural tests
+test/       mock_mudlet.lua run.lua   -- 1729 behavioural tests
             bench.lua profile.lua     -- per-prompt cost, and where it goes
 package/    .mpackage build project
 tools/      build-xml.py syntax_check.py run_tests.py
 ```
 
-Four ideas carry most of the design:
-
-**One gate for every command.** `core/act.lua` is the single place that knows when the game
-will refuse an action — stunned, prone, no balance, rate-limited. Call sites declare what a
-command *costs*, never when it is allowed.
-
-**One slot per resource.** Achaea has several independent balances, so `core/queue.lua` is
-not a single FIFO but one slot per vector. Eating a herb, applying a salve and drinking an
-elixir can all be in flight simultaneously; two herbs cannot.
-
-**Sent is not executed.** The game reports a balance as available until it actually runs a
-command, so state alone cannot prevent a duplicate send. Every action arms a short guard on
-dispatch, replaced by the exact cooldown the moment the game announces it.
-
-**Nothing is recomputed that the game has not changed.** The curing engine runs on every
-prompt, so anything it does per tick is paid several times a second on Mudlet's UI thread —
-shared with every other package the user has installed. Inventory counts, cure-table lookups
-and settings are all memoised against an explicit generation counter or invalidated on
-write, never against a clock. A full tick under an eight-affliction lock costs **321 µs**,
-down from 1851 µs, and the queries it leans on hardest allocate nothing at all. See
-[docs/performance.md](docs/performance.md) for the measurements and the rules for keeping it
-that way.
-
-Notes on the game's own mechanics — verified costs, message wording, GMCP payload shapes —
-live in [docs/game/](docs/game/).
+A full tick under an eight-affliction lock costs **79.0 µs**, down from 124.1 µs, and the
+queries it leans on hardest allocate nothing at all — see
+[docs/performance.md](docs/performance.md) for the measurements. The design decisions behind
+the layout above, and the failure modes each one closed off, are in
+[docs/design.md](docs/design.md). Notes on the game's own mechanics — verified costs, message
+wording, GMCP payload shapes — live in [docs/game/](docs/game/).
 
 ## Development
 
@@ -276,48 +257,22 @@ python3 tools/build-xml.py     # Emunah.xml, no toolchain required
 cd package && muddle           # .mpackage; requires the muddler build tool and a JVM
 ```
 
-### Testing approach
-
 Every behavioural fix carries a regression test that would have caught the original report.
-The mock is deliberately strict: each mocked Geyser class exposes only the methods the real
-one has, constructor fields are validated against the legal set, and the trigger and alias
-matchers implement the regex subset Mudlet actually uses rather than Lua patterns. Two
-shipped bugs — a method that does not exist, and a constructor field Geyser silently ignores
-— reached players because an earlier, permissive mock accepted anything.
-
-### Implementation notes
-
-Five failure modes specific to this environment, each avoided deliberately and pinned by a
-test:
-
-- **Handler leaks on reload.** Event handlers registered at module scope survive a reload,
-  so each reload stacks a new generation on the previous one and every GMCP message is
-  processed repeatedly. `core/event.lua` tracks handler ids on a registry that outlives the
-  reload and tears down the previous generation first.
-- **Unconditional `pcall` assignment.** Assigning the result of `pcall(require, name)`
-  regardless of success installs the error string as the module, and every later call fails
-  far from the real fault. A failed load aborts and rolls back.
-- **Update handlers copying the wrong record.** Rebuilding an inventory entry from the
-  existing record rather than the incoming one means updates never land.
-- **Removing an absent element.** `table.remove(t, table.index_of(t, item))` drops the last
-  element when the item is absent, silently corrupting a room list.
-- **A reload that cannot reload the loader.** A load function closing over its own module
-  manifest can never pick up a newly added module. `emunahReload()` re-executes the loader
-  file itself, rebuilding manifest, loader and namespace together.
-
-One Achaea-specific trap is worth stating outright: `Char.Vitals.bal` and `.eq` arrive as
-the **strings** `"1"` and `"0"`. In Lua `"0"` is truthy, so `if gmcp.Char.Vitals.bal then`
-evaluates true when the character has no balance. All GMCP booleans route through
-`util.bool()`.
+See [docs/design.md](docs/design.md) for the testing approach, the five environment-specific
+failure modes each fixed and pinned by a test, and the design decisions behind the module
+layout above.
 
 ## Documentation
 
+- [docs/design.md](docs/design.md) — why the code is shaped the way it is
 - [docs/game/](docs/game/) — verified Achaea mechanics, GMCP payloads and message wording
 - [docs/afflictions.md](docs/afflictions.md) — the cure table's structure and verification
 - [docs/performance.md](docs/performance.md) — the hot paths, what they cost, and how to measure
 - [docs/roadmap.md](docs/roadmap.md) — planned work
+- [CHANGELOG.md](CHANGELOG.md) — substantive corrections to shipped data and behaviour
+- [CONTRIBUTING.md](CONTRIBUTING.md) — how to verify a change before it ships
 
-## Licence
+## License
 
 MIT — see [LICENSE](LICENSE).
 

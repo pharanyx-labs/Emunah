@@ -25,7 +25,7 @@
 --- comment on render() below for why: WARES prints many rows in one packet, and
 --- deleteLine() corrupts exactly that case.
 ---
---- GROUNDING: see `docs/game/mechanics.md` ("Shops") and `docs/game/help/shops.txt`
+--- GROUNDING: see `docs/game/sustenance.md` ("Shops") and `docs/game/help/shops.txt`
 --- (`HELP SHOPS`, verbatim) for what is actually confirmed here, and what is not. Two
 --- things in particular are the user's own word, not a HELP file or a transcript, and nothing
 --- else in this module is more certain than they are:
@@ -297,7 +297,7 @@ function M.purchase(repnum, qty, mode)
 
    -- GET's cost here matches the one already confirmed for floor pickups (loot.take()):
    -- balance, equilibrium, standing. Whether a container GET costs the same has not been
-   -- separately observed -- see docs/game/mechanics.md.
+   -- separately observed -- see docs/game/sustenance.md.
    if not emunah.act.send(string.format("get %d gold from %s", cost, container),
          { standing = true, bal = true, eq = true }) then
       return false

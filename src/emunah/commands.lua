@@ -30,29 +30,14 @@ end
 -- ---------------------------------------------------------------------------
 -- output helpers
 -- ---------------------------------------------------------------------------
-
-local function header(text)
-   cecho(string.format("\n<ansi_light_black>-- <reset><ansi_cyan>%s<reset>", text))
-end
-
-local function row(label, value, colour)
-   cecho(string.format("\n  <ansi_light_black>%-18s<reset> <%s>%s<reset>",
-      label, colour or "reset", tostring(value)))
-end
-
-local function flag(value)
-   return value and "<ansi_light_green>on" or "<ansi_light_red>off"
-end
-
--- ---------------------------------------------------------------------------
--- richer output helpers
--- ---------------------------------------------------------------------------
 --
--- decho and the theme palette rather than the sixteen `<ansi_*>` names above. Used by the
--- name database and by the defence keep-up grid, which is why they live here rather than
--- inside either: a `local` declared further down the file is not in scope for a handler
--- defined above it, and the forward reference resolves to a nil global instead of failing
--- loudly.
+-- One dialect for every report: decho and the theme palette, not Mudlet's sixteen fixed
+-- `<ansi_*>` names. This file used to carry both -- `header`/`row`/`flag` on `cecho` for
+-- most handlers, `ndbTitle`/`ndbGrid` on `decho` for the name database and defence grid --
+-- which meant two different title-bar styles and two different colour systems depending on
+-- which command you typed. `header`/`row`/`flag` are now themselves built on the same
+-- primitives as `ndbTitle`/`ndbGrid`, so every handler in this file shares one look; the
+-- theme/decho helpers are declared first so the handlers below can call them.
 
 local NDB_WIDTH = 68
 
@@ -118,6 +103,39 @@ local function ndbGrid(rows)
    end
 end
 
+--- A report title. Delegates to `ndbTitle` directly -- same dashed bar, same bright text,
+--- every handler's report opens the same way.
+local function header(text)
+   ndbTitle(text)
+end
+
+--- Maps the handful of semantic colours `row()` was ever called with under the old
+--- `<ansi_*>` names to their theme-palette equivalent, so every one of this file's ~100
+--- `row(...)` call sites keeps working unchanged.
+local ROW_COLOUR = {
+   ["ansi_light_green"] = "defence",     -- on / up / good
+   ["ansi_light_red"]   = "affliction",  -- off / missing / bad
+   ["ansi_yellow"]      = "warning",
+   ["ansi_cyan"]        = "balance",
+   ["ansi_light_black"] = "textDim",
+   ["reset"]            = "text",
+}
+
+--- A single label/value line. `colour` is optional and accepts either a theme palette key
+--- directly or one of the legacy `<ansi_*>` names via `ROW_COLOUR`, so existing call sites
+--- did not need to change.
+local function row(label, value, colour)
+   local key = colour and (ROW_COLOUR[colour] or colour) or "text"
+   decho(string.format("\n  %s%-18s%s %s%s",
+      theme().dc("textDim"), label, theme().dc("text"), theme().dc(key), tostring(value)))
+end
+
+--- "on"/"off" in the same green/red as everywhere else, as a decho fragment ready to drop
+--- into a `row()` value -- `row("curing", flag(engine.enabled))`.
+local function flag(value)
+   return value and (theme().dc("defence") .. "on") or (theme().dc("affliction") .. "off")
+end
+
 -- ---------------------------------------------------------------------------
 -- commands
 -- ---------------------------------------------------------------------------
@@ -158,10 +176,22 @@ M.handlers.status = function()
 end
 
 M.handlers.cure = function(arg)
-   if arg == "on" then emunah.curing.engine.start()
-   elseif arg == "off" then emunah.curing.engine.stop()
-   else emunah.curing.engine.toggle() end
-   emunah.config.save()
+   if arg == "on" then emunah.curing.engine.start(); emunah.config.save()
+   elseif arg == "off" then emunah.curing.engine.stop(); emunah.config.save()
+   else
+      -- Bare or unmatched shows the status, same rule `defs` follows: mutation always
+      -- needs an explicit on/off, so a typo here cannot flip curing off mid-fight. This
+      -- used to be `else emunah.curing.engine.toggle() end` -- any argument that was not
+      -- exactly "on" or "off", including none at all in some call shapes, silently toggled.
+      if arg then
+         log.warn("Unknown: emset cure %s. Try `emset cure on|off`.", tostring(arg))
+      end
+      local engine = emunah.curing.engine
+      header("Curing")
+      row("status", flag(engine.enabled))
+      row("tracked", engine.count())
+      decho("\n  " .. faint("emset cure on|off -- emset affs for what is tracked"))
+   end
 end
 
 --- `pp`: pause or resume curing AND defence keep-up together. A cure engine paused with
@@ -173,12 +203,20 @@ end
 M.handlers.pause = function()
    local engine = emunah.curing.engine
    local keepup = emunah.curing.defkeepup
+   -- Both modules log their own "X on."/"X off." when called directly (see engine.start()
+   -- and keepup.start()), which is right for `emunah cure on` and `emunah defs on` typed on
+   -- their own. `pp` moves both at once, so it silences their individual lines and prints
+   -- one summary instead -- two lines and a banner for one keypress was noise, not
+   -- confirmation. The banner in ui/echo.lua is unaffected: it listens for the same
+   -- curing.*/defkeepup.* events, which still fire.
    if engine.enabled and keepup.enabled then
-      engine.stop()
-      keepup.stop()
+      engine.stop(true)
+      keepup.stop(true)
+      log.info("<ansi_light_red>Paused<ansi_yellow>.")
    else
-      engine.start()
-      keepup.start()
+      engine.start(true)
+      keepup.start(true)
+      log.info("<ansi_light_green>Resumed<ansi_yellow>.")
    end
    emunah.config.save()
 end
@@ -210,7 +248,7 @@ M.handlers.defs = function(arg, rest)
       -- free-form command and could not tell a mode from the first word of one.
       local name, mode = rest:match("^(%S+)%s+(%S+)$")
       if not name then
-         log.warn("Usage: emunah defs mode <name> defup|keepup|off")
+         log.warn("Usage: emset defs mode <name> defup|keepup|off")
          return
       end
       mode = mode:lower()
@@ -218,7 +256,15 @@ M.handlers.defs = function(arg, rest)
       keepup.setMode(name, mode)
       log.info("%s: %s.", name, mode or "off")
    elseif arg == "remove" or arg == "drop" then keepup.drop(rest)
-   elseif arg == "list" or not arg then
+   else
+      -- An unrecognised subcommand shows the same report as bare `emunah defs` rather than
+      -- silently mutating anything -- this used to fall through to keepup.toggle(), so a
+      -- typo like `emunah defs sttaus` flipped defence keep-up on or off with no warning.
+      if arg and arg ~= "list" then
+         log.warn("Unknown: emunah defs %s. Try `emunah defs`, `... on|off`, `... add <name>`, "
+            .. "`... mode <name> defup|keepup|off`, `... names`, `... remove <name>`.",
+            tostring(arg))
+      end
       header("Defences (" .. (keepup.enabled and "on" or "off") .. ")")
       local wanted = keepup.wanted()
       if #wanted == 0 then
@@ -247,8 +293,6 @@ M.handlers.defs = function(arg, rest)
             status == "up" and "ansi_light_green"
             or status == "MISSING" and "ansi_light_red" or "ansi_light_black")
       end
-   else
-      keepup.toggle()
    end
 end
 
@@ -513,7 +557,7 @@ end
 --- Anything destructive asks twice, and the second ask has to name a number. `forget all`
 --- on a database somebody has curated for a month is not recoverable, and a confirmation
 --- that says "are you sure" without saying how much is at stake is not a confirmation.
-local pendingWipe = nil
+--- See `util.confirm()` for the shared repeat-within-window mechanism.
 
 --- The filtered-roster verbs, as data: verb -> the filter it builds.
 local ROSTERS = {
@@ -790,7 +834,7 @@ M.handlers.ndb = function(arg, rest)
    if arg == "set" and rest then
       local name, field, value = rest:match("^(%S+)%s+(%S+)%s*(.*)$")
       if not name then
-         log.warn("Usage: emunah ndb set <person> <field> <value> -- `emunah ndb fields`")
+         log.warn("Usage: emset ndb set <person> <field> <value> -- `emset ndb fields`")
          return
       end
       local ok, why = ndb.set(name, field, value)
@@ -805,7 +849,7 @@ M.handlers.ndb = function(arg, rest)
 
    if arg == "note" and rest then
       local name, text = rest:match("^(%S+)%s+(.+)$")
-      if not name then log.warn("Usage: emunah ndb note <person> <text>") return end
+      if not name then log.warn("Usage: emset ndb note <person> <text>") return end
       ndb.note(name, text)
       log.info("Noted against %s.", ndb.get(name).name)
       return
@@ -813,6 +857,17 @@ M.handlers.ndb = function(arg, rest)
 
    if arg == "unnote" and rest then
       local name, index = rest:match("^(%S+)%s*(%d*)$")
+      if index == "" then
+         -- Dropping every note against someone is as destructive as `ndb forget all`, just
+         -- scoped to one person -- ask twice here too, via the same confirm helper.
+         local existing = ndb.get(name)
+         local count = #ndb.notes(name)
+         if count > 0 and not util.confirm("ndb.unnoteAll." .. (existing.name or name):lower()) then
+            log.warn("This will drop every note against %s (%d of them). Repeat within 15s "
+               .. "to confirm.", existing.name or name, count)
+            return
+         end
+      end
       local ok, why = ndb.unnote(name, index ~= "" and index or nil)
       log.info(ok and ("Dropped %s from %s."):format(
          index ~= "" and ("note " .. index) or "every note", name) or tostring(why))
@@ -845,12 +900,9 @@ M.handlers.ndb = function(arg, rest)
 
    if arg == "forget" and rest then
       if rest:lower() == "all" then
-         local now = emunah.util.now()
-         if pendingWipe and (now - pendingWipe) < 15 then
-            pendingWipe = nil
+         if util.confirm("ndb.forgetAll") then
             log.warn("Forgot %d people.", ndb.forgetAll())
          else
-            pendingWipe = now
             log.warn("This will forget %d people, including %d notes you wrote. "
                .. "Repeat within 15s to confirm.", ndb.count(), ndb.stats().noted)
          end
@@ -928,7 +980,7 @@ end
 --- scanning view, and the split is deliberate -- a roster that tried to show this much per
 --- row would show four people per screen.
 M.handlers.whois = function(arg)
-   if not arg then log.warn("Usage: emunah whois <person>") return end
+   if not arg then log.warn("Usage: emset whois <person>") return end
    local ndb = emunah.namedb
    local person = ndb.get(arg)
    if not person then
@@ -1066,7 +1118,7 @@ end
 --- Declare a relationship. The one thing in the database that beats derivation.
 M.handlers.iff = function(arg, rest)
    if not (arg and rest) then
-      log.warn("Usage: emunah iff <person> ally|enemy|auto")
+      log.warn("Usage: emset iff <person> ally|enemy|auto")
       return
    end
    local ok, why = emunah.namedb.iff(arg, rest)
@@ -1261,7 +1313,7 @@ M.handlers.ui = function(arg, rest)
       end
    else
       local enabled = emunah.ui.layout.toggle()
-      log.info("UI %s.", enabled and "on" or "off")
+      log.toggled("UI", enabled)
    end
 end
 
@@ -1288,12 +1340,12 @@ end
 
 M.handlers.prio = function(affliction, rest)
    if not affliction or not rest then
-      cecho("\n  <ansi_light_black>usage: emunah prio <affliction> <vector> <rank><reset>")
+      log.warn("Usage: emset prio <affliction> <vector> <rank>")
       return
    end
    local vector, rank = rest:match("^(%S+)%s+(%d+)$")
    if not vector then
-      cecho("\n  <ansi_light_red>usage: emunah prio <affliction> <vector> <rank><reset>")
+      log.warn("Usage: emset prio <affliction> <vector> <rank>")
       return
    end
    local priorities = emunah.config.get("priorities", {})
@@ -1323,7 +1375,13 @@ M.handlers.walk = function(arg, rest)
    elseif arg == "unavoid" then
       walker.unavoidRoom(rest)
    elseif arg == "auto" then
-      walker.setAuto(rest ~= "off")
+      -- Exact match only. This used to be `walker.setAuto(rest ~= "off")`, so ANY argument
+      -- other than the literal word "off" -- a typo, a stray word, even no argument at all
+      -- -- silently turned auto-stepping on. Every other on/off pair in this file (cure,
+      -- bash, pvp, keys, loot, pipes) already requires an exact match; this one now does too.
+      if rest == "on" then walker.setAuto(true)
+      elseif rest == "off" then walker.setAuto(false)
+      else log.warn("Usage: emset walk auto on|off") end
    elseif arg == "delay" then
       walker.setDelay(rest)
    elseif arg == "return" then
@@ -1360,13 +1418,13 @@ M.handlers.debug = function(arg)
       display(emunah.queue.snapshot())
    elseif arg == "gmcp" then
       emunah.log.traceGmcp = not emunah.log.traceGmcp
-      log.info("GMCP tracing %s%s.", flag(emunah.log.traceGmcp),
-         emunah.log.traceGmcp and " -- every message sent and received" or "")
+      log.toggled("GMCP tracing", emunah.log.traceGmcp,
+         emunah.log.traceGmcp and " Every message sent and received." or nil)
    else
       local on = emunah.log.level ~= "debug"
       emunah.log.setLevel(on and "debug" or "info")
-      log.info("Debug logging %s%s.", flag(on),
-         on and " -- includes every command sent to the game" or "")
+      log.toggled("Debug logging", on,
+         on and " Includes every command sent to the game." or nil)
    end
 end
 
@@ -1383,6 +1441,13 @@ M.handlers.hunt = function(arg)
       if not stoppedBash and not stoppedWalk then
          log.info("Hunt was not running.")
       end
+      return
+   elseif arg and arg ~= "start" then
+      -- Documented syntax is exactly `emset hunt [off]` (help.lua). Anything else used to
+      -- fall through to the start branch below -- a typo like `emset hunt stpo` silently
+      -- started bashing and walking instead of erroring, the same asymmetry `defs` and
+      -- `walk auto` had: stopping required an exact word, starting accepted anything.
+      log.warn("Unknown: emset hunt %s. Try `emset hunt` or `emset hunt off`.", tostring(arg))
       return
    end
    -- Walker first: bashing runs a tick as it starts, and that tick decides whether the
@@ -1413,14 +1478,14 @@ M.handlers.bash = function(arg, rest)
       log.info("Attack command: %s", command)
    elseif arg == "balance" and rest then
       if rest ~= "eq" and rest ~= "bal" and rest ~= "both" then
-         log.warn("Usage: emunah bash balance eq|bal|both")
+         log.warn("Usage: emset bash balance eq|bal|both")
       else
          emunah.config.set("bashing.balance", rest); emunah.config.save()
          log.info("Attack uses: %s", rest)
       end
    elseif arg == "consumes" and rest then
       if rest ~= "eq" and rest ~= "bal" then
-         log.warn("Usage: emunah bash consumes eq|bal")
+         log.warn("Usage: emset bash consumes eq|bal")
       else
          emunah.config.set("bashing.consumes", rest); emunah.config.save()
          log.info("Attack spends: %s", rest)
@@ -1517,7 +1582,7 @@ M.handlers.shop = function(arg, rest)
       else
          local gp = tonumber(rest)
          if not gp then
-            log.warn("Usage: emunah shop limit <gp>|off")
+            log.warn("Usage: emset shop limit <gp>|off")
             return
          end
          shop.setConfirmAbove(gp)
@@ -1700,7 +1765,7 @@ M.handlers.chyron = function(arg, rest)
    end
    local text = util.trim((arg or "") .. (rest and (" " .. rest) or ""))
    if text == "" then
-      log.warn("Usage: emunah chyron <text> | emunah chyron clear")
+      log.warn("Usage: emset chyron <text> | emset chyron clear")
       return
    end
    emunah.ui.chyron.send(text)

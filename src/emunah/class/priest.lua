@@ -11,7 +11,7 @@
 --- and it is not the same one:
 ---
 ---   smite       (old default) spends BALANCE. "Balance used: 3.2s." announced it while the
----               prompt read "e-" -- equilibrium still in hand. See docs/game/mechanics.md.
+---               prompt read "e-" -- equilibrium still in hand. See docs/game/priest-abilities.md.
 ---   angel sear  (shipped default) spends EQUILIBRIUM instead. HELP SEAR states its cooldown
 ---               as "2.50 seconds of equilibrium"; the balance requirement on top of that was
 ---               confirmed by the user rather than guessed at, 2026-08-04 -- the mirror image

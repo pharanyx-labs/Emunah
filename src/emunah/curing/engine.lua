@@ -1126,27 +1126,25 @@ end
 -- control
 -- ---------------------------------------------------------------------------
 
-function M.start()
+--- @param silent boolean|nil skip the "Curing on." line -- for a caller (`pp`) that is
+---   about to print its own summary covering this and another module together
+function M.start(silent)
    M.enabled = true
    emunah.config.set("curing.enabled", true)
    M.reconcile()
-   log.info("Curing <ansi_light_green>on<ansi_yellow>.")
+   if not silent then log.info("Curing <ansi_light_green>on<ansi_yellow>.") end
    event.raise("curing.enabled")
 end
 
-function M.stop()
+--- @param silent boolean|nil see M.start()
+function M.stop(silent)
    M.enabled = false
    emunah.config.set("curing.enabled", false)
    -- Clear in-flight entries too: leaving them would block those vectors when curing is
    -- switched back on, which looks exactly like the system having hung.
    queue.reset()
-   log.info("Curing <ansi_light_red>off<ansi_yellow>.")
+   if not silent then log.info("Curing <ansi_light_red>off<ansi_yellow>.") end
    event.raise("curing.disabled")
-end
-
-function M.toggle()
-   if M.enabled then M.stop() else M.start() end
-   return M.enabled
 end
 
 -- ---------------------------------------------------------------------------

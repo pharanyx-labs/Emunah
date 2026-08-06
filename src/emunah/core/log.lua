@@ -4,7 +4,7 @@
 --- controls verbosity, and so debug chatter can be left in the code permanently instead
 --- of being commented in and out.
 
-local log = {}
+local M = {}
 
 local LEVELS = { debug = 1, info = 2, warn = 3, error = 4, silent = 99 }
 
@@ -16,19 +16,19 @@ local STYLE = {
 }
 
 --- Current threshold. Set via `emunah.log.setLevel("debug")` or the config module.
-log.level = "info"
+M.level = "info"
 
-function log.setLevel(level)
+function M.setLevel(level)
    if not LEVELS[level] then
-      log.warn(("Unknown log level %q -- keeping %q."):format(tostring(level), log.level))
+      M.warn(("Unknown log level %q -- keeping %q."):format(tostring(level), M.level))
       return false
    end
-   log.level = level
+   M.level = level
    return true
 end
 
 local function emit(level, message)
-   if LEVELS[level] < LEVELS[log.level or "info"] then return end
+   if LEVELS[level] < LEVELS[M.level or "info"] then return end
    local style = STYLE[level] or STYLE.info
    cecho(string.format(
       "\n<ansi_light_black>[<reset><%s>emunah<reset><ansi_light_black>]<reset> <%s>%s<reset>",
@@ -54,22 +54,35 @@ end
 --- That is per-prompt work in the one code path that cannot afford any, and it is paid by
 --- every user who is not actively debugging. Formatting is now the caller's cost only when
 --- something will be printed.
-function log.enabled(level)
-   return LEVELS[level or "info"] >= LEVELS[log.level or "info"]
+function M.enabled(level)
+   return LEVELS[level or "info"] >= LEVELS[M.level or "info"]
 end
 
-local enabled = log.enabled
+local enabled = M.enabled
 
-function log.debug(fmt, ...) if enabled("debug") then emit("debug", format(fmt, ...)) end end
-function log.info(fmt, ...)  if enabled("info")  then emit("info",  format(fmt, ...)) end end
-function log.warn(fmt, ...)  if enabled("warn")  then emit("warn",  format(fmt, ...)) end end
-function log.error(fmt, ...) if enabled("error") then emit("error", format(fmt, ...)) end end
+function M.debug(fmt, ...) if enabled("debug") then emit("debug", format(fmt, ...)) end end
+function M.info(fmt, ...)  if enabled("info")  then emit("info",  format(fmt, ...)) end end
+function M.warn(fmt, ...)  if enabled("warn")  then emit("warn",  format(fmt, ...)) end end
+function M.error(fmt, ...) if enabled("error") then emit("error", format(fmt, ...)) end end
 
 --- Print a table to the console for inspection. Thin wrapper over Mudlet's display()
 --- that keeps the emunah prefix so output is attributable.
-function log.dump(label, value)
+function M.dump(label, value)
    emit("info", tostring(label) .. ":")
    display(value)
+end
+
+--- The on/off confirmation line: "<Label> on." / "<Label> off.", green/red. Several modules
+--- (curing, defence keep-up, bashing, PvP, name highlighting) had already converged on this
+--- exact wording independently; this is that pattern made shared, so a new toggle does not
+--- invent its own.
+--- @param label string what was toggled, e.g. "Curing", "UI"
+--- @param value boolean|any truthy = on
+--- @param suffix string|nil already-formatted text appended after the period, e.g.
+---   " Candidate lines -> /path/to/file" -- for callers that need to say more than on/off
+function M.toggled(label, value, suffix)
+   M.info("%s <ansi_light_%s>%s<ansi_yellow>.%s", label,
+      value and "green" or "red", value and "on" or "off", suffix or "")
 end
 
 -- ---------------------------------------------------------------------------
@@ -87,7 +100,7 @@ end
 -- loader), so every session starts from whatever is hardcoded here regardless. `emunah
 -- debug gmcp` (or `! debug gmcp`) turns it on for the rest of the session.
 
-log.traceGmcp = false
+M.traceGmcp = false
 
 --- One-line summary of a GMCP payload. Full tables go to display() only on request --
 --- printing them inline for every prompt is unreadable, and the shape is usually enough to
@@ -115,7 +128,7 @@ local function summarise(value, depth)
    return "{" .. table.concat(parts, " ") .. "}"
 end
 
-log.summarise = summarise
+M.summarise = summarise
 
 --- Make a traced payload safe to hand to cecho.
 ---
@@ -135,8 +148,8 @@ local function sanitize(text)
 end
 
 --- Trace one GMCP message. `direction` is "<<" for received, ">>" for sent.
-function log.gmcp(direction, message, payload)
-   if not log.traceGmcp then return end
+function M.gmcp(direction, message, payload)
+   if not M.traceGmcp then return end
    local detail = payload ~= nil and (" " .. sanitize(summarise(payload))) or ""
    -- A logging call must never be the thing that breaks a GMCP handler -- sanitize()
    -- covers every case found in play, but pcall is the backstop for whatever it does not.
@@ -151,4 +164,4 @@ function log.gmcp(direction, message, payload)
    end
 end
 
-return log
+return M
