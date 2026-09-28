@@ -1272,6 +1272,37 @@ ok(table.concat(mock.sent, " | "):find("smoke elm"),
    "a second earworm is smoked on the prompt it lands, with the sip still down",
    table.concat(mock.sent, " | "))
 
+-- THE 14:24 FIGHT, replayed (2026-09-28). Earworm smoked at 41.04 and cured at 41.29; smoke
+-- back at 42.83; a hit at 42.95 takes health to 30% and lands earworm again. Anzerloi: "You
+-- seem to be gating it on health." It was not health: the elm went at 46.00, five seconds
+-- after the first -- the server-cure pace, before engine.remove() cleared it. Health that
+-- low queues `perform hands` and a sip on the same prompt, and neither may hold the smoke.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Afflictions.List", {})
+mock.feed("Char.Vitals", { hp = "530", maxhp = "1000", bal = "1", eq = "1" })
+mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "530", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("smoke elm"), "14:24:41.04 -- the first earworm is smoked",
+   table.concat(mock.sent, " | "))
+mock.advance(0.25)
+mock.feed("Char.Afflictions.Remove", { "earworm" })
+mock.advance(1.54)
+mock.line("Your lungs have recovered enough to smoke another mineral or plant.")
+mock.advance(0.12)
+emunah.have.spend("elixir")
+mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "300", maxhp = "1000", bal = "1", eq = "1" })
+do
+   local sent = table.concat(mock.sent, " | ")
+   ok(sent:find("perform hands"), "14:24:42.95 -- 30% health performs hands", sent)
+   ok(sent:find("smoke elm"), "...and smokes the second earworm on the same prompt", sent)
+end
+mock.feed("Char.Afflictions.List", {})
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+
 -- A BALANCE BACK ON ITS TIMER wakes the engine; it does not wait for the next prompt.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 emunah.have.spend("smoke")
