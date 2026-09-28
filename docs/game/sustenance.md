@@ -157,7 +157,7 @@ Other replies, all observed:
 |---|---|
 | `That pipe is already lit and burning nicely.` | `LIGHT` on a lit pipe |
 | `There is nothing in the pipe to light.` | `LIGHT` on an empty pipe — our puff count was stale |
-| `That pipe isn't lit.` | `SMOKE <herb>` when the pipe holding it has gone out |
+| `That pipe isn't lit.` | `SMOKE <herb>` when the pipe holding it has gone out. **Costs no smoke balance**: none of three refusals (2026-09-28, 15:03:32.95 / 39.12 / 55.49) was followed by `Your lungs have recovered…`. Emunah frees the slot, marks that herb's pipe out and relights it, as [svof] `unlit_pipe` does |
 | `Your pipe, containing a skullcap flower, has gone cold and dark.` | It went out. Names the **contents**, not the pipe |
 | `Your lungs have recovered enough to smoke another mineral or plant.` | Smoke balance back |
 

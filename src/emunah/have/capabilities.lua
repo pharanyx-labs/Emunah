@@ -142,6 +142,8 @@ end
 --- cold holds the herb and cannot be smoked.
 function M.pipe(herb)
    local pipes = emunah.pipes
+   -- The game has just said this pipe is out. Nothing is lit until a light lands.
+   if pipes and pipes.unlit and pipes.unlit[tostring(herb):lower()] then return false end
    if pipes and next(pipes.pipes) ~= nil then
       for _, pipe in ipairs(pipes.list()) do
          if pipe.herb == tostring(herb):lower() and pipe.status == "lit" and pipe.puffs > 0 then

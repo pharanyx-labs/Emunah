@@ -52,6 +52,11 @@ local event = emunah.event
 --- slot, so neither is assumed to.
 M.pipes = {}
 
+--- herb -> true: SMOKE of it was refused with "That pipe isn't lit." and no light has
+--- landed since. have.pipe() reads it, so smoking that herb waits for the relight even
+--- while the pipes themselves are not yet known.
+M.unlit = {}
+
 M.enabled = false
 
 --- How long to leave ONE PIPE alone after acting on it.
@@ -187,6 +192,7 @@ function M.record(status, token, contents, puffs, months)
       months   = tonumber(months) or 0,
    }
    M.pipes[id] = pipe
+   if herb and pipe.status == "lit" then M.unlit[herb] = nil end
 
    -- Any real change means whatever we last sent had an effect, so the budget resets. Without
    -- this a pipe that was successfully relit three times over a long session would exhaust
@@ -207,6 +213,7 @@ end
 --- but "was it lit" does not.
 function M.forget()
    M.pipes, attempts = {}, {}
+   M.unlit = {}
    warnedHerb, warnedStock, warnedStuck = {}, {}, {}
    M.lastAction = nil
    emunah.timers.stop("pipes.chain")
@@ -653,6 +660,7 @@ do
          local pipe = acted()
          if pipe then
             pipe.status = "lit"
+            if pipe.herb then M.unlit[pipe.herb] = nil end
             attempts[pipe.id] = 0
             emunah.timers.stop("pipes.pipe." .. pipe.id)
          end
@@ -708,10 +716,38 @@ do
 
    -- SMOKE refused because the pipe holding that herb has gone out. Observed at 07:32:38 on
    -- `smoke elm`, which incidentally settles that SMOKE takes the herb and resolves it to a
-   -- pipe. It does not say which pipe, and the herb is not in the line either, so this asks.
+   -- pipe. The line names neither, so the herb comes from the smoke in flight -- the
+   -- reference system's unlit_pipe does exactly this (findbybal"smoke", then marks that
+   -- herb's pipe unlit and kills the action).
+   --
+   -- It used to only ask for a PIPELIST, which the poll guard refuses within 15s of the last
+   -- one. After a reconnect on 2026-09-28 `smoke elm` for earworm met "That pipe isn't lit."
+   -- at 15:03:32.95, 39.12 and 55.49, and landed at 58.95: 26 seconds of earworm. Each
+   -- refusal was free -- none was followed by "Your lungs have recovered" -- so the slot and
+   -- the balance are handed back too, rather than sitting out the confirm wait.
    keep(tempRegexTrigger([[^That pipe isn't lit\.$]], function()
-      M.poll()
-      M.chain()
+      local flight = emunah.queue.awaiting("smoke")
+      local herb = flight and M.herbIn(tostring(flight.command or ""):match("^smoke%s+(.+)$"))
+      if flight then
+         emunah.queue.confirm("smoke")
+         emunah.have.recover("smoke")
+      end
+      local marked = false
+      if herb then
+         M.unlit[herb] = true
+         for _, pipe in ipairs(M.list()) do
+            if pipe.herb == herb then
+               pipe.status = "out"
+               attempts[pipe.id] = 0
+               emunah.timers.stop("pipes.pipe." .. pipe.id)
+               marked = true
+            end
+         end
+      end
+      -- Pipes not known (a reconnect forgets them): nothing to light until PIPELIST says
+      -- which pipe holds it, and the guard must not stand in the way of that.
+      if not marked then M.poll(true) end
+      M.keep()
    end))
 end
 
