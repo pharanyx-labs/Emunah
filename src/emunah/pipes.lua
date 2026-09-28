@@ -259,7 +259,14 @@ end
 --- How long after sending a quiet command its reply is still treated as ours.
 M.QUIET_WINDOW = 3.0
 
-local quiet = nil        -- { kind = "list"|"light"|"fill", untilAt = <time>, rules = n }
+--- Our quiet commands still awaiting their reply, PER KIND: kind -> { n, untilAt, rules }.
+---
+--- One slot for all of them was the bug behind "it's not including all lines": pipes are lit
+--- one after another, WIRE_GUARD apart, so pipe A's success line cleared the slot while pipe
+--- B's LIGHT was still in flight -- and B's tinderbox and success lines were shown. A LIGHT
+--- sent during a PIPELIST overwrote the slot the same way, and the rest of the listing
+--- showed. Each kind now counts its own outstanding commands.
+local quiet = {}
 local gagged = {}
 
 --- Lines since the last prompt, and how many of them were gagged. See M.onLine.
@@ -270,11 +277,26 @@ local block = { lines = 0, gagged = 0 }
 local lastPrompt = nil
 
 function M.quietly(kind)
-   quiet = { kind = kind, untilAt = emunah.util.now() + M.QUIET_WINDOW, rules = 0 }
+   local entry = quiet[kind]
+   if not entry or emunah.util.now() > entry.untilAt then
+      entry = { n = 0, rules = 0 }
+      quiet[kind] = entry
+   end
+   entry.n = entry.n + 1
+   entry.untilAt = emunah.util.now() + M.QUIET_WINDOW
+end
+
+--- One reply of this kind has fully arrived.
+local function answered(kind)
+   local entry = quiet[kind]
+   if not entry then return end
+   entry.n = entry.n - 1
+   if entry.n <= 0 then quiet[kind] = nil end
 end
 
 local function ours(kind)
-   return quiet ~= nil and quiet.kind == kind and emunah.util.now() <= quiet.untilAt
+   local entry = quiet[kind]
+   return entry ~= nil and entry.n > 0 and emunah.util.now() <= entry.untilAt
 end
 
 local function flushGags()
@@ -577,8 +599,12 @@ do
    keep(tempRegexTrigger([[^[-][-][-][-][-][-][-][-][-][-]+\s*$]], function()
       if not ours("list") then return end
       M.gag()
-      quiet.rules = quiet.rules + 1
-      if quiet.rules >= 2 then quiet = nil end
+      local entry = quiet.list
+      entry.rules = entry.rules + 1
+      if entry.rules >= 2 then
+         entry.rules = 0
+         answered("list")
+      end
    end))
 
    -- The tinderbox, ahead of every LIGHT: "You use a soot-blackened tinderbox to make fire."
@@ -630,7 +656,7 @@ do
             attempts[pipe.id] = 0
             emunah.timers.stop("pipes.pipe." .. pipe.id)
          end
-         if ours("light") then M.gag() quiet = nil end
+         if ours("light") then M.gag() answered("light") end
          M.chain()
       end))
    end
@@ -644,7 +670,7 @@ do
          attempts[pipe.id] = 0
          emunah.timers.stop("pipes.pipe." .. pipe.id)
       end
-      if ours("light") then M.gag() quiet = nil end
+      if ours("light") then M.gag() answered("light") end
       M.chain()
    end))
 
@@ -663,7 +689,7 @@ do
          attempts[pipe.id] = 0
          emunah.timers.stop("pipes.pipe." .. pipe.id)
       end
-      if ours("fill") then M.gag() quiet = nil end
+      if ours("fill") then M.gag() answered("fill") end
       M.chain()
    end))
 
