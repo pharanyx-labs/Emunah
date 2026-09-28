@@ -1378,6 +1378,23 @@ eq(emunah.act.blocked(), "not logged in", "after a disconnect, every command is 
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 eq(emunah.act.blocked(), nil, "...until the first Char.Vitals of the new session")
 
+-- EARWORM HAS A CURE ENTRY (15:09:19.57, 2026-09-28): reported the instant it landed, with
+-- a sip and a moss going out on the same prompt, and never smoked.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1677", maxhp = "2800", bal = "1", eq = "1" })
+do
+   local sent = table.concat(mock.sent, " | ")
+   ok(emunah.curing.afflist.known("earworm"), "earworm is in the cure table")
+   ok(sent:find("smoke elm", 1, true), "15:09:19.57 -- earworm at 60% is smoked on the prompt it lands",
+      sent)
+   ok(sent:find("drink health", 1, true), "...alongside the sip", sent)
+end
+mock.feed("Char.Afflictions.List", {})
+mock.feed("Char.Vitals", { hp = "2800", maxhp = "2800", bal = "1", eq = "1" })
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+
 -- A BALANCE BACK ON ITS TIMER wakes the engine; it does not wait for the next prompt.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 emunah.have.spend("smoke")
@@ -4370,6 +4387,30 @@ do
    mock.line("paralysed.")
    mock.line("Equilibrium used: 1.00s.")
    ok(engine.has("paralysis"), "...and adds paralysis when it was not tracked")
+
+   -- 15:09:24.73 (2026-09-28), verbatim: "plagued by endless song." is earworm.
+   engine.clear()
+   engine.add("earworm", "gmcp")
+   mock.line("You are:")
+   mock.line("blind.")
+   mock.line("deaf.")
+   mock.line("plagued by endless song.")
+   mock.line("bleeding for 9 health.")
+   mock.line("Equilibrium used: 1.00s.")
+   ok(engine.has("earworm"), "DIAG's \"plagued by endless song.\" keeps earworm")
+
+   -- An unplaceable bare state keeps whatever the server still lists.
+   engine.clear()
+   mock.feed("Char.Afflictions.List", { { name = "somenewaffliction" } })
+   engine.add("somenewaffliction", "gmcp")
+   mock.line("You are:")
+   mock.line("afflicted by something we have never seen.")
+   mock.line("suffering in a way nobody has recorded.")
+   mock.line("Equilibrium used: 1.00s.")
+   ok(engine.has("somenewaffliction"),
+      "a bare state DIAG uses that we cannot place does not clear what the server lists")
+   mock.feed("Char.Afflictions.List", {})
+   engine.clear()
 
    -- REGRESSION: DIAG's leading indefinite article defeated the squash. Confirmed live
    -- 2026-08-05: "afflicted by a crippled left arm." squashed to "acrippledleftarm", which
