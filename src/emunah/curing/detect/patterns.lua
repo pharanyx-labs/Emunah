@@ -953,4 +953,52 @@ detect.define("mucous", {
    cure = { [[^You manage to cough away the mucous filling your lungs\.$]] },
 })
 
+-- ---------------------------------------------------------------------------
+-- DEFENCES: read the listing. svof's `svo def start` and `Def line` triggers mark its ends:
+--
+--     You have the following defences:
+--     <one line per defence>
+--     You are protected by N defences.
+--
+-- Each line in between is looked up in deflist.DEF_LINES; the result goes to
+-- gmcp.defences.applyDefListing, and keep-up resumes if it was waiting on it.
+-- ---------------------------------------------------------------------------
+
+do
+   local function persist(id)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+
+   local listing = nil
+   persist(tempRegexTrigger([[^You have the following defences:]], function()
+      listing = {}
+   end))
+   persist(tempRegexTrigger([[^You are protected by ]], function()
+      if not listing then return end
+      local names = listing
+      listing = nil
+      emunah.gmcp.defences.applyDefListing(names)
+      emunah.curing.defkeepup.defencesChecked()
+   end))
+   persist(tempRegexTrigger([[^]], function()
+      if not listing then return end
+      local name = emunah.curing.deflist.DEF_LINES[getCurrentLine()]
+      if name then listing[#listing + 1] = name end
+   end))
+
+   -- BLISS, which neither Char.Defences nor DEF ever shows (deflist.SYNTHETIC.bliss). Its
+   -- lines, verbatim from svof's defs_data.bliss.
+   for _, pattern in ipairs({
+      [[^You pour blessings of bliss over yourself, granting visions of the majesty of the divine\.$]],
+      [[^The divine choir lingers on in your mind, and your spirit soars\.$]],
+      [[^That person is already experiencing bliss\.$]],
+      [[^\w+ pours blessings over you, and divine choirs begin to sing joyously at the edge of your hearing\.]],
+   }) do
+      persist(tempRegexTrigger(pattern, function() emunah.curing.deflist.setBliss(true) end))
+   end
+end
+
 return true

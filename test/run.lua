@@ -4247,42 +4247,87 @@ eq(frostCells, 1, "it appears exactly once on the grid")
 defkeepup.setMode("temperance", nil)
 
 -- ---------------------------------------------------------------------------
--- UNCONFIRMABLE DEFENCES -- `bliss`, satisfied on send rather than on Char.Defences
+-- BLISS -- invisible to Char.Defences and DEF, tracked from its own lines (svof)
 -- ---------------------------------------------------------------------------
 --
--- `perform bliss` works and produces no Char.Defences line, ever -- confirmed live, DEF's
--- own ten-defence readout never named it 22 minutes into the buff. Waiting for confirmation
--- that is never coming would mean it sits MISSING forever despite being genuinely up.
+-- It used to be satisfied on send, in memory only, so every `emreload` forgot it and sent
+-- `perform bliss` again. Now up comes from svof's bliss lines and survives a reload.
 do
    queue.reset(); emunah.timers.stopAll()
    defkeepup.resetBudget()
    emunah.curing.detect.prone = false
+   emunah.curing.deflist.setBliss(false)
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 
    defkeepup.enabled = true
    defkeepup.setMode("bliss", "defup")
-   eq(defkeepup.state("bliss").unconfirmable, true,
-      "the grid can say why it will never show as up")
-
    mock.sent = {}
    defkeepup.tick()
    ok(table.concat(mock.sent, " | "):find("perform bliss", 1, true),
-      "the one-shot raise is sent", table.concat(mock.sent, " | "))
-   eq(defkeepup.state("bliss").up, false,
-      "...and never reads as up -- Char.Defences never says so")
-   ok(defkeepup.state("bliss").satisfied,
-      "...but is satisfied on send rather than waiting for a confirmation that never comes")
-   eq(emunah.util.contains(defkeepup.missing(), "bliss"), false,
-      "...so it drops out of missing() the same as a confirmed defup entry would")
+      "bliss, not seen yet, is raised", table.concat(mock.sent, " | "))
+   mock.line("You pour blessings of bliss over yourself, granting visions of the majesty of the divine.")
+   eq(defkeepup.state("bliss").up, true, "its own line marks it up")
+   eq(emunah.util.contains(defkeepup.missing(), "bliss"), false, "...so it is not missing")
 
-   -- And it stays that way: a defup entry does not re-fire once satisfied.
-   mock.sent = {}
-   for _ = 1, 3 do
-      mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
-   end
-   eq(#mock.sent, 0, "it is not raised again", table.concat(mock.sent, " | "))
+   -- "Already experiencing bliss" says the same thing: up.
+   emunah.curing.deflist.setBliss(false)
+   mock.line("That person is already experiencing bliss.")
+   eq(defkeepup.state("bliss").up, true, "`already experiencing bliss` marks it up too")
+
+   -- It survives a reload: the state lives in emunah._persist.
+   eq(emunah._persist.blissUp, true, "bliss is remembered where a reload keeps it")
+
+   -- And it goes with death.
+   mock.feed("Char.Vitals", { hp = "0", maxhp = "1000" })
+   eq(defkeepup.state("bliss").up, false, "dying clears it")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 
    defkeepup.setMode("bliss", nil)
+   queue.reset(); emunah.timers.stopAll()
+end
+
+-- ---------------------------------------------------------------------------
+-- AFTER A RELOAD: DEFENCES first, then keep-up
+-- ---------------------------------------------------------------------------
+do
+   local defences = emunah.gmcp.defences
+   queue.reset(); emunah.timers.stopAll()
+   defkeepup.resetBudget()
+   defkeepup.enabled = true
+   defkeepup.setMode("rebounding", "keepup")
+   mock.feed("Char.Defences.List", {})          -- the stale list a reload starts from
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+
+   mock.sent = {}
+   raiseEvent("emunah.loaded", true)
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   eq(table.concat(mock.sent, " | "), "defences",
+      "after a reload, DEFENCES goes out -- and nothing is raised yet")
+
+   mock.line("You have the following defences:")
+   mock.line("You are protected from hand-held weapons with an aura of rebounding.")
+   mock.line("Your mind has been attuned to the realm of Death.")
+   mock.line("You are protected by 2 defences.")
+   ok(defences.has("rebounding"), "the listing is read: rebounding is up")
+   ok(defences.has("deathsight"), "...and deathsight")
+   eq(defkeepup.checking, false, "keep-up resumes once it has been read")
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("rebounding", 1, true),
+      "...and does not raise what the listing showed was up", table.concat(mock.sent, " | "))
+
+   -- A known defence missing from a later listing is down.
+   mock.line("You have the following defences:")
+   mock.line("Your mind has been attuned to the realm of Death.")
+   mock.line("You are protected by 1 defences.")
+   ok(not defences.has("rebounding"), "a known defence missing from the listing is down")
+
+   -- A reply that never comes cannot stall keep-up.
+   raiseEvent("emunah.loaded", true)
+   mock.advance(defkeepup.CHECK_TIMEOUT + 0.1)
+   eq(defkeepup.checking, false, "no listing: keep-up resumes after the timeout")
+
+   defkeepup.setMode("rebounding", nil)
    queue.reset(); emunah.timers.stopAll()
 end
 
@@ -4656,6 +4701,9 @@ ok(defkeepup.enabled,
 queue.reset(); engine.clear(); engine.enabled = false
 emunah.timers.stopAll()
 defkeepup.resetBudget()
+defkeepup.checking = false   -- an earlier suite's reload leaves it awaiting a DEFENCES reply
+-- Its own vitals, rather than whatever the suites before it left behind.
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 mock.feed("Char.Defences.List", {})
 defkeepup.add("inspiration")
 defkeepup.enabled = true
