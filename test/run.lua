@@ -1228,6 +1228,21 @@ mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 ok(table.concat(mock.sent, " | "):find("eat kelp"),
    "...and resends once the retry pace has actually elapsed", table.concat(mock.sent, " | "))
 
+-- REGRESSION: the pace is for a cure the game keeps refusing, not for the next affliction of
+-- the same name. Live 2026-09-28: SMOKE ELM cured earworm at 14:18:45.68, a second earworm
+-- landed at 14:18:49.10 with smoke balance back since 47.21, and the elm waited until 50.78
+-- for the first cure's five seconds to run out.
+mock.feed("Char.Afflictions.Remove", { "unlistedaffliction" })
+ok(not engine.has("unlistedaffliction"), "the server-suggested cure worked")
+queue.reset(); emunah.have.recover("herb")
+mock.advance(1)
+mock.feed("Char.Afflictions.Add", { name = "unlistedaffliction", cure = "EAT KELP" })
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("eat kelp"),
+   "...and a fresh one of the same name is cured at once, not after the old pace",
+   table.concat(mock.sent, " | "))
+
 -- The table still wins where it has an opinion: it carries priority, which the server does
 -- not send and which decides what to cure first when several things are wrong at once.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
