@@ -167,6 +167,18 @@ M.afflictions = {
       cures = { { vector = "smoke", item = "elm", alt = "cinnabar" } },
       priority = { smoke = 1 },
    },
+   -- EARWORM (Bard). The server's own cure field says `SMOKE ELM` (Char.Afflictions.Add
+   -- {cure="SMOKE ELM" name="earworm"}, 15:09:19.57 on 2026-09-28), and a Bard -- Anzerloi,
+   -- the same day -- confirmed "Smoke elm or cinnabar." Cured in play by smoking elm ("The
+   -- endlessly playing song in your mind falls silent.") and by touching tree. Not in the
+   -- reference system, which predates it. It used to have no entry at all and went through
+   -- the server-suggestion fallback, which gives up silently: at 15:09:19.57 it was reported
+   -- the instant it landed and was never smoked. The rank is a choice, not game data: second
+   -- only to aeon on the smoke vector, because a flick at earworm kills (Anzerloi).
+   earworm = {
+      cures = { { vector = "smoke", item = "elm", alt = "cinnabar" } },
+      priority = { smoke = 2 },
+   },
    agoraphobia = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" }, { vector = "focus" } },
       priority = { herb = 39, focus = 17 },

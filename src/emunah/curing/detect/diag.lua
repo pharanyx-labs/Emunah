@@ -89,6 +89,10 @@ M.STATE_AFFLICTIONS = {
    -- same Bard's lines say "Song swells about you as you begin to move inevitably towards a
    -- grand crescendo." and prickly ash cures it ("The building crescendo about you...").
    ["moving inevitably towards a grand finale"] = "crescendo",
+   -- 15:09:24.73 and 15:09:37.73 on 2026-09-28: DIAG said "plagued by endless song." with the
+   -- server listing earworm, and "The song playing endlessly inside your mind drones ever
+   -- on." between them. Unmapped, it logged "DIAG cleared: earworm." -- and it stayed uncured.
+   ["plagued by endless song"] = "earworm",
 }
 
 --- Start a block. Exposed so a test can drive the parse without triggers.
@@ -193,10 +197,32 @@ function M.finish()
          end
       end
 
+      -- A BARE STATE WE CANNOT PLACE is DIAG naming something in words we have no mapping
+      -- for -- "paralysed.", "plagued by endless song." each did exactly that, and each time
+      -- the affliction it meant was dropped as "not reported". So while the block holds one,
+      -- nothing the server's own list still reports is dropped: DIAG may well have named it.
+      local unplaced = false
+      for _, state in ipairs(block.states) do
+         local placed = false
+         for _, word in pairs(deflist and deflist.DIAG_STATES or {}) do
+            if word == state then placed = true end
+         end
+         if not placed then
+            unplaced = true
+            if not M.unknown[state] then
+               M.unknown[state] = true
+               log.warn("DIAG said \"%s.\", which Emunah cannot place -- not clearing "
+                  .. "anything the server still lists.", state)
+            end
+         end
+      end
+      local server = emunah.gmcp.afflictions
+
       for _, record in ipairs(engine.list()) do
          -- `loki` itself is never in DIAG's answer -- it is the illusion, not an
          -- affliction the game will admit to -- so it must not be dropped for its absence.
-         if not reported[record.name] and record.name ~= "loki" then
+         local keep = unplaced and server and server.has(record.name)
+         if not reported[record.name] and record.name ~= "loki" and not keep then
             engine.remove(record.name)
             removed[#removed + 1] = record.name
          end
