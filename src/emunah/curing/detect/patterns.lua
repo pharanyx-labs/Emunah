@@ -1039,6 +1039,13 @@ do
    }) do
       persist(tempRegexTrigger(pattern, function() emunah.curing.deflist.setBliss(true) end))
    end
+
+   -- And its wear-off, which neither the reference system nor any capture had until
+   -- 15:15:26.52 on 2026-09-28. Keep-up can now re-cast bliss the moment it lapses rather
+   -- than at the next DEFENCES listing.
+   persist(tempRegexTrigger([[^The heavenly visions fade as the bliss leaves you\.$]], function()
+      emunah.curing.deflist.setBliss(false)
+   end))
 end
 
 return true
