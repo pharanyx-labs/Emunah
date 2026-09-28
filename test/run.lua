@@ -4645,6 +4645,11 @@ do
    mock.line("That person is already experiencing bliss.")
    eq(defkeepup.state("bliss").up, true, "`already experiencing bliss` marks it up too")
 
+   -- Its wear-off (15:15:26.52, 2026-09-28) clears it.
+   mock.line("The heavenly visions fade as the bliss leaves you.")
+   eq(defkeepup.state("bliss").up, false, "the wear-off line marks bliss down")
+   mock.line("That person is already experiencing bliss.")
+
    -- It survives a reload: the state lives in emunah._persist.
    eq(emunah._persist.blissUp, true, "bliss is remembered where a reload keeps it")
 

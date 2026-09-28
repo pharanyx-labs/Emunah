@@ -318,8 +318,11 @@ Your skin is toughened.
 down, and keep-up casts it. After a reload keep-up holds until the listing is read, so
 `perform bliss` goes out only when a defence is actually missing.
 
-**[open]** Bliss's own wear-off line is still unrecorded. Until the next DEFENCES listing,
-bliss reads as up once seen.
+Bliss's own wear-off line, captured 15:15:26.52 on 2026-09-28, clears it at once:
+
+```
+The heavenly visions fade as the bliss leaves you.
+```
 
 ### `DEFENCES` output, and the check after a reload
 
