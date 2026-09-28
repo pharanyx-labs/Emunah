@@ -279,6 +279,11 @@ function mock.install(homeDir)
    mock.latency = 0.1
    function _G.getNetworkLatency() return mock.latency end
 
+   -- Mudlet's isPrompt(): true while triggers run on the line the game marked as its prompt.
+   -- mock.prompt(text) feeds a line that way.
+   mock.onPrompt = false
+   function _G.isPrompt() return mock.onPrompt end
+
    -- Mudlet's printCmdLine(text): puts text on the input line for the user to finish.
    mock.cmdLine = nil
    function _G.printCmdLine(text) mock.cmdLine = tostring(text) end
@@ -1049,6 +1054,13 @@ local function triggersInOrder()
    local ordered = {}
    for _, id in ipairs(ids) do ordered[#ordered + 1] = mock.triggers[id] end
    return ordered
+end
+
+function mock.prompt(text)
+   mock.onPrompt = true
+   local fired = mock.line(text)
+   mock.onPrompt = false
+   return fired
 end
 
 function mock.line(text)

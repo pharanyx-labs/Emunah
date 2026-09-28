@@ -262,6 +262,11 @@ M.QUIET_WINDOW = 3.0
 local quiet = nil        -- { kind = "list"|"light"|"fill", untilAt = <time>, rules = n }
 local gagged = {}
 
+--- Lines since the last prompt, and how many of them were gagged. A prompt whose whole block
+--- was gagged is gagged with it: hiding the replies alone left a bare prompt behind for every
+--- relight -- five in a row at 13:23:14.92-13:23:17.41, with nothing between them.
+local block = { lines = 0, gagged = 0 }
+
 function M.quietly(kind)
    quiet = { kind = kind, untilAt = emunah.util.now() + M.QUIET_WINDOW, rules = 0 }
 end
@@ -284,13 +289,31 @@ local function flushGags()
    moveCursorEnd("main")
 end
 
---- Hide the line being processed, once the packet it arrived in has been dealt with.
-function M.gag()
+local function gagCurrent()
    if type(getLineNumber) ~= "function" then return end
    local line = getLineNumber("main")
    if not line then return end
    if #gagged == 0 then tempTimer(0, flushGags) end
    gagged[#gagged + 1] = line
+end
+
+--- Hide the line being processed, once the packet it arrived in has been dealt with.
+function M.gag()
+   block.gagged = block.gagged + 1
+   gagCurrent()
+end
+
+--- Every line passes through here (see the `^` trigger below). A prompt closes the block:
+--- if everything in it was ours and gagged, the prompt goes too, so our housekeeping leaves
+--- no trace. A block with anything else in it -- someone arriving, a line you typed -- keeps
+--- its prompt.
+function M.onLine()
+   if type(isPrompt) == "function" and isPrompt() then
+      if block.gagged > 0 and block.lines == block.gagged then gagCurrent() end
+      block.lines, block.gagged = 0, 0
+   else
+      block.lines = block.lines + 1
+   end
 end
 
 -- ---------------------------------------------------------------------------
@@ -498,6 +521,9 @@ do
    -- The state machine was never at fault and a test drives it end to end. Parsing every
    -- row is the entire feature, so the gag that replaced it (M.gag, above) never deletes
    -- from inside a trigger: it records the line and deletes after the packet is done.
+
+   -- Every line, for M.onLine's per-block count.
+   keep(tempRegexTrigger([[^]], function() M.onLine() end))
 
    -- A PIPELIST row.
    --

@@ -9654,6 +9654,27 @@ ok(not inBuffer("You use a soot-blackened tinderbox to make fire."), "tinderbox 
 ok(not inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
    "lit line gagged")
 
+-- THE PROMPT AFTER OUR HOUSEKEEPING GOES TOO. Reported 13:23:14.92-13:23:17.41: five bare
+-- prompts in a row, one per relight, because only the replies were gagged. A block whose
+-- every line was gagged takes its prompt with it; any other block keeps its prompt.
+local promptA = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:15.13-"
+local promptB = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:17.41-"
+local visitor = "Glancing around for the Iron Carnival, a lost visitor enters from the southwest."
+mock.prompt("H:100% M:100% E:100% W:100%  ex-  T:  13:23:14.92-")   -- closes the block before
+emunah.timers.stop("pipes.action")
+emunah.timers.stop("pipes.pipe.408402")
+mock.sent = {}
+pipes.keep()
+mock.line("You use a soot-blackened tinderbox to make fire.")
+mock.line("You carefully light your treasured pipe until it is smoking nicely.")
+mock.prompt(promptA)
+mock.advance(0)
+ok(not inBuffer(promptA), "a prompt whose whole block was our gagged relight is gagged too")
+mock.line(visitor)
+mock.prompt(promptB)
+mock.advance(0)
+ok(inBuffer(visitor) and inBuffer(promptB), "an ordinary block keeps its prompt")
+
 -- YOURS ARE NOT: a PIPELIST you typed, or `emunah pipes now`, is shown in full.
 mock.advance(pipes.QUIET_WINDOW + 0.1)
 local before = #mock.buffer
