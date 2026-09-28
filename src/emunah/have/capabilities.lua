@@ -308,7 +308,10 @@ M.FOCUS_MIN_MANA = 35
 function M.vectorBlocked(vector)
    local blocker = M.blockedBy(vector)
    if blocker then return blocker end
-   if vector == "tree" and M.bothArmsBroken() then return "both arms disabled" end
+   -- OUTR as well: the reference system's `canoutr` is false with both arms crippled.
+   if (vector == "tree" or vector == "rift") and M.bothArmsBroken() then
+      return "both arms disabled"
+   end
    if vector == "focus" then
       local vitals = emunah.gmcp.vitals
       if vitals and vitals.maxwp > 0 and vitals.wp <= M.FOCUS_MIN_WILLPOWER then

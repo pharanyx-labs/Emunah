@@ -78,6 +78,19 @@ local function resolve(text)
    return nil
 end
 
+--- DIAG's bare-state lines that name an AFFLICTION, not a defence. Without these they
+--- counted as absent and DIAG removed what it had just confirmed: 14:27:11.30 on 2026-09-28,
+--- "paralysed." and "moving inevitably towards a grand finale." in the block, then "DIAG
+--- cleared: paralysis, crescendo." -- while paralysed.
+M.STATE_AFFLICTIONS = {
+   -- The reference system's `diag_paralysis` trigger matches exactly this line.
+   ["paralysed"] = "paralysis",
+   -- From that DIAG alone: the only thing tracked that it could be was `crescendo`, and the
+   -- same Bard's lines say "Song swells about you as you begin to move inevitably towards a
+   -- grand crescendo." and prickly ash cures it ("The building crescendo about you...").
+   ["moving inevitably towards a grand finale"] = "crescendo",
+}
+
 --- Start a block. Exposed so a test can drive the parse without triggers.
 function M.begin()
    collecting = { afflictions = {}, states = {}, unknown = {}, at = util.now() }
@@ -111,7 +124,13 @@ function M.line(text)
    -- line "Equilibrium used: 1.00s." end the block without needing a terminator of its own.
    local state = text:match("^([a-z][a-z '%-]*)%.$")
    if state then
-      collecting.states[#collecting.states + 1] = util.trim(state)
+      state = util.trim(state)
+      local affliction = M.STATE_AFFLICTIONS[state]
+      if affliction then
+         collecting.afflictions[#collecting.afflictions + 1] = affliction
+      else
+         collecting.states[#collecting.states + 1] = state
+      end
       return true
    end
 

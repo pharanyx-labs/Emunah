@@ -122,8 +122,14 @@ end
 --- letting it through would only spend the round trip queueTree() is trying to avoid in the
 --- first place, on the one occasion it matters most (nothing else curable, tree the last
 --- resort).
+-- `rift` too: OUTR is how the bloodroot that cures paralysis gets into your hand. Held,
+-- it deadlocked: 14:26:06-14:27:20 on 2026-09-28, paralysed with bloodroot only in the
+-- rift, nothing went out for 74 seconds until a Bard's sonata cured it. The reference
+-- system's `canoutr` (setup.lua) is false only for webbed/bound/transfixed/roped/impaled
+-- or both arms crippled -- never paralysis -- and its herb gate is `sys.canoutr or
+-- can_eat_for`. Those real blockers are in afflist.blocks and have.vectorBlocked().
 M.WHILE_PARALYSED = {
-   herb = true, moss = true, free = true, writhe = true,
+   herb = true, moss = true, free = true, writhe = true, rift = true,
 }
 
 local function paralysed()

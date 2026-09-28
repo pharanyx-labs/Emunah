@@ -64,12 +64,14 @@ M.blocks = {
    -- queue.WHILE_PARALYSED on play evidence (2026-08-03 16:14:25.08); listing it here
    -- as well is what makes the UI's vector light and have.cure() agree with the queue.
    paralysis     = { "tree" },
-   webbed        = { "tree" },
-   bound         = { "tree" },
-   transfixed    = { "tree" },
-   transfixation = { "tree" },
-   roped         = { "tree" },
-   impaled       = { "tree" },
+   -- `rift` for the same five: the reference system's `canoutr` is false while webbed, bound,
+   -- transfixed, roped or impaled (setup.lua). WRITHE first, then pull.
+   webbed        = { "tree", "rift" },
+   bound         = { "tree", "rift" },
+   transfixed    = { "tree", "rift" },
+   transfixation = { "tree", "rift" },
+   roped         = { "tree", "rift" },
+   impaled       = { "tree", "rift" },
    numbedleftarm  = { "tree" },
    numbedrightarm = { "tree" },
    -- IMPATIENCE SHUTS FOCUS. Reported in play as "focus requires no eq or balance but the

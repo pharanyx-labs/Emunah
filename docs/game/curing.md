@@ -126,6 +126,7 @@ block can land while a cure waits for its balance.
 | sip elixir | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_sip]; [play] for paralysis |
 | apply salve | slickness; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_salve]; [play] for paralysis |
 | smoke | asthma, mucous; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_smoke] |
+| `outr` (rift) | webbed, bound, transfixed, roped, impaled; both arms crippled. **Not paralysis** | `afflist.blocks`, `have.vectorBlocked` | [svof canoutr]; [play] 14:26:06–14:27:20 on 2026-09-28, where holding it for paralysis deadlocked the bloodroot pull |
 | focus | impatience, inquisition, willpower ≤ 75, mana ≤ 35% (svof `manause`, `curing.focusMinMana`); paralysis | `afflist.blocks`, `have.vectorBlocked` | [svof check_focus] |
 | touch tree | paralysis, webbed, bound, transfixed, roped, impaled, either arm numb, both arms disabled | `afflist.blocks`, `have.vectorBlocked` | [svof touchtree], [play] |
 | writhe | a writhe already under way | `have.balance("writhe")` | [HELP entanglement], [svof] |
