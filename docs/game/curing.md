@@ -47,6 +47,14 @@ it "will not return no matter how long you wait". `CONCENTRATE` restores it, and
 **confusion prevents concentrating**. Nothing in Emunah models this state yet: a system
 that waits for `eq` to come back will wait forever. See *Gaps* below.
 
+**[game, 2026-09-28]** Blackout hides a disrupted equilibrium. An NPC's advice, verbatim:
+"I've been told it's wise to CONCENTRATE after 3 seconds of blackout have passed without it
+wearing off." **[svof]** agrees in shape: `dict.blackout` assumes `disrupt` 4.5s into a
+blackout (`tempTimer(4.5, ...)`). Emunah sends one `CONCENTRATE` per blackout, 3s after it
+starts (`engine.BLACKOUT_CONCENTRATE`). It fires from a timer, so a missing prompt can't
+delay it, and it is held while confused. It is sent only once because nothing can confirm
+it while blind.
+
 ## The curing balances
 
 **[HELP curing-balances]** names four and says what shares each:

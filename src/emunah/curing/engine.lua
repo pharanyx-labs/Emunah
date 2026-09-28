@@ -244,6 +244,15 @@ end
 --- that has landed since.
 M.BLINDING = { blackout = true }
 
+--- CONCENTRATE once a blackout has lasted this long without lifting. The game's own advice,
+--- from an NPC on 2026-09-28: "I've been told it's wise to CONCENTRATE after 3 seconds of
+--- blackout have passed without it wearing off." The reason is disrupted equilibrium, which
+--- blackout brings and hides: the reference system's dict.blackout assumes `disrupt` a few
+--- seconds in (`tempTimer(4.5, ... addaff(dict.disrupt))`), and CONCENTRATE is its cure
+--- (HELP COMPOSE). Nothing can confirm it while blind, so the equilibrium never shows as
+--- disrupted, and waiting for it to would mean waiting out the whole blackout.
+M.BLACKOUT_CONCENTRATE = 3.0
+
 --- Afflictions that make the list untrustworthy rather than absent.
 ---
 --- `loki` is illusion: while it is up, what Char.Afflictions reports cannot be taken at
@@ -1045,6 +1054,27 @@ end
 --- Were we blind on the previous pass? See the thaw check in M.tick().
 local wasBlinded = false
 
+--- This blackout's CONCENTRATE: due once M.BLACKOUT_CONCENTRATE has passed, and sent at most
+--- once. Once, not per tick like a tracked affliction's cure: nothing can confirm it while
+--- blind, so a cure loop would CONCENTRATE every couple of seconds for the whole blackout
+--- on nothing but a guess. A `disrupted` the server does report is cured the usual way.
+local blackoutConcentrate = { due = false, sent = false }
+
+local function queueBlackoutConcentrate()
+   if not blackoutConcentrate.due or blackoutConcentrate.sent then return end
+   if M.tracked.disrupted then return end
+   queue.push("special", "concentrate", {
+      priority = 2, tag = "blackout",
+      confirm  = emunah.config.get("curing.confirmWait", 2.0),
+      -- Confusion prevents concentrating (HELP COMPOSE), the same condition afflist puts on
+      -- the `disrupted` cure. Left due, so it goes out once the confusion is cured.
+      valid    = function()
+         return M.blinded() and not M.tracked.confusion and not M.tracked.disrupted
+      end,
+      onSent   = function() blackoutConcentrate.sent = true end,
+   })
+end
+
 --- One pass of the engine.
 function M.tick()
    if not M.enabled then return end
@@ -1057,6 +1087,18 @@ function M.tick()
    if wasBlinded and not blinded then
       log.warn("Affliction state was unobservable -- reconciling now.")
       M.reconcile()
+   end
+   -- The blackout clock runs on a timer, not on prompts: whether prompts keep arriving
+   -- while blind is exactly what cannot be relied on, so the timer ticks the engine itself.
+   if blinded and not wasBlinded then
+      blackoutConcentrate.due, blackoutConcentrate.sent = false, false
+      emunah.timers.start("blackout.concentrate", M.BLACKOUT_CONCENTRATE, function()
+         blackoutConcentrate.due = true
+         M.tick()
+      end)
+   elseif not blinded and wasBlinded then
+      emunah.timers.stop("blackout.concentrate")
+      blackoutConcentrate.due, blackoutConcentrate.sent = false, false
    end
    wasBlinded = blinded
 
@@ -1086,6 +1128,7 @@ function M.tick()
    -- Before resolving any cure: under loki the list we would resolve against is the thing
    -- in doubt, so establishing what is real comes first.
    queueDiag()
+   queueBlackoutConcentrate()
 
    -- Every tick by default. It was every tenth, which meant one item pulled per ten
    -- prompts: `outr 3 valerian` at 11:47:32 and `outr 3 irid` at 11:48:26, nearly a minute

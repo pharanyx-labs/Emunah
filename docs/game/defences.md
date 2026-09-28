@@ -73,7 +73,7 @@ between this and player combat.
 
 | Affliction | What it breaks | Response |
 |---|---|---|
-| **blackout** | Afflictions applied during it produce **no `Char.Afflictions` updates at all** | Do not reconcile while it is up; catch up the moment it lifts |
+| **blackout** | Afflictions applied during it produce **no `Char.Afflictions` updates at all** | Do not reconcile while it is up; catch up the moment it lifts. `CONCENTRATE` once, 3s in (`curing.md`) |
 | **loki** | The affliction list cannot be trusted while it is up | `DIAG` on the next balance |
 | **recklessness** | `Char.Vitals` reports `hp` and `mp` at **maximum** regardless of the truth | Treat the vitals feed as unusable; heal from every source |
 
