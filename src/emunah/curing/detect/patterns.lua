@@ -1020,6 +1020,7 @@ do
       local names = listing
       listing = nil
       emunah.gmcp.defences.applyDefListing(names)
+      emunah.curing.deflist.blissFromListing(names)
       emunah.curing.defkeepup.defencesChecked()
    end))
    persist(tempRegexTrigger([[^]], function()

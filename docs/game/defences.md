@@ -304,8 +304,22 @@ That person is already experiencing bliss.
 <name> pours blessings over you, and divine choirs begin to sing joyously at the edge of your hearing.
 ```
 
-**[open]** Bliss's wear-off line. Neither svof nor a transcript records it, so bliss reads as
-up for the rest of the login once seen. `keepup` mode can't re-raise it until that line is known.
+**Bliss's defences settle it on every DEFENCES listing (2026-09-28).** Bliss grants
+toughness, resistance and constitution (stated by the user), and those do appear in DEFENCES.
+Their lines, from the user's own listing with bliss up:
+
+```
+You are using your superior constitution to prevent nausea.
+You are resisting magical damage.
+Your skin is toughened.
+```
+
+`deflist.blissFromListing`: all three present means bliss is up; any one missing means it is
+down, and keep-up casts it. After a reload keep-up holds until the listing is read, so
+`perform bliss` goes out only when a defence is actually missing.
+
+**[open]** Bliss's own wear-off line is still unrecorded. Until the next DEFENCES listing,
+bliss reads as up once seen.
 
 ### `DEFENCES` output, and the check after a reload
 
