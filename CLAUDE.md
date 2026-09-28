@@ -63,6 +63,11 @@ declared. Answer these from `docs/game/`, not from memory, for every new or chan
    everything they should in `act.blocked`. Death pauses Emunah completely by the user's
    rule. Don't add a command that bypasses `act.send` or the queue.
 
+`EmunahTriggers.xml` is generated from svof's trigger set by
+`tools/build-svof-triggers.py`. Change the generator and regenerate; never hand-edit the
+XML. Its triggers may only call `detect.textGain` / `textCure` / `textState`. A text-reported
+affliction is on probation until the server confirms it (`engine.TEXT_CONFIRM`).
+
 Achaea's server-side curing is **off** for this character, and the user turned off its
 sipping and defence upkeep by hand. Don't send `CURING` commands at login.
 

@@ -72,6 +72,108 @@ end
 --- `unconsciousness.waitingfor` uses customwait = 7 and clears it on timeout.
 M.UNCONSCIOUS_GUARD = 7.0
 
+-- ---------------------------------------------------------------------------
+-- State edges. Shared by the built-in patterns (patterns.lua) and the imported trigger
+-- package (EmunahTriggers.xml, see M.textState), so a line reaches the same code whichever
+-- trigger matched it.
+-- ---------------------------------------------------------------------------
+
+--- Knocked down. Stand, and bound the belief: this flag gates sending, so a missed "You
+--- stand up." would otherwise leave the bot refusing to act indefinitely.
+function M.onProne()
+   if not M.prone then
+      log.debug("Knocked down -- standing up.")
+      M.standUp()
+   end
+   M.prone = true
+   emunah.timers.start("prone.guard", M.PRONE_GUARD, function()
+      if M.prone then
+         log.debug("No stand confirmation after %.1fs -- assuming upright.", M.PRONE_GUARD)
+         M.prone = false
+         event.raise("recovered")
+      end
+   end)
+end
+
+function M.onStood()
+   emunah.timers.stop("prone.guard")
+   M.prone = false
+   event.raise("recovered")
+end
+
+--- Stunned. Blocks EVERYTHING, so a missed "You are no longer stunned." would freeze the
+--- bot outright; a stun is momentary by definition, so the guard costs nothing when the
+--- clear arrives normally and rescues the session when it does not.
+function M.onStunned()
+   if not M.stunned then log.debug("Stunned -- holding every command until it passes.") end
+   M.stunned = true
+   emunah.timers.start("stun.guard", M.STUN_GUARD, function()
+      if M.stunned then
+         log.debug("No stun-clear message after %.1fs -- assuming it passed.", M.STUN_GUARD)
+         M.stunned = false
+         event.raise("recovered")
+      end
+   end)
+end
+
+--- A knockdown and a stun routinely arrive on the same hit, and while stunned STAND is
+--- refused like everything else -- so stun lifting is the moment to actually get up.
+function M.onUnstunned()
+   emunah.timers.stop("stun.guard")
+   M.stunned = false
+   if M.prone then M.standUp() end
+   event.raise("recovered")
+end
+
+function M.onUnconscious()
+   if not M.unconscious then log.debug("Unconscious -- holding every command.") end
+   M.unconscious = true
+   emunah.timers.start("unconscious.guard", M.UNCONSCIOUS_GUARD, function()
+      if M.unconscious then
+         M.unconscious = false
+         event.raise("recovered")
+      end
+   end)
+end
+
+function M.onConscious()
+   emunah.timers.stop("unconscious.guard")
+   M.unconscious = false
+   if M.prone then M.standUp() end
+   event.raise("recovered")
+end
+
+-- ---------------------------------------------------------------------------
+-- The imported trigger package's entry points. EmunahTriggers.xml (tools/
+-- build-svof-triggers.py) calls only these, with the server's name for each affliction.
+-- ---------------------------------------------------------------------------
+
+--- An affliction gained, on probation until the server confirms it (engine.TEXT_CONFIRM).
+function M.textGain(name)
+   local engine = emunah.curing.engine
+   if engine then engine.addText(name) end
+end
+
+--- An affliction cured. Frees the queue slot waiting on it, as a native cure line does; if
+--- the server still reports it, the next reconcile adopts it again.
+function M.textCure(name)
+   M.onCure(tostring(name or ""):lower())
+end
+
+local TEXT_STATES = {
+   stunned     = { on = "onStunned",     off = "onUnstunned" },
+   prone       = { on = "onProne",       off = "onStood" },
+   sleeping    = { on = "onSleep",       off = "onWake" },
+   unconscious = { on = "onUnconscious", off = "onConscious" },
+}
+
+--- A state entered or left.
+function M.textState(state, on)
+   local handlers = TEXT_STATES[state]
+   if not handlers then return end
+   M[on and handlers.on or handlers.off]()
+end
+
 --- Arm balance. svof holds every balance-taking action until BOTH arms have it
 --- (check_balanceful_acts: `not bals.rightarm or not bals.leftarm`). It is lost by
 --- arm-specific attacks and announced back per arm -- see patterns.lua for the lines.

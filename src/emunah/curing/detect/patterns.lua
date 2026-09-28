@@ -407,23 +407,7 @@ end
 -- ---------------------------------------------------------------------------
 
 do
-   local function onProne()
-      if not detect.prone then
-         emunah.log.debug("Knocked down -- standing up.")
-         detect.standUp()
-      end
-      detect.prone = true
-      -- Backstop, for the same reason the stun guard exists: this flag gates sending, so a
-      -- missed "You stand up." would leave the bot refusing to act indefinitely.
-      emunah.timers.start("prone.guard", detect.PRONE_GUARD, function()
-         if detect.prone then
-            emunah.log.debug("No stand confirmation after %.1fs -- assuming upright.",
-               detect.PRONE_GUARD)
-            detect.prone = false
-            emunah.event.raise("recovered")
-         end
-      end)
-   end
+   local function onProne() detect.onProne() end
 
    for _, pattern in ipairs({
       [[^You must be standing first\.$]],           -- the rejection: backstop
@@ -446,11 +430,7 @@ do
       [[^You are not fallen or kneeling\.$]],
       [[^You are already standing\.$]],
    }) do
-      local upId = tempRegexTrigger(pattern, function()
-         emunah.timers.stop("prone.guard")
-         detect.prone = false
-         emunah.event.raise("recovered")
-      end)
+      local upId = tempRegexTrigger(pattern, function() detect.onStood() end)
       if upId then
          emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
          table.insert(emunah._persist.detectTriggers, upId)
@@ -777,24 +757,7 @@ end
 -- ---------------------------------------------------------------------------
 
 do
-   local function onStunned()
-      if not detect.stunned then
-         emunah.log.debug("Stunned -- holding every command until it passes.")
-      end
-      detect.stunned = true
-      -- Backstop. detect.stunned blocks EVERYTHING, so a missed "You are no longer
-      -- stunned." would not degrade the bot, it would freeze it outright. A stun is
-      -- momentary by definition, so an upper bound costs nothing when the clear arrives
-      -- normally (it just cancels this) and rescues the session when it does not.
-      emunah.timers.start("stun.guard", detect.STUN_GUARD, function()
-         if detect.stunned then
-            emunah.log.debug("No stun-clear message after %.1fs -- assuming it passed.",
-               detect.STUN_GUARD)
-            detect.stunned = false
-            emunah.event.raise("recovered")
-         end
-      end)
-   end
+   local function onStunned() detect.onStunned() end
 
    for _, pattern in ipairs({
       [[^You are momentarily stunned]],
@@ -808,14 +771,7 @@ do
    end
 
    local clearId = tempRegexTrigger([[^You are no longer stunned\.$]], function()
-      emunah.timers.stop("stun.guard")
-      detect.stunned = false
-      -- A knockdown and a stun routinely arrive on the same hit, and while stunned the
-      -- STAND above is refused like everything else. Stun lifting is therefore the moment
-      -- to actually get up -- otherwise nothing retries it and we sit prone until the
-      -- prone guard lapses.
-      if detect.prone then detect.standUp() end
-      emunah.event.raise("recovered")
+      detect.onUnstunned()
    end)
    if clearId then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
@@ -942,22 +898,12 @@ do
    persist(tempRegexTrigger(
       [[^Your legs collapse from under you and consciousness leaves you as you pass out from extreme hunger\.$]],
       function()
-         detect.unconscious = true
-         detect.prone = true
-         emunah.log.debug("Unconscious -- holding every command.")
-         emunah.timers.start("unconscious.guard", detect.UNCONSCIOUS_GUARD, function()
-            if detect.unconscious then
-               detect.unconscious = false
-               emunah.event.raise("recovered")
-            end
-         end)
+         detect.onUnconscious()
+         detect.onProne()
       end))
 
    persist(tempRegexTrigger([[^You regain consciousness with a start\.$]], function()
-      emunah.timers.stop("unconscious.guard")
-      detect.unconscious = false
-      if detect.prone then detect.standUp() end
-      emunah.event.raise("recovered")
+      detect.onConscious()
    end))
 
    -- ARM BALANCE. Recovery per arm is svof's `Got left arm` / `Got right arm`; the

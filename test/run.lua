@@ -9689,6 +9689,94 @@ ok(not emunah.bashing.enabled, "...but the hunt stays off until restarted")
 reset()
 end)()
 
+suite("EmunahTriggers.xml: svof's lines, feeding Emunah")
+
+;(function()
+local engine = emunah.curing.engine
+local detect = emunah.curing.detect
+local afflist = emunah.curing.afflist
+
+local function reset()
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+end
+
+-- PROBATION. A text report the server never confirms is dropped: that is an illusion, and
+-- before this a trigger-asserted affliction survived every reconcile.
+reset()
+engine.enabled = true
+detect.textGain("paralysis")
+ok(engine.has("paralysis"), "a text report is tracked at once")
+mock.advance(engine.TEXT_CONFIRM + 0.1)
+engine.tick()
+ok(not engine.has("paralysis"), "...and dropped when the server never confirms it")
+
+reset()
+detect.textGain("paralysis")
+mock.feed("Char.Afflictions.Add", { name = "paralysis", cure = "EAT BLOODROOT" })
+mock.advance(engine.TEXT_CONFIRM + 0.1)
+engine.tick()
+ok(engine.has("paralysis"), "a confirmed report stays")
+
+reset()
+engine.add("blackout", "gmcp")
+detect.textGain("stupidity")
+mock.advance(engine.TEXT_CONFIRM + 5)
+engine.tick()
+ok(engine.has("stupidity"), "while blacked out the text is all there is, so it is kept")
+engine.enabled = false
+
+-- STATES go straight in, like the native patterns.
+reset()
+detect.textState("stunned", true)
+eq(emunah.act.blocked(), "stunned", "textState stunned holds everything")
+detect.textState("stunned", false)
+eq(emunah.act.blocked(), nil, "...and clears")
+detect.textCure("nothingtracked")   -- must not error on something we are not tracking
+
+-- THE PACKAGE ITSELF. Every script must compile, run against the real modules, and name
+-- only afflictions and states Emunah acts on -- a name it does not know could never be
+-- cured and would only be dropped again.
+local handle = io.open("EmunahTriggers.xml", "r")
+ok(handle ~= nil, "EmunahTriggers.xml exists at the repository root")
+if handle then
+   local xml = handle:read("*a"); handle:close()
+   local function unescape(text)
+      return (text:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&quot;", '"')
+                  :gsub("&apos;", "'"):gsub("&amp;", "&"))
+   end
+   local scripts, bad, unknownNames = 0, {}, {}
+   local states = { stunned = true, prone = true, sleeping = true, unconscious = true }
+   for script in xml:gmatch("<Trigger [^>]*>%s*<name>[^<]*</name>%s*<script>(.-)</script>") do
+      scripts = scripts + 1
+      local code = unescape(script)
+      local fn, err = loadstring(code)
+      if not fn then
+         bad[#bad + 1] = err
+      else
+         reset()
+         local okRun, runErr = pcall(fn)
+         if not okRun then bad[#bad + 1] = runErr end
+      end
+      for kind, name in code:gmatch('text(%a+)%("([%w]+)"') do
+         if kind == "State" then
+            if not states[name] then unknownNames[#unknownNames + 1] = name end
+         elseif not (afflist.known(name) or afflist.isWrithe(name)
+                     or #afflist.blockedVectors(name) > 0 or afflist.wearsOff[name]) then
+            unknownNames[#unknownNames + 1] = name
+         end
+      end
+   end
+   ok(scripts > 500, "the package carries svof's lines (" .. scripts .. " triggers)")
+   eq(#bad, 0, "every trigger script compiles and runs", table.concat(bad, " | "))
+   eq(#unknownNames, 0, "every name it reports is one Emunah acts on",
+      table.concat(unknownNames, ", "))
+   ok(not xml:find("svo%."), "no svof code survives into the package")
+end
+reset()
+end)()
+
 suite("docs stay in sync with the code, and with each other")
 
 -- Duplicated figures across README/website/docs/performance.md have drifted before: three

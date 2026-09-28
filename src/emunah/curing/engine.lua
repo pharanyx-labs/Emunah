@@ -130,6 +130,51 @@ function M.add(name, source)
    return true
 end
 
+--- ONE LINE OF TEXT IS NOT PROOF. Afflictions reported by the imported trigger package
+--- (EmunahTriggers.xml, generated from svof's trigger set) are held on probation: if the
+--- server has not reported the same name within M.TEXT_CONFIRM, the report is dropped.
+---
+--- Char.Afflictions is reliable for everything except loki and blackout (docs/game/gmcp.md),
+--- and it arrives with the same prompt as the text, so a real affliction is confirmed long
+--- before this lapses. What does NOT get confirmed is an illusion -- svof guards its own
+--- triggers against those with a whole subsystem (lifevision) that these triggers do not
+--- carry -- and before this, anything a trigger asserted survived every reconcile, so one
+--- faked line had the engine curing a phantom for the rest of the fight. While the feed is
+--- blinded the text is all there is, so the clock does not run.
+M.TEXT_CONFIRM = 2.0
+
+local pendingText = {}
+
+--- Record an affliction from an imported trigger. See M.TEXT_CONFIRM.
+function M.addText(name)
+   name = tostring(name or ""):lower()
+   if M.add(name, "text") then pendingText[name] = emunah.util.now() end
+end
+
+local function confirmText()
+   if next(pendingText) == nil then return end
+   local server = emunah.gmcp.afflictions
+   local now = emunah.util.now()
+   local blinded = M.blinded()
+   local grace = tonumber(emunah.config.get("curing.textConfirm", M.TEXT_CONFIRM))
+      or M.TEXT_CONFIRM
+   for name, since in pairs(pendingText) do
+      local record = M.tracked[name]
+      if not record then
+         pendingText[name] = nil
+      elseif server and server.has(name) then
+         record.source = "gmcp"
+         pendingText[name] = nil
+      elseif blinded then
+         pendingText[name] = now
+      elseif now - since >= grace then
+         pendingText[name] = nil
+         log.debug("Dropping %s -- reported by text, never confirmed by the server.", name)
+         M.remove(name)
+      end
+   end
+end
+
 function M.remove(name)
    name = tostring(name or ""):lower()
    if not M.tracked[name] then return false end
@@ -151,6 +196,7 @@ end
 
 function M.clear()
    M.tracked = {}
+   pendingText = {}
    -- Refusals describe afflictions that no longer exist, and the log debounce keyed to them
    -- would otherwise suppress the first report of the same reason next time round.
    M.refusals = {}
@@ -1013,6 +1059,8 @@ function M.tick()
       M.reconcile()
    end
    wasBlinded = blinded
+
+   confirmText()
 
    -- Periodic reconciliation. Cheap, but not free, so not every tick.
    local every = tonumber(emunah.config.get("curing.reconcileEvery", 20)) or 20
