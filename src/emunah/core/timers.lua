@@ -63,9 +63,12 @@ function M.stop(name)
 end
 
 --- How long past its end a cooldown may still be sitting in the registry before it is
---- treated as orphaned. Mudlet runs a due tempTimer on its next event-loop pass, so a live
---- one is never this late.
+--- treated as orphaned: this, or ORPHAN_SLACK of its length if that is more. Qt's default
+--- coarse timers -- what Mudlet's tempTimer runs on -- only promise to fire within 5% of the
+--- interval, so a long timer is late by design: "pipes.poll.due", 300s, was reported
+--- orphaned at 1.8s over (2026-09-28) when it was only running late.
 M.ORPHAN_GRACE = 0.5
+M.ORPHAN_SLACK = 0.05
 
 --- A cooldown whose time is up is OVER, whether or not its tempTimer callback ran.
 ---
@@ -80,7 +83,8 @@ local function expireIfLapsed(name)
    local reg = registry()
    local entry = reg[name]
    if not entry then return nil end
-   if emunah.util.now() - entry.startedAt < entry.duration + M.ORPHAN_GRACE then return entry end
+   local grace = math.max(M.ORPHAN_GRACE, entry.duration * M.ORPHAN_SLACK)
+   if emunah.util.now() - entry.startedAt < entry.duration + grace then return entry end
    reg[name] = nil
    log.warn("Timer %q outlived its callback by %.1fs -- expiring it now.", name,
       emunah.util.now() - entry.startedAt - entry.duration)

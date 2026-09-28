@@ -379,8 +379,9 @@ M.settings = {
 { key = "pipes.enabled", default = true, type = "boolean", topic = "pipes", shipped = false },
 { key = "pipes.assign", default = "(unset)", type = "table", topic = "pipes",
   shipped = false, detail = "Which herb goes in which pipe." },
-{ key = "pipes.poll", default = 300, type = "number", unit = "s", topic = "pipes",
-  shipped = false },
+{ key = "pipes.poll", default = 0, type = "number", unit = "s", topic = "pipes",
+  shipped = false, detail = "Re-check every pipe this often with PIPELIST. 0 (the default) "
+     .. "asks only when the pipes are not known, e.g. after login or a reload." },
 { key = "namedb.capture", default = true, type = "boolean", topic = "people", shipped = true },
 { key = "namedb.autoFetch", default = true, type = "boolean", topic = "people",
   shipped = true, detail = "Look names up against the Achaea web API automatically." },

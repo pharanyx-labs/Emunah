@@ -1395,6 +1395,26 @@ mock.feed("Char.Afflictions.List", {})
 mock.feed("Char.Vitals", { hp = "2800", maxhp = "2800", bal = "1", eq = "1" })
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 
+-- NO ROUTINE PIPELIST (2026-09-28: "sometimes i see the output from 'pipelist' which
+-- disappears a second or so later"). Like the reference system, pipes are tracked from
+-- their own lines and PIPELIST goes out only when they are not known.
+emunah.timers.stopAll(); emunah.pipes.forget()
+emunah.config.set("pipes.enabled", true)
+emunah.pipes.record("lit", "pipe101", "slippery elm", 10, 1)
+mock.sent = {}
+for _ = 1, 3 do
+   mock.advance(200)
+   mock.feed("Char.Vitals", { hp = "2800", maxhp = "2800", bal = "1", eq = "1" })
+end
+ok(not table.concat(mock.sent, " | "):find("pipelist", 1, true),
+   "pipes known: no PIPELIST however long it has been", table.concat(mock.sent, " | "))
+emunah.pipes.forget(); emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "2800", maxhp = "2800", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("pipelist", 1, true),
+   "pipes not known (login, reload): one PIPELIST to learn them", table.concat(mock.sent, " | "))
+emunah.pipes.forget(); emunah.timers.stopAll()
+
 -- A BALANCE BACK ON ITS TIMER wakes the engine; it does not wait for the next prompt.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 emunah.have.spend("smoke")
@@ -3369,6 +3389,13 @@ mock.timers = {}                                  -- the callback is lost
 mock.clock = mock.clock + emunah.curing.curelist.recovery("smoke") + 1
 ok(emunah.timers.ready("cure.smoke"), "a cooldown whose callback was lost still ends")
 ok(emunah.have.balance("smoke"), "...so smoke balance comes back")
+emunah.timers.stopAll()
+
+-- A LONG TIMER RUNNING LATE IS NOT ORPHANED. Qt coarse timers promise 5%: "pipes.poll.due"
+-- (300s) was reported orphaned at 1.8s over on 2026-09-28 when it was only late.
+emunah.timers.start("test.long", 300)
+mock.clock = mock.clock + 301.8
+ok(emunah.timers.active("test.long"), "a 300s timer 1.8s late is still running")
 emunah.timers.stopAll()
 
 emunah.have.spend("salve")
