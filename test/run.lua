@@ -2989,6 +2989,30 @@ queue.reset()
 engine.tick()
 eq(concentrates(), 1, "...but as soon as the confusion is gone, if still blacked out")
 
+-- "You already possess equilibrium." (play, 2026-09-28) is CONCENTRATE answered with nothing
+-- to restore. It frees the slot at once rather than after the confirm timeout.
+ok(queue.awaiting("special") ~= nil and queue.awaiting("special").command == "concentrate",
+   "the blackout CONCENTRATE is in flight")
+mock.line("You already possess equilibrium.")
+eq(queue.awaiting("special"), nil, "...and the reply frees the slot immediately")
+
+-- The same reply to a disrupted-equilibrium cure says the tracked affliction is wrong.
+engine.clear(); queue.reset()
+mock.feed("Char.Afflictions.List", {})
+engine.tick()
+engine.add("disrupted", "trigger")
+engine.tick()
+ok(queue.awaiting("special") ~= nil, "a tracked disrupted sends CONCENTRATE")
+mock.line("You already possess equilibrium.")
+eq(queue.awaiting("special"), nil, "the reply frees the slot")
+ok(not engine.has("disrupted"), "...and drops the disrupted it contradicts")
+
+-- Unprompted, the line is not an answer to anything, and changes nothing.
+engine.add("disrupted", "trigger")
+queue.reset()
+mock.line("You already possess equilibrium.")
+ok(engine.has("disrupted"), "with no CONCENTRATE in flight the line is ignored")
+
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 mock.feed("Char.Afflictions.List", {})
 
