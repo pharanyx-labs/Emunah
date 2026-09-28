@@ -56,8 +56,7 @@ starts, so its own attack cadence controls movement instead of the walker's time
 you out of a room mid-fight.
 </p>
 <pre><code>emset walk start
-emset walk avoid 4521    # skip a specific room
-emset walk auto off      # hand pacing to a consumer instead</code></pre>
+emset walker.auto false  # hand pacing to a consumer instead</code></pre>
 
 <h2 id="denizens">Targeting by replica number</h2>
 <p>
@@ -73,9 +72,10 @@ in the room — never by name.
 across sessions) and a live <strong>per-room target</strong> (which specific instance,
 by id, is being fought right now).
 </p>
-<pre><code>emset mobs here      # what's in the room, by replica number
-emset mobs skip rat  # keep it recorded, but stop killing it
-emset mobs areas     # every area with a recorded kill list</code></pre>
+<p>
+The kill list is edited by clicking: a kind seen for the first time in an area is echoed as a
+clickable line, and the denizens in the room panel are toggles.
+</p>
 
 <h2 id="bashing">The hunting loop</h2>
 <p>Closes the loop between the three pieces above:</p>
@@ -101,7 +101,7 @@ confirmed the <em>current</em> room's contents have actually arrived.
 <h3>Safety</h3>
 <p>An unattended loop that can't stop itself is how a character gets fed to a denizen. The bashing loop halts on:</p>
 <ul>
-<li>health below a configurable threshold (<code>emset bash health &lt;n&gt;</code>, default 50%)</li>
+<li>health below a configurable threshold (<code>emset bashing.stopBelowHealth &lt;n&gt;</code>, default 50%)</li>
 <li>too many failed attacks on one target (default 40) — gives up and moves on rather than grinding forever on something unkillable by this attack</li>
 <li>the class module refusing to attack (no balance, or an unhandled shield)</li>
 <li>a player arriving, if <code>bashing.stopOnPlayer</code> is set — bashing is built to <em>avoid</em> PvP, not stumble into it (see <a href="#pvp">PvP</a> for the actual PvP path)</li>
@@ -170,7 +170,7 @@ that has hung.
 </p>
 </div>
 <pre><code>emset hunt          # walk + bash together
-emset bash health 60
+emset bashing.stopBelowHealth 60
 emset hunt off</code></pre>
 
 <h2 id="loot">Loot</h2>
@@ -230,7 +230,7 @@ directions.
 <p>
 GMCP reports only the character's own afflictions, never an opponent's. Tracking an
 opponent's state therefore uses the same mechanism that closes the PvP detection gap:
-third-person trigger patterns grown from observed combat via <code>emset learn on</code>,
+third-person trigger patterns grown from observed combat via learn mode (<code>lua emunah.curing.detect.startLearning()</code>),
 following the workflow in <a href="curing.html#detection">Curing → Detection</a>.
 </p>
 <p>
@@ -248,7 +248,7 @@ landed hits around 300 damage/second sustained, against a best-case sustainable 
 throughput around 100-150 hp/second — a gap no curing speed closes. So the attack (Angel
 Sear/smite, whichever is configured) is <strong>withheld</strong> during PvP until the
 opponent looks vulnerable enough to finish — <code>pvp.attackAtAfflictions</code> (default
-2, tunable via <code>emset pvp attack &lt;n&gt;</code>) or more afflictions tracked on them.
+2, tunable via <code>emset pvp.attackAtAfflictions &lt;n&gt;</code>) or more afflictions tracked on them.
 Not health: <code>IRE.Target.Info</code> does not report a player opponent's vitals at all
 (confirmed live), so their tracked affliction load
 (<code>curing/detect/opponent.lua</code>) is the only signal actually available, and is what

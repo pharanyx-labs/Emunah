@@ -12,7 +12,7 @@
 ---     asserts an affliction you do not have and the engine then burns balance curing it.
 ---
 ---   * So: GMCP is the working detector today (see curing/engine.lua), this layer adds
----     precision where a pattern is known to be right, and `emunah learn on` captures
+---     precision where a pattern is known to be right, and learn mode (`detect.startLearning()`) captures
 ---     what you actually see in combat so the corpus can be grown from evidence.
 ---
 --- Learn mode writes unmatched candidate lines to a file. After a fight, read it, and add

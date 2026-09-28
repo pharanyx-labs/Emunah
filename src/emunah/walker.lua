@@ -276,7 +276,7 @@ end
 --- @param rooms table|nil specific room ids; defaults to every room in the current area
 function M.start(rooms)
    if M.enabled then
-      log.warn("Walker is already running. 'emunah walk stop' first.")
+      log.warn("Walker is already running. 'emset walk stop' first.")
       return false
    end
 
@@ -505,7 +505,7 @@ function M.pause()
    if not M.enabled then return false end
    cancelStep()
    M.paused = true
-   log.info("Walker paused. 'emunah walk resume' to continue.")
+   log.info("Walker paused.")
    return true
 end
 
@@ -524,7 +524,7 @@ end
 function M.setDelay(seconds)
    seconds = tonumber(seconds)
    if not seconds or seconds < 0.1 or seconds > 30 then
-      log.warn("Usage: emunah walk delay <seconds, 0.1-30>")
+      log.warn("Usage: emset walker.stepDelay <seconds, 0.1-30>")
       return false
    end
    emunah.config.set("walker.stepDelay", seconds)

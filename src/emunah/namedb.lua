@@ -263,7 +263,7 @@ end
 function M.set(name, field, value)
    local spec = M.field(field)
    if not spec then
-      return false, "unknown field " .. tostring(field) .. " (try: emunah ndb fields)"
+      return false, "unknown field " .. tostring(field) .. " (see `emhelp people`)"
    end
 
    local person = M.record(name)

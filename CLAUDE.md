@@ -76,6 +76,18 @@ Don't add a path that applies text immediately.
 Achaea's server-side curing is **off** for this character, and the user turned off its
 sipping and defence upkeep by hand. Don't send `CURING` commands at login.
 
+## Commands and help
+
+There is one prefix, `emset`, plus `emhelp`. Keep it that way:
+- A command belongs to a module in `src/emunah/help.lua`. The test suite fails if a handler is
+  undocumented, or documented but missing.
+- A new setting only needs a `help.lua` entry with its module. `emset <setting> <value>`
+  and `emhelp <module>` pick it up with no command code.
+- Don't add bare aliases or a second prefix. `sleep` (marks a voluntary sleep) and `emreload`
+  (works when commands fail to load) are the only exceptions.
+- After changing `help.lua`, run `lua tools/build-commands-page.lua` to regenerate
+  `website/commands.html`.
+
 ## Verify before implementing
 
 - Read the code you are about to change, not just the function named in the request.
@@ -94,8 +106,8 @@ sipping and defence upkeep by hand. Don't send `CURING` commands at login.
 A GMCP trace or a timestamped transcript settles in one read what reasoning about "what
 should happen" gets wrong repeatedly. Ask for one:
 
-- `emunah debug` — every command sent, and every command held with the reason
-- `emunah debug gmcp` — every GMCP message in and out, payloads summarised
+- `emset debug` — every command sent, and every command held with the reason
+- `emset debug gmcp` — every GMCP message in and out, payloads summarised
 - A prompt with `*s` in it (`CONFIG PROMPT CUSTOM`) — timestamps make ordering unambiguous
 
 ## Tests

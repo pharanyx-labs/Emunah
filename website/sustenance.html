@@ -83,16 +83,12 @@ would refuse is held rather than sent and lost. The waits are real waits, not gu
 Achaea's <code>WARES</code> listing is a wall of text with replica numbers in it. Emunah keeps
 the last one seen and redraws it grouped by category, with every item clickable.
 </p>
-<pre><code>emset shop                # redraw the last WARES seen, clickable
-emset shop &lt;proprietor&gt;   # a particular shop, when several have been seen
-emset shop spent          # the session ledger, itemised
-emset shop limit &lt;gp&gt;     # hold back any single purchase over this
-emset shop limit off</code></pre>
+<pre><code>emset shop.confirmAbove &lt;gp&gt;   # hold back any single purchase over this</code></pre>
 <div class="callout callout-warn">
 <div class="callout-title">Why there is a spend limit</div>
 <p>
 In a listing that buys by replica number, a click is one keystroke away from a very expensive
-mistake. <code>emset shop limit</code> holds any purchase above the figure rather than
+mistake. <code>shop.confirmAbove</code> holds any purchase above the figure rather than
 sending it, and says what it held.
 </p>
 </div>

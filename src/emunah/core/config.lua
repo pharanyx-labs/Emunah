@@ -163,7 +163,7 @@ local DEFAULTS = {
    ui = {
       enabled   = true,
       map       = true,
-      mapHeight = 42,   -- percent of the window; `emunah ui map height <n>`
+      mapHeight = 42,   -- percent of the window; `emset ui.mapHeight <n>`
       -- Adjustable.Container saves its own geometry; this is our own layout state.
       chatTabs = { "Tells", "City", "House", "Market", "Says", "Misc" },
    },
@@ -202,7 +202,7 @@ local DEFAULTS = {
    },
 
    denizens = {
-      autoRecord = true,   -- record denizens seen, per area; prune with 'emunah mobs skip'
+      autoRecord = true,   -- record denizens seen, per area; see denizens.lua
    },
 
    loot = {

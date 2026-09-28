@@ -61,7 +61,7 @@ Two independent mechanisms, and <strong>declaration always wins</strong>.
 <thead><tr><th>Source</th><th>How it is set</th></tr></thead>
 <tbody>
 <tr><td><strong>Declared</strong></td><td><code>emset iff &lt;person&gt; ally|enemy|auto</code>. Survives an import, and survives the derived rules changing under it.</td></tr>
-<tr><td><strong>Derived</strong></td><td>From city, house and order hostility &mdash; <code>ndb hostile city Mhaldor</code> marks every recorded Mhaldorian an enemy without touching a single record.</td></tr>
+<tr><td><strong>Derived</strong></td><td>From city, house and order hostility &mdash; <code>lua emunah.namedb.setHostile("city", "Mhaldor", true)</code> marks every recorded Mhaldorian an enemy without touching a single record.</td></tr>
 </tbody>
 </table>
 <p>
@@ -97,7 +97,7 @@ it is on almost every line worth reading, and marking it turns the signal into n
 <div class="callout callout-tip">
 <div class="callout-title">The opt-out</div>
 <p>
-<code>emset names ignore &lt;person&gt;</code>, for the ally whose name is a common word or
+<code>lua emunah.ui.names.ignore("&lt;person&gt;", true)</code>, for the ally whose name is a common word or
 the shopkeeper you see forty times an hour. It forgets nothing else about them.
 </p>
 </div>
@@ -136,7 +136,7 @@ allegiance, so neither ever sets a relationship.
 </tbody>
 </table>
 <p>
-<code>ndb capture</code> reports which of these have actually produced anything, which is how
+The <code>namedb.capture</code> setting switches these sources off, and <code>emset debug</code> shows what each has produced, which is how
 you tell "not implemented" from "never seen one".
 </p>
 
@@ -164,8 +164,8 @@ cached &mdash; that is a network problem, not an answer.
 
 <h2 id="sharing">Export and import</h2>
 <p>
-<code>ndb export</code> writes the database out; <code>ndb export fields &lt;a,b,c&gt;</code>
-writes a subset, with notes excluded because those are yours. <code>ndb import</code> merges
+<code>emunah.namedb.exportFile(path, opts)</code> writes the database out; with <code>opts.fields</code>
+writes a subset, with notes excluded because those are yours. <code>emunah.namedb.importFile(path)</code> merges
 someone else's in.
 </p>
 <p>
@@ -174,7 +174,7 @@ you have not met, not a correction of the judgement you have already recorded ab
 have &mdash; so your own <code>iff</code> and your own notes survive a merge intact.
 </p>
 <p>
-<code>ndb forget all</code> confirms twice and names the count at stake. <code>ndb prune</code>
+<code>emunah.namedb.forgetAll()</code> clears it. <code>emunah.namedb.prune(days)</code>
 drops records that are only a name; anything declared, noted, or given a single fact by hand
 survives, so it can never quietly discard judgement.
 </p>

@@ -1,6 +1,6 @@
 # GMCP, as actually observed
 
-Captured with `emunah debug gmcp`. Payloads are as they arrived.
+Captured with `emset debug gmcp`. Payloads are as they arrived.
 
 ## Ordering on a room change
 

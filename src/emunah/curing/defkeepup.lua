@@ -209,7 +209,7 @@ function M.add(name, command, vector, mode)
    if not M.enabled then
       log.warn("Added <ansi_cyan>%s<ansi_yellow> (%s) -- but defences are "
          .. "<ansi_light_red>OFF<ansi_yellow>, so nothing will raise it. "
-         .. "Turn them on with `emunah defs on`.", name, mode or "keepup")
+         .. "Turn them on with `emset defs on`.", name, mode or "keepup")
    else
       log.info("<ansi_cyan>%s<ansi_yellow>: %s.", name, mode or "keepup")
    end
@@ -311,7 +311,7 @@ function M.withinBudget(name)
       if #unclaimed > 0 then
          log.warn("  Char.Defences is reporting these, which nothing here claims: %s",
             table.concat(unclaimed, ", "))
-         log.warn("  If one of them IS %s, pair them: emunah defs add <that name> %s",
+         log.warn("  If one of them IS %s, pair them: emset defs add <that name> %s",
             name, tostring(select(2, deflist.resolve(name)) or "<command>"))
       end
    end

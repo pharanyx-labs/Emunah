@@ -92,13 +92,8 @@ ahead of the next `Char.Afflictions` push. But they are a refinement rather than
 standing between this and player combat. A plausible-but-wrong pattern is worse than a
 missing one — it asserts an affliction the character does not have, and the engine spends a
 balance curing it — so the shipped set in `src/emunah/curing/detect/patterns.lua` contains
-only patterns confirmed against real output, alongside a capture mode for growing it:
-
-```
-emset learn on     # log candidate lines during combat
-emset learn off
-emset detect       # coverage report
-```
+only patterns confirmed against real output. The optional `EmunahTriggers.xml` package adds
+svof's lines on top, behind svof's anti-illusion (see Installation).
 
 See [docs/afflictions.md](docs/afflictions.md) for the table's structure and verification
 process.
@@ -113,66 +108,36 @@ patterns, grown the same way.
 
 ## Commands
 
-Everything runs through one dispatcher, under two names: `emunah` (the long form, and what
-reads best in a script) and `emset` (the short form, and what you actually type). They are
-the same command.
-
-**There is no `!` prefix.** There used to be, meaning exactly what `emunah` means, and it has
-been removed rather than deprecated — `!` now falls through to the game untouched. Two
-spellings for every command meant every document describing one had to pick a side, and they
-picked differently.
-
-The table below is a summary. **`emhelp` is the real reference**: an index, a card per command
-with arguments, examples and the settings it touches, a search, and every setting with its
-current value. It is generated from `src/emunah/help.lua`, which the test suite checks against
-the code — a new command or setting fails `lua test/run.lua` until it is documented.
+There is one prefix, `emset`, and one help command, `emhelp`:
 
 ```
-emhelp                  the index
-emhelp curing           one topic
-emhelp bash             every bash command
-emhelp search gold      find a command by what it does
-emhelp settings         every setting, with its current value
-emhelp keys             the key bindings
+emhelp                        the modules, and whether each is on
+emhelp curing                 one module: what it does, its commands, and its settings
+emset                         status
+emset curing on               a command
+emset curing.method minerals  a setting
 ```
 
-| Command | Purpose |
+`emhelp <module>` is the reference: it says what the module does, lists its commands, and
+lists every setting with its current value. Click a setting to change it, as with svof's
+`vconfig`. It is generated from `src/emunah/help.lua`, which the test suite checks against the
+code, so a command or setting added without being documented fails `lua test/run.lua`.
+
+| Module | Commands |
 |---|---|
-| `emhelp` | **The full command reference, in the client** |
-| `emunah` / `emset` | The short list |
-| `emset status` | System and character state |
-| `emset cure on\|off` | Toggle the curing engine |
-| `pp` | Pause/resume curing + defence keep-up together |
-| `emset affs` | Tracked afflictions and their cure vectors |
-| `emset defs on\|off\|add\|mode\|names\|remove\|list` | Defences: defup raises once, keepup maintains |
-| `emdefs` | Clickable defence grid — click cycles off → defup → keepup |
-| `emset have [thing]` | Capability report, or a single skill/item check |
-| `emset gmcp [refresh]` | Tracked GMCP state |
-| `emset learn on\|off` | Affliction message capture |
-| `emset walk start\|stop\|pause\|auto on\|off\|delay <s>\|avoid <id>` | Area walker |
-| `emset keys [on\|off]` | Numpad movement bindings |
-| `emset mobs here\|target\|done\|add\|skip\|forget\|areas` | Per-area denizen list |
-| `emset hunt [off]` | Walk an area and clear it |
-| `emset loot [on\|off\|now]` | Collect gold from corpses |
-| `emset bash on\|off\|attack <cmd>\|balance\|health <n>` | Hunting loop only |
-| `emset pvp on\|off\|target <name>\|target off` | PvP loop |
-| `emset prio <aff> <vector> <n>` | Override a cure priority |
-| `emset set [key] [value]` | Read or write a setting |
-| `emset ui [rebuild\|reset\|show]` | Toggle, rebuild or reset the interface |
-| `emset ui map [height <n>\|on\|off\|centre\|raw]` | Map status, size and control |
-| `ndb [ally\|enemy\|city <c>\|dragons\|marks\|infamous]` | The roster, filtered |
-| `ndb show <person>` | The full dossier — everything on one card |
-| `ndb here\|stats\|fields\|capture\|path` | Who is present, the population, the schema, the sources |
-| `ndb api\|refresh\|online\|learn` | The Achaea web API: state, re-fetch, who is online |
-| `ndb capture [on\|off]` | Reading CW, CLWHO, QW, HONOURS and angel reports |
-| `ndb set\|note\|unnote\|forget\|prune\|hostile` | Edit the database |
-| `ndb export [fields <a,b>] [path]\|import <path>` | Share a database, or merge one in |
-| `emset whois <person>` | The dossier on one person |
-| `emset iff <person> ally\|enemy\|auto` | Declare a relationship; beats derivation |
-| `emset names [on\|off\|ignore <p>\|tint on\|off]` | Highlight known names in the game text |
-| `emset chat [rebuild]` | Chat capture vs rendering — which half is working |
-| `emset debug [gmcp\|handlers\|timers\|queue]` | Internals and tracing |
-| `emreload` | Reload all modules from disk |
+| system | `emset`, `emset <setting> [value]`, `emset reload`, `emset debug [gmcp\|queue\|timers\|handlers]`, `emreload` |
+| curing | `emset curing [on\|off]`, `emset pause`, `emset prio <affliction> <balance> <rank>`, `sleep` |
+| defences | `emset defs` (the grid), `emset defs on\|off\|add\|remove\|mode` |
+| pipes | `emset pipes [on\|off\|now]` |
+| manna | `emset manna` |
+| hunting | `emset hunt [off]`, `emset bash [on\|off\|attack <command>]`, `emset walk [start\|stop]` |
+| pvp | `emset pvp [on\|off\|target <name>\|target off]` |
+| loot | `emset loot [on\|off\|now]` |
+| people | `emset whois <person>`, `emset iff <person> ally\|enemy\|auto` |
+| interface | `emset ui [rebuild]`, `emset ui map on\|off` |
+
+`emreload` still works if the command module itself fails to load. `sleep` is the game's
+SLEEP, marked as yours so Emunah does not wake you out of it.
 
 ### Denizen kill lists
 
@@ -181,17 +146,14 @@ to the kill list. It is echoed as a clickable line; one click authorises killing
 and saves the decision to `emunah-denizens.lua`, which persists across reloads. Denizens in
 the room panel are clickable toggles, and `ih` output is relinked the same way.
 
-`emset mobs skip <name>` and `emset mobs kill <name>` cover scripted or bulk changes.
-
 ## Configuration
 
-Settings persist per Mudlet profile in `emunah-config.lua`, and are read or written with
-`emset set`:
+Settings persist per Mudlet profile in `emunah-config.lua`. `emhelp <module>` lists them with
+their current values; `emset <setting> [value]` reads or writes one:
 
 ```
-emset set                             # everything currently stored
-emset set curing.healthThreshold      # one value
-emset set curing.healthThreshold 75   # write it
+emset curing.healthThreshold      # read it
+emset curing.healthThreshold 75   # write it
 ```
 
 Healing thresholds are the settings most worth tuning. Four sources draw on three

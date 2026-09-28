@@ -33,7 +33,7 @@ Paste it in, or drop the file in yourself. Both work:
   `incapacitation.md`, `priest-abilities.md`, `defences.md`, `sustenance.md`, `prompt.md`),
   with a pointer to the HELP file.
 - **A GMCP payload** → add it to `gmcp.md` under the message name, exactly as it arrived.
-  `emunah debug gmcp` prints these.
+  `emset debug gmcp` prints these.
 - **A transcript** showing a behaviour → quote the relevant lines with their timestamps in
   whichever file the fact belongs to.
 
