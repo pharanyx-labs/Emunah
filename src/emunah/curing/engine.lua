@@ -182,6 +182,12 @@ function M.remove(name)
    M.refusals[name] = nil
    reported[name] = nil
    curing[name] = nil
+   -- The server-cure resend pace (M.SERVER_CURE_RETRY) is for a cure the game keeps
+   -- refusing, and a refused affliction stays tracked. One that has gone was answered, and
+   -- the next one of the same name is a new affliction: at 14:18:45.68 SMOKE ELM cured
+   -- earworm, a second earworm landed at 14:18:49.10 with smoke balance back since 47.21,
+   -- and the elm waited until 50.78 for the first cure's throttle to lapse.
+   emunah.timers.stop("cure.servercure." .. name)
    event.raise("affliction.cured", name)
 
    -- A blinding affliction leaving is handled as a state edge in M.tick() rather than here,
