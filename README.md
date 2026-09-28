@@ -9,7 +9,7 @@ The module tree lives on disk as plain Lua and reloads with a single command, so
 happens in a normal editor with no package reimport in the loop.
 
 ```
-emreload          reload every module from disk
+emreload          update from GitHub's main, then reload every module from disk
 emunah            list commands
 emset status     system and character state
 ```
@@ -208,6 +208,11 @@ wording, GMCP payload shapes — live in [docs/game/](docs/game/).
 ## Development
 
 Edit any file under `src/`, then `emreload` in Mudlet. No reimport is needed.
+
+`emreload` first brings the checkout up to date with `origin main` (fast-forward only), so
+a merged fix is one `emreload` away. It leaves a checkout alone when it is on another
+branch or has local edits in the way, and says so. `emset system.update false` turns the
+pull off for working on a local checkout.
 
 The test suite runs the real modules against a Mudlet mock, with no client involved:
 

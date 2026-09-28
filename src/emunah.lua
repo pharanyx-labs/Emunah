@@ -286,6 +286,74 @@ local function load(reloading)
    return true
 end
 
+--- KEEP THE CHECKOUT CURRENT WITH MAIN, so `emreload` is the whole update: asked for on
+--- 2026-09-28 ("i just want to emreload and be sure my current system is current with
+--- main") after a day of "git pull, then emreload" -- and of fixes that looked broken in
+--- play because the pull had been missed (DIAG still clearing crescendo after the fix for
+--- it had merged).
+---
+--- Fast-forward only, and only on `main`: a checkout with local edits or on another
+--- branch is somebody working on it, and is reported rather than touched. A failure never
+--- blocks the reload -- whatever is on disk is loaded, and the reason is said. Blocking:
+--- Mudlet waits for git, a second or two, so this is for reloads, not mid-fight.
+---
+--- `emunahGit` runs one git command and returns its output and whether it worked. The test
+--- suite sets EMUNAH_GIT_RUNNER so that no test ever runs git; nothing else should.
+---
+--- Success is read from the OUTPUT, not the exit status: Mudlet's Lua 5.1 does not return
+--- a popen's status from close(). git reports failure as "fatal:" or "error:", and a
+--- missing git as the shell's "not found" / "not recognized".
+function emunahGit(root, args)
+   if EMUNAH_GIT_RUNNER then return EMUNAH_GIT_RUNNER(root, args) end
+   local handle = io.popen(('git -C "%s" %s 2>&1'):format(root, args))
+   if not handle then return "", false end
+   local output = (handle:read("*a") or ""):gsub("%s+$", "")
+   handle:close()
+   local failed = output:find("^fatal:") or output:find("\nfatal:") or output:find("^error:")
+      or output:find("\nerror:") or output:find("not found") or output:find("not recognized")
+   return output, not failed
+end
+
+local function note(msg)
+   cecho(string.format("\n<ansi_light_black>[<reset><ansi_cyan>emunah<reset><ansi_light_black>]<reset> %s", msg))
+end
+
+function emunahUpdate(root)
+   root = root or resolveRoot()
+   local config = emunah and emunah.config
+   if config and config.get and config.get("system.update", true) == false then return "off" end
+
+   local branch, ok = emunahGit(root, "rev-parse --abbrev-ref HEAD")
+   if not ok then
+      bootError("Not updating: " .. root .. " is not a git checkout (" .. branch .. ").")
+      return "error"
+   end
+   if not branch:match("^[%w%._/%-]+$") then
+      bootError("Not updating: could not read the checkout's branch (" .. branch .. ").")
+      return "error"
+   end
+   if branch ~= "main" then
+      note(("Not updating: the checkout is on <ansi_yellow>%s<reset>, not main."):format(branch))
+      return "branch"
+   end
+
+   local before = emunahGit(root, "rev-parse --short HEAD")
+   local output, pulled = emunahGit(root, "pull --ff-only --quiet origin main")
+   if not pulled then
+      bootError("Could not update from main, loading what is on disk: " .. output)
+      return "error"
+   end
+   local after = emunahGit(root, "rev-parse --short HEAD")
+   local subject = emunahGit(root, "log -1 --format=%s")
+   if after == before then
+      note(("Up to date with main (%s)."):format(after))
+      return "current"
+   end
+   note(("Updated %s -> <ansi_light_green>%s<reset>: %s"):format(before, after, subject))
+   return "updated"
+end
+
+
 --- Force a rebuild of the whole namespace from disk.
 ---
 --- This re-executes THIS FILE rather than calling load() directly, and the distinction
@@ -304,6 +372,8 @@ end
 function emunahReload()
    local root = resolveRoot()
    local entry = root .. "/src/emunah.lua"
+
+   emunahUpdate(root)
 
    if not exists(entry) then
       -- The checkout moved or was deleted. Fall back to reloading the modules we already
