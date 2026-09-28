@@ -1025,6 +1025,8 @@ function M.tick()
       queue.push("writhe", "writhe", {
          priority = 0, tag = writhe,
          confirm  = emunah.config.get("curing.confirmWait", 2.0),
+         -- Held by have.balance("writhe") while a writhe is under way. See M.onWritheStart.
+         valid    = function() return resolveWrithe() ~= nil end,
       })
    end
 
@@ -1156,6 +1158,41 @@ event.register("emunah.tick", function()
    M.tick()
 end, "curing.engine")
 
+--- WRITHE ONCE, THEN WAIT.
+---
+--- HELP ENTANGLEMENT: "if you WRITHE again while you are already writhing, it will take
+--- even longer! Just WRITHE once, then wait until you are free of that entanglement." The
+--- engine used to push WRITHE every tick and let the confirm timeout re-arm it every two
+--- seconds -- extending every web and bind it was trying to escape.
+---
+--- The game announces the start and the finish, and those lines (svof's `svo started
+--- writhe`, `svo writhe transfixed`, `svo writhe impale` and `svo writhed *` triggers,
+--- verbatim in curing/detect/patterns.lua) drive this. After the start, the vector is held
+--- for M.WRITHE_WAIT -- svof's `customwait = 6` on every curing<entanglement> -- or until
+--- a finish line or the affliction's removal frees it for the NEXT entanglement, which the
+--- same HELP says needs a writhe of its own.
+M.WRITHE_WAIT = 6.0
+
+function M.onWritheStart()
+   queue.confirm("writhe")
+   emunah.timers.start("writhe.busy", M.WRITHE_WAIT)
+end
+
+function M.onWritheFree()
+   emunah.timers.stop("writhe.busy")
+end
+
+--- "You begin to writhe helplessly, throwing your body off balance." -- a WRITHE with
+--- nothing to writhe from. Whatever entanglement we are tracking is not real (svof's
+--- writhe_helpless clears them all the same way), and the balance is gone for nothing.
+function M.onWritheHelpless()
+   queue.confirm("writhe")
+   emunah.timers.stop("writhe.busy")
+   for name in pairs(M.tracked) do
+      if afflist.isWrithe(name) then M.remove(name) end
+   end
+end
+
 -- Server-confirmed removal is our most reliable cure confirmation, and it frees the QUEUE
 -- SLOT that was waiting on it -- but NOT the balance.
 --
@@ -1172,6 +1209,7 @@ end, "curing.engine")
 -- elixir."), and where it does not, the fallback timer in curelist.lua is the estimate.
 event.register("emunah.affliction.removed", function(_, name)
    name = tostring(name or ""):lower()
+   if afflist.isWrithe(name) then M.onWritheFree() end
    M.remove(name)
    for _, vector in ipairs(queue.VECTORS) do
       local action = queue.awaiting(vector)

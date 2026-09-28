@@ -182,6 +182,15 @@ failed eats may have landed inside herb balance (`The plant has no effect.`, see
 
 Substantive corrections to the data, most recent first.
 
+**Vector blockers brought in line with svof.** `afflist.blocks` gained `anorexia` →
+`elixir`, `mucous` → `smoke`, `inquisition` → `focus`, and a `tree` block for paralysis,
+each entanglement and either numb arm. The source is svof's per-balance gates
+(`raw-svo.skeleton.lua`: `check_sip`, `check_smoke`, `check_focus`) and `touchtree`'s
+`isadvisable` (`raw-svo.dict.lua`), which the user named as the reference. `M.wearsOff`
+records the blockers that end on their own, so the "every lock has a key" test can
+tell them from a real lock with no escape. The queue now re-checks these when it sends,
+not only when it chooses; the full table is in `docs/game/curing.md`.
+
 **`nausea` and `crescendo` added.** Confirmed live 2026-08-03 15:52:00-15:52:17 against a
 bard in the arena: Char.Afflictions.Add carried `cure="EAT GINSENG"` for nausea and
 `cure="EAT ASH"` for crescendo (the latter closing open question #6 above). Before this,

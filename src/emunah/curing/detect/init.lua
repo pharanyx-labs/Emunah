@@ -64,6 +64,8 @@ end
 --- stunned rather than a flavour of either: Achaea applies `prone` at the same time, so the
 --- two coincide and clear separately, and unlike stunned there IS a command that ends it.
 M.asleep = false
+--- A WAKE has been accepted and the struggle is under way. See wakeUp().
+M.waking = false
 
 function M.isAsleep()
    return M.asleep
@@ -127,6 +129,14 @@ end
 --- enough that a stand which was genuinely refused is retried promptly.
 M.STAND_GUARD = 1.0
 
+--- Legs too damaged to stand on. svof's prone isadvisable refuses STAND on any of these
+--- (a merely BROKEN leg does not stop it), as well as while entangled or paralysed.
+M.STAND_BLOCKING_LEGS = {
+   "crippledleftleg",  "crippledrightleg",
+   "mangledleftleg",   "mangledrightleg",
+   "mutilatedleftleg", "mutilatedrightleg",
+}
+
 --- Get up, at most once per round trip.
 ---
 --- SENT IS NOT EXECUTED, and prone is re-evaluated on every tick. Without a guard, a single
@@ -135,7 +145,14 @@ M.STAND_GUARD = 1.0
 --- is harmless; the balance the second one would have spent if it HAD been needed is not.
 function M.standUp()
    if not emunah.timers.ready("stand.inflight") then return false end
-   local sent = emunah.act.send("stand", { bal = true })
+   for _, leg in ipairs(M.STAND_BLOCKING_LEGS) do
+      if emunah.act.afflicted(leg) then return false end
+   end
+   -- Equilibrium as well as balance: svof will not stand without both (prone isadvisable),
+   -- which is also HELP EQUILIBRIUM's default -- "not having balance prevents you from
+   -- using an ability that requires equilibrium, and vice versa". `unbound` holds it while
+   -- entangled; paralysis comes with `bal`.
+   local sent = emunah.act.send("stand", { bal = true, eq = true, unbound = true })
    if sent then emunah.timers.start("stand.inflight", M.STAND_GUARD) end
    return sent
 end
@@ -185,11 +202,20 @@ M.SLEEP_GUARD = 20.0
 ---
 --- Declares `whileAsleep` because it is the one command that works from here -- the game's
 --- own rejection names it. No balance or equilibrium requirement: confirmed that WAKE
---- neither requires nor consumes either, which is what makes it safe to retry.
+--- neither requires nor consumes either.
+---
+--- ONCE IT HAS STARTED, NEVER AGAIN. HELP SLEEPING: "when you type WAKE, you will begin
+--- to struggle your way out of sleep ... Typing WAKE repeatedly will only delay this
+--- process, so just do it once, and wait." The start is announced -- "You begin your
+--- struggle to escape from the dreamworld." (svof's `svo start waking` trigger) -- and
+--- from then until the sleep ends M.waking holds every further WAKE, the same way svof
+--- parks in `curingsleep` with no retry. Before that line, a WAKE that went unanswered is
+--- still retried once per round trip: it may simply have been lost.
 function M.wakeUp()
    if not M.asleep then return false end
    -- The character asked for this sleep. Waking them out of it is the interference.
    if M.voluntary then return false end
+   if M.waking then return false end
    if not emunah.timers.ready("wake.inflight") then return false end
    local sent = emunah.act.send("wake", { whileAsleep = true })
    if sent then emunah.timers.start("wake.inflight", M.WAKE_GUARD) end
@@ -223,9 +249,18 @@ function M.onSleep()
    M.wakeUp()
 end
 
+--- The game has started waking us. See wakeUp() for why nothing is resent after this.
+function M.onWakeStart()
+   if not M.asleep then return end
+   M.waking = true
+   emunah.timers.stop("wake.inflight")
+   log.debug("Waking -- not sending WAKE again until it finishes.")
+end
+
 --- Leave it. Clears the voluntary flag too: the next sleep is a new question, and one nap
 --- must not buy an opponent a free Somnolence afterwards.
 function M.onWake()
+   M.waking = false
    if not M.asleep then return end
    M.asleep = false
    M.voluntary = false

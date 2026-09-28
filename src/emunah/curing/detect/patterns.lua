@@ -835,14 +835,14 @@ end
 -- WHAT IS DELIBERATELY MISSING
 -- ---------------------------
 -- The onset below is the one for a SLEEP you typed yourself. What an opponent's sleep
--- prints, and what a successful WAKE prints, have never been observed -- and the wake
--- message that HAS been seen is specifically the rested one at the end of a full night:
+-- prints has never been observed, and is not guessed. The wake lines are: one observed
 --
 --     06:03:15.10  You open your eyes and stretch languidly, feeling deliciously well-rested.
 --
--- Guessing the other two would be the failure this file's header warns about, and there is
--- no cost to leaving them out: Char.Afflictions.Remove carried the wake in the same capture,
--- and detect.SLEEP_GUARD bounds an involuntary sleep even if both were lost.
+-- and the rest taken verbatim from svof's trigger set (github.com/svof/svof), along with
+-- the line that says a WAKE has been accepted and must not be repeated. Char.Afflictions
+-- .Remove carries the wake as well, and detect.SLEEP_GUARD bounds an involuntary sleep
+-- even if every line were lost.
 -- ---------------------------------------------------------------------------
 
 do
@@ -862,13 +862,75 @@ do
       end
    end
 
-   local wokeId = tempRegexTrigger(
+   -- The wake lines. The first was observed at 06:03:15.10; the rest are svof's
+   -- `svo done waking` trigger, verbatim. "You already are awake." is the reply to a WAKE
+   -- that arrived after the sleep had ended, and is just as conclusive.
+   for _, pattern in ipairs({
       [[^You open your eyes and stretch languidly, feeling deliciously well-rested\.$]],
-      function() detect.onWake() end)
-   if wokeId then
+      [[^You open your eyes and yawn mightily\.$]],
+      [[^You already are awake\.$]],
+      [[^You are jerked awake by the pain\.$]],
+   }) do
+      local id = tempRegexTrigger(pattern, function() detect.onWake() end)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+
+   -- WAKE accepted: the struggle has begun, and another WAKE would only prolong it (HELP
+   -- SLEEPING). svof's `svo start waking` trigger, verbatim.
+   local startId = tempRegexTrigger(
+      [[^You begin your struggle to escape from the dreamworld\.$]],
+      function() detect.onWakeStart() end)
+   if startId then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
-      table.insert(emunah._persist.detectTriggers, wokeId)
+      table.insert(emunah._persist.detectTriggers, startId)
    end
 end
+
+-- ---------------------------------------------------------------------------
+-- Writhing. Send once, then wait -- see engine.onWritheStart for why. All verbatim from
+-- svof's trigger set.
+-- ---------------------------------------------------------------------------
+
+do
+   local function persist(id)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+   local function engine() return emunah.curing.engine end
+
+   for _, pattern in ipairs({
+      [[^You begin to struggle free of your entanglement\.$]],
+      [[^You begin trying to wrest your mind free of that which has transfixed it\.$]],
+      [[^You begin to writhe furiously to escape the \w+ that has impaled you\.$]],
+   }) do
+      persist(tempRegexTrigger(pattern, function() engine().onWritheStart() end))
+   end
+
+   for _, pattern in ipairs({
+      [[^You have writhed free of your entanglement by (?:ropes|tied ropes|webs)\.$]],
+      [[^You have writhed free of your state of transfixation\.$]],
+      [[^With an heroic effort you manage to writhe yourself free from the weapon that impaled you\.$]],
+   }) do
+      persist(tempRegexTrigger(pattern, function() engine().onWritheFree() end))
+   end
+
+   persist(tempRegexTrigger(
+      [[^You begin to writhe helplessly, throwing your body off balance\.$]],
+      function() engine().onWritheHelpless() end))
+end
+
+-- Mucous shuts smoking the way asthma does (afflist.blocks). The refusal, verbatim from
+-- svof's `Mucous` trigger.
+detect.define("mucous", {
+   gain = { [[^Your lungs are too clogged with mucous for you to attempt smoking\.$]] },
+   -- svof's `svo mucous woreoff`. Without it a text-detected mucous would hold the smoke
+   -- vector until a GMCP removal that may never come for an affliction GMCP never added.
+   cure = { [[^You manage to cough away the mucous filling your lungs\.$]] },
+})
 
 return true

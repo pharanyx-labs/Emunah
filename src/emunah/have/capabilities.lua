@@ -214,8 +214,9 @@ function M.balance(vector)
       return vitals.eq and emunah.timers.ready("cure.equilibrium")
    end
 
-   -- Writhing needs no resource; it is gated by the affliction itself.
-   if vector == "writhe" then return true end
+   -- Writhing needs no resource, but it must not be repeated while one is under way --
+   -- a second WRITHE prolongs the first (HELP ENTANGLEMENT). See engine.onWritheStart.
+   if vector == "writhe" then return emunah.timers.ready("writhe.busy") end
 
    return emunah.timers.ready("cure." .. tostring(vector))
 end
@@ -285,6 +286,31 @@ function M.blockedBy(vector)
       local affliction = candidates[index]
       local present = (has and has(affliction)) or M.affliction(affliction)
       if present then return affliction end
+   end
+   return nil
+end
+
+--- FOCUS is refused below this much willpower. svof's check_focus holds focus at
+--- `stats.currentwillpower <= 75`; willpower is the resource mental abilities draw on
+--- (HELP WILLPOWER), so a focus sent without it is a refusal, not a cure.
+M.FOCUS_MIN_WILLPOWER = 75
+
+--- Why a vector cannot be used right now, beyond its own balance -- or nil.
+---
+--- The queue asks this AT SEND TIME, not only when a cure is chosen. A cure queued while
+--- the vector was open waits there for its balance, and anorexia (or slickness, asthma...)
+--- can land in that gap. Checking only at resolve time put the queued `eat` on the wire
+--- into "You are afflicted with anorexia and cannot eat anything." -- an action sent
+--- without the state to perform it, which is the one thing this layer exists to prevent.
+function M.vectorBlocked(vector)
+   local blocker = M.blockedBy(vector)
+   if blocker then return blocker end
+   if vector == "tree" and M.bothArmsBroken() then return "both arms disabled" end
+   if vector == "focus" then
+      local vitals = emunah.gmcp.vitals
+      if vitals and vitals.maxwp > 0 and vitals.wp <= M.FOCUS_MIN_WILLPOWER then
+         return "low willpower"
+      end
    end
    return nil
 end

@@ -17,10 +17,16 @@ Before writing code that depends on how the game behaves:
    `priest-abilities.md`, `defences.md`, `sustenance.md`, `prompt.md`, `gmcp.md`, `api.md`.
    `docs/game/help/` holds verbatim HELP files. `curing.md` and `combat.md` are the
    overview, and each claim in them is tagged with its source.
-2. **If it is not there, ask.** One question costs the user a paste. A wrong guess costs a
+2. **Then check svof.** [svof](https://github.com/svof/svof) is the reference the user has
+   named for curing methodology and balance blockers: gates in `raw-svo.skeleton.lua`
+   (`check_herb`, `check_sip`, ...), per-action rules in `raw-svo.dict.lua`
+   (`isadvisable`), and verbatim game lines in `svo (install the zip, not me).xml`. It
+   dates from 2021, so a timestamped transcript beats it. Cite it as `[svof]` in
+   `docs/game/` when you use it.
+3. **If it is not in either, ask.** One question costs the user a paste. A wrong guess costs a
    play session, a bug report, and a round trip — and tends to surface as a *worse* bug than
    the one being fixed.
-3. **Never infer a command's existence or syntax.** If the exact string is not in
+4. **Never infer a command's existence or syntax.** If the exact string is not in
    `docs/game/`, ask for the `HELP` output.
 
 Landing a guess that "looks right" is the failure mode, not being slow.
@@ -37,10 +43,16 @@ declared. Answer these from `docs/game/`, not from memory, for every new or chan
 2. **What else must be up, even though it isn't spent?** Declare it in `needs`
    (`core/act.lua`). HELP's default for bal/eq abilities: "not having balance prevents you
    from using an ability that requires equilibrium, and vice versa", so assume both until
-   a transcript shows otherwise (`perform hands` spends eq and needs bal). Cures have not
-   been shown to need bal/eq. Don't add that requirement without evidence either.
+   a transcript shows otherwise (`perform hands` spends eq and needs bal). Cures don't
+   need bal/eq: svof's curing gates never check them, and play agrees for eating. Don't add
+   that requirement without evidence.
 3. **Which states block it?** Stun and sleep block everything, paralysis everything but
-   eating, prone only what needs you upright. The table is in `curing.md`.
+   eating, prone only what needs you upright, entanglement anything that needs footing.
+   The full per-action table, with where each rule is enforced, is in `curing.md`
+   (*What gates each action*). A new blocker goes into `afflist.blocks` (per vector) or
+   `act.blocked` (per `needs`) so that every sender picks it up, never into one call site.
+   The queue re-asks `have.vectorBlocked()` at send time, because a block can land after
+   a cure is queued.
 4. **Is repeating it harmful?** Most cures are safe to resend after a lost confirmation.
    **WRITHE and WAKE are not**: HELP says a repeat makes them take longer.
 5. **What confirms it, and what rejects it?** Exact wording from `balance.md`. A rejection

@@ -331,7 +331,16 @@ ok(afflist.priority("anorexia", "salve") == 1, "anorexia is top salve priority")
 ok(afflist.priority("anorexia", "focus") ~= nil, "anorexia is also focusable (the lock escape)")
 
 -- Anorexia shuts BOTH eating vectors: herbs and irid moss, which is on its own balance.
-eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss", "anorexia blocks eating")
+eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss,elixir",
+   "anorexia blocks eating, and sipping (svof check_sip)")
+eq(table.concat(afflist.blockedVectors("mucous"), ","), "smoke", "mucous blocks smoking (svof)")
+eq(table.concat(afflist.blockedVectors("inquisition"), ","), "focus",
+   "inquisition blocks focusing (svof)")
+for _, name in ipairs({ "paralysis", "webbed", "bound", "transfixed", "roped", "impaled",
+                        "numbedleftarm", "numbedrightarm" }) do
+   eq(table.concat(afflist.blockedVectors(name), ","), "tree",
+      name .. " blocks touching the tree (svof touchtree)")
+end
 eq(table.concat(afflist.blockedVectors("slickness"), ","), "salve", "slickness blocks applying")
 eq(table.concat(afflist.blockedVectors("asthma"), ","), "smoke", "asthma blocks smoking")
 eq(table.concat(afflist.blockedVectors("impatience"), ","), "focus", "impatience blocks focusing")
@@ -339,7 +348,8 @@ eq(table.concat(afflist.blockedVectors("impatience"), ","), "focus", "impatience
 -- Every blocker must itself be curable by a vector it does not block, or it is a lock with
 -- no key: the engine would need the shut vector to open the shut vector.
 for blocker, shut in pairs(afflist.blocks) do
-   local escape = false
+   -- Writhing out, or waiting it out, is an escape too -- neither needs a shut vector.
+   local escape = afflist.isWrithe(blocker) or afflist.wearsOff[blocker] == true
    for _, option in ipairs(afflist.curesVia(blocker, "herb")) do escape = true end
    for _, vector in ipairs({ "salve", "smoke", "focus", "elixir" }) do
       local blocked = false
@@ -1253,6 +1263,9 @@ ok(table.concat(mock.echoed, " "):find("not one this system maps"),
 -- already being stood back up. Live at 07:33:12: a `sit` raised prone with cure="STAND"
 -- and the warning fired even though "You stand up." followed a moment later.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
+-- An earlier suite leaves `paralysis` in the server's list, and act.blocked() now holds
+-- STAND while paralysed -- which is right, and not what this case is about.
+mock.feed("Char.Afflictions.Remove", { "paralysis" })
 mock.echoed = {}
 mock.sent = {}
 mock.feed("Char.Afflictions.Add", { name = "prone", cure = "STAND" })
@@ -9470,6 +9483,142 @@ ok(table.concat(mock.echoed, " "):find("not running"),
 end)()
 
 -- ===========================================================================
+suite("never act without the balance AND the state to do it (svof gates)")
+
+;(function()
+local engine = emunah.curing.engine
+local queue  = emunah.queue
+local detect = emunah.curing.detect
+local act    = emunah.act
+local have   = emunah.have
+
+local function reset()
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "1000",
+                              wp = "1000", maxwp = "1000", bal = "1", eq = "1" })
+   if detect.isProne() then mock.line("You stand up.") end
+   mock.sent = {}
+end
+local function sent() return table.concat(mock.sent, " | ") end
+
+-- A CURE QUEUED BEFORE THE BLOCK LANDED. The block was only consulted when the cure was
+-- chosen, so an `eat` waiting in its slot went out into anorexia anyway.
+reset()
+queue.push("herb", "eat kelp", { tag = "asthma" })
+engine.add("anorexia", "trigger")
+eq(queue.flush(), 0, "a queued eat is held once anorexia lands")
+ok(queue.pending("herb"), "...held, not dropped", tostring(queue.pending("herb")))
+engine.remove("anorexia")
+queue.flush()
+ok(sent():find("eat kelp"), "...and goes out once the block clears", sent())
+
+-- Anorexia shuts sipping too (svof check_sip).
+reset()
+engine.add("anorexia", "trigger")
+queue.push("elixir", "drink health", { tag = "health" })
+eq(queue.flush(), 0, "no sip while anorexic")
+
+-- Mucous shuts smoking, detected from its own refusal line.
+reset()
+mock.line("Your lungs are too clogged with mucous for you to attempt smoking.")
+ok(engine.has("mucous"), "the mucous refusal is detected")
+queue.push("smoke", "smoke pipe", { tag = "aeon" })
+eq(queue.flush(), 0, "no smoke while mucous")
+mock.line("You manage to cough away the mucous filling your lungs.")
+ok(not engine.has("mucous"), "...and it wears off on the cough line")
+
+-- FOCUS needs willpower (svof: > 75), and is shut by inquisition.
+reset()
+mock.feed("Char.Vitals", { wp = "50", maxwp = "1000" })
+queue.push("focus", "focus", { tag = "stupidity" })
+eq(queue.flush(), 0, "no focus on 50 willpower")
+reset()
+engine.add("inquisition", "trigger")
+queue.push("focus", "focus", { tag = "stupidity" })
+eq(queue.flush(), 0, "no focus under inquisition")
+
+-- TOUCH TREE: not while entangled, and not with a numb arm.
+for _, name in ipairs({ "webbed", "numbedleftarm" }) do
+   reset()
+   engine.add(name, "trigger")
+   queue.push("tree", "touch tree", { tag = "tree" })
+   eq(queue.flush(), 0, "no touch tree while " .. name)
+end
+
+-- DIRECT SENDS: attacks, movement and loot go through act, not the queue.
+reset()
+engine.add("paralysis", "trigger")
+eq(act.blocked({ standing = true, bal = true }), "paralysed", "an attack is held while paralysed")
+eq(act.blocked({}), nil, "...a command needing nothing is not")
+reset()
+engine.add("webbed", "trigger")
+eq(act.blocked({ standing = true, bal = true, eq = true }), "entangled",
+   "walking is held while webbed")
+eq(act.blocked({ bal = true }), nil, "...a cure that needs no footing is not")
+
+-- STAND: needs balance AND equilibrium, and working legs, and no entanglement (svof).
+reset()
+mock.feed("Char.Vitals", { bal = "1", eq = "0" })
+mock.feed("Char.Afflictions.Add", { name = "prone", cure = "STAND" })
+mock.feed("Char.Vitals", { bal = "1", eq = "0" })
+ok(not sent():find("stand"), "no STAND without equilibrium", sent())
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sent():find("stand"), "...and it goes out when equilibrium returns", sent())
+reset()
+engine.add("crippledleftleg", "trigger")
+mock.feed("Char.Afflictions.Add", { name = "prone", cure = "STAND" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not sent():find("stand"), "no STAND on a crippled leg", sent())
+reset()
+engine.add("webbed", "trigger")
+mock.feed("Char.Afflictions.Add", { name = "prone", cure = "STAND" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not sent():find("stand"), "no STAND while webbed", sent())
+
+-- WRITHE ONCE, THEN WAIT (HELP ENTANGLEMENT). It was re-sent every confirm timeout.
+reset()
+engine.enabled = true
+engine.add("webbed", "trigger")
+engine.tick(); queue.flush()
+eq(sent(), "writhe", "the first WRITHE goes out")
+mock.line("You begin to struggle free of your entanglement.")
+mock.sent = {}
+for _ = 1, 5 do
+   mock.advance(1.0)
+   engine.tick(); queue.flush()
+end
+eq(sent(), "", "no second WRITHE while the first is under way, past the confirm timeout")
+mock.line("You have writhed free of your entanglement by webs.")
+mock.feed("Char.Afflictions.Remove", { "webbed" })
+engine.add("transfixed", "trigger")
+engine.tick(); queue.flush()
+eq(sent(), "writhe", "...but the NEXT entanglement gets its own writhe once free")
+
+-- Writhing with nothing to writhe from: the tracked entanglement was not real.
+reset()
+engine.add("roped", "trigger")
+mock.line("You begin to writhe helplessly, throwing your body off balance.")
+ok(not engine.has("roped"), "a helpless writhe clears the phantom entanglement")
+engine.enabled = false
+
+-- WAKE ONCE, THEN WAIT (HELP SLEEPING).
+reset()
+detect.onWake()
+mock.feed("Char.Afflictions.Add", { name = "sleeping", cure = "" })
+ok(sent():find("wake"), "WAKE goes out on falling asleep", sent())
+mock.line("You begin your struggle to escape from the dreamworld.")
+mock.sent = {}
+for _ = 1, 5 do
+   mock.advance(detect.WAKE_GUARD + 0.01)
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+end
+ok(not sent():find("wake"), "no WAKE resent once the struggle has begun", sent())
+mock.line("You open your eyes and yawn mightily.")
+ok(not detect.isAsleep(), "svof's wake line ends the sleep")
+reset()
+end)()
+
 suite("docs stay in sync with the code, and with each other")
 
 -- Duplicated figures across README/website/docs/performance.md have drifted before: three

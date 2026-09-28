@@ -65,10 +65,20 @@ end
 
 M.BACKOFF = 1.5
 
+--- Does the character have this affliction? The curing engine's view when it is running
+--- (it knows about DIAG and refusal-detected afflictions), the server's list otherwise.
+function M.afflicted(name)
+   local engine = emunah.curing and emunah.curing.engine
+   if engine and engine.has and engine.has(name) then return true end
+   local afflictions = emunah.gmcp and emunah.gmcp.afflictions
+   return (afflictions and afflictions.has and afflictions.has(name)) or false
+end
+
 --- Why a command with these requirements cannot be sent right now, or nil if it can.
 --- Returned as a short reason string so callers can log something useful rather than
 --- silently doing nothing.
---- @param needs table|nil { standing = bool, bal = bool, eq = bool }
+--- @param needs table|nil { standing = bool, bal = bool, eq = bool, unbound = bool,
+---                          alive = bool, whileAsleep = bool }
 --- @return string|nil reason
 function M.blocked(needs)
    needs = needs or {}
@@ -88,6 +98,29 @@ function M.blocked(needs)
    -- caller that declares itself an exception.
    if not needs.whileAsleep and detect and detect.isAsleep() then return "asleep" end
    if needs.standing and detect and detect.isProne() then return "prone" end
+
+   -- PARALYSED, for anything physical. The queue already holds paralysed vectors
+   -- (queue.WHILE_PARALYSED, on play evidence: sips, salves and `perform hands` all
+   -- refused), but attacks, movement, looting and STAND go straight through here and did
+   -- not ask. svof's balance_controller refuses its balanceful actions on the same state.
+   if needs.bal or needs.eq or needs.standing then
+      if M.afflicted("paralysis") then return "paralysed" end
+   end
+
+   -- ENTANGLED, for anything that needs you upright and moving: attacking, walking,
+   -- picking things up -- and STAND, which cannot declare `standing` so says `unbound`.
+   -- svof refuses all of these while webbed, bound, roped, transfixed or impaled
+   -- (balance_controller, and prone's isadvisable for STAND). Cures
+   -- do not declare `standing`, so eating and applying carry on -- WRITHE is the escape and
+   -- it is not gated here either.
+   if needs.standing or needs.unbound then
+      local afflist = emunah.curing and emunah.curing.afflist
+      if afflist and afflist.writhes then
+         for name in pairs(afflist.writhes) do
+            if M.afflicted(name) then return "entangled" end
+         end
+      end
+   end
 
    -- Death is opt-in rather than global, deliberately. It is verified for the things that
    -- declare it (OUTR and EAT are refused while dead), and nothing else here has been

@@ -160,6 +160,21 @@ function M.flush()
          action = nil
       end
 
+      -- BLOCKED SINCE IT WAS QUEUED? Held, not dropped: the block usually clears (an
+      -- epidermal cures anorexia) and the cure is still wanted when it does. See
+      -- have.vectorBlocked() for why this is re-asked here rather than trusted from push.
+      local have = emunah.have
+      if action and have and have.vectorBlocked then
+         local why = have.vectorBlocked(vector)
+         if why then
+            if action.heldFor ~= why then
+               action.heldFor = why
+               log.debug("Holding [%s] %s -- %s.", vector, action.command, why)
+            end
+            action = nil
+         end
+      end
+
       -- act.send() returning false means the game would refuse it for a reason unrelated to
       -- this vector (see act). The action stays queued rather than being dropped, so the
       -- next tick tries again -- which is why this is one condition and not an early exit.

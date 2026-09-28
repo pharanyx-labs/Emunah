@@ -6,6 +6,13 @@ and cross-checked against what play has already established in `balance.md`,
 
 - **[HELP x]**: stated in `help/x.txt`
 - **[play]**: established from a transcript, and the file that records it
+- **[svof]**: taken from [svof](https://github.com/svof/svof), the long-standing Mudlet
+  curing system for Achaea, which the user has named as the reference for curing
+  methodology and balance blockers. The gates are in `raw-svo.skeleton.lua` (`check_herb`,
+  `check_salve`, `check_sip`, ...), the per-action rules in `raw-svo.dict.lua`
+  (`isadvisable`), and the game's message lines in `svo (install the zip, not me).xml`.
+  Its last commit is June 2021, so when it disagrees with a timestamped transcript the
+  transcript wins. Say so here when that happens.
 - **[open]**: not settled by any source. Ask before building on it.
 
 When HELP and play disagree, play wins, because the website help can lag the live game. Record
@@ -74,7 +81,9 @@ balance, [so] you must choose which to heal". One elixir slot, and health and ma
 
 ### Do cures need balance or equilibrium?
 
-**Neither is stated by HELP.** The combat principles file calls these "their own type of
+**No.** svof's curing gates (`check_herb`, `check_salve`, `check_sip`, `check_smoke`,
+`check_moss`, `check_focus`) check their own balance and afflictions, never bal or eq
+**[svof]**. HELP doesn't say either way. The combat principles file calls these "their own type of
 balance", separate from bal/eq, and play agrees for every vector tested:
 
 - Eating works while off balance: `eat irid` succeeded at 12:01:19.04 while `perform hands`
@@ -95,6 +104,39 @@ What *does* block cures is the character's state rather than a balance:
 | Anorexia | eating: the `herb` and `moss` vectors, but not `OUTR` | [play, `afflist.blocks`] |
 | Slickness / asthma / impatience | salve / smoke / focus | [play, `afflist.blocks`] |
 
+## What gates each action: the full table
+
+Every blocker below is enforced in code. Beyond its own balance, each vector is held while
+any of these is true. Stun and sleep hold everything (`act.blocked`). `have.vectorBlocked`
+is asked when the queue actually *sends*, not only when the cure is chosen, because a
+block can land while a cure waits for its balance.
+
+| Action | Held while | Enforced in | Source |
+|---|---|---|---|
+| eat herb / mineral | anorexia; paralysis does **not** block | `afflist.blocks` | [svof check_herb], [play] |
+| eat moss / potash | anorexia | `afflist.blocks` | [svof check_moss] |
+| sip elixir | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_sip]; [play] for paralysis |
+| apply salve | slickness; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_salve]; [play] for paralysis |
+| smoke | asthma, mucous; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_smoke] |
+| focus | impatience, inquisition, willpower ≤ 75; paralysis | `afflist.blocks`, `have.vectorBlocked` | [svof check_focus] |
+| touch tree | paralysis, webbed, bound, transfixed, roped, impaled, either arm numb, both arms disabled | `afflist.blocks`, `have.vectorBlocked` | [svof touchtree], [play] |
+| writhe | a writhe already under way | `have.balance("writhe")` | [HELP entanglement], [svof] |
+| wake | a wake already under way; a sleep you chose | `detect.wakeUp` | [HELP sleeping], [svof] |
+| stand | no bal **or no eq**; paralysis; entangled; crippled/mangled/mutilated leg | `detect.standUp`, `act.blocked` | [svof prone], [play] for bal |
+| attack, move, get (anything `standing`) | prone; paralysis; entangled; its bal/eq | `act.blocked` | [svof balance_controller], [play] |
+| `perform hands`, `diag` (bal/eq vectors) | paralysis; bal and eq | `queue.WHILE_PARALYSED`, `needs` | [play] |
+
+**Differences from svof, kept on purpose.** svof does not hold sips, salves or smoking for
+paralysis. Emunah does, because play showed each refused while paralysed (`balance.md`,
+*Paralysis blocks almost everything*). svof also treats limb balance (`bals.leftarm` /
+`bals.rightarm`) as a gate for every balance-taking action. Emunah does not track limb
+balance yet: the only line seen is `You have recovered balance on all limbs.`, and the
+lines that *take* it are not recorded. **[open]**
+
+**Not yet enforced.** svof also gates on `unconsciousness` (held like stun), which Emunah
+does not track. Its onset lines are per attacker and its GMCP name is unconfirmed. svof's
+wear-off line is `You regain consciousness with a start.` **[open]**
+
 ## Cures that must be sent once and then left alone
 
 Two HELP files say plainly that **repeating the command makes it slower**. This is
@@ -114,11 +156,26 @@ harmless.
 > sleep, and eventually you will wake up. Typing WAKE repeatedly will only delay this
 > process, so just do it once, and wait.
 
-**Emunah currently repeats both.** See *Where the code disagrees with HELP*.
+Both are now sent once. The game announces the start and the finish, and these lines
+come verbatim from svof's trigger set **[svof]**:
 
-**[open]** The messages for *starting* to writhe or wake, and for a WRITHE or WAKE sent while one is
-already in progress, are not recorded anywhere. A correct fix needs those lines. Ask for a
-transcript and don't guess them.
+| Event | Line |
+|---|---|
+| writhe started | `You begin to struggle free of your entanglement.` |
+| | `You begin trying to wrest your mind free of that which has transfixed it.` |
+| | `You begin to writhe furiously to escape the <weapon> that has impaled you.` |
+| writhe finished | `You have writhed free of your entanglement by ropes.` / `by tied ropes.` / `by webs.` |
+| | `You have writhed free of your state of transfixation.` |
+| | `With an heroic effort you manage to writhe yourself free from the weapon that impaled you.` |
+| writhe with nothing to escape | `You begin to writhe helplessly, throwing your body off balance.` |
+| wake started | `You begin your struggle to escape from the dreamworld.` |
+| awake | `You open your eyes and yawn mightily.` / `You already are awake.` / `You are jerked awake by the pain.` |
+
+After a writhe starts, Emunah holds the vector for 6s (svof's `customwait = 6`), or until a
+finish line or the entanglement's GMCP removal, so the *next* entanglement gets its own
+writhe as HELP says. After a wake starts, nothing is resent until the sleep ends. Before
+either start line arrives, an unanswered command is still retried once per round trip,
+since it may simply have been lost.
 
 ## Other cure mechanics from HELP
 
@@ -166,13 +223,12 @@ sub-switches are the only syntax HELP gives.
 
 ## Where the code disagrees with HELP
 
-Each is a candidate bug. None is fixed here, because the fix depends on the **[open]** items
-above.
+Each is a candidate bug unless marked fixed.
 
 | # | Code | HELP | Effect |
 |---|---|---|---|
-| 1 | `engine.lua` pushes `writhe` every tick while entangled. The only confirmation is the entanglement's removal, so if that takes longer than `curing.confirmWait` (2s) the send times out and it goes out again. `afflist.lua` describes the cure as "repeated WRITHE". | WRITHE once, then wait. Repeating makes it take longer. | Entanglement lasts longer than it should, in the fights where it matters most. |
-| 2 | `detect/init.lua` `wakeUp()` resends WAKE every `WAKE_GUARD` (1.0s) while asleep, on the reasoning that "attempt" means it can fail. | WAKE once. "Typing WAKE repeatedly will only delay this process." | Every involuntary sleep lasts longer. |
+| 1 | **Fixed**: was: `engine.lua` pushes `writhe` every tick while entangled. The only confirmation is the entanglement's removal, so if that takes longer than `curing.confirmWait` (2s) the send times out and it goes out again. `afflist.lua` describes the cure as "repeated WRITHE". | WRITHE once, then wait. Repeating makes it take longer. | Entanglement lasts longer than it should, in the fights where it matters most. |
+| 2 | **Fixed**: was: `detect/init.lua` `wakeUp()` resends WAKE every `WAKE_GUARD` (1.0s) while asleep, on the reasoning that "attempt" means it can fail. | WAKE once. "Typing WAKE repeatedly will only delay this process." | Every involuntary sleep lasts longer. |
 | 3 | `fear` cured by the `focus` vector. | Fear: `COMPOSE`. | Possibly works anyway. Unverified. `docs/afflictions.md` open question 5. |
 | 4 | `stupidity`'s goldenseal cure removed after it "did not work" (20:57:29-20:58:04). | Stupidity: eat goldenseal / plumbum. | The removal may have been a herb-balance collision (see `The plant has no effect.`, or server-side curing) rather than a wrong cure. Re-test before trusting either. |
 | 5 | `crippled<limb>` cured with restoration. | Crippled limb: **mending**. Damaged/mangled: restoration. | The user confirmed restoration live (`priest-abilities.md`), so the code is right by the play-beats-HELP rule. The web copy may be stale. Recorded so nobody "fixes" it back from HELP. |
