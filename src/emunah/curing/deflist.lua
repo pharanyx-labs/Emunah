@@ -72,7 +72,11 @@ M.commands = {
    -- elixir's name still resolves.
    temperance   = { vector = "elixir",      command = "drink frost" },
    -- Equilibrium-cost defences. Skills, not items, so they are gated on have.skill().
-   cloak        = { vector = "equilibrium", command = "cloak",        skill = "cloak" },
+   -- VERIFIED IN PLAY, 16:07:10.56 on 2026-09-28: "touch cloak" -> "You caress the tattoo and
+   -- immediately you feel a cloak of protection surround you. Equilibrium used: 1.00s.", and
+   -- once up, "You are already protected by the cloak tattoo." A tattoo, touched, like
+   -- mindseye -- the bare `cloak` this held before was never a command.
+   cloak        = { vector = "equilibrium", command = "touch cloak",  skill = "cloak" },
    shield       = { vector = "balance",     command = "touch shield", skill = "shield" },
    nightsight   = { vector = "equilibrium", command = "nightsight",   skill = "nightsight" },
    -- VERIFIED IN PLAY: "touch mindseye" -> "Touching the mindseye tattoo, your senses are

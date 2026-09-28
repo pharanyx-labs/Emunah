@@ -21,6 +21,7 @@ Balance used: 4.0s.
 | Command | Costs | Notes |
 |---|---|---|
 | `touch moss` | balance 4.0s | Staunches wounds. Observed 13:29:16.74 |
+| `touch cloak` | equilibrium 1.00s | "You caress the tattoo and immediately you feel a cloak of protection surround you." Observed 16:07:10.56 (2026-09-28). Touched again while up: "You are already protected by the cloak tattoo." with **no cost line**, and the prompt still read `ex` (16:07:16.82). DEF line: "You are surrounded by a cloak of protection." |
 | `def` | equilibrium 0.50s | Observed 13:29:20.97. Not free — do not poll it |
 | `def brief` | — | Brief names, close to the GMCP defence names |
 | `perform inspiration` | equilibrium 3.50s, **and requires balance and standing** | Priest. Lasts around ten minutes (13:35:33.62 to 13:45:28.50), ending with "You slump slightly as the divinely-inspired strength leaves your body." See [`PERFORM INSPIRATION`](#perform-inspiration) below. |
