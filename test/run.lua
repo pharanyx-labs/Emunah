@@ -3966,7 +3966,7 @@ do
    -- ~2.3s after the eat; in that gap keep-up said "no hawthorn in hand" about the one it had
    -- just eaten, and with a second in hand would have eaten that too.
    queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
-   mock.advance(defkeepup.RAISE_PENDING)
+   mock.advance(defkeepup.EAT_PENDING)
    mock.feed("Char.Items.List", { location = "inv", items = {
       { id = "1", name = "a red hawthorn berry", attrib = "e" },
       { id = "2", name = "a red hawthorn berry", attrib = "e" },
@@ -3983,10 +3983,41 @@ do
       "...and not eaten again while the first is still taking effect",
       table.concat(mock.sent, " | "))
 
+   -- THE WAIT STARTS AT THE EAT (14:37, 2026-09-28): `eat hawthorn` sent at 23.71 off
+   -- equilibrium was not eaten until 30.52, and keep-up -- timing from the send -- called
+   -- deafness missing again at 30.15. Now it waits for the eat line, then 6s for the defence.
+   queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
+   mock.advance(defkeepup.EAT_PENDING)
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "1", name = "a red hawthorn berry", attrib = "e" },
+      { id = "2", name = "a red hawthorn berry", attrib = "e" },
+   } })
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("eat hawthorn", 1, true), "14:37:23.71 -- deafness is raised",
+      table.concat(mock.sent, " | "))
+   queue.reset(); emunah.timers.stopAll()
+   mock.advance(6.4)
+   mock.echoed = {}; mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("hawthorn", 1, true),
+      "30.15 -- not eaten yet, 6.4s on: no second hawthorn", table.concat(mock.sent, " | "))
+   ok(not table.concat(mock.echoed, " "):find("no hawthorn in hand", 1, true),
+      "...and no 'no hawthorn in hand'")
+   mock.line("You eat a hawthorn berry.")
+   mock.advance(defkeepup.RAISE_PENDING - 0.5)
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("hawthorn", 1, true),
+      "...nor inside the 6s after the eat line", table.concat(mock.sent, " | "))
+   mock.advance(1)
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("eat hawthorn", 1, true),
+      "...but a defence that never landed is raised again after it", table.concat(mock.sent, " | "))
+
    -- NOT KNOWING WHAT WE CARRY (14:33:20.30, just after a reload): no "no hawthorn in hand"
    -- and no raise until Char.Items.Inv has answered.
    queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
-   mock.advance(defkeepup.RAISE_PENDING)
+   mock.advance(defkeepup.EAT_PENDING)
    -- What a reload leaves: nothing listed, and nothing known to be listed.
    mock.feed("Char.Items.List", { location = "inv", items = {} })
    emunah.gmcp.items.inventoryListed = false
