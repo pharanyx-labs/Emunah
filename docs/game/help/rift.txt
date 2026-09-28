@@ -1,0 +1,52 @@
+Source: https://www.achaea.com/game-help/?what=the-rift
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+7.14 The Rift
+(See HELP GROUPING)
+
+The rift is a special place where you can store certain items. Most items that
+work in the Rift are groupable (see HELP GROUPING).
+
+What Goes In The Rift?
+----------------------
+Herbs, minerals, inks, crystals, commodities, shipcommodities and common
+fluids may go in the rift (and possibly a few other things). If you don't put
+herbs, minerals, and inks in the rift, they will fall out of your inventory,
+or even out of your pack or other container, when you leave the realms.
+
+How Much Does the Rift Hold?
+----------------------------
+   750 of each type of ink
+  1000 of each type of cooking ingredient
+  2500 of each type of herb, commodity, reagent, or crystal.
+  2000 sips of health and mana
+  1000 sips of most curatives, venoms, and other fluids.
+   500 of each ship commodities
+
+Commands in Detail
+------------------
+   INR [<amount>|ALL] <item>
+      Put a given number of a single type of item into the rift. If
+      no amount is given, then the first item found will be used
+      (or the entire first group, if the first item is a grouping item).
+
+   OUTR [<amount>|ALL] <item>
+      Take a given number of a single type of item out of the Rift.
+      If no amount is specified, then the default is to take out only
+      one item.
+
+   FILL <vial> WITH <fluid> FROM RIFT
+      Fill a vial with fluid from your rift.
+
+   POUR [# of sips] <container|fluid> INTO RIFT
+   FILL RIFT WITH <tun>
+      Add fluid to your rift.
+
+   RIFT (or IR) [item]
+      -or-
+   INFO RIFT [item]
+      Peek into the Rift to take a quick inventory of what is stored
+      there. Note that this information also appears in a compact format
+      in INV(ENTORY).
+
+(See HELP GROUPING)

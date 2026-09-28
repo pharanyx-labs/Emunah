@@ -1,0 +1,10 @@
+Source: https://www.achaea.com/game-help/?what=safe-rooms
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+13.6 SAFE ROOMS
+
+Occasionally, you will find rooms in Achaea where violence is prohibited. You
+simply will not be able to execute offensive abilities, and, if you find you
+are, it is most likely a bug.
+
+These are referred to as safe rooms.

@@ -1,0 +1,29 @@
+Source: https://www.achaea.com/game-help/?what=preparation-for-combat
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+13.2 PREPARATION FOR COMBAT
+One of the most important parts of combat is being properly prepared for it.
+Without some certain basic equipment, you have no hope of succeeding against
+any competent opponent.
+
+This document will only cover equipment and defences that are not
+class-specific. Further, though a few offensive aspects of combat will be
+covered, generally-speaking, your primary offensive abilities are
+class-specific and are covered in the help files for the skills associated
+with that class.
+
+A short list of basic equipment that you'll need follows. It isn't complete,
+but it is a start.
+
+armour              : what kind to get will depend on your class.
+a weapon            : useful for inflicting venoms on people, if you have the
+                      envenom ability in the Weaponry skill, and, of course,
+                      for dealing out damage.
+cures and defences  : see HELP HEALINGLIST and HELP DEFENCES
+a shield tattoo     : protects you against many physical attacks
+a hammer tattoo     : destroys an opponent's shield
+a cloak tattoo      : protects yourself from summoning by a brazier tattoo
+starburst tattoo    : resurrects you immediately upon death
+tentacle tattoo     : will drag people out of the sky
+boar tattoo         : regenerates health
+moon tattoo         : regenerates mana

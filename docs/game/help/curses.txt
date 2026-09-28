@@ -1,0 +1,9 @@
+Source: https://www.achaea.com/game-help/?what=curses
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+9.35 CURSES
+Curses draws on the dark side of the mystic world for its power. It is a
+simple, yet powerful and deadly skill, allowing one to reel off curse after
+curse in quick and deadly succession. The curses available range from epilepsy
+to vertigo to the voyria plague. The syntax is CURSE <adventurer> <curse>. It
+should be noted that the only curse that will work on denizens is 'bleed.'

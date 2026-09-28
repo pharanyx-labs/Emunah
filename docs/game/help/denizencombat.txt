@@ -1,0 +1,35 @@
+Source: https://www.achaea.com/game-help/?what=adventurer-vs.-denizen-combat
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+13.8 Adventurer vs. Denizen Combat
+
+When you wish to fight a denizen, you may, generally, initiate combat with it
+simply by finding it and attacking it with whatever ability you choose to use.
+
+Most abilities that do something other than just cause damage will not work
+against denizens. The reason for this requires some understanding of how
+adventurer vs. adventurer combat works, but for now suffice it to say that
+creating an artificial intelligence that allowed denizens to effectively deal
+with the hundreds of things an adventurer can do to another adventurer would be
+prohibitively complicated.
+
+Once you have attacked a denizen, it will, in most cases, either attack you
+back, or run away. Usually a denizen will continue to attack you until either
+it begins to panic and runs away, or until you or it is dead. Be warned that
+some denizens may loot your corpse of an item or two after they have killed
+you.
+
+As you attack denizens, you will gain rage, which is a resource to fuel
+powerful abilities against your foe. HELP BATTLERAGE will provide more details
+about these attacks and the gaining and spending of rage.
+
+Critical hits
+-------------
+Higher experience levels provide the benefit of critical hits, which will
+come more often as you rise farther. The five levels of critical hit are:
+
+CRITICAL                          : 2x damage
+CRUSHING CRITICAL                 : 4x damage
+OBLITERATING CRITICAL             : 8x damage
+ANNIHILATINGLY POWERFUL CRITICAL  : 16x damage
+WORLD-SHATTERING CRITICAL         : 32x damage

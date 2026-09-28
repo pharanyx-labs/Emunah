@@ -1,0 +1,38 @@
+Source: https://www.achaea.com/game-help/?what=death-and-dying
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+5.5 DEATH AND DYING
+(See HELP GRACE, HELP IMMOLATION, HELP RESURRECTION)
+
+Death is not permanent. It causes you to lose some experience, but not too
+much.
+
+When you die, you will immediately lose a small portion of your total
+experience and your mana will begin to drain away. It takes great mental effort to remain present as a soul, and when your mana is expended you will be forced to embrace death, whether you are prepared for it or not.
+
+Those at or under level 10 are protected from death by the blessing of the
+Gods. Should they die, they'll be transported to the Ring of Portals and cured
+of their ailments.
+
+Coming Back
+-----------
+Return to life in one of three ways:
+1) EMBRACE DEATH,
+2) Immolation in the Flame of Yggdrasil, and
+3) Resurrection
+
+The simplest is embracing death. Just EMBRACE DEATH and you'll begin the rather
+tedious process of facing Ugrach, the Finality and returning to life. Once you
+return to life, you will find yourself in a place called "Outside the Cave."
+
+Immolation requires that someone bring your dead body to the Flame of Yggdrasil,
+and is close to instantaneous.
+
+Resurrection, if possible, is also close to instantaneous.
+
+Grace
+-----
+After you have died and embraced death, you will be "walking in the grace
+of the Gods". See HELP GRACE for more details.
+
+(See HELP GRACE, HELP IMMOLATION, HELP RESURRECTION)

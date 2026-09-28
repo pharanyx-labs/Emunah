@@ -1,0 +1,7 @@
+Source: https://www.achaea.com/game-help/?what=willpower
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+5.4 WILLPOWER
+Willpower represents long-term mental fatigue. It will decrease when you use
+most mental abilities and increase naturally at a rate determined by your race
+and the level of your miniskill called Philosophy.

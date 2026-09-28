@@ -1,0 +1,98 @@
+Source: https://www.achaea.com/game-help/?what=tattoos
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+9.26 TATTOOS
+(See also: HELP TATTOO BODY PARTS and HELP PERMANENT TATTOOS)
+
+Table of Contents
+-----------------
+    I. Inking a Tattoo
+   II. Removing a Tattoo
+  III. Activating or Using a Tattoo
+   IV. How Long Do Tattoos Last?
+    V. How Do You See What Tattoos You Have Currently?
+   VI. Getting Tattoos from Vinci
+  VII. Artefact (or Permanent) Tattoos
+
+Introduction
+------------
+The skill of Tattoos is an ancient one, having been discovered and perfected by
+the earliest Tsol'aa. Using special dry-powder inks made from berries and
+roots, the tattoo artist magically inscribes, without a needle, various types
+of symbols onto a body (his own, or another's).
+
+Tattoos are not permanent. You may purchase permanence for existing tattoos as
+an artefact option. See HELP PERMANENT TATTOOS.
+
+Each type of tattoo requires a different combination of inks (see HELP INKS).
+
+I. Inking a Tattoo
+----------------------
+In order to ink a tattoo, use the following command, with options as follows:
+
+   INK <tattooname> ON <body part> OF <adventurer|ME>.
+
+Body parts are: head, torso, right arm, left arm, right leg, and left leg.
+For example: INK BUTTERFLY ON RIGHT ARM OF ME.
+
+Inking a tattoo requires that you have the proper inks in your inventory. It
+will take about half a minute, during which neither the inker nor the inkee may
+do anything. Ink is for sale at various markets in the land.
+
+You may have only one tattoo on each body part, until you have risen to the
+rank of skilled in tattoos at which point you will be able to ink a second
+tattoo on your torso. At the rank of expert you will be able to ink a second
+tattoo on your head, a second on your left leg at fabled, and a second on your
+right leg at mythical. Once you receive the ability of Superscribing at
+transcendent, you will be allowed to have two tattoos on each body part.
+
+II. Removing a Tattoo
+---------------------
+A tattoo may be wiped off your body by:
+
+   WIPE OFF <tattoo>.
+
+If you have multiple of the same tattoo and wish to specify which one to remove, you can also indicate with:
+
+   WIPE OFF <tattoo> <bodypart>
+
+Example:
+
+   WIPE OFF BOAR LEFT LEG
+
+Otherwise, in the case of multiple tattoos, WIPE OFF <tattoo> will prioritise whichever tattoo occurs first in your list of TATTOOS. (i.e. head before torso, left arm before right arm, etc)
+
+III. Activating or Using a Tattoo
+---------------------------------
+For most tattoos, TOUCH in order to use or activate. Some are continuous in
+effect after activated, such as moon or boar. Some, such as shield or web,
+perform a single function when TOUCHed. TOUCH again when you wish to use again.
+
+IV. How Long Do Tattoos Last?
+-----------------------------
+Continuous effect tattoos, such as moon or boar, may wear off at any time.
+The average duration is several Achaean days of active, continuous use.
+
+Instantaneous, single function tattoos, such as shield or web, have a
+limited number of uses. When those are gone, the tattoo fades.
+
+V. How Do You See What Tattoos You Have Currently?
+--------------------------------------------------
+To see what tattoos you currently bear:
+
+   TATTOOS
+
+VI. Getting Tattoos from Vinci
+------------------------------
+The leading tattooist in the realms is Vinci. His parlour is in Delos. It can
+be reached from the Delosian bridge by going northeast, northeast, east, east,
+and north. It can also be reached by newbies by using PORTALS, then moving
+WEST and NORTHWEST.
+
+VII. Artefact (or Permanent) Tattoos
+------------------------------------
+For the truly discriminating taste we also offer the ultimate in tattoos:
+artefact tattoos, also known as permanent tattoos. See HELP ARTEFACT TATTOOS
+for more info.
+
+(See also: HELP TATTOO BODY PARTS and HELP PERMANENT TATTOOS)

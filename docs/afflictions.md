@@ -156,7 +156,9 @@ content the general pages do not cover — unverifiable from that source rather 
 wrong.
 
 **5. `fear` resolves through the `focus` vector**, but the published page names the action
-"Compose". Possibly terminology only, since the `focus` vector issues `FOCUS` elsewhere.
+"Compose", and `COMPOSE` is a real command with its own help file (`docs/game/help/compose.txt`:
+"At times, you may find yourself in a state of panic ... If this happens to you, COMPOSE.").
+So this is probably a different command, not a difference in wording. Unverified whether FOCUS also works.
 
 **6. Afflictions observed without cure data.** `horror`, `pyre` and three `unweaving*`
 effects have been seen named but have no confirmed cure, so they are absent from the table
@@ -170,7 +172,11 @@ it every ~5 seconds for at least five cycles, and `stupidity` was still tracked 
 one. The herb option is removed; `focus` is left in place, untested by that transcript.
 `AFFLICTION SHOW STUPIDITY` (the game's own reference command, confirmed to exist the same
 session -- see `affpop` in `curing/detect/init.lua`) would settle both what actually cures
-it and whether `focus` is right either.
+it and whether `focus` is right either. Note that the published table
+(`docs/game/help/afflictions.txt`) *does* list `Stupidity: Eat Goldenseal / Plumbum`. The
+failed eats may have landed inside herb balance (`The plant has no effect.`, see
+`docs/game/balance.md`), or had the balance spent by Achaea's server-side curing
+(`docs/game/curing.md`), rather than being the wrong cure.
 
 ## Change history
 

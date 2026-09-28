@@ -1,0 +1,29 @@
+Source: https://www.achaea.com/game-help/?what=hunger
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+5.9 HUNGER
+When You Get Hungry
+-------------------
+When you reach level 15, you will start growing hungry and require food.
+
+Typing STATUS will show you how hungry you are. If you allow yourself to get
+too hungry, you can get sick, and eventually pass out.
+
+Where the Food is
+-----------------
+In order to eat, you will need to find yourself a shop that sells food.
+Generally speaking, the more expensive the food, the more sustenance value it
+has, though there is not an exact one-to-one correspondence.
+
+Hunger By Name
+--------------
+How hungry are you? The following is a brief review of the messages you'll see
+when you type STAT, and what they mean:
+
+utterly satiated       - eating won't help at all!
+reasonably full        - eating probably won't help much
+not hungry             - eating would help a little, but is unnecessary
+feeling a bit peckish  - hungry; no risk yet, but eat soon
+weak from hunger       - very hungry; you better get to the food stall
+starving to death      - at this point you will start passing out and
+                         taking damage.

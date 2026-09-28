@@ -13,8 +13,10 @@ to a character without the lesson. Herb balance treated as shared with attack ba
 Before writing code that depends on how the game behaves:
 
 1. **Grep `docs/game/`.** Verified facts live there, with the evidence that established
-   them, split by topic: `balance.md`, `incapacitation.md`, `priest-abilities.md`,
-   `defences.md`, `sustenance.md`, `prompt.md`, `gmcp.md`, `api.md`.
+   them, split by topic: `curing.md`, `combat.md`, `balance.md`, `incapacitation.md`,
+   `priest-abilities.md`, `defences.md`, `sustenance.md`, `prompt.md`, `gmcp.md`, `api.md`.
+   `docs/game/help/` holds verbatim HELP files. `curing.md` and `combat.md` are the
+   overview, and each claim in them is tagged with its source.
 2. **If it is not there, ask.** One question costs the user a paste. A wrong guess costs a
    play session, a bug report, and a round trip — and tends to surface as a *worse* bug than
    the one being fixed.
@@ -22,6 +24,30 @@ Before writing code that depends on how the game behaves:
    `docs/game/`, ask for the `HELP` output.
 
 Landing a guess that "looks right" is the failure mode, not being slow.
+
+## Before anything sends a command
+
+Most "it acted without the balance" bugs are a command whose requirements were never
+declared. Answer these from `docs/game/`, not from memory, for every new or changed send:
+
+1. **Which vector does it spend?** One slot per balance (`core/queue.lua`). HELP names four
+   curing balances: salve, herb (plants *and* minerals), elixir (health/mana elixirs *and*
+   tonics), moss (irid *and* potash). Play adds smoke, focus and tree. The combat balances
+   are bal and eq.
+2. **What else must be up, even though it isn't spent?** Declare it in `needs`
+   (`core/act.lua`). HELP's default for bal/eq abilities: "not having balance prevents you
+   from using an ability that requires equilibrium, and vice versa", so assume both until
+   a transcript shows otherwise (`perform hands` spends eq and needs bal). Cures have not
+   been shown to need bal/eq. Don't add that requirement without evidence either.
+3. **Which states block it?** Stun and sleep block everything, paralysis everything but
+   eating, prone only what needs you upright. The table is in `curing.md`.
+4. **Is repeating it harmful?** Most cures are safe to resend after a lost confirmation.
+   **WRITHE and WAKE are not**: HELP says a repeat makes them take longer.
+5. **What confirms it, and what rejects it?** Exact wording from `balance.md`. A rejection
+   nobody matches leaves the vector wedged until its timeout.
+6. **Could something else have spent the balance?** Achaea's own server-side curing
+   (`CURING ON`) spends the same balances invisibly (`curing.md`). Ask about
+   `CURING STATUS` before debugging a balance collision in Emunah's logic.
 
 ## Verify before implementing
 

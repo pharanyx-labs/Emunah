@@ -1,0 +1,8 @@
+Source: https://www.achaea.com/game-help/?what=avoidance
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+9.13 AVOIDANCE
+As you train in Avoidance, you will learn the art of controlling your prana-musculature in order to avoid attacks, spells, or lessen the damage received from an attack by partially dodging it and thus taking the wound in a less damaging place. It applies to most major forms of damage other than asphyxiation and the universally unblockable type. In addition, the Avoidance skill allows active use of this mitigation under certain conditions in order to preempt attacks and heighten your reflexes in advance.
+
+Yes, avoidance acts as this scroll describes.
+Yes, avoidance works whether the attacker is a denizen or an adventurer.

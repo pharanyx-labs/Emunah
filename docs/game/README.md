@@ -12,6 +12,8 @@ because a gap prompts a question and a guess ships a bug.
 
 | File | Holds |
 |---|---|
+| `curing.md` | Overview: the curing balances, what blocks cures, commands that must not repeat, and where the code disagrees with HELP |
+| `combat.md` | Overview: chasing bal/eq, damage types, body parts, denizens vs. adventurers |
 | `balance.md` | Balance and equilibrium: costs, rejection wording, what fails for free |
 | `incapacitation.md` | Stun, prone, sleep — what blocks a command and what clears it |
 | `priest-abilities.md` | Priest attacks, Devotion, Zeal verses, limb breaks, absolve |

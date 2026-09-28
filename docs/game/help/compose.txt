@@ -1,0 +1,26 @@
+Source: https://www.achaea.com/game-help/?what=composing-and-concentrating
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+13.7.4 Composing and Concentrating
+(Also see: HELP EQUILIBRIUM, HELP HEALINGLIST, HELP AFFLICTIONS,
+           HELP BASECOMMANDS)
+
+At times, you may find yourself in a state of panic where you cannot help
+rushing about from room to room! If this happens to you, COMPOSE.
+
+At other times, your mental equilibrium may be so disrupted somehow that it
+simply will not come back. This can happen, for example, if you are very
+cold. Normally when you lose equilibrium, you merely have to wait to
+regain it. However, in this disrupted state, equilibrium will not return
+no matter how long you wait. If this happens to you, simply CONCENTRATE.
+
+There is an affliction called confusion which will prevent you from being
+able to concentrate until you cure the confusion. You can look up what
+cures confusion in HELP AFFLICTIONS.
+
+If you came to this help scroll in error, and you are actually looking
+for information on how to COMPOSE a personal background or history, see
+HELP BACKGROUND.
+
+(Also see: HELP EQUILIBRIUM, HELP HEALINGLIST, HELP AFFLICTIONS,
+           HELP BASECOMMANDS)

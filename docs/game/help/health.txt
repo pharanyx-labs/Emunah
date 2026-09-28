@@ -1,0 +1,25 @@
+Source: https://www.achaea.com/game-help/?what=health
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+5.1 HEALTH
+Health (sometimes also called HP), represents your physical well-being. When
+your health (which you can see by typing SCORE or by putting PROMPT STATS on -
+see HELP PROMPT) reaches 0, you will die (unless some special abilities or
+protections comes into play).
+
+Your maximum health may be increased:
+- by rising in level (this caps out around level 80, until you reach level 99 and attain dragon),
+- by various magical means, and
+- by acquiring certain artefacts,
+- by completing certain quests
+
+Higher maximum health is always better than lower!
+
+Some abilities used to combat other adventurers cause damage partly based on
+maximum health. This means that with higher maximum health you should expect an
+increase in some damage received from other adventurers, though the increase is
+not as great as the amount by which your own health rose. In any case, you will
+definitely be able to withstand more attacks before dying, which is the
+important thing.
+
+Read about how to recover lost health in HELP RECOVERY.

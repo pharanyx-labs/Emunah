@@ -1,0 +1,15 @@
+Source: https://www.achaea.com/game-help/?what=the-defences-command
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+4.3 THE DEFENCES COMMAND
+(See also: HELP LIFE ENHANCING AURA)
+
+Typing DEFENCES or DEF will show you a list of what beneficial things are
+affecting you. Generally there will be one line listed for each defence or
+effect. DEFENCES BRIEF will show you a less verbose list for those defences
+which can be shortened to a single word.
+
+For a list of defences that may be obtained via herbal and alchemical means,
+see HELP DEFENCE.
+
+(See also: HELP LIFE ENHANCING AURA)
