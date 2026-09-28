@@ -69,8 +69,9 @@ M.ACTIONS = {
      fn = function() emunahReload() end },
    { name = "hunt on",  modifier = "None",     key = "F11",
      fn = function() emunah.commands.dispatch("hunt") end },
-   { name = "hunt off", modifier = "None",     key = "F12",
-     fn = function() emunah.commands.dispatch("hunt off") end },
+   -- Stop, then back three rooms the way you came, then stay (2026-09-28).
+   { name = "hunt retreat", modifier = "None", key = "F12",
+     fn = function() emunah.commands.dispatch("hunt retreat") end },
 }
 
 local function actionRegistry()
@@ -226,7 +227,7 @@ function M.build()
    return true
 end
 
---- Install the action keys (Ctrl+F5 reload, F11 hunt on, F12 hunt off).
+--- Install the action keys (Ctrl+F5 reload, F11 hunt on, F12 hunt retreat).
 ---
 --- Deliberately independent of `keys.numpad`: that setting is specifically about the
 --- numpad, and a function key has no bearing on it -- turning numpad movement off must not
@@ -276,7 +277,7 @@ function M.buildActions()
    if bound < #M.ACTIONS then
       log.warn("Action keys: only %d of %d bindings installed.", bound, #M.ACTIONS)
    else
-      log.debug("Action keys: %d bindings (reload, hunt on, hunt off).", bound)
+      log.debug("Action keys: %d bindings (reload, hunt on, hunt retreat).", bound)
    end
    return bound > 0
 end

@@ -665,7 +665,14 @@ end
 --- Walk and kill: the two together, which is what "go hunting" means. Kept separate
 --- underneath because each is useful alone (clear one room; explore without fighting).
 M.handlers.hunt = function(arg)
-   if arg == "off" or arg == "stop" then
+   if arg == "retreat" then
+      -- F12. Stop both WITHOUT the walker's return-to-start: that walk home could lead
+      -- anywhere, and the point is to get three known rooms away and stay there.
+      emunah.bashing.stop("retreat")
+      emunah.walker.stop("retreat", true)
+      emunah.walker.retreat(3)
+      return
+   elseif arg == "off" or arg == "stop" then
       -- Both return false with no message when they were already stopped -- which is
       -- exactly the state a safety stop leaves them in. Without this, `emset hunt off`
       -- issued after one had already fired produced no output at all, and read as the
@@ -697,9 +704,10 @@ end
 
 M.handlers.bash = function(arg, rest)
    local bash = emunah.bashing
-   if arg == "on" or arg == "start" then bash.start()
-   elseif arg == "off" or arg == "stop" then
-      if not bash.stop("requested") then log.info("Bashing was not running.") end
+   -- BASHING WALKS THE AREA (2026-09-28: "when i type emset bash on, i also need it to walk
+   -- through the area"). On and off are `hunt` and `hunt off`, so the two stay symmetric.
+   if arg == "on" or arg == "start" then M.handlers.hunt()
+   elseif arg == "off" or arg == "stop" then M.handlers.hunt("off")
    elseif arg == "attack" and rest then
       -- A quoted multi-word command is the natural thing to type, but the dispatcher never
       -- strips quotes (see M.dispatch) and Achaea itself treats a leading `"` as SAY

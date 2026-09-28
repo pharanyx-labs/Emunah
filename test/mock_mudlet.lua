@@ -861,6 +861,7 @@ function mock.installMap(count)
          _G.speedWalkPath[step] = a.x + (forward and step or -step)
       end
       mock.map.lastPathfind = (mock.map.lastPathfind or 0) + 1
+      mock.map.pathTo = tonumber(to)
       return true
    end
 
@@ -874,8 +875,10 @@ function mock.installMap(count)
       return mock.map.rooms[tonumber(id)] and ("Room " .. id) or nil
    end
 
+   -- Records WHERE the walk was headed (the last getPath's destination), so a test can
+   -- check the room a walk was sent to, not only that one went out.
    function _G.doSpeedWalk()
-      mock.map.walkedTo[#mock.map.walkedTo + 1] = true
+      mock.map.walkedTo[#mock.map.walkedTo + 1] = mock.map.pathTo or true
       return true
    end
 
