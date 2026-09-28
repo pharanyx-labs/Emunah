@@ -155,7 +155,20 @@ function mock.install(homeDir)
       selection = nil
    end
 
-   function _G.getCurrentLine() return mock.currentLine end
+   -- The line at the cursor once moveCursor() has been used, as in Mudlet; the line being
+   -- processed otherwise.
+   function _G.getCurrentLine()
+      if mock.cursor and mock.buffer and mock.buffer[mock.cursor] then
+         return mock.buffer[mock.cursor]
+      end
+      return mock.currentLine
+   end
+   -- Mudlet echoes a typed command onto the end of the last line -- usually the prompt.
+   function mock.typedEcho(text)
+      if mock.buffer and #mock.buffer > 0 then
+         mock.buffer[#mock.buffer] = mock.buffer[#mock.buffer] .. tostring(text)
+      end
+   end
 
    --- Real Mudlet returns the 0-based start index, or -1 when the occurrence is not there.
    function _G.selectString(text, occurrence)
