@@ -613,6 +613,29 @@ do
    end
 end
 
+-- "You already possess equilibrium." -- CONCENTRATE answered with nothing to restore.
+-- Captured in play on 2026-09-28, after the blackout CONCENTRATE (engine.BLACKOUT_CONCENTRATE)
+-- went out; the reference system's `cure disrupt` trigger carries the same line.
+--
+-- The game has answered, so free the special slot rather than let it sit out the confirm
+-- timeout with COMPOSE or CLOT behind it. And whatever `disrupted` we are tracking is wrong:
+-- equilibrium is not disrupted. Dropping it is safe even if the server does list it, since
+-- the next reconcile adopts it again. Only when a CONCENTRATE is in flight: an unprompted
+-- copy of this line is an illusion, not an answer.
+do
+   local id = tempRegexTrigger([[^You already possess equilibrium\.$]], function()
+      local flight = emunah.queue.awaiting("special")
+      if not (flight and flight.command == "concentrate") then return end
+      emunah.queue.confirm("special")
+      local engine = emunah.curing.engine
+      if engine then engine.remove("disrupted") end
+   end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
+
 -- ---------------------------------------------------------------------------
 -- Damage dealt.
 --
