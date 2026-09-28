@@ -10162,6 +10162,48 @@ ok(not inBuffer("You use a soot-blackened tinderbox to make fire."), "tinderbox 
 ok(not inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
    "lit line gagged")
 
+-- THE BUFFER MOVES BETWEEN THE GAG AND THE DELETE (2026-09-28: "overgagging on some lines
+-- and not gagging others"). Mudlet trimming full scrollback removes lines from the top, so
+-- every recorded number is now one too high: by number, the gag deleted the line BELOW
+-- each reply and left the reply. By text, it finds the reply and nothing else goes.
+do
+   emunah.timers.stop("pipes.action")
+   emunah.timers.stop("pipes.pipe.408402")
+   pipes.pipes["408402"].status = "out"
+   pipes.keep()
+   local before = "Anzerloi continues to circle you, slipping in and out of your blindspot."
+   local after = "A lost visitor enters from the east."
+   mock.line(before)
+   mock.line("You use a soot-blackened tinderbox to make fire.")
+   mock.line("You carefully light your treasured pipe until it is smoking nicely.")
+   mock.line(after)
+   table.remove(mock.buffer, 1)                   -- the scrollback trims one line
+   start = start - 1
+   mock.advance(0)
+   ok(not inBuffer("You use a soot-blackened tinderbox to make fire."),
+      "after a trim, the tinderbox line is still the one gagged")
+   ok(not inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
+      "...and the lit line")
+   ok(inBuffer(before) and inBuffer(after), "...and the lines around them are untouched")
+end
+
+-- ONE LINE, GAGGED TWICE, COUNTS ONCE. Otherwise a block of one gagged line and one of
+-- yours reads as "all ours", and the prompt above it is collapsed away.
+do
+   local pa = "H:100% M:100% E:100% W:100%  ex-  T:  15:30:00.00-"
+   local pb = "H:100% M:100% E:100% W:100%  ex-  T:  15:30:01.00-"
+   local mine = "Maajida arrives from the north."
+   mock.prompt(pa)
+   pipes.quietly("light")
+   mock.line("You use a soot-blackened tinderbox to make fire.")
+   pipes.gag()                                    -- a second trigger on the same line
+   mock.line(mine)
+   mock.prompt(pb)
+   mock.advance(0)
+   ok(inBuffer(pa), "a prompt above a line you should see is kept")
+   ok(inBuffer(mine), "...and so is that line")
+end
+
 -- THE LAST LINE IS ALWAYS A CURRENT PROMPT. Reported 13:23:14.92-13:23:17.41: five bare
 -- prompts in a row, one per relight, because only the replies were gagged. Now a run of
 -- our housekeeping collapses into one prompt -- the newest -- at the bottom of the window.
