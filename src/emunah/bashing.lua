@@ -624,6 +624,13 @@ end, "bashing")
 
 -- Curing takes precedence over offence: if the engine is fighting a lock, attacking into
 -- it wastes the balance the cure needs.
+-- DEATH PAUSES EVERYTHING, and a hunt does not come back on its own: revival puts you
+-- somewhere else, naked, and walking back into the fight that killed you is the user's
+-- call. `halt` so the walker stops too rather than wandering off without us.
+event.register("emunah.character.died", function()
+   if M.enabled then M.stop("died", true) end
+end, "bashing")
+
 event.register("emunah.bashing.pause", function()
    if M.enabled then M.stop("paused") end
 end, "bashing")

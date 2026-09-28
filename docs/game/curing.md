@@ -126,17 +126,27 @@ block can land while a cure waits for its balance.
 | attack, move, get (anything `standing`) | prone; paralysis; entangled; its bal/eq | `act.blocked` | [svof balance_controller], [play] |
 | `perform hands`, `diag` (bal/eq vectors) | paralysis; bal and eq | `queue.WHILE_PARALYSED`, `needs` | [play] |
 
+| anything at all | dead; stunned; unconscious; asleep (bar WAKE) | `act.blocked` | user's rule for death; [play] stun/sleep; [svof] unconsciousness |
+| anything needing bal or eq | either arm off balance | `act.blocked`, `detect.armBalance` | [svof check_balanceful_acts] |
+
+**Death pauses Emunah completely** (the user's rule). Nothing is sent while `Char.Vitals`
+reports 0 health. The queue is emptied, and bashing and the walker stop. On revival curing
+resumes by itself. Bashing and walking stay off until restarted by hand.
+
+**Arm balance.** Lost to arm-strike attacks, one arm at a time (svof `Lost arm balance`:
+`You ball up one fist and hammerfist` / `You launch a powerful uppercut at` / `You form a
+spear hand and stab out towards` / `You unleash a powerful hook towards`). Regained with
+`You have recovered balance on your left arm.` / `...right arm.` [svof], or `You have
+recovered balance on all limbs.` [play]. A 10s backstop covers a missed recovery line.
+
+**Unconsciousness.** Onset: `Your legs collapse from under you and consciousness leaves you
+as you pass out from extreme hunger.` (also prone). Clears with `You regain consciousness
+with a start.`, or after 7s (svof's `customwait = 7`). Both lines are from [svof]. Other
+onsets are per attacker and its GMCP name is unconfirmed. Add them from a transcript.
+
 **Differences from svof, kept on purpose.** svof does not hold sips, salves or smoking for
 paralysis. Emunah does, because play showed each refused while paralysed (`balance.md`,
-*Paralysis blocks almost everything*). svof also treats limb balance (`bals.leftarm` /
-`bals.rightarm`) as a gate for every balance-taking action. Emunah does not track limb
-balance yet: the only line seen is `You have recovered balance on all limbs.`, and the
-lines that *take* it are not recorded. **[open]**
-
-**Not yet enforced.** svof also gates on `unconsciousness` (held like stun), which Emunah
-does not track. Its onset lines are per attacker and its GMCP name is unconfirmed. svof's
-wear-off line is `You regain consciousness with a start.` **[open]**
-
+*Paralysis blocks almost everything*). 
 ## Cures that must be sent once and then left alone
 
 Two HELP files say plainly that **repeating the command makes it slower**. This is
@@ -217,9 +227,10 @@ free, sends into it, and gets `The plant has no effect.` or a salve/sip rejectio
 the server spent it first. That is exactly the "acting without the balance" symptom.
 Nothing in `src/` checks or mentions `CURING STATUS`.
 
-**[open]** Whether it is on for the user's character, and what its output looks like
-(`CURING STATUS`). Ask before writing code that toggles it: `CURING ON|OFF` and its
-sub-switches are the only syntax HELP gives.
+**Settled 2026-09-28: it is off.** `CURING STATUS` showed `Enabled: No` with affliction
+curing, focus, tree and clot all off, and the user then turned sipping and defence upkeep
+off by hand. They asked for Emunah **not** to send `CURING` commands at login. Don't add
+that. A balance collision is Emunah's own logic, not the server's.
 
 ## Where the code disagrees with HELP
 

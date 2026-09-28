@@ -36,8 +36,13 @@
 ---
 ---   bal / eq  The ordinary balances, straight from Char.Vitals.
 ---
----   alive     Refused while dead. Opt-in for the same reason `standing` is: it is known
----             for the commands that declare it, not for every command.
+---   dead      Nothing is sent. The user's rule: when the character dies Emunah pauses
+---             completely, and picks up again on revival. `alive` is still accepted from
+---             older call sites but no longer changes anything.
+---
+---   unconscious  Same as stunned. svof refuses every action on it.
+---
+---   paralysed / entangled / arm balance   See M.blocked() below.
 ---
 --- Requirements are a plain table so a caller states only what it actually costs:
 ---
@@ -92,8 +97,15 @@ function M.blocked(needs)
    -- gmcp/, and this module is reachable from both.
    local detect = emunah.curing and emunah.curing.detect
 
+   -- DEAD: NOTHING. Every automated command is held while dead, at the user's direction --
+   -- the system pauses completely and resumes on revival. (It used to be opt-in, verified
+   -- only for OUTR and EAT; `alive` is still accepted and now redundant.)
+   local vitals = emunah.gmcp and emunah.gmcp.vitals
+   if vitals and vitals.maxhp > 0 and vitals.hp <= 0 then return "dead" end
+
    if detect and detect.isStunned() then return "stunned" end
-   -- Opt-OUT rather than opt-in, unlike `standing` and `alive`: the game's own rejection
+   if detect and detect.isUnconscious and detect.isUnconscious() then return "unconscious" end
+   -- Opt-OUT rather than opt-in, unlike `standing`: the game's own rejection
    -- says nothing works but WAKE, so the safe default is to block, and WAKE is the single
    -- caller that declares itself an exception.
    if not needs.whileAsleep and detect and detect.isAsleep() then return "asleep" end
@@ -122,18 +134,12 @@ function M.blocked(needs)
       end
    end
 
-   -- Death is opt-in rather than global, deliberately. It is verified for the things that
-   -- declare it (OUTR and EAT are refused while dead), and nothing else here has been
-   -- checked -- a global gate would be asserting a rule about every command in the game
-   -- from evidence about two of them.
-   if needs.alive then
-      local vitals = emunah.gmcp and emunah.gmcp.vitals
-      if vitals and vitals.maxhp > 0 and vitals.hp <= 0 then return "dead" end
-   end
-
    if needs.bal or needs.eq then
-      local vitals = emunah.gmcp and emunah.gmcp.vitals
       if not vitals then return "no vitals yet" end
+      -- Both arms, as well as the balance itself (svof check_balanceful_acts).
+      if detect and detect.armsBalanced and not detect.armsBalanced() then
+         return "arm off balance"
+      end
       if needs.bal and not vitals.bal then return "no balance" end
       if needs.eq and not vitals.eq then return "no equilibrium" end
    end

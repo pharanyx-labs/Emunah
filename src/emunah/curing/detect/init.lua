@@ -58,6 +58,50 @@ function M.isStunned()
    return M.stunned
 end
 
+--- True while unconscious. Blocks every command, like stun: every one of svof's gates
+--- (check_herb, check_salve, check_sip, check_balanceful_acts ...) refuses on
+--- `affs.unconsciousness` alongside stun and sleep. Text-driven -- the GMCP name is not
+--- confirmed, so it is not guessed into STATE_FLAGS below. See patterns.lua.
+M.unconscious = false
+
+function M.isUnconscious()
+   return M.unconscious
+end
+
+--- Backstop for a missed "You regain consciousness with a start.": svof's
+--- `unconsciousness.waitingfor` uses customwait = 7 and clears it on timeout.
+M.UNCONSCIOUS_GUARD = 7.0
+
+--- Arm balance. svof holds every balance-taking action until BOTH arms have it
+--- (check_balanceful_acts: `not bals.rightarm or not bals.leftarm`). It is lost by
+--- arm-specific attacks and announced back per arm -- see patterns.lua for the lines.
+M.armBalance = { left = true, right = true }
+
+--- Backstop for a missed arm-recovery line, which would otherwise hold every bal/eq action
+--- for the rest of the session. Generous, like the prone guard: it should only fire when
+--- the real line was genuinely lost.
+M.ARM_GUARD = 10.0
+
+function M.armsBalanced()
+   return M.armBalance.left and M.armBalance.right
+end
+
+function M.loseArmBalance(side)
+   M.armBalance[side] = false
+   emunah.timers.start("arm.guard." .. side, M.ARM_GUARD, function()
+      if not M.armBalance[side] then
+         log.debug("No %s arm balance line after %.1fs -- assuming it returned.",
+            side, M.ARM_GUARD)
+         M.armBalance[side] = true
+      end
+   end)
+end
+
+function M.gainArmBalance(side)
+   M.armBalance[side] = true
+   emunah.timers.stop("arm.guard." .. side)
+end
+
 --- True while asleep -- put there by an opponent, or by your own SLEEP.
 ---
 --- Blocks every command bar WAKE (see core/act.lua). A third state alongside prone and

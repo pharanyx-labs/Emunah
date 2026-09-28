@@ -9616,6 +9616,46 @@ end
 ok(not sent():find("wake"), "no WAKE resent once the struggle has begun", sent())
 mock.line("You open your eyes and yawn mightily.")
 ok(not detect.isAsleep(), "svof's wake line ends the sleep")
+
+-- UNCONSCIOUS: held like stun, cleared by svof's wear-off line or its 7s backstop.
+reset()
+mock.line("Your legs collapse from under you and consciousness leaves you as you pass out from extreme hunger.")
+eq(act.blocked(), "unconscious", "unconscious holds even a command that needs nothing")
+queue.push("herb", "eat kelp", { tag = "asthma" })
+eq(queue.flush(), 0, "...and every cure")
+mock.line("You regain consciousness with a start.")
+eq(act.blocked(), nil, "...until consciousness returns")
+mock.line("Your legs collapse from under you and consciousness leaves you as you pass out from extreme hunger.")
+mock.advance(detect.UNCONSCIOUS_GUARD + 0.01)
+eq(act.blocked(), nil, "...or the backstop lapses")
+
+-- ARM BALANCE: every bal/eq action waits for both arms (svof check_balanceful_acts).
+reset()
+mock.line("You unleash a powerful hook towards a rat.")
+eq(act.blocked({ bal = true }), "arm off balance", "a spent arm holds a balance action")
+eq(act.blocked({}), nil, "...but not one that needs no balance")
+mock.line("You have recovered balance on your left arm.")
+eq(act.blocked({ bal = true }), nil, "...until that arm recovers")
+mock.line("You unleash a powerful hook towards a rat.")
+mock.line("You unleash a powerful hook towards a rat.")
+ok(not detect.armBalance.left and not detect.armBalance.right, "a second strike spends the other arm")
+mock.line("You have recovered balance on all limbs.")
+ok(detect.armsBalanced(), "the all-limbs line restores both")
+mock.line("You unleash a powerful hook towards a rat.")
+mock.advance(detect.ARM_GUARD + 0.01)
+ok(detect.armsBalanced(), "a missed recovery line is bounded by the backstop")
+
+-- DEATH PAUSES EVERYTHING (user's rule), and curing resumes on revival.
+reset()
+emunah.bashing.enabled = true
+queue.push("herb", "eat kelp", { tag = "asthma" })
+mock.feed("Char.Vitals", { hp = "0", maxhp = "1000" })
+eq(act.blocked(), "dead", "dead holds even a command that needs nothing")
+ok(not queue.pending("herb"), "dying drops what was queued")
+ok(not emunah.bashing.enabled, "dying stops the hunt")
+mock.feed("Char.Vitals", { hp = "500", maxhp = "1000" })
+eq(act.blocked(), nil, "alive again, commands flow")
+ok(not emunah.bashing.enabled, "...but the hunt stays off until restarted")
 reset()
 end)()
 

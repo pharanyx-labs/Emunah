@@ -57,9 +57,12 @@ declared. Answer these from `docs/game/`, not from memory, for every new or chan
    **WRITHE and WAKE are not**: HELP says a repeat makes them take longer.
 5. **What confirms it, and what rejects it?** Exact wording from `balance.md`. A rejection
    nobody matches leaves the vector wedged until its timeout.
-6. **Could something else have spent the balance?** Achaea's own server-side curing
-   (`CURING ON`) spends the same balances invisibly (`curing.md`). Ask about
-   `CURING STATUS` before debugging a balance collision in Emunah's logic.
+6. **Is the character dead, unconscious, or short an arm's balance?** All three hold
+   everything they should in `act.blocked`. Death pauses Emunah completely by the user's
+   rule. Don't add a command that bypasses `act.send` or the queue.
+
+Achaea's server-side curing is **off** for this character, and the user turned off its
+sipping and defence upkeep by hand. Don't send `CURING` commands at login.
 
 ## Verify before implementing
 

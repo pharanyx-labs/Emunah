@@ -268,4 +268,16 @@ emunah.event.register("sysDisconnectionEvent", function()
    M.reset()
 end, "queue")
 
+-- Death: drop everything queued or in flight. act.blocked() already holds every send while
+-- dead, but a cure chosen for the body you just lost must not fire the moment you revive.
+-- Curing itself resumes on revival: it re-reads the state it finds then.
+emunah.event.register("emunah.character.died", function()
+   M.reset()
+   log.info("Dead -- Emunah is paused. Nothing will be sent until you are alive again.")
+end, "queue")
+
+emunah.event.register("emunah.character.revived", function()
+   log.info("Alive again -- curing resumes. Bashing and walking stay off until you restart them.")
+end, "queue")
+
 return M

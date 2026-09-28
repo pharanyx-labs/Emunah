@@ -924,6 +924,80 @@ do
       function() engine().onWritheHelpless() end))
 end
 
+-- ---------------------------------------------------------------------------
+-- Unconsciousness. Held like stun (core/act.lua). Both lines are verbatim from svof's
+-- trigger set: the onset it knows for passing out from hunger (which also knocks you
+-- down, so prone is asserted alongside, as svof does), and the wear-off. Other onsets
+-- are per attacker and are not guessed -- detect.UNCONSCIOUS_GUARD bounds a missed clear.
+-- ---------------------------------------------------------------------------
+
+do
+   local function persist(id)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+
+   persist(tempRegexTrigger(
+      [[^Your legs collapse from under you and consciousness leaves you as you pass out from extreme hunger\.$]],
+      function()
+         detect.unconscious = true
+         detect.prone = true
+         emunah.log.debug("Unconscious -- holding every command.")
+         emunah.timers.start("unconscious.guard", detect.UNCONSCIOUS_GUARD, function()
+            if detect.unconscious then
+               detect.unconscious = false
+               emunah.event.raise("recovered")
+            end
+         end)
+      end))
+
+   persist(tempRegexTrigger([[^You regain consciousness with a start\.$]], function()
+      emunah.timers.stop("unconscious.guard")
+      detect.unconscious = false
+      if detect.prone then detect.standUp() end
+      emunah.event.raise("recovered")
+   end))
+
+   -- ARM BALANCE. Recovery per arm is svof's `Got left arm` / `Got right arm`; the
+   -- all-limbs line is the one Achaea prints when balance returns (observed 06:50:16.49,
+   -- docs/game/balance.md). Loss is svof's `Lost arm balance`: arm-strike attacks, one
+   -- arm at a time -- the right if the left is damaged, else the left if it still has
+   -- balance, else the right.
+   persist(tempRegexTrigger([[^You have recovered balance on your left arm\.$]],
+      function() detect.gainArmBalance("left") end))
+   persist(tempRegexTrigger([[^You have recovered balance on your right arm\.$]],
+      function() detect.gainArmBalance("right") end))
+   persist(tempRegexTrigger([[^You have recovered balance on all limbs\.$]], function()
+      detect.gainArmBalance("left")
+      detect.gainArmBalance("right")
+   end))
+
+   local function leftArmDamaged()
+      for _, name in ipairs({ "crippledleftarm", "mangledleftarm", "mutilatedleftarm" }) do
+         if emunah.act.afflicted(name) then return true end
+      end
+      return false
+   end
+   for _, pattern in ipairs({
+      [[^You ball up one fist and hammerfist]],
+      [[^You launch a powerful uppercut at ]],
+      [[^You form a spear hand and stab out towards ]],
+      [[^You unleash a powerful hook towards ]],
+   }) do
+      persist(tempRegexTrigger(pattern, function()
+         if leftArmDamaged() then
+            detect.loseArmBalance("right")
+         elseif detect.armBalance.left then
+            detect.loseArmBalance("left")
+         else
+            detect.loseArmBalance("right")
+         end
+      end))
+   end
+end
+
 -- Mucous shuts smoking the way asthma does (afflist.blocks). The refusal, verbatim from
 -- svof's `Mucous` trigger.
 detect.define("mucous", {
