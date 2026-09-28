@@ -4,7 +4,7 @@
 ---   emhelp <module>   one module: what it does, its `emset` commands, and every setting
 ---                     with its current value -- click a setting to change it
 ---
---- Modelled on svof's `vshow` / `vconfig`: one place to see the state of the system and
+--- Modelled on the reference system's `vshow` / `vconfig`: one place to see the state of the system and
 --- change it, rather than a reference to read and a separate set of commands to remember.
 ---
 --- WHY THIS IS DATA AND NOT PRINT STATEMENTS
@@ -66,11 +66,11 @@ M.modules = {
 
 { id = "curing", title = "Curing", summary = "tracks afflictions and cures them on the right balance",
   state = function() return emunah.curing.engine.enabled end,
-  does = "Tracks your afflictions from GMCP (and from EmunahTriggers.xml, with svof's "
+  does = "Tracks your afflictions from GMCP (and from EmunahTriggers.xml, with the reference system's "
       .. "anti-illusion) and cures them on the right balance: herbs, salves, elixirs, moss, "
       .. "smoking, FOCUS, the tree tattoo, COMPOSE, CONCENTRATE, CLOT and WRITHE. One cure "
       .. "per balance at a time, never inside a balance, never while something blocks it "
-      .. "(anorexia, slickness, asthma, paralysis...). Follows svof's rules for what to cure "
+      .. "(anorexia, slickness, asthma, paralysis...). Follows the reference system's rules for what to cure "
       .. "first and when not to. Sips health and mana, eats moss, keeps cures pulled from "
       .. "the rift into your inventory, and wakes you from a sleep you did not choose.",
   commands = {
@@ -274,7 +274,7 @@ M.settings = {
   topic = "curing", shipped = false,
   detail = "Override the fallback recovery time for one vector, e.g. curing.recovery.herb." },
 { key = "curing.antiIllusion", default = true, type = "boolean", topic = "curing",
-  shipped = false, detail = "svof's anti-illusion for EmunahTriggers.xml: reports wait for the "
+  shipped = false, detail = "The reference system's anti-illusion for EmunahTriggers.xml: reports wait for the "
        .. "prompt, and a block containing an illusion is discarded whole. Off applies each "
        .. "report the moment its line arrives." },
 { key = "curing.textConfirm", default = 2.0, type = "number", unit = "s", topic = "curing",
@@ -282,7 +282,7 @@ M.settings = {
        .. "confirm it before it is dropped as an illusion." },
 { key = "curing.focusMinMana", default = 35, type = "number", unit = "% of max",
   topic = "curing", shipped = false,
-  detail = "FOCUS is held at or below this mana (svof's `manause`)." },
+  detail = "FOCUS is held at or below this mana (the reference system's `manause`)." },
 { key = "priorities", default = "{}", type = "table", topic = "curing", shipped = true,
   detail = "Per-affliction, per-vector rank overrides. Written by `emset prio`." },
 
@@ -542,7 +542,7 @@ function M.renderModule(module, highlight)
          local changed = tostring(current) ~= tostring(spec.default)
          decho("\n    " .. theme.dc("warning") .. (changed and "*" or " ") .. " ")
          -- A switch flips on a click; anything else puts `emset <key> ` on the command
-         -- line to be finished -- svof's vconfig, clickable.
+         -- line to be finished -- the reference system's vconfig, clickable.
          if spec.type == "boolean" then
             dechoLink(string.format("%s%-30s", theme.dc("balance"), spec.key),
                string.format("emunah.commands.setting(%q, %q) emunah.help.render(%q)",

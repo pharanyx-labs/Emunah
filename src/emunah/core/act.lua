@@ -40,7 +40,7 @@
 ---             completely, and picks up again on revival. `alive` is still accepted from
 ---             older call sites but no longer changes anything.
 ---
----   unconscious  Same as stunned. svof refuses every action on it.
+---   unconscious  Same as stunned. The reference system refuses every action on it.
 ---
 ---   paralysed / entangled / arm balance   See M.blocked() below.
 ---
@@ -114,14 +114,14 @@ function M.blocked(needs)
    -- PARALYSED, for anything physical. The queue already holds paralysed vectors
    -- (queue.WHILE_PARALYSED, on play evidence: sips, salves and `perform hands` all
    -- refused), but attacks, movement, looting and STAND go straight through here and did
-   -- not ask. svof's balance_controller refuses its balanceful actions on the same state.
+   -- not ask. The reference system's balance_controller refuses its balanceful actions on the same state.
    if needs.bal or needs.eq or needs.standing then
       if M.afflicted("paralysis") then return "paralysed" end
    end
 
    -- ENTANGLED, for anything that needs you upright and moving: attacking, walking,
    -- picking things up -- and STAND, which cannot declare `standing` so says `unbound`.
-   -- svof refuses all of these while webbed, bound, roped, transfixed or impaled
+   -- The reference system refuses all of these while webbed, bound, roped, transfixed or impaled
    -- (balance_controller, and prone's isadvisable for STAND). Cures
    -- do not declare `standing`, so eating and applying carry on -- WRITHE is the escape and
    -- it is not gated here either.
@@ -136,7 +136,7 @@ function M.blocked(needs)
 
    if needs.bal or needs.eq then
       if not vitals then return "no vitals yet" end
-      -- Both arms, as well as the balance itself (svof check_balanceful_acts).
+      -- Both arms, as well as the balance itself (the reference system's check_balanceful_acts).
       if detect and detect.armsBalanced and not detect.armsBalanced() then
          return "arm off balance"
       end

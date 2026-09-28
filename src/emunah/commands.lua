@@ -825,7 +825,7 @@ end
 --- Set, or show, one setting by its documented name, e.g. `emset curing.method minerals`.
 ---
 --- One rule for every setting instead of a subcommand per setting: help.lua documents each
---- key, and anything documented can be set here. svof's `vconfig <option> <value>` in the
+--- key, and anything documented can be set here. The reference system's `vconfig <option> <value>` in the
 --- same spirit -- and emhelp <module> lists them with their current values, click to change.
 function M.setting(key, value)
    local documented = emunah.help and emunah.help.setting(key)

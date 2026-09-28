@@ -248,7 +248,7 @@ Each is a candidate bug unless marked fixed.
 
 ## Text reports and anti-illusion
 
-`EmunahTriggers.xml` (svof's lines, see `tools/build-svof-triggers.py`) reports afflictions,
+`EmunahTriggers.xml` (svof's lines, see `tools/build-trigger-package.py`) reports afflictions,
 cures and states as text, and text can be faked. svof's defences, as Emunah applies them
 (`curing/detect/init.lua`):
 

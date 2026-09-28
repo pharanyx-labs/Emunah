@@ -102,7 +102,7 @@ local diagSent = false
 --- Vectors we resolve cures on, in the order we consider them. Order only affects which
 --- vector gets first refusal on a shared resource; they are otherwise independent.
 -- `special` carries the cures that cost no curing balance: COMPOSE for fear, CONCENTRATE
--- for disrupted equilibrium (svof's misc actions). CLOT uses the same slot.
+-- for disrupted equilibrium (the reference system's misc actions). CLOT uses the same slot.
 M.VECTORS = { "salve", "herb", "smoke", "elixir", "focus", "tree", "special" }
 
 M.enabled = false
@@ -131,12 +131,12 @@ function M.add(name, source)
 end
 
 --- ONE LINE OF TEXT IS NOT PROOF. Afflictions reported by the imported trigger package
---- (EmunahTriggers.xml, generated from svof's trigger set) are held on probation: if the
+--- (EmunahTriggers.xml, generated from the reference system's trigger set) are held on probation: if the
 --- server has not reported the same name within M.TEXT_CONFIRM, the report is dropped.
 ---
 --- Char.Afflictions is reliable for everything except loki and blackout (docs/game/gmcp.md),
 --- and it arrives with the same prompt as the text, so a real affliction is confirmed long
---- before this lapses. What does NOT get confirmed is an illusion -- svof guards its own
+--- before this lapses. What does NOT get confirmed is an illusion -- the reference system guards its own
 --- triggers against those with a whole subsystem (lifevision) that these triggers do not
 --- carry -- and before this, anything a trigger asserted survived every reconcile, so one
 --- faked line had the engine curing a phantom for the rest of the fight. While the feed is
@@ -1215,10 +1215,10 @@ end, "curing.engine")
 --- engine used to push WRITHE every tick and let the confirm timeout re-arm it every two
 --- seconds -- extending every web and bind it was trying to escape.
 ---
---- The game announces the start and the finish, and those lines (svof's `svo started
---- writhe`, `svo writhe transfixed`, `svo writhe impale` and `svo writhed *` triggers,
+--- The game announces the start and the finish, and those lines (the reference system's `started
+--- writhe`, `writhe transfixed`, `writhe impale` and `writhed *` triggers,
 --- verbatim in curing/detect/patterns.lua) drive this. After the start, the vector is held
---- for M.WRITHE_WAIT -- svof's `customwait = 6` on every curing<entanglement> -- or until
+--- for M.WRITHE_WAIT -- the reference system's `customwait = 6` on every curing<entanglement> -- or until
 --- a finish line or the affliction's removal frees it for the NEXT entanglement, which the
 --- same HELP says needs a writhe of its own.
 M.WRITHE_WAIT = 6.0
@@ -1233,7 +1233,7 @@ function M.onWritheFree()
 end
 
 --- "You begin to writhe helplessly, throwing your body off balance." -- a WRITHE with
---- nothing to writhe from. Whatever entanglement we are tracking is not real (svof's
+--- nothing to writhe from. Whatever entanglement we are tracking is not real (the reference system's
 --- writhe_helpless clears them all the same way), and the balance is gone for nothing.
 function M.onWritheHelpless()
    queue.confirm("writhe")

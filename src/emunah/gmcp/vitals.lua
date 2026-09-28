@@ -174,7 +174,7 @@ end
 --- Did a Char.Vitals arrive since the last prompt? Cleared by M.onPrompt().
 M.sawVitals = false
 
---- The prompt trigger's backup (EmunahTriggers.xml, like svof's own `Prompt` trigger). Achaea
+--- The prompt trigger's backup (EmunahTriggers.xml, like the reference system's own `Prompt` trigger). Achaea
 --- sends Char.Vitals with every prompt, and the heartbeat hangs off it -- but a prompt with
 --- no Char.Vitals ahead of it (a dropped GMCP packet, a subscription lost at death, see
 --- gmcp/init.lua) would otherwise be a prompt on which nothing is cured. Then the prompt

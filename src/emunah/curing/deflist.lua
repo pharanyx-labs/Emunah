@@ -162,7 +162,7 @@ M.commands = {
    -- "Invisible defences cannot be kept up", below -- except this time kept, deliberately,
    -- as an unconfirmable one-shot rather than removed outright.
    --
-   -- NOW TRACKED FROM ITS OWN LINES, like svof (defs_data.bliss: invisibledef, with three
+   -- NOW TRACKED FROM ITS OWN LINES, like the reference system (defs_data.bliss: invisibledef, with three
    -- `on` lines and one for another player's blessing) -- see M.SYNTHETIC.bliss. It used to
    -- be `unconfirmable`, satisfied the moment it was sent; that lived only in memory, so every
    -- `emreload` forgot it and sent `perform bliss` again. Same needs as inspiration; see the
@@ -395,10 +395,10 @@ M.SYNTHETIC = {
       local attrib = items.attrib(mace)
       return attrib.wielded_left or attrib.wielded_right
    end,
-   -- Invisible to Char.Defences and to DEF alike (confirmed 22 minutes into the buff; svof
+   -- Invisible to Char.Defences and to DEF alike (confirmed 22 minutes into the buff; the reference system
    -- marks it `invisibledef` too), so up comes from its own lines -- patterns.lua, "Bliss" --
    -- and is kept in emunah._persist so `emreload` does not forget it. Cleared on death and
-   -- disconnect. No wear-off line is known (svof has none either): until one is captured,
+   -- disconnect. No wear-off line is known (the reference system has none either): until one is captured,
    -- bliss reads as up for the rest of the login once seen.
    bliss = function()
       return emunah._persist ~= nil and emunah._persist.blissUp == true
@@ -614,8 +614,8 @@ end
 -- DEFENCES prints one line per defence, and none of them names it. This is how a line is
 -- turned back into the server's name, so a DEFENCES listing can be read (see
 -- gmcp/defences.lua's applyDefListing and patterns.lua's "DEFENCES" section).
--- Generated from svof's defs_data (raw-svo.defs.lua): each defence's line in DEF output,
--- mapped to the server's name through svof's gamename table. Invisible defences are omitted.
+-- Generated from the reference system's defs_data (its defs module): each defence's line in DEF output,
+-- mapped to the server's name through the reference system's gamename table. Invisible defences are omitted.
 M.DEF_LINES = {
    ["A basilisk spirit co-habits your body."] = "basilisk",
    ["A bear spirit co-habits your body."] = "bear",
