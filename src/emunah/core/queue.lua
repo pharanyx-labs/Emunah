@@ -160,6 +160,21 @@ function M.flush()
          action = nil
       end
 
+      -- BLOCKED SINCE IT WAS QUEUED? Held, not dropped: the block usually clears (an
+      -- epidermal cures anorexia) and the cure is still wanted when it does. See
+      -- have.vectorBlocked() for why this is re-asked here rather than trusted from push.
+      local have = emunah.have
+      if action and have and have.vectorBlocked then
+         local why = have.vectorBlocked(vector)
+         if why then
+            if action.heldFor ~= why then
+               action.heldFor = why
+               log.debug("Holding [%s] %s -- %s.", vector, action.command, why)
+            end
+            action = nil
+         end
+      end
+
       -- act.send() returning false means the game would refuse it for a reason unrelated to
       -- this vector (see act). The action stays queued rather than being dropped, so the
       -- next tick tries again -- which is why this is one condition and not an early exit.
@@ -251,6 +266,18 @@ end
 
 emunah.event.register("sysDisconnectionEvent", function()
    M.reset()
+end, "queue")
+
+-- Death: drop everything queued or in flight. act.blocked() already holds every send while
+-- dead, but a cure chosen for the body you just lost must not fire the moment you revive.
+-- Curing itself resumes on revival: it re-reads the state it finds then.
+emunah.event.register("emunah.character.died", function()
+   M.reset()
+   log.info("Dead -- Emunah is paused. Nothing will be sent until you are alive again.")
+end, "queue")
+
+emunah.event.register("emunah.character.revived", function()
+   log.info("Alive again -- curing resumes. Bashing and walking stay off until you restart them.")
 end, "queue")
 
 return M

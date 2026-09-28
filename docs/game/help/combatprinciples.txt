@@ -1,0 +1,119 @@
+Source: https://www.achaea.com/game-help/?what=basic-principles-of-combat-in-achaea
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+13.1 BASIC PRINCIPLES OF COMBAT IN ACHAEA
+Combat in Achaea is handled different for denizen vs. adventurer combat and
+adventurer vs. adventurer combat. This document will explain, further down in
+it, why this is. In the meantime, however, it will briefly review how combat in
+Achaea is resolved.
+
+To read about Adventurer vs. Denizen combat, please read HELP DENIZENCOMBAT.
+
+Adventurer vs. Adventurer Combat
+--------------------------------
+Adventurer combat is an entirely more complicated affair. This is what our
+combat system is primarily geared to, and few, if any games, can match the
+intensity and complex nature of our combat.
+
+It can be difficult to fully describe adventurer combat, as there are so many
+different approaches to it. It is possible to fight with your goal as death of
+the opponent, crippling of your opponent, re-arrangement of items (for
+instance, stealing things from him), or even just as a demonstration or lesson.
+
+Generally, the details of your offensive combat manouvers will be covered in
+the help files for your class-specific skills, as this is where the majority of
+offensive abilities lie. Some of your defensive abilities (more for some
+classes, less for others) will also lie in your class-specific skills, but
+probably the majority of defensive equipment and abilities are available to
+everyone who has high enough general (ie non-class-specific) skills and enough
+money to purchase the proper equipment.
+
+Adventurer combat generally involves much more than simply inflicting damage on
+your opponent. Not only can individual body parts be damaged, with different,
+harmful effects resulting from enough cumulative damage on a body part, but
+there are hundreds of afflictions that can be inflicted on an opponent.
+
+If we take the most general goal of combat, which is to kill your opponent,
+then combat can be said to generally consist of:
+1) Locating your opponent and finding him or bringing him to you.
+2) Pinning him into place so that he cannot escape.
+3) Damaging him until he dies.
+
+This is an over-simplification insofar as only with a very surprised or
+helpless opponent will you simply execute 1, then 2, then 3. Usually there will
+be much moving around, healing of the things that pin you, healing of the
+damage done to you, etc. Combat is therefore a give-and-take process. For many
+offences, there are defences, and for many defences, there are methods of
+removing the defences. There are many afflictions (the general term for
+anything that affects you in a negative way aside from damage), ranging from
+the classic web spell to paralysis, to anorexia, to the aeon curse, which slows
+your movement through time.
+
+EFFICIENT USE OF EQUILIBRIUM AND BALANCE
+----------------------------------------
+
+Most of the damage and afflicting-dealing abilities in Achaea, as well as some
+defensive and movement ones, will require that you have equilibrium and balance
+and will, after you use the ability, take equilibrium or balance away from you
+for a certain number of seconds. How many depends entirely on the ability.
+
+Perhaps the single most important factor in mounting a successful attack
+against another adventurer, and even against a denizen, is the efficient use of
+equilibrium and balance. When engaged in combat, you _always_ want to be making
+the most out of every second of combat. If you recover equilibrium and balance,
+and your opponent is in the room with you, there is no reason not to
+immediately use another ability that will use these up, unless you wish to
+flee.
+
+The process of being as efficient as possible in your use of equilibrium and
+balance is referred to as "chasing equilibrium" or "chasing balance".
+
+PROPER HEALING TECHNIQUE
+------------------------
+
+Just as using most offensive abilities requires equilibrium and/or balance,
+many healing abilities or equipment have their own type of balance. These are
+often referred to as "healing balances". For instance, you are limited as to
+how often a health or mana elixir can be drunk with a beneficial effect. Since
+they both use the same "balance", you must choose which to heal while in the
+midst of combat.
+
+THE TYPES OF DAMAGE
+-------------------
+
+There are nine types of damage in Achaea. These are:
+
+Damage type           Example
+-----------           -------
+Cutting physical      a sword's strike
+Blunt physical        someone punching you
+Cold                  the Necromantic "chill" spell
+Fire                  the fiery breath of a Wyvern-morphed Druid
+Asphyxiation          the garrote ability used by Serpentlords
+Electric              lightning strikes by a Druid
+Magic                 the "decay" ability in Necromancy
+Poison                the camus venom used by Serpentlords
+Psychic               the "mind crush" ability used by telepaths
+
+For each type of damage, there exists defences. For instance, the higher your
+Avoidance skill, the more easily you will avoid physical (both blunt and
+cutting) attacks, or be able to reduce the damage you take from them. There are
+miniskills for defending against all other types of damage.
+
+Furthermore, you may find elixirs or particular defences that help you with a
+certain kind of damage. We will leave it up to you to discover these, however.
+
+A GENERAL NOTE
+--------------
+
+As you read the following help files on combat, keep in mind that the _only_
+way you will ever learn to attack successfully and defend successful is to
+practice. Just like in any sport, reading and thinking about it will only get
+you so far. Reactions must be ingrained through experience, and strategies can
+only be successfully tested in the field.
+
+Can you expect to ever become good at combat without dying over and over? No.
+The only path to greatness in combat is through repeated death. It is
+difficult, but then, all good things are difficult to attain.
+
+See also: HELP DENIZENCOMBAT, HELP 13

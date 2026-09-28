@@ -636,6 +636,11 @@ event.register("sysDisconnectionEvent", function()
    if M.enabled then M.stop("disconnected") end
 end, "walker")
 
+-- Death pauses everything. Emergency, so there is no walk back to the start either.
+event.register("emunah.character.died", function()
+   if M.enabled then M.stop("died", true) end
+end, "walker")
+
 M.avoid = emunah.config.get("walker.avoid", {}) or {}
 
 return M

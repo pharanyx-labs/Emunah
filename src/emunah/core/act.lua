@@ -36,8 +36,13 @@
 ---
 ---   bal / eq  The ordinary balances, straight from Char.Vitals.
 ---
----   alive     Refused while dead. Opt-in for the same reason `standing` is: it is known
----             for the commands that declare it, not for every command.
+---   dead      Nothing is sent. The user's rule: when the character dies Emunah pauses
+---             completely, and picks up again on revival. `alive` is still accepted from
+---             older call sites but no longer changes anything.
+---
+---   unconscious  Same as stunned. svof refuses every action on it.
+---
+---   paralysed / entangled / arm balance   See M.blocked() below.
 ---
 --- Requirements are a plain table so a caller states only what it actually costs:
 ---
@@ -65,10 +70,20 @@ end
 
 M.BACKOFF = 1.5
 
+--- Does the character have this affliction? The curing engine's view when it is running
+--- (it knows about DIAG and refusal-detected afflictions), the server's list otherwise.
+function M.afflicted(name)
+   local engine = emunah.curing and emunah.curing.engine
+   if engine and engine.has and engine.has(name) then return true end
+   local afflictions = emunah.gmcp and emunah.gmcp.afflictions
+   return (afflictions and afflictions.has and afflictions.has(name)) or false
+end
+
 --- Why a command with these requirements cannot be sent right now, or nil if it can.
 --- Returned as a short reason string so callers can log something useful rather than
 --- silently doing nothing.
---- @param needs table|nil { standing = bool, bal = bool, eq = bool }
+--- @param needs table|nil { standing = bool, bal = bool, eq = bool, unbound = bool,
+---                          alive = bool, whileAsleep = bool }
 --- @return string|nil reason
 function M.blocked(needs)
    needs = needs or {}
@@ -82,25 +97,49 @@ function M.blocked(needs)
    -- gmcp/, and this module is reachable from both.
    local detect = emunah.curing and emunah.curing.detect
 
+   -- DEAD: NOTHING. Every automated command is held while dead, at the user's direction --
+   -- the system pauses completely and resumes on revival. (It used to be opt-in, verified
+   -- only for OUTR and EAT; `alive` is still accepted and now redundant.)
+   local vitals = emunah.gmcp and emunah.gmcp.vitals
+   if vitals and vitals.maxhp > 0 and vitals.hp <= 0 then return "dead" end
+
    if detect and detect.isStunned() then return "stunned" end
-   -- Opt-OUT rather than opt-in, unlike `standing` and `alive`: the game's own rejection
+   if detect and detect.isUnconscious and detect.isUnconscious() then return "unconscious" end
+   -- Opt-OUT rather than opt-in, unlike `standing`: the game's own rejection
    -- says nothing works but WAKE, so the safe default is to block, and WAKE is the single
    -- caller that declares itself an exception.
    if not needs.whileAsleep and detect and detect.isAsleep() then return "asleep" end
    if needs.standing and detect and detect.isProne() then return "prone" end
 
-   -- Death is opt-in rather than global, deliberately. It is verified for the things that
-   -- declare it (OUTR and EAT are refused while dead), and nothing else here has been
-   -- checked -- a global gate would be asserting a rule about every command in the game
-   -- from evidence about two of them.
-   if needs.alive then
-      local vitals = emunah.gmcp and emunah.gmcp.vitals
-      if vitals and vitals.maxhp > 0 and vitals.hp <= 0 then return "dead" end
+   -- PARALYSED, for anything physical. The queue already holds paralysed vectors
+   -- (queue.WHILE_PARALYSED, on play evidence: sips, salves and `perform hands` all
+   -- refused), but attacks, movement, looting and STAND go straight through here and did
+   -- not ask. svof's balance_controller refuses its balanceful actions on the same state.
+   if needs.bal or needs.eq or needs.standing then
+      if M.afflicted("paralysis") then return "paralysed" end
+   end
+
+   -- ENTANGLED, for anything that needs you upright and moving: attacking, walking,
+   -- picking things up -- and STAND, which cannot declare `standing` so says `unbound`.
+   -- svof refuses all of these while webbed, bound, roped, transfixed or impaled
+   -- (balance_controller, and prone's isadvisable for STAND). Cures
+   -- do not declare `standing`, so eating and applying carry on -- WRITHE is the escape and
+   -- it is not gated here either.
+   if needs.standing or needs.unbound then
+      local afflist = emunah.curing and emunah.curing.afflist
+      if afflist and afflist.writhes then
+         for name in pairs(afflist.writhes) do
+            if M.afflicted(name) then return "entangled" end
+         end
+      end
    end
 
    if needs.bal or needs.eq then
-      local vitals = emunah.gmcp and emunah.gmcp.vitals
       if not vitals then return "no vitals yet" end
+      -- Both arms, as well as the balance itself (svof check_balanceful_acts).
+      if detect and detect.armsBalanced and not detect.armsBalanced() then
+         return "arm off balance"
+      end
       if needs.bal and not vitals.bal then return "no balance" end
       if needs.eq and not vitals.eq then return "no equilibrium" end
    end
@@ -138,7 +177,9 @@ function M.send(command, needs)
    M.lastHeld = nil
 
    emunah.log.debug("-> %s", command)
-   send(command)
+   -- `quiet`: don't echo the command locally. For housekeeping whose output is gagged too
+   -- (pipes.lua), where a lone echoed "light pipe367581" is the noise left behind.
+   if needs and needs.quiet then send(command, false) else send(command) end
    return true
 end
 

@@ -1,0 +1,15 @@
+Source: https://www.achaea.com/game-help/?what=curing-balances
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+13.7.3 Curing Balances
+Many curative and defensive remedies operate on a "balance timer." For
+instance, once you have applied a salve or balm, there is a short period of
+time during which any more salves or balms applied will be ineffective. That
+is, if you have 3 broken limbs, you cannot simply apply mending 3 times in a
+row to cure all 3. You must apply mending to cure one, wait, then apply mending
+to cure another, wait, and so on.
+
+There are four different "balances" that work this way: one is for salves and
+balms as above, another is for eating plants and minerals, the third is for
+drinking health/mana elixirs and vitality/mentality tonics, and the fourth is
+for eating irid moss and potash.

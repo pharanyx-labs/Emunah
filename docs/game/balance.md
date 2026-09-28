@@ -164,6 +164,8 @@ Frustratingly, your body won't respond to your call to action.  (perform hands)
 ```
 
 **Eating still works**, which it must — bloodroot is what cures paralysis. `core/queue.lua`
-therefore flushes only the eating vectors while it is up, plus `tree`: whether a tattoo can
-be touched while paralysed is unverified, and withholding the last resort from a character
-that is already stuck is the worse error.
+therefore flushes only the eating vectors (plus `free` and `writhe`) while it is up.
+
+**`TOUCH TREE` is refused while paralysed.** Confirmed live 2026-08-03 `16:14:25.08`:
+`touch tree` sent while paralysed came back `Frustratingly, your body won't respond to your
+call to action.` So `tree` is not among the vectors allowed through (`queue.WHILE_PARALYSED`).

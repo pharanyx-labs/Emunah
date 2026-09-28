@@ -58,12 +58,288 @@ function M.isStunned()
    return M.stunned
 end
 
+--- True while unconscious. Blocks every command, like stun: every one of svof's gates
+--- (check_herb, check_salve, check_sip, check_balanceful_acts ...) refuses on
+--- `affs.unconsciousness` alongside stun and sleep. Text-driven -- the GMCP name is not
+--- confirmed, so it is not guessed into STATE_FLAGS below. See patterns.lua.
+M.unconscious = false
+
+function M.isUnconscious()
+   return M.unconscious
+end
+
+--- Backstop for a missed "You regain consciousness with a start.": svof's
+--- `unconsciousness.waitingfor` uses customwait = 7 and clears it on timeout.
+M.UNCONSCIOUS_GUARD = 7.0
+
+-- ---------------------------------------------------------------------------
+-- State edges. Shared by the built-in patterns (patterns.lua) and the imported trigger
+-- package (EmunahTriggers.xml, see M.textState), so a line reaches the same code whichever
+-- trigger matched it.
+-- ---------------------------------------------------------------------------
+
+--- Knocked down. Stand, and bound the belief: this flag gates sending, so a missed "You
+--- stand up." would otherwise leave the bot refusing to act indefinitely.
+function M.onProne()
+   if not M.prone then
+      log.debug("Knocked down -- standing up.")
+      M.standUp()
+   end
+   M.prone = true
+   emunah.timers.start("prone.guard", M.PRONE_GUARD, function()
+      if M.prone then
+         log.debug("No stand confirmation after %.1fs -- assuming upright.", M.PRONE_GUARD)
+         M.prone = false
+         event.raise("recovered")
+      end
+   end)
+end
+
+function M.onStood()
+   emunah.timers.stop("prone.guard")
+   M.prone = false
+   event.raise("recovered")
+end
+
+--- Stunned. Blocks EVERYTHING, so a missed "You are no longer stunned." would freeze the
+--- bot outright; a stun is momentary by definition, so the guard costs nothing when the
+--- clear arrives normally and rescues the session when it does not.
+function M.onStunned()
+   if not M.stunned then log.debug("Stunned -- holding every command until it passes.") end
+   M.stunned = true
+   emunah.timers.start("stun.guard", M.STUN_GUARD, function()
+      if M.stunned then
+         log.debug("No stun-clear message after %.1fs -- assuming it passed.", M.STUN_GUARD)
+         M.stunned = false
+         event.raise("recovered")
+      end
+   end)
+end
+
+--- A knockdown and a stun routinely arrive on the same hit, and while stunned STAND is
+--- refused like everything else -- so stun lifting is the moment to actually get up.
+function M.onUnstunned()
+   emunah.timers.stop("stun.guard")
+   M.stunned = false
+   if M.prone then M.standUp() end
+   event.raise("recovered")
+end
+
+function M.onUnconscious()
+   if not M.unconscious then log.debug("Unconscious -- holding every command.") end
+   M.unconscious = true
+   emunah.timers.start("unconscious.guard", M.UNCONSCIOUS_GUARD, function()
+      if M.unconscious then
+         M.unconscious = false
+         event.raise("recovered")
+      end
+   end)
+end
+
+function M.onConscious()
+   emunah.timers.stop("unconscious.guard")
+   M.unconscious = false
+   if M.prone then M.standUp() end
+   event.raise("recovered")
+end
+
+-- ---------------------------------------------------------------------------
+-- The imported trigger package's entry points, and its ANTI-ILLUSION.
+--
+-- EmunahTriggers.xml (tools/build-svof-triggers.py) calls only these, with the server's
+-- name for each affliction. What it reports is text, and text can be faked: an opponent can
+-- send you any line they like. svof defends against that in layers, and these are them:
+--
+--   1. NOTHING COUNTS UNTIL THE PROMPT. svof's lifevision collects what a block of output
+--      reports and applies it at the prompt. Here the block is everything since the last
+--      Char.Vitals (Achaea sends one per prompt), committed on the `vitals` event -- which
+--      is raised before `tick`, so the engine sees the committed state the same prompt.
+--   2. ONE ILLUSION SPOILS THE BLOCK. svof's ignore_illusion() discards everything in the
+--      paragraph. M.textIllusion() is its equivalent, called by the package's copy of svof's
+--      "Generic illusions" triggers -- pairs of lines that cannot really arrive together.
+--   3. A CURE LINE NEEDS A CURE IN PROGRESS. svof's herb_cured_*/focus_cured_*/... accept a
+--      cure line only while that balance's action is in flight, never sooner than half the
+--      ping after sending it, and -- for an affliction other than the one being cured --
+--      only if it is actually tracked. M.textCure(name, via) checks the same.
+--   4. THE SERVER HAS THE LAST WORD. A gained affliction is dropped unless Char.Afflictions
+--      confirms it (engine.TEXT_CONFIRM). svof: "serverside curing is completely immune" to
+--      illusions -- which is exactly what GMCP is.
+--
+-- `emunah set curing.antiIllusion false` applies reports the moment they arrive instead
+-- (svof's `vconfig aillusion`); layers 3 and 4 still apply.
+-- ---------------------------------------------------------------------------
+
+local paragraph = {}
+local illusion = nil
+
+local function antiIllusion()
+   return emunah.config.get("curing.antiIllusion", true) ~= false
+end
+
+local TEXT_STATES = {
+   stunned     = { on = "onStunned",     off = "onUnstunned" },
+   prone       = { on = "onProne",       off = "onStood" },
+   sleeping    = { on = "onSleep",       off = "onWake" },
+   unconscious = { on = "onUnconscious", off = "onConscious" },
+}
+
+--- Is this cure line believable? See layer 3 above. `via` is one balance, or a list of the
+--- balances the same line can come from (a tree touch and an eaten herb print the same
+--- "cured" line) -- any one of them in flight will do.
+local function cureBelievable(name, via)
+   if not via then return true end            -- a wear-off or general cure: no action to match
+   local engine = emunah.curing.engine
+   local action
+   if type(via) == "table" then
+      for _, vector in ipairs(via) do
+         action = emunah.queue.awaiting(vector)
+         if action then via = vector break end
+      end
+      if not action then via = table.concat(via, "/") end
+   else
+      action = emunah.queue.awaiting(via)
+   end
+   if not action then
+      return false, ("a %s cure for %s, but nothing is being cured on %s"):format(via, name, via)
+   end
+   if action.tag ~= name and not (engine and engine.has(name)) then
+      return false, ("a %s cure for %s, which we do not have"):format(via, name)
+   end
+   local latency = 0
+   if type(getNetworkLatency) == "function" then
+      local ok, value = pcall(getNetworkLatency)
+      if ok and tonumber(value) then latency = tonumber(value) end
+   end
+   local elapsed = emunah.util.now() - (action.sentAt or 0)
+   if elapsed < latency / 2 then
+      return false, ("a %s cure %.2fs after sending, faster than half the ping (%.2fs)")
+         :format(via, elapsed, latency)
+   end
+   return true
+end
+
+local function apply(report)
+   local kind, name = report[1], report[2]
+   if kind == "gain" then
+      local engine = emunah.curing.engine
+      if engine then engine.addText(name) end
+   elseif kind == "cure" then
+      local believable, why = cureBelievable(name, report[3])
+      if believable then
+         M.onCure(name)
+      else
+         log.info("Illusion ignored -- %s.", why)
+      end
+   elseif kind == "state" then
+      local handlers = TEXT_STATES[name]
+      if handlers then M[report[3] and handlers.on or handlers.off]() end
+   end
+end
+
+local function report(entry)
+   if antiIllusion() then
+      paragraph[#paragraph + 1] = entry
+   else
+      apply(entry)
+   end
+end
+
+--- An affliction gained, on probation until the server confirms it (engine.TEXT_CONFIRM).
+function M.textGain(name)
+   report({ "gain", tostring(name or ""):lower() })
+end
+
+--- An affliction cured. `via` is the curing balance the line belongs to (herb, salve, focus,
+--- smoke, tree), or nil for a wear-off or a general cure. Frees the queue slot waiting on it,
+--- as a native cure line does; if the server still reports it, the next reconcile adopts it.
+function M.textCure(name, via)
+   report({ "cure", tostring(name or ""):lower(), via })
+end
+
+--- A state entered or left.
+function M.textState(state, on)
+   report({ "state", state, on and true or false })
+end
+
+--- This block of output contains an illusion: throw away everything it reported.
+function M.textIllusion(reason)
+   illusion = illusion or reason or "a line that cannot be real"
+end
+
+--- Apply, or discard, what the block reported. Runs on every prompt.
+function M.commitText()
+   if illusion then
+      if #paragraph > 0 then
+         log.info("Illusion ignored -- %s; discarded %d report(s) with it.", illusion, #paragraph)
+      end
+      paragraph, illusion = {}, nil
+      return
+   end
+   if #paragraph == 0 then return end
+   local pending = paragraph
+   paragraph = {}
+   for index = 1, #pending do apply(pending[index]) end
+end
+
+event.register("emunah.vitals", function() M.commitText() end, "curing.detect")
+
+--- Lines since the last prompt: svof's `paragraph_length`, kept by the same trigger.
+M.paragraphLength = 0
+
+--- A non-prompt line. Called by the package's prompt trigger for every line that is not a
+--- prompt, exactly as svof's `Prompt` trigger counts them.
+function M.textLine()
+   M.paragraphLength = M.paragraphLength + 1
+end
+
+--- The prompt. Closes the block: its reports are applied (or discarded, on an illusion)
+--- whether or not a Char.Vitals came with it, and if none did, the prompt runs the
+--- heartbeat instead (gmcp.vitals.onPrompt).
+function M.textPrompt()
+   M.commitText()
+   M.paragraphLength = 0
+   local vitals = emunah.gmcp and emunah.gmcp.vitals
+   if vitals and vitals.onPrompt then vitals.onPrompt() end
+end
+
+--- Arm balance. svof holds every balance-taking action until BOTH arms have it
+--- (check_balanceful_acts: `not bals.rightarm or not bals.leftarm`). It is lost by
+--- arm-specific attacks and announced back per arm -- see patterns.lua for the lines.
+M.armBalance = { left = true, right = true }
+
+--- Backstop for a missed arm-recovery line, which would otherwise hold every bal/eq action
+--- for the rest of the session. Generous, like the prone guard: it should only fire when
+--- the real line was genuinely lost.
+M.ARM_GUARD = 10.0
+
+function M.armsBalanced()
+   return M.armBalance.left and M.armBalance.right
+end
+
+function M.loseArmBalance(side)
+   M.armBalance[side] = false
+   emunah.timers.start("arm.guard." .. side, M.ARM_GUARD, function()
+      if not M.armBalance[side] then
+         log.debug("No %s arm balance line after %.1fs -- assuming it returned.",
+            side, M.ARM_GUARD)
+         M.armBalance[side] = true
+      end
+   end)
+end
+
+function M.gainArmBalance(side)
+   M.armBalance[side] = true
+   emunah.timers.stop("arm.guard." .. side)
+end
+
 --- True while asleep -- put there by an opponent, or by your own SLEEP.
 ---
 --- Blocks every command bar WAKE (see core/act.lua). A third state alongside prone and
 --- stunned rather than a flavour of either: Achaea applies `prone` at the same time, so the
 --- two coincide and clear separately, and unlike stunned there IS a command that ends it.
 M.asleep = false
+--- A WAKE has been accepted and the struggle is under way. See wakeUp().
+M.waking = false
 
 function M.isAsleep()
    return M.asleep
@@ -127,6 +403,14 @@ end
 --- enough that a stand which was genuinely refused is retried promptly.
 M.STAND_GUARD = 1.0
 
+--- Legs too damaged to stand on. svof's prone isadvisable refuses STAND on any of these
+--- (a merely BROKEN leg does not stop it), as well as while entangled or paralysed.
+M.STAND_BLOCKING_LEGS = {
+   "crippledleftleg",  "crippledrightleg",
+   "mangledleftleg",   "mangledrightleg",
+   "mutilatedleftleg", "mutilatedrightleg",
+}
+
 --- Get up, at most once per round trip.
 ---
 --- SENT IS NOT EXECUTED, and prone is re-evaluated on every tick. Without a guard, a single
@@ -135,7 +419,14 @@ M.STAND_GUARD = 1.0
 --- is harmless; the balance the second one would have spent if it HAD been needed is not.
 function M.standUp()
    if not emunah.timers.ready("stand.inflight") then return false end
-   local sent = emunah.act.send("stand", { bal = true })
+   for _, leg in ipairs(M.STAND_BLOCKING_LEGS) do
+      if emunah.act.afflicted(leg) then return false end
+   end
+   -- Equilibrium as well as balance: svof will not stand without both (prone isadvisable),
+   -- which is also HELP EQUILIBRIUM's default -- "not having balance prevents you from
+   -- using an ability that requires equilibrium, and vice versa". `unbound` holds it while
+   -- entangled; paralysis comes with `bal`.
+   local sent = emunah.act.send("stand", { bal = true, eq = true, unbound = true })
    if sent then emunah.timers.start("stand.inflight", M.STAND_GUARD) end
    return sent
 end
@@ -185,11 +476,20 @@ M.SLEEP_GUARD = 20.0
 ---
 --- Declares `whileAsleep` because it is the one command that works from here -- the game's
 --- own rejection names it. No balance or equilibrium requirement: confirmed that WAKE
---- neither requires nor consumes either, which is what makes it safe to retry.
+--- neither requires nor consumes either.
+---
+--- ONCE IT HAS STARTED, NEVER AGAIN. HELP SLEEPING: "when you type WAKE, you will begin
+--- to struggle your way out of sleep ... Typing WAKE repeatedly will only delay this
+--- process, so just do it once, and wait." The start is announced -- "You begin your
+--- struggle to escape from the dreamworld." (svof's `svo start waking` trigger) -- and
+--- from then until the sleep ends M.waking holds every further WAKE, the same way svof
+--- parks in `curingsleep` with no retry. Before that line, a WAKE that went unanswered is
+--- still retried once per round trip: it may simply have been lost.
 function M.wakeUp()
    if not M.asleep then return false end
    -- The character asked for this sleep. Waking them out of it is the interference.
    if M.voluntary then return false end
+   if M.waking then return false end
    if not emunah.timers.ready("wake.inflight") then return false end
    local sent = emunah.act.send("wake", { whileAsleep = true })
    if sent then emunah.timers.start("wake.inflight", M.WAKE_GUARD) end
@@ -223,9 +523,18 @@ function M.onSleep()
    M.wakeUp()
 end
 
+--- The game has started waking us. See wakeUp() for why nothing is resent after this.
+function M.onWakeStart()
+   if not M.asleep then return end
+   M.waking = true
+   emunah.timers.stop("wake.inflight")
+   log.debug("Waking -- not sending WAKE again until it finishes.")
+end
+
 --- Leave it. Clears the voluntary flag too: the next sleep is a new question, and one nap
 --- must not buy an opponent a free Somnolence afterwards.
 function M.onWake()
+   M.waking = false
    if not M.asleep then return end
    M.asleep = false
    M.voluntary = false

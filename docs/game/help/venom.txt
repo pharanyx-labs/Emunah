@@ -1,0 +1,135 @@
+Source: https://www.achaea.com/game-help/?what=venom
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+9.1 VENOM
+
+Venom is a skill possessed only by the Serpents. It involves the production of
+various venoms by glands. These glands are remnants of evolution and lay
+dormant in most people. To those with the skill though, they can be used to
+great effect. First, one must SECRETE a particular venom. There will be a short
+pause while your glands produce the chosen toxin. Once the venom has been
+secreted, it cannot be held in the bloodstream indefinitely. Each venom has a
+risk factor incorporated into it. The more powerful the venom, the greater the
+chance of it backfiring and affecting the producer. To get the venom out of the
+bloodstream, one must either BITE another adventurer or PURGE the venom from
+your body.
+
+It should be pointed out that denizens will be immune to most venoms that do
+things other than cause damage.
+
+Various types of venoms:
+
+Sumac
+   This venom causes minor damage, much like the small serpent that wields it,
+   but can still be dangerous.
+
+Xentio
+   Makes even the most coordinated warrior a clumsy fool.
+
+Oleander
+   This attacks the visual system, causing the victim's eyes to fail.
+
+Eurypteria
+   Affecting the decision making ability of the mortal victim, it causes even
+   the most rational mortal to believe himself immortal, often causing him
+   to run into battle recklessly.
+
+Kalmia
+   Contracts the victim's lungs, making the passage of all air impossible.
+
+Digitalis
+   Causes the most outgoing person to become a shy, fearful, child and unable
+   to bear the presence of others.
+
+Darkshade
+   The sun itself becomes your enemy when bitten with this venom, searing the
+   victim's flesh when exposed to sunlight.
+
+Curare
+   The victim of this venom will find himself unable to move, as his muscles
+   fail to respond to his commands.
+
+Epteth
+   Attacks the muscle fibre of the upper limbs of the victim, causing them to
+   shrivel up and become useless.
+
+Prefarar
+   All nerve endings in the victim are heightened, increasing his sensitivity
+   to even the slightest sensation, often to the point of causing pain.
+
+Monkshood
+   This venom affects the face of its victim, causing horrible disfigurement.
+   Those loyal to the victim are often so disgusted that they turn on him,
+   possibly attacking him.
+
+Euphorbia
+   The digestive system of the victim is thrown into upheaval, causing
+   spasmodic vomiting.
+
+Colocasia
+   Exposure to this venom leaves one robbed of their most vital senses:
+   sight and hearing.
+
+Oculus
+   Forcibly heals those with shut eyes or blindness.
+
+Camus
+   By concentrating the venom Sumac, a more potent (and damaging) venom can
+   be produced.
+
+Vernalius
+   This causes the victim's strength to leave its body, leaving a weak husk of
+   a person in its place.
+
+Epseth
+   The sister venom of Epteth. It attacks the muscles of the leg, leaving them
+   rotten and withered.
+
+Larkspur
+   Famous for its ability to induce great dizziness.
+
+Slike
+   This venom causes the victim to lose all desire for food or drink, possibly
+   causing starvation if left unchecked.
+
+Voyria
+   Said to be the most deadly venom in all of mankind. Even the smallest dose
+   can kill a large bull within a matter of seconds.
+
+Delphinium
+   By slowing heartrate and synapse activity, this venom eventually results in
+   a peacefully sleeping victim. Often used by 'pacifists' to subdue their
+   attackers.
+
+Notechis
+   This nasty venom induces haemophilia preventing its victim's blood from
+   clotting.
+
+Vardrax
+   Mystical in nature, though not very well understood. This potent venom will
+   instill an addiction in the victim that will not be sated.
+
+Loki
+   This venom is not very well understood. It has been called a potent mix of
+   other venoms as well as a substance originally from the Chaos Plane itself.
+   The effects are random and wide ranging, from sickness to death.
+
+Aconite
+   The brain of the affected individual ceases to operate correctly, causing
+   them to exist in a state of complete stupor.
+
+Selarnia
+   The bane of Shapechangers, this venom disrupts the concentration of those
+   with altered physical form, forcing them back into a mortal shape.
+
+Gecko
+   Adapted from the serpents of old, this venom will cause its victim's body to
+   become coated in a very slick slime.
+
+Scytherus
+   Those infected with this venom find that their blood turns against them
+   when any type of foreign substance is introduced into their system.
+
+Nechamandra
+   Those inflicted with this venom will find that their blood runs cold
+   causing them to shiver violently.

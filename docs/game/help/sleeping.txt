@@ -1,0 +1,28 @@
+Source: https://www.achaea.com/game-help/?what=sleeping
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+5.15 SLEEPING
+Every Achaean day, you will find yourself getting progressively more tired.
+Eventually, you will need to sleep. Typing SLEEP will accomplish this. While
+asleep, you will slowly regain any lost health, as well as become more and
+more rested. You may try to wake yourself at any time by typing WAKE, or you
+may simply wait until you are fully rested and fully healed, at which time you
+will wake up automatically. You will find that when you type WAKE, you will
+begin to struggle your way out of sleep, and eventually you will wake up.
+Typing WAKE repeatedly will only delay this process, so just do it once, and
+wait.
+
+You may see how tired you are by typing SCORE VITALS or SHOW FATIGUE. When it
+says, "You are fully rested." you will know that sleep is not something you need
+in the near future.
+
+There are a number of ways which you may be put to sleep involuntarily, such
+as the hourglass tattoo, or the delphinium venom. Luckily, some clever Druids
+have discovered that eating the kola nut will enable you to awake at will
+while asleep, and eating the cohosh root will give you insomnia. With
+insomnia, you will find yourself unable to go to sleep, although generally the
+things that put you to sleep will remove your insomnia, if you have it.
+
+Once you reach the level of "Logosian", sleep is no longer required naturally (though susceptibility to forced sleep methods remains).
+
+NOTE: Logosians and above can CONFIG DEPRIVATION ON / OFF if they wish to still get tired. See AB ATTAINMENT SUSTENANCE.

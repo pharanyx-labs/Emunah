@@ -1,0 +1,25 @@
+Source: https://www.achaea.com/game-help/?what=phials-and-vials
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+18.10.13 Phials and Vials
+(See also HELP REMEDIES, HELP TOXICOLOGY, HELP FILLING)
+
+Vials and phials are small containers, usually for liquids, often with a
+stopper or some way in which it may be closed.
+
+Vials hold salves, elixirs, venoms, and the like. Vials hold 200 sips.
+
+Phials hold the various compounds crafted by an Alchemist skilled in
+Formulation.
+
+Vial contents can be consolidated with the CONSOLIDATE <fluid> command, which
+will pour all of your elixirs into the fewest number of vials. CONSOLIDATE VIALS
+will consolidate all fluids in all of your vials at once.
+
+You can POUR from or into a vial:
+   POUR [# of sips] <container|fluid> IN|INTO <container|RIFT>
+
+It is also possible to FILL a vial from the rift or a tun:
+   FILL <vial> WITH <fluid> FROM <tun|RIFT>
+
+(See also HELP REMEDIES, HELP TOXICOLOGY, HELP FILLING)

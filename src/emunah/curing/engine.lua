@@ -101,7 +101,9 @@ local diagSent = false
 
 --- Vectors we resolve cures on, in the order we consider them. Order only affects which
 --- vector gets first refusal on a shared resource; they are otherwise independent.
-M.VECTORS = { "salve", "herb", "smoke", "elixir", "focus", "tree" }
+-- `special` carries the cures that cost no curing balance: COMPOSE for fear, CONCENTRATE
+-- for disrupted equilibrium (svof's misc actions). CLOT uses the same slot.
+M.VECTORS = { "salve", "herb", "smoke", "elixir", "focus", "tree", "special" }
 
 M.enabled = false
 
@@ -128,6 +130,51 @@ function M.add(name, source)
    return true
 end
 
+--- ONE LINE OF TEXT IS NOT PROOF. Afflictions reported by the imported trigger package
+--- (EmunahTriggers.xml, generated from svof's trigger set) are held on probation: if the
+--- server has not reported the same name within M.TEXT_CONFIRM, the report is dropped.
+---
+--- Char.Afflictions is reliable for everything except loki and blackout (docs/game/gmcp.md),
+--- and it arrives with the same prompt as the text, so a real affliction is confirmed long
+--- before this lapses. What does NOT get confirmed is an illusion -- svof guards its own
+--- triggers against those with a whole subsystem (lifevision) that these triggers do not
+--- carry -- and before this, anything a trigger asserted survived every reconcile, so one
+--- faked line had the engine curing a phantom for the rest of the fight. While the feed is
+--- blinded the text is all there is, so the clock does not run.
+M.TEXT_CONFIRM = 2.0
+
+local pendingText = {}
+
+--- Record an affliction from an imported trigger. See M.TEXT_CONFIRM.
+function M.addText(name)
+   name = tostring(name or ""):lower()
+   if M.add(name, "text") then pendingText[name] = emunah.util.now() end
+end
+
+local function confirmText()
+   if next(pendingText) == nil then return end
+   local server = emunah.gmcp.afflictions
+   local now = emunah.util.now()
+   local blinded = M.blinded()
+   local grace = tonumber(emunah.config.get("curing.textConfirm", M.TEXT_CONFIRM))
+      or M.TEXT_CONFIRM
+   for name, since in pairs(pendingText) do
+      local record = M.tracked[name]
+      if not record then
+         pendingText[name] = nil
+      elseif server and server.has(name) then
+         record.source = "gmcp"
+         pendingText[name] = nil
+      elseif blinded then
+         pendingText[name] = now
+      elseif now - since >= grace then
+         pendingText[name] = nil
+         log.debug("Dropping %s -- reported by text, never confirmed by the server.", name)
+         M.remove(name)
+      end
+   end
+end
+
 function M.remove(name)
    name = tostring(name or ""):lower()
    if not M.tracked[name] then return false end
@@ -149,6 +196,7 @@ end
 
 function M.clear()
    M.tracked = {}
+   pendingText = {}
    -- Refusals describe afflictions that no longer exist, and the log debounce keyed to them
    -- would otherwise suppress the first report of the same reason next time round.
    M.refusals = {}
@@ -1012,6 +1060,8 @@ function M.tick()
    end
    wasBlinded = blinded
 
+   confirmText()
+
    -- Periodic reconciliation. Cheap, but not free, so not every tick.
    local every = tonumber(emunah.config.get("curing.reconcileEvery", 20)) or 20
    local vitals = emunah.gmcp.vitals
@@ -1025,6 +1075,8 @@ function M.tick()
       queue.push("writhe", "writhe", {
          priority = 0, tag = writhe,
          confirm  = emunah.config.get("curing.confirmWait", 2.0),
+         -- Held by have.balance("writhe") while a writhe is under way. See M.onWritheStart.
+         valid    = function() return resolveWrithe() ~= nil end,
       })
    end
 
@@ -1156,6 +1208,41 @@ event.register("emunah.tick", function()
    M.tick()
 end, "curing.engine")
 
+--- WRITHE ONCE, THEN WAIT.
+---
+--- HELP ENTANGLEMENT: "if you WRITHE again while you are already writhing, it will take
+--- even longer! Just WRITHE once, then wait until you are free of that entanglement." The
+--- engine used to push WRITHE every tick and let the confirm timeout re-arm it every two
+--- seconds -- extending every web and bind it was trying to escape.
+---
+--- The game announces the start and the finish, and those lines (svof's `svo started
+--- writhe`, `svo writhe transfixed`, `svo writhe impale` and `svo writhed *` triggers,
+--- verbatim in curing/detect/patterns.lua) drive this. After the start, the vector is held
+--- for M.WRITHE_WAIT -- svof's `customwait = 6` on every curing<entanglement> -- or until
+--- a finish line or the affliction's removal frees it for the NEXT entanglement, which the
+--- same HELP says needs a writhe of its own.
+M.WRITHE_WAIT = 6.0
+
+function M.onWritheStart()
+   queue.confirm("writhe")
+   emunah.timers.start("writhe.busy", M.WRITHE_WAIT)
+end
+
+function M.onWritheFree()
+   emunah.timers.stop("writhe.busy")
+end
+
+--- "You begin to writhe helplessly, throwing your body off balance." -- a WRITHE with
+--- nothing to writhe from. Whatever entanglement we are tracking is not real (svof's
+--- writhe_helpless clears them all the same way), and the balance is gone for nothing.
+function M.onWritheHelpless()
+   queue.confirm("writhe")
+   emunah.timers.stop("writhe.busy")
+   for name in pairs(M.tracked) do
+      if afflist.isWrithe(name) then M.remove(name) end
+   end
+end
+
 -- Server-confirmed removal is our most reliable cure confirmation, and it frees the QUEUE
 -- SLOT that was waiting on it -- but NOT the balance.
 --
@@ -1172,6 +1259,7 @@ end, "curing.engine")
 -- elixir."), and where it does not, the fallback timer in curelist.lua is the estimate.
 event.register("emunah.affliction.removed", function(_, name)
    name = tostring(name or ""):lower()
+   if afflist.isWrithe(name) then M.onWritheFree() end
    M.remove(name)
    for _, vector in ipairs(queue.VECTORS) do
       local action = queue.awaiting(vector)

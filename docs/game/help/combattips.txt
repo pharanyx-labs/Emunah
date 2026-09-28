@@ -1,0 +1,25 @@
+Source: https://www.achaea.com/game-help/?what=combat-tips
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+13.10 COMBAT TIPS
+1) Know your abilities inside and out. Simply having the abilities does you no
+   good.
+
+2) Always be efficient in your use of equilibrium and balance.
+
+3) Pick your spot for a fight. Do not be goaded into fighting in unfamiliar
+   territory unless you are willing to accept this disadvantage.
+
+4) Keep yourself prepared as far as defences and equipment. Always keep as many
+   defences up as possible, so that you are ready in case you are surprised.
+   Preparation is one of the most important parts of combat, and dying because
+   you were not prepared is just as much your fault as dying due to anything
+   else.
+
+5) Memorise what attacks correspond to what afflictions, and practice curing
+   them quickly.
+
+6) Get yourself a good client, and set up macros. It is not possible to fight
+   adequately without macros.
+
+7) Try to learn as much as possible about the capabilities of other classes.

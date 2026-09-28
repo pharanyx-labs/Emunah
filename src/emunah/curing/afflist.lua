@@ -45,9 +45,33 @@ local M = {}
 --- pulling moss out of the rift still works while anorexic, which is why the pull and the
 --- eat are queued separately.
 M.blocks = {
-   anorexia  = { "herb", "moss" },
+   -- `elixir` too: svof's sip gate (raw-svo.skeleton.lua check_sip) refuses to sip while
+   -- anorexic, as does its purgative gate. Anorexia is loss of the desire for food OR
+   -- drink (HELP VENOM, slike: "lose all desire for food or drink").
+   anorexia  = { "herb", "moss", "elixir" },
    slickness = { "salve" },
    asthma    = { "smoke" },
+   -- svof check_smoke refuses on `mucous` as well as asthma. The refusal line it matches
+   -- is "Your lungs are too clogged with mucous for you to attempt smoking."
+   mucous    = { "smoke" },
+   -- svof check_focus refuses on `inquisition` (a Priest affliction: "The words echo ...
+   -- in your mind, interrupting your concentration.").
+   inquisition = { "focus" },
+   -- TOUCH TREE. svof's touchtree isadvisable refuses on paralysis, on any of these
+   -- entanglements, and on EITHER arm being numb -- a numb arm cannot reach the tattoo the
+   -- way a broken one cannot (both-arms-broken is have.bothArmsBroken(), not a table
+   -- entry, because it takes two afflictions together). Paralysis is also enforced by
+   -- queue.WHILE_PARALYSED on play evidence (2026-08-03 16:14:25.08); listing it here
+   -- as well is what makes the UI's vector light and have.cure() agree with the queue.
+   paralysis     = { "tree" },
+   webbed        = { "tree" },
+   bound         = { "tree" },
+   transfixed    = { "tree" },
+   transfixation = { "tree" },
+   roped         = { "tree" },
+   impaled       = { "tree" },
+   numbedleftarm  = { "tree" },
+   numbedrightarm = { "tree" },
    -- IMPATIENCE SHUTS FOCUS. Reported in play as "focus requires no eq or balance but the
    -- affliction 'impatience' does" -- read as: FOCUS itself costs neither equilibrium nor
    -- balance, and impatience is what stops it. Impatience is cured by eating goldenseal,
@@ -60,10 +84,27 @@ M.blocks = {
    impatience = { "focus" },
 }
 
+--- Blockers with no cure: they end on their own. Listed so the "every blocker has an
+--- escape" invariant can tell a lock with no key from one that times out. Each has a
+--- wear-off line in svof's trigger set ("You manage to cough away the mucous filling your
+--- lungs.", "Clarity returns to your mind as the echoing accusations fade from memory.",
+--- "Feeling returns to your left arm." / "...right arm.") and a `waitingfor` rather than a
+--- cure in its dictionary (raw-svo.dict.lua).
+M.wearsOff = {
+   mucous         = true,
+   inquisition    = true,
+   numbedleftarm  = true,
+   numbedrightarm = true,
+}
+
 --- Afflictions that stop you acting until you writhe free. These are not cured by items;
---- the cure is repeated WRITHE, and they lock movement and most attacks while active.
+--- the cure is ONE WRITHE per entanglement, then waiting -- a second WRITHE while one is
+--- under way prolongs it (HELP ENTANGLEMENT; see engine.onWritheStart). They lock
+--- movement and attacks while active (act.blocked's `entangled`).
 M.writhes = {
    transfixed = true,
+   -- svof's gamename for transfixed.
+   transfixation = true,
    impaled    = true,
    bound      = true,
    webbed     = true,
@@ -324,9 +365,22 @@ M.afflictions = {
       cures = { { vector = "salve", item = "mending", alt = "renewal", location = "body" } },
       priority = { salve = 6 },
    },
+   -- COMPOSE first. HELP AFFLICTIONS: "Fear: Compose"; HELP COMPOSE: "a state of panic
+   -- ... If this happens to you, COMPOSE." svof has it as a misc action ahead of focus
+   -- (dict.fear.misc, action "compose"). It costs no curing balance, so it goes on `special`.
+   -- COMPOSE only. svof's dict.fear.focus is switched off outright (`return false`, with
+   -- the old condition commented out), so focus is not a fear cure there at all.
    fear = {
-      cures = { { vector = "focus" } },
-      priority = { focus = 20 },
+      cures = { { vector = "special", command = "compose" } },
+      priority = { special = 1 },
+   },
+   -- DISRUPTED EQUILIBRIUM. HELP COMPOSE: equilibrium "will not return no matter how long
+   -- you wait. If this happens to you, simply CONCENTRATE." -- and confusion prevents
+   -- concentrating. The name is svof's gamename for dict.disrupt; svof concentrates only
+   -- when not confused (and not asleep, which act.blocked covers).
+   disrupted = {
+      cures = { { vector = "special", command = "concentrate", unless = { "confusion" } } },
+      priority = { special = 2 },
    },
    firedisrupt = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" }, { vector = "focus" } },
@@ -663,17 +717,15 @@ M.afflictions = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" } },
       priority = { herb = 16 },
    },
-   -- HERB CURE REMOVED, INTERIM. `goldenseal` had no provenance in docs/afflictions.md
-   -- (unlike the ~75 entries checked against the published help) and confirmed live
-   -- 20:57:29-20:58:04 it does not work: with no opponent present, the engine pulled
-   -- goldenseal from the rift and ate it every ~5s for at least five cycles, and
-   -- `stupidity` was still tracked after every one. Focus is left in place -- these three
-   -- tests were never exercising the herb path (no goldenseal in hand or rift in any of
-   -- them) -- pending `AFFLICTION SHOW STUPIDITY` (see `affpop` in curing/detect/init.lua)
-   -- to say what actually cures it, if anything does.
+   -- HERB CURE RESTORED. It was removed after 20:57:29-20:58:04, when goldenseal was eaten
+   -- every ~5s without clearing stupidity -- but HELP AFFLICTIONS ("Stupidity: Eat
+   -- Goldenseal / Plumbum") and svof (dict.stupidity.herb, eatcure goldenseal/plumbum) both
+   -- say it is the cure, and svof outranks this table on curing. That capture predates the
+   -- fix for eating inside herb balance ("The plant has no effect.", docs/game/balance.md),
+   -- which fits the symptom exactly. Rank 7 is what it had before removal.
    stupidity = {
-      cures = { { vector = "focus" } },
-      priority = { focus = 2 },
+      cures = { { vector = "herb", item = "goldenseal", alt = "plumbum" }, { vector = "focus" } },
+      priority = { herb = 7, focus = 2 },
    },
    stuttering = {
       cures = { { vector = "salve", item = "epidermal", alt = "sensory", location = "head" } },
@@ -737,6 +789,109 @@ M.afflictions = {
       priority = { salve = 45 },
    },
 }
+
+--- THE SERVER'S NAMES, per svof. svof keeps its own internal names and records what the
+--- server calls each in a `gamename` field (raw-svo.dict.lua: "what serverside calls this
+--- by -- names can be different as they were revealed years after Svof was made"). Where
+--- that differs from the key this table uses, the server's name is added as an alias of
+--- the same definition, so an affliction is cured whichever name Char.Afflictions uses.
+--- Aliases share the definition table: one cure, one rank, never two to keep in step.
+M.ALIASES = {
+   lovers            = "inlove",
+   weariness         = "weakness",
+   pacified          = "pacifism",
+   airpocket         = "waterbubble",
+   burning           = "ablaze",
+   whisperingmadness = "madness",
+   -- The AFFLICTION is `blind`/`deaf`; `blindness`/`deafness` are the DEFENCES from bayberry
+   -- and hawthorn (svof: blindaff -> "blind", blind -> "blindness").
+   blind             = "blindness",
+   deaf              = "deafness",
+}
+for alias, target in pairs(M.ALIASES) do
+   M.afflictions[alias] = M.afflictions[target]
+end
+
+--- WHEN NOT TO CURE, per svof. Each entry is the extra condition in svof's
+--- dict.<affliction>.<balance>.isadvisable beyond "we have it" -- the cases where the cure
+--- would be wasted, undone, or done in the wrong order:
+---
+---   unless          don't, while any of these afflictions is up
+---   unlessInFlight  don't, while a cure is in flight on any of these balances
+---
+--- Applied onto the cure options below at load, so have.cure() checks them for every
+--- caller. svof's internal names are translated to the server's (see M.ALIASES): its
+--- `madness` is `whisperingmadness`, `mutilated` is `mangled`, `mangled` is `damaged`,
+--- `crippled` is `broken`. Both spellings of madness are listed, as both are keyed here.
+local MADNESS = { "madness", "whisperingmadness" }
+local function plus(list, ...)
+   local out = {}
+   for _, name in ipairs(list) do out[#out + 1] = name end
+   for _, name in ipairs({ ... }) do out[#out + 1] = name end
+   return out
+end
+
+M.CONDITIONS = {
+   -- Mental afflictions are not cured under whispering madness (herb and focus alike).
+   masochism      = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   recklessness   = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   vertigo        = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   loneliness     = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   dementia       = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   paranoia       = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   hallucinations = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   confusion      = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   hypersomnia    = { herb = { unless = MADNESS } },
+   stupidity      = { focus = { unless = MADNESS },
+                      -- A focus in flight may cure it; eating goldenseal on top wastes the herb.
+                      herb = { unlessInFlight = { "focus" } } },
+   dissonance     = { herb = { unlessInFlight = { "focus" } } },
+   dizziness      = { herb = { unlessInFlight = { "focus" } } },
+   shyness        = { herb = { unlessInFlight = { "focus" } } },
+   epilepsy       = { herb = { unlessInFlight = { "focus" } } },
+   -- "curing impatience before hypochondria will make it get re-applied" -- svof, and the
+   -- same for lethargy, illness (the server's nausea) and addiction.
+   impatience     = { herb = { unless = plus(MADNESS, "hypochondria"),
+                               unlessInFlight = { "focus" } } },
+   lethargy       = { herb = { unless = plus(MADNESS, "hypochondria") } },
+   nausea         = { herb = { unless = plus(MADNESS, "hypochondria") } },
+   illness        = { herb = { unless = plus(MADNESS, "hypochondria") } },
+   addiction      = { herb = { unless = plus(MADNESS, "hypochondria") } },
+   -- Smoke: valerian is not smoked for hellsight under inquisition; elm not for madness
+   -- under hecate.
+   hellsight      = { smoke = { unless = { "inquisition" } } },
+   madness        = { smoke = { unless = { "hecate" } } },
+   -- Bloodroot does not clear slickness under stain.
+   slickness      = { herb = { unless = { "stain" } } },
+   -- Salves, in svof's order: torso trauma first; frozen and hypothermia before shivering;
+   -- blind before scalded (the same epidermal cures both).
+   heartseed      = { salve = { unless = { "mildtrauma" } } },
+   hypothermia    = { salve = { unless = { "mildtrauma" } } },
+   frozen         = { salve = { unless = { "hypothermia" } } },
+   shivering      = { salve = { unless = { "frozen", "hypothermia" } } },
+   scalded        = { salve = { unless = { "blind" } } },
+   -- LIMBS, worst first. A damaged limb waits for any mangled one on that pair of limbs; a
+   -- broken one for its own limb's mangled or damaged state, and for paresthesia.
+   damagedleftleg  = { salve = { unless = { "mangledleftleg", "mangledrightleg" } } },
+   damagedrightleg = { salve = { unless = { "mangledleftleg", "mangledrightleg" } } },
+   damagedleftarm  = { salve = { unless = { "mangledleftarm", "mangledrightarm" } } },
+   damagedrightarm = { salve = { unless = { "mangledleftarm", "mangledrightarm" } } },
+   brokenleftleg   = { salve = { unless = { "mangledleftleg", "damagedleftleg", "parestolegs" } } },
+   brokenrightleg  = { salve = { unless = { "mangledrightleg", "damagedrightleg", "parestolegs" } } },
+   brokenleftarm   = { salve = { unless = { "mangledleftarm", "damagedleftarm", "parestoarms" } } },
+   brokenrightarm  = { salve = { unless = { "mangledrightarm", "damagedrightarm", "parestoarms" } } },
+}
+
+for name, byVector in pairs(M.CONDITIONS) do
+   local definition = M.afflictions[name]
+   for _, option in ipairs(definition and definition.cures or {}) do
+      local condition = byVector[option.vector]
+      if condition then
+         option.unless = option.unless or condition.unless
+         option.unlessInFlight = condition.unlessInFlight
+      end
+   end
+end
 
 -- ---------------------------------------------------------------------------
 -- queries

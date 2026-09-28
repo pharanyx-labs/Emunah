@@ -111,7 +111,28 @@ function mock.install(homeDir)
    -- buffers precisely enough to actually remove anything; recording that it was called
    -- is enough for a test to assert the rewrite happened.
    mock.deletedLines = 0
-   function _G.deleteLine() mock.deletedLines = mock.deletedLines + 1 end
+   -- A real buffer for the main window, so a gag can be checked for WHICH lines it removed.
+   -- mock.line() appends to it and makes that line current; moveCursor/deleteLine then act
+   -- on it by number, as Mudlet's do. Deleting shifts the lines below up, exactly the
+   -- behaviour that makes deleting mid-packet dangerous (see pipes.lua).
+   mock.buffer = {}
+   mock.cursor = nil
+   mock.deletedText = {}
+   function _G.getLineNumber() return mock.cursor or #mock.buffer end
+   function _G.getLineCount() return #mock.buffer end
+   function _G.moveCursor(window, x, y)
+      if type(window) ~= "string" then y = x end
+      mock.cursor = y
+      return true
+   end
+   function _G.moveCursorEnd() mock.cursor = nil return true end
+   function _G.deleteLine()
+      mock.deletedLines = mock.deletedLines + 1
+      local line = mock.cursor or #mock.buffer
+      if mock.buffer[line] then
+         mock.deletedText[#mock.deletedText + 1] = table.remove(mock.buffer, line)
+      end
+   end
 
    -- In-place line formatting: the selectString + set*() family, which is how a highlighter
    -- restyles text that has already arrived.
@@ -258,7 +279,11 @@ function mock.install(homeDir)
    mock.latency = 0.1
    function _G.getNetworkLatency() return mock.latency end
 
-   function _G.send(command) mock.sent[#mock.sent + 1] = tostring(command) end
+   mock.echoed_sends = {}
+   function _G.send(command, echo)
+      mock.sent[#mock.sent + 1] = tostring(command)
+      mock.echoed_sends[#mock.echoed_sends + 1] = echo ~= false
+   end
    function _G.sendGMCP(payload) mock.gmcpSent[#mock.gmcpSent + 1] = tostring(payload) end
    function _G.ansi2decho(text) return tostring(text) end
 
@@ -1028,6 +1053,8 @@ function mock.line(text)
    -- re-reads its own line (the highlighter, the capture ring buffer) needs that to be the
    -- line it is firing on rather than whatever was set last.
    mock.currentLine, mock.formatted = tostring(text), {}
+   mock.buffer[#mock.buffer + 1] = mock.currentLine
+   mock.cursor = nil
    for _, trigger in ipairs(triggersInOrder()) do
       -- A list, not a single pattern: an alternation regex is several Lua patterns, and the
       -- trigger fires on the FIRST that matches -- once, not once per branch, which is what

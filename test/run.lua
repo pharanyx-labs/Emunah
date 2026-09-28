@@ -331,7 +331,16 @@ ok(afflist.priority("anorexia", "salve") == 1, "anorexia is top salve priority")
 ok(afflist.priority("anorexia", "focus") ~= nil, "anorexia is also focusable (the lock escape)")
 
 -- Anorexia shuts BOTH eating vectors: herbs and irid moss, which is on its own balance.
-eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss", "anorexia blocks eating")
+eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss,elixir",
+   "anorexia blocks eating, and sipping (svof check_sip)")
+eq(table.concat(afflist.blockedVectors("mucous"), ","), "smoke", "mucous blocks smoking (svof)")
+eq(table.concat(afflist.blockedVectors("inquisition"), ","), "focus",
+   "inquisition blocks focusing (svof)")
+for _, name in ipairs({ "paralysis", "webbed", "bound", "transfixed", "roped", "impaled",
+                        "numbedleftarm", "numbedrightarm" }) do
+   eq(table.concat(afflist.blockedVectors(name), ","), "tree",
+      name .. " blocks touching the tree (svof touchtree)")
+end
 eq(table.concat(afflist.blockedVectors("slickness"), ","), "salve", "slickness blocks applying")
 eq(table.concat(afflist.blockedVectors("asthma"), ","), "smoke", "asthma blocks smoking")
 eq(table.concat(afflist.blockedVectors("impatience"), ","), "focus", "impatience blocks focusing")
@@ -339,7 +348,8 @@ eq(table.concat(afflist.blockedVectors("impatience"), ","), "focus", "impatience
 -- Every blocker must itself be curable by a vector it does not block, or it is a lock with
 -- no key: the engine would need the shut vector to open the shut vector.
 for blocker, shut in pairs(afflist.blocks) do
-   local escape = false
+   -- Writhing out, or waiting it out, is an escape too -- neither needs a shut vector.
+   local escape = afflist.isWrithe(blocker) or afflist.wearsOff[blocker] == true
    for _, option in ipairs(afflist.curesVia(blocker, "herb")) do escape = true end
    for _, vector in ipairs({ "salve", "smoke", "focus", "elixir" }) do
       local blocked = false
@@ -1024,13 +1034,10 @@ ok(table.concat(mock.sent, " | "):find("focus"),
    "out of lobelia, it focuses rather than doing nothing at all",
    table.concat(mock.sent, " | "))
 
--- STUPIDITY'S HERB CURE WAS REMOVED. Confirmed live 20:57:29-20:58:04 with no opponent
--- present: the engine pulled goldenseal from the rift and ate it every ~5s for at least
--- five cycles, and stupidity was still tracked after every one -- so even with goldenseal
--- in hand, it must never be reached for again. `emunah affpop` exists to get this properly
--- re-verified against AFFLICTION SHOW STUPIDITY.
-eq(afflist2.priority("stupidity", "herb"), nil, "stupidity has no herb priority any more")
-eq(#afflist2.curesVia("stupidity", "herb"), 0, "...and no herb cure option at all")
+-- STUPIDITY'S HERB CURE IS BACK. Removed after 20:57:29-20:58:04, restored on HELP
+-- AFFLICTIONS and svof (dict.stupidity.herb) agreeing on goldenseal -- see afflist.lua.
+eq(afflist2.priority("stupidity", "herb"), 7, "stupidity eats goldenseal again, at rank 7")
+eq(#afflist2.curesVia("stupidity", "herb"), 1, "...one herb option")
 
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Items.List", { location = "inv", items = {
@@ -1040,11 +1047,11 @@ mock.feed("IRE.Rift.List", {})
 engine.add("stupidity", "trigger")
 mock.sent = {}
 engine.tick(); queue.flush()
-ok(not table.concat(mock.sent, " | "):find("goldenseal", 1, true),
-   "goldenseal in hand is never reached for to cure stupidity",
+ok(table.concat(mock.sent, " | "):find("eat goldenseal", 1, true),
+   "goldenseal in hand is eaten for stupidity (HELP, svof)",
    table.concat(mock.sent, " | "))
 ok(table.concat(mock.sent, " | "):find("focus"),
-   "...focus is still tried instead", table.concat(mock.sent, " | "))
+   "...and focus goes too, on its own balance", table.concat(mock.sent, " | "))
 
 mock.feed("Char.Items.List", { location = "inv", items = {} })
 
@@ -1182,10 +1189,14 @@ mock.feed("Char.Items.List", { location = "inv", items = {
 } })
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 
-eq(afflist.known("weariness"), false, "weariness is not in the cure table")
+-- `weariness` itself is now in the table: it is svof's gamename for `weakness`
+-- (afflist.ALIASES), which that very payload confirms. The fallback is exercised with a name
+-- the table cannot know instead.
+eq(afflist.known("weariness"), true, "weariness is known, as svof's name for weakness")
+eq(afflist.known("unlistedaffliction"), false, "unlistedaffliction is not in the cure table")
 mock.sent = {}
-mock.feed("Char.Afflictions.Add", { name = "weariness", cure = "EAT KELP",
-   desc = "Weariness increases the rate at which you use endurance." })
+mock.feed("Char.Afflictions.Add", { name = "unlistedaffliction", cure = "EAT KELP",
+   desc = "An affliction the table has never heard of." })
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 ok(table.concat(mock.sent, " | "):find("eat kelp"),
    "an affliction the table has never heard of is cured from the server's own suggestion",
@@ -1224,7 +1235,7 @@ mock.feed("Char.Items.List", { location = "inv", items = {
    { id = "1", name = "a piece of kelp", attrib = "e" },
    { id = "2", name = "a bloodroot leaf", attrib = "e" },
 } })
-mock.feed("Char.Afflictions.Add", { name = "weariness", cure = "EAT KELP" })
+mock.feed("Char.Afflictions.Add", { name = "unlistedaffliction", cure = "EAT KELP" })
 mock.feed("Char.Afflictions.Add", { name = "paralysis", cure = "EAT BLOODROOT" })
 mock.sent = {}
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
@@ -1253,6 +1264,9 @@ ok(table.concat(mock.echoed, " "):find("not one this system maps"),
 -- already being stood back up. Live at 07:33:12: a `sit` raised prone with cure="STAND"
 -- and the warning fired even though "You stand up." followed a moment later.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
+-- An earlier suite leaves `paralysis` in the server's list, and act.blocked() now holds
+-- STAND while paralysed -- which is right, and not what this case is about.
+mock.feed("Char.Afflictions.Remove", { "paralysis" })
 mock.echoed = {}
 mock.sent = {}
 mock.feed("Char.Afflictions.Add", { name = "prone", cure = "STAND" })
@@ -9470,6 +9484,473 @@ ok(table.concat(mock.echoed, " "):find("not running"),
 end)()
 
 -- ===========================================================================
+suite("never act without the balance AND the state to do it (svof gates)")
+
+;(function()
+local engine = emunah.curing.engine
+local queue  = emunah.queue
+local detect = emunah.curing.detect
+local act    = emunah.act
+local have   = emunah.have
+
+local function reset()
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "1000",
+                              wp = "1000", maxwp = "1000", bal = "1", eq = "1" })
+   if detect.isProne() then mock.line("You stand up.") end
+   mock.sent = {}
+end
+local function sent() return table.concat(mock.sent, " | ") end
+
+-- A CURE QUEUED BEFORE THE BLOCK LANDED. The block was only consulted when the cure was
+-- chosen, so an `eat` waiting in its slot went out into anorexia anyway.
+reset()
+queue.push("herb", "eat kelp", { tag = "asthma" })
+engine.add("anorexia", "trigger")
+eq(queue.flush(), 0, "a queued eat is held once anorexia lands")
+ok(queue.pending("herb"), "...held, not dropped", tostring(queue.pending("herb")))
+engine.remove("anorexia")
+queue.flush()
+ok(sent():find("eat kelp"), "...and goes out once the block clears", sent())
+
+-- Anorexia shuts sipping too (svof check_sip).
+reset()
+engine.add("anorexia", "trigger")
+queue.push("elixir", "drink health", { tag = "health" })
+eq(queue.flush(), 0, "no sip while anorexic")
+
+-- Mucous shuts smoking, detected from its own refusal line.
+reset()
+mock.line("Your lungs are too clogged with mucous for you to attempt smoking.")
+ok(engine.has("mucous"), "the mucous refusal is detected")
+queue.push("smoke", "smoke pipe", { tag = "aeon" })
+eq(queue.flush(), 0, "no smoke while mucous")
+mock.line("You manage to cough away the mucous filling your lungs.")
+ok(not engine.has("mucous"), "...and it wears off on the cough line")
+
+-- FOCUS needs willpower (svof: > 75), and is shut by inquisition.
+reset()
+mock.feed("Char.Vitals", { wp = "50", maxwp = "1000" })
+queue.push("focus", "focus", { tag = "stupidity" })
+eq(queue.flush(), 0, "no focus on 50 willpower")
+reset()
+engine.add("inquisition", "trigger")
+queue.push("focus", "focus", { tag = "stupidity" })
+eq(queue.flush(), 0, "no focus under inquisition")
+
+-- TOUCH TREE: not while entangled, and not with a numb arm.
+for _, name in ipairs({ "webbed", "numbedleftarm" }) do
+   reset()
+   engine.add(name, "trigger")
+   queue.push("tree", "touch tree", { tag = "tree" })
+   eq(queue.flush(), 0, "no touch tree while " .. name)
+end
+
+-- DIRECT SENDS: attacks, movement and loot go through act, not the queue.
+reset()
+engine.add("paralysis", "trigger")
+eq(act.blocked({ standing = true, bal = true }), "paralysed", "an attack is held while paralysed")
+eq(act.blocked({}), nil, "...a command needing nothing is not")
+reset()
+engine.add("webbed", "trigger")
+eq(act.blocked({ standing = true, bal = true, eq = true }), "entangled",
+   "walking is held while webbed")
+eq(act.blocked({ bal = true }), nil, "...a cure that needs no footing is not")
+
+-- STAND: needs balance AND equilibrium, and working legs, and no entanglement (svof).
+reset()
+mock.feed("Char.Vitals", { bal = "1", eq = "0" })
+mock.feed("Char.Afflictions.Add", { name = "prone", cure = "STAND" })
+mock.feed("Char.Vitals", { bal = "1", eq = "0" })
+ok(not sent():find("stand"), "no STAND without equilibrium", sent())
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sent():find("stand"), "...and it goes out when equilibrium returns", sent())
+reset()
+engine.add("crippledleftleg", "trigger")
+mock.feed("Char.Afflictions.Add", { name = "prone", cure = "STAND" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not sent():find("stand"), "no STAND on a crippled leg", sent())
+reset()
+engine.add("webbed", "trigger")
+mock.feed("Char.Afflictions.Add", { name = "prone", cure = "STAND" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not sent():find("stand"), "no STAND while webbed", sent())
+
+-- WRITHE ONCE, THEN WAIT (HELP ENTANGLEMENT). It was re-sent every confirm timeout.
+reset()
+engine.enabled = true
+engine.add("webbed", "trigger")
+engine.tick(); queue.flush()
+eq(sent(), "writhe", "the first WRITHE goes out")
+mock.line("You begin to struggle free of your entanglement.")
+mock.sent = {}
+for _ = 1, 5 do
+   mock.advance(1.0)
+   engine.tick(); queue.flush()
+end
+eq(sent(), "", "no second WRITHE while the first is under way, past the confirm timeout")
+mock.line("You have writhed free of your entanglement by webs.")
+mock.feed("Char.Afflictions.Remove", { "webbed" })
+engine.add("transfixed", "trigger")
+engine.tick(); queue.flush()
+eq(sent(), "writhe", "...but the NEXT entanglement gets its own writhe once free")
+
+-- Writhing with nothing to writhe from: the tracked entanglement was not real.
+reset()
+engine.add("roped", "trigger")
+mock.line("You begin to writhe helplessly, throwing your body off balance.")
+ok(not engine.has("roped"), "a helpless writhe clears the phantom entanglement")
+engine.enabled = false
+
+-- WAKE ONCE, THEN WAIT (HELP SLEEPING).
+reset()
+detect.onWake()
+mock.feed("Char.Afflictions.Add", { name = "sleeping", cure = "" })
+ok(sent():find("wake"), "WAKE goes out on falling asleep", sent())
+mock.line("You begin your struggle to escape from the dreamworld.")
+mock.sent = {}
+for _ = 1, 5 do
+   mock.advance(detect.WAKE_GUARD + 0.01)
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+end
+ok(not sent():find("wake"), "no WAKE resent once the struggle has begun", sent())
+mock.line("You open your eyes and yawn mightily.")
+ok(not detect.isAsleep(), "svof's wake line ends the sleep")
+
+-- UNCONSCIOUS: held like stun, cleared by svof's wear-off line or its 7s backstop.
+reset()
+mock.line("Your legs collapse from under you and consciousness leaves you as you pass out from extreme hunger.")
+eq(act.blocked(), "unconscious", "unconscious holds even a command that needs nothing")
+queue.push("herb", "eat kelp", { tag = "asthma" })
+eq(queue.flush(), 0, "...and every cure")
+mock.line("You regain consciousness with a start.")
+eq(act.blocked(), nil, "...until consciousness returns")
+mock.line("Your legs collapse from under you and consciousness leaves you as you pass out from extreme hunger.")
+mock.advance(detect.UNCONSCIOUS_GUARD + 0.01)
+eq(act.blocked(), nil, "...or the backstop lapses")
+
+-- ARM BALANCE: every bal/eq action waits for both arms (svof check_balanceful_acts).
+reset()
+mock.line("You unleash a powerful hook towards a rat.")
+eq(act.blocked({ bal = true }), "arm off balance", "a spent arm holds a balance action")
+eq(act.blocked({}), nil, "...but not one that needs no balance")
+mock.line("You have recovered balance on your left arm.")
+eq(act.blocked({ bal = true }), nil, "...until that arm recovers")
+mock.line("You unleash a powerful hook towards a rat.")
+mock.line("You unleash a powerful hook towards a rat.")
+ok(not detect.armBalance.left and not detect.armBalance.right, "a second strike spends the other arm")
+mock.line("You have recovered balance on all limbs.")
+ok(detect.armsBalanced(), "the all-limbs line restores both")
+mock.line("You unleash a powerful hook towards a rat.")
+mock.advance(detect.ARM_GUARD + 0.01)
+ok(detect.armsBalanced(), "a missed recovery line is bounded by the backstop")
+
+-- FEAR: COMPOSE first (HELP AFFLICTIONS, svof dict.fear.misc).
+reset()
+engine.enabled = true
+mock.feed("Char.Afflictions.Add", { name = "fear", cure = "COMPOSE" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sent():find("compose"), "fear is composed away", sent())
+
+-- DISRUPTED: CONCENTRATE, but never while confused (HELP COMPOSE, svof dict.disrupt).
+reset()
+engine.add("disrupted", "trigger")
+engine.tick(); queue.flush()
+ok(sent():find("concentrate"), "disrupted equilibrium is concentrated back", sent())
+reset()
+engine.add("disrupted", "trigger")
+engine.add("confusion", "trigger")
+engine.tick(); queue.flush()
+ok(not sent():find("concentrate"), "...but not while confused", sent())
+
+-- THE SERVER'S NAMES (svof gamename): `blind` is the affliction, cured like blindness.
+reset()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "31", name = "an epidermal salve", attrib = "e" },
+} })
+mock.feed("IRE.Rift.List", {})
+mock.feed("Char.Afflictions.Add", { name = "blind", cure = "APPLY EPIDERMAL" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sent():find("apply epidermal"), "`blind` is cured from the table, not left unknown", sent())
+engine.enabled = false
+
+-- SVOF'S PER-CURE CONDITIONS (afflist.CONDITIONS).
+for name in pairs(emunah.curing.afflist.CONDITIONS) do
+   ok(emunah.curing.afflist.known(name), name .. " in CONDITIONS is in the cure table")
+end
+local have = emunah.have
+local function option(name, vector)
+   return emunah.curing.afflist.curesVia(name, vector)[1]
+end
+reset()
+engine.add("whisperingmadness", "gmcp")
+ok(not have.cure(option("confusion", "focus")), "no focusing confusion under whispering madness")
+reset()
+engine.add("hypochondria", "gmcp")
+ok(not have.cure(option("impatience", "herb")), "impatience waits for hypochondria (else re-applied)")
+reset()
+engine.add("mangledleftleg", "gmcp")
+ok(not have.cure(option("brokenleftleg", "salve")), "a broken leg waits for the mangled one")
+ok(not have.cure(option("damagedrightleg", "salve")), "...as does a damaged one on either leg")
+reset()
+queue.push("focus", "focus", { tag = "stupidity", confirm = 5 })
+emunah.have.recover("focus")
+queue.flush()
+local okHerb, why = have.cure(option("dizziness", "herb"))
+ok(not okHerb and tostring(why):find("focus"), "no goldenseal while a focus is in flight", why)
+eq(#emunah.curing.afflist.curesVia("fear", "focus"), 0, "fear is never focused (svof has it off)")
+reset()
+mock.feed("Char.Vitals", { mp = "300", maxmp = "1000" })
+queue.push("focus", "focus", { tag = "stupidity" })
+eq(queue.flush(), 0, "no focus at 30% mana (svof manause, 35%)")
+mock.feed("Char.Vitals", { mp = "1000", maxmp = "1000" })
+
+-- DEATH PAUSES EVERYTHING (user's rule), and curing resumes on revival.
+reset()
+emunah.bashing.enabled = true
+queue.push("herb", "eat kelp", { tag = "asthma" })
+mock.feed("Char.Vitals", { hp = "0", maxhp = "1000" })
+eq(act.blocked(), "dead", "dead holds even a command that needs nothing")
+ok(not queue.pending("herb"), "dying drops what was queued")
+ok(not emunah.bashing.enabled, "dying stops the hunt")
+mock.feed("Char.Vitals", { hp = "500", maxhp = "1000" })
+eq(act.blocked(), nil, "alive again, commands flow")
+ok(not emunah.bashing.enabled, "...but the hunt stays off until restarted")
+reset()
+end)()
+
+suite("pipes: our own housekeeping is gagged, and still fully parsed")
+
+;(function()
+local pipes = emunah.pipes
+emunah.timers.stopAll()
+pipes.forget()
+emunah.config.set("pipes.enabled", true)   -- the pipes suite leaves it switched off
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+
+-- Only this suite's lines: earlier suites left identical PIPELIST text further up.
+local start = #mock.buffer
+local function inBuffer(text)
+   for index = start + 1, #mock.buffer do if mock.buffer[index] == text then return true end end
+   return false
+end
+
+-- The transcript that asked for this, 13:04:56-13:05:27: a poll, then three lights.
+mock.sent, mock.echoed_sends = {}, {}
+pipes.poll(true)
+eq(mock.sent[#mock.sent], "pipelist", "our poll goes out")
+eq(mock.echoed_sends[#mock.echoed_sends], false, "...without echoing the command")
+
+local rows = {
+   "Status  Pipe         Contents                       Puffs Months ",
+   "-------------------------------------------------------------------------------",
+   "out     pipe367581   a skullcap flower              8     195",
+   "out     pipe408402   slippery elm                   9     195",
+   "out     pipe422328   a valerian leaf                9     195",
+   "-------------------------------------------------------------------------------",
+}
+mock.line("The celestial flowers of the aurora bloom and fade slowly, their rhythm steady and soothing.")
+for _, row in ipairs(rows) do mock.line(row) end
+-- THE REGRESSION THAT BANNED GAGGING HERE: every row must be parsed, not just the first.
+eq(#pipes.list(), 3, "all three rows parsed while being gagged")
+mock.advance(0)
+for _, row in ipairs(rows) do
+   ok(not inBuffer(row), "gagged: " .. row)
+end
+ok(inBuffer("The celestial flowers of the aurora bloom and fade slowly, their rhythm steady and soothing."),
+   "...and the unrelated line around them is left alone")
+
+-- A LIGHT of ours: the tinderbox and the success line go.
+mock.sent, mock.echoed_sends = {}, {}
+pipes.keep()
+eq(mock.sent[1], "light pipe367581", "the first cold pipe is lit")
+eq(mock.echoed_sends[1], false, "...quietly")
+mock.line("You use a soot-blackened tinderbox to make fire.")
+mock.line("You carefully light your treasured pipe until it is smoking nicely.")
+eq(pipes.pipes["367581"].status, "lit", "the light is still recorded")
+mock.advance(0)
+ok(not inBuffer("You use a soot-blackened tinderbox to make fire."), "tinderbox line gagged")
+ok(not inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
+   "lit line gagged")
+
+-- YOURS ARE NOT: a PIPELIST you typed, or `emunah pipes now`, is shown in full.
+mock.advance(pipes.QUIET_WINDOW + 0.1)
+local before = #mock.buffer
+for _, row in ipairs(rows) do mock.line(row) end
+mock.advance(0)
+eq(#mock.buffer, before + #rows, "a PIPELIST we did not send is not gagged")
+mock.sent, mock.echoed_sends = {}, {}
+emunah.timers.stop("pipes.poll")
+pipes.poll(true, true)
+eq(mock.echoed_sends[#mock.echoed_sends], true, "`emunah pipes now` echoes, as asked for")
+emunah.timers.stopAll()
+end)()
+
+suite("EmunahTriggers.xml: svof's lines, feeding Emunah")
+
+;(function()
+local engine = emunah.curing.engine
+local detect = emunah.curing.detect
+local afflist = emunah.curing.afflist
+
+local function reset()
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+end
+-- The end of a block of output: Achaea sends Char.Vitals with every prompt.
+local function prompt() mock.feed("Char.Vitals", { bal = "1", eq = "1" }) end
+
+-- LAYER 1: NOTHING COUNTS UNTIL THE PROMPT.
+reset()
+detect.textGain("paralysis")
+ok(not engine.has("paralysis"), "a text report waits for the prompt")
+prompt()
+ok(engine.has("paralysis"), "...and is applied on it")
+
+-- LAYER 2: ONE ILLUSION SPOILS THE BLOCK -- everything reported with it is discarded.
+reset()
+detect.textGain("paralysis")
+detect.textState("stunned", true)
+detect.textIllusion("test pair")
+prompt()
+ok(not engine.has("paralysis"), "an illusion in the block discards its afflictions")
+eq(emunah.act.blocked(), nil, "...and its states")
+detect.textGain("paralysis")
+prompt()
+ok(engine.has("paralysis"), "...but only that block: the next one counts again")
+
+-- LAYER 3: A CURE LINE NEEDS A CURE IN PROGRESS.
+reset()
+engine.add("paranoia", "gmcp")
+detect.textCure("paranoia", "herb")
+prompt()
+ok(engine.has("paranoia"), "a herb cure line with no herb being eaten is an illusion")
+emunah.queue.push("herb", "eat ash", { tag = "paranoia", confirm = 5 })
+emunah.have.recover("herb")
+emunah.queue.flush()
+mock.latency = 0.4
+detect.textCure("paranoia", "herb")
+prompt()
+ok(engine.has("paranoia"), "...so is one faster than half the ping after the eat")
+mock.advance(0.3)
+detect.textCure("paranoia", "herb")
+prompt()
+ok(not engine.has("paranoia"), "...and one that fits is believed")
+mock.latency = 0
+reset()
+engine.add("stupidity", "gmcp")
+emunah.queue.push("herb", "eat goldenseal", { tag = "stupidity", confirm = 5 })
+emunah.have.recover("herb")
+emunah.queue.flush()
+detect.textCure("dizziness", "herb")
+prompt()
+ok(not engine.has("dizziness"), "a cure for something we do not have is ignored, not applied")
+detect.textCure("paranoia")
+prompt()   -- a wear-off / general cure needs no action in flight; must not error
+
+-- THE PROMPT TRIGGER: closes the block, and stands in for a missing Char.Vitals.
+reset()
+detect.textGain("paralysis")
+detect.textLine(); detect.textLine()
+eq(detect.paragraphLength, 2, "every non-prompt line is counted, as svof's paragraph_length")
+local ticks = emunah.gmcp.vitals.ticks
+detect.textPrompt()   -- reset() sent a Char.Vitals, so this prompt already had one
+ok(engine.has("paralysis"), "the prompt applies the block")
+eq(detect.paragraphLength, 0, "...and resets the count")
+eq(emunah.gmcp.vitals.ticks, ticks, "a prompt that came with Char.Vitals does not tick again")
+detect.textPrompt()
+eq(emunah.gmcp.vitals.ticks, ticks + 1, "no Char.Vitals since the last prompt: the prompt runs the heartbeat")
+prompt()
+ticks = emunah.gmcp.vitals.ticks
+detect.textPrompt()
+eq(emunah.gmcp.vitals.ticks, ticks, "...but not when Char.Vitals already did")
+
+-- LAYER 4 (PROBATION). A text report the server never confirms is dropped: that is an illusion, and
+-- before this a trigger-asserted affliction survived every reconcile.
+reset()
+engine.enabled = true
+detect.textGain("paralysis")
+prompt()
+ok(engine.has("paralysis"), "a text report is tracked once its block ends")
+mock.advance(engine.TEXT_CONFIRM + 0.1)
+engine.tick()
+ok(not engine.has("paralysis"), "...and dropped when the server never confirms it")
+
+reset()
+detect.textGain("paralysis")
+mock.feed("Char.Afflictions.Add", { name = "paralysis", cure = "EAT BLOODROOT" })
+mock.advance(engine.TEXT_CONFIRM + 0.1)
+engine.tick()
+ok(engine.has("paralysis"), "a confirmed report stays")
+
+reset()
+engine.add("blackout", "gmcp")
+detect.textGain("stupidity")
+prompt()
+mock.advance(engine.TEXT_CONFIRM + 5)
+engine.tick()
+ok(engine.has("stupidity"), "while blacked out the text is all there is, so it is kept")
+engine.enabled = false
+
+-- STATES go straight in, like the native patterns.
+reset()
+detect.textState("stunned", true)
+prompt()
+eq(emunah.act.blocked(), "stunned", "textState stunned holds everything")
+detect.textState("stunned", false)
+prompt()
+eq(emunah.act.blocked(), nil, "...and clears")
+detect.textCure("nothingtracked")   -- must not error on something we are not tracking
+
+-- THE PACKAGE ITSELF. Every script must compile, run against the real modules, and name
+-- only afflictions and states Emunah acts on -- a name it does not know could never be
+-- cured and would only be dropped again.
+local handle = io.open("EmunahTriggers.xml", "r")
+ok(handle ~= nil, "EmunahTriggers.xml exists at the repository root")
+if handle then
+   local xml = handle:read("*a"); handle:close()
+   local function unescape(text)
+      return (text:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&quot;", '"')
+                  :gsub("&apos;", "'"):gsub("&amp;", "&"))
+   end
+   local scripts, bad, unknownNames = 0, {}, {}
+   local states = { stunned = true, prone = true, sleeping = true, unconscious = true }
+   for script in xml:gmatch("<Trigger [^>]*>%s*<name>[^<]*</name>%s*<script>(.-)</script>") do
+      scripts = scripts + 1
+      local code = unescape(script)
+      local fn, err = loadstring(code)
+      if not fn then
+         bad[#bad + 1] = err
+      else
+         reset()
+         local okRun, runErr = pcall(fn)
+         if not okRun then bad[#bad + 1] = runErr end
+      end
+      for kind, name in code:gmatch('text(%a+)%("([%w]+)"') do
+         if kind == "Illusion" then
+            -- a reason, not a name
+         elseif kind == "State" then
+            if not states[name] then unknownNames[#unknownNames + 1] = name end
+         elseif not (afflist.known(name) or afflist.isWrithe(name)
+                     or #afflist.blockedVectors(name) > 0 or afflist.wearsOff[name]) then
+            unknownNames[#unknownNames + 1] = name
+         end
+      end
+   end
+   ok(scripts > 500, "the package carries svof's lines (" .. scripts .. " triggers)")
+   eq(#bad, 0, "every trigger script compiles and runs", table.concat(bad, " | "))
+   eq(#unknownNames, 0, "every name it reports is one Emunah acts on",
+      table.concat(unknownNames, ", "))
+   ok(not xml:find("svo%."), "no svof code survives into the package")
+   ok(xml:find("<name>Emunah prompt</name>", 1, true)
+      and xml:find("isPrompt()", 1, true), "the package carries svof's prompt trigger")
+   ok(xml:find("textIllusion", 1, true), "...and svof's illusion catchers")
+end
+reset()
+end)()
+
 suite("docs stay in sync with the code, and with each other")
 
 -- Duplicated figures across README/website/docs/performance.md have drifted before: three

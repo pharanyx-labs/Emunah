@@ -214,8 +214,9 @@ function M.balance(vector)
       return vitals.eq and emunah.timers.ready("cure.equilibrium")
    end
 
-   -- Writhing needs no resource; it is gated by the affliction itself.
-   if vector == "writhe" then return true end
+   -- Writhing needs no resource, but it must not be repeated while one is under way --
+   -- a second WRITHE prolongs the first (HELP ENTANGLEMENT). See engine.onWritheStart.
+   if vector == "writhe" then return emunah.timers.ready("writhe.busy") end
 
    return emunah.timers.ready("cure." .. tostring(vector))
 end
@@ -289,6 +290,42 @@ function M.blockedBy(vector)
    return nil
 end
 
+--- FOCUS is refused below this much willpower. svof's check_focus holds focus at
+--- `stats.currentwillpower <= 75`; willpower is the resource mental abilities draw on
+--- (HELP WILLPOWER), so a focus sent without it is a refusal, not a cure.
+M.FOCUS_MIN_WILLPOWER = 75
+
+--- Percent of maximum mana at or below which FOCUS is held. svof's default `manause`.
+M.FOCUS_MIN_MANA = 35
+
+--- Why a vector cannot be used right now, beyond its own balance -- or nil.
+---
+--- The queue asks this AT SEND TIME, not only when a cure is chosen. A cure queued while
+--- the vector was open waits there for its balance, and anorexia (or slickness, asthma...)
+--- can land in that gap. Checking only at resolve time put the queued `eat` on the wire
+--- into "You are afflicted with anorexia and cannot eat anything." -- an action sent
+--- without the state to perform it, which is the one thing this layer exists to prevent.
+function M.vectorBlocked(vector)
+   local blocker = M.blockedBy(vector)
+   if blocker then return blocker end
+   if vector == "tree" and M.bothArmsBroken() then return "both arms disabled" end
+   if vector == "focus" then
+      local vitals = emunah.gmcp.vitals
+      if vitals and vitals.maxwp > 0 and vitals.wp <= M.FOCUS_MIN_WILLPOWER then
+         return "low willpower"
+      end
+      -- svof check_focus also needs can_usemana(): mana above `conf.manause`, the share of
+      -- maximum mana below which it stops spending mana on skills (default 35%). Mana is
+      -- what an enemy Priest's kill route drains (docs/game/priest-abilities.md).
+      local floor = tonumber(emunah.config.get("curing.focusMinMana", M.FOCUS_MIN_MANA))
+         or M.FOCUS_MIN_MANA
+      if vitals and vitals.maxmp > 0 and (vitals.percent.mp or 100) <= floor then
+         return "mana below " .. floor .. "%"
+      end
+   end
+   return nil
+end
+
 --- Is this whole arm disabled, at any severity tier?
 local function armDisabled(side)
    local afflist = emunah.curing.afflist
@@ -326,6 +363,24 @@ function M.cure(option)
    local blocker = M.blockedBy(vector)
    if blocker then
       return false, ("%s is blocked by %s"):format(vector, blocker)
+   end
+
+   -- Blockers of ONE cure rather than a whole vector: confusion stops CONCENTRATE (HELP
+   -- COMPOSE) without stopping COMPOSE or CLOT on the same slot.
+   -- And svof's per-cure conditions (afflist.CONDITIONS).
+   if option.unless then
+      for _, name in ipairs(option.unless) do
+         if emunah.act.afflicted(name) then
+            return false, ("%s is prevented by %s"):format(option.command or vector, name)
+         end
+      end
+   end
+   if option.unlessInFlight then
+      for _, other in ipairs(option.unlessInFlight) do
+         if emunah.queue.awaiting(other) then
+            return false, ("%s waits for the %s in flight"):format(option.command or vector, other)
+         end
+      end
    end
 
    local definition = curelist.vectors[vector]

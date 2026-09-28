@@ -241,6 +241,59 @@ function M.snapshot()
 end
 
 -- ---------------------------------------------------------------------------
+-- gagging our own housekeeping
+--
+-- PIPELIST, LIGHT and PUT that Emunah sends for itself are noise: a poll prints six lines,
+-- every relight two more (the tinderbox, then "You carefully light your treasured pipe until
+-- it is smoking nicely."). So those commands go out unechoed and their replies are hidden.
+-- A command you typed yourself, or `emunah pipes now`, is never gagged.
+--
+-- NEVER deleteLine() INSIDE A TRIGGER HERE. That is what broke this module once (see the
+-- note above the triggers): deleting while Mudlet was still working through the lines of
+-- the same packet shifted the buffer, and every PIPELIST row after the first was never
+-- parsed. So a trigger only RECORDS the line number, and the lines are removed afterwards by
+-- a zero-delay timer -- which Mudlet runs once the packet has been processed -- from the
+-- bottom up, so removing one never moves another.
+-- ---------------------------------------------------------------------------
+
+--- How long after sending a quiet command its reply is still treated as ours.
+M.QUIET_WINDOW = 3.0
+
+local quiet = nil        -- { kind = "list"|"light"|"fill", untilAt = <time>, rules = n }
+local gagged = {}
+
+function M.quietly(kind)
+   quiet = { kind = kind, untilAt = emunah.util.now() + M.QUIET_WINDOW, rules = 0 }
+end
+
+local function ours(kind)
+   return quiet ~= nil and quiet.kind == kind and emunah.util.now() <= quiet.untilAt
+end
+
+local function flushGags()
+   table.sort(gagged, function(a, b) return a > b end)
+   local last = nil
+   for _, line in ipairs(gagged) do
+      if line ~= last then
+         moveCursor("main", 0, line)
+         deleteLine("main")
+         last = line
+      end
+   end
+   gagged = {}
+   moveCursorEnd("main")
+end
+
+--- Hide the line being processed, once the packet it arrived in has been dealt with.
+function M.gag()
+   if type(getLineNumber) ~= "function" then return end
+   local line = getLineNumber("main")
+   if not line then return end
+   if #gagged == 0 then tempTimer(0, flushGags) end
+   gagged[#gagged + 1] = line
+end
+
+-- ---------------------------------------------------------------------------
 -- acting
 -- ---------------------------------------------------------------------------
 
@@ -249,10 +302,17 @@ end
 --- The fallback, not the mechanism -- see M.POLL. Reactive callers leave `force` unset so
 --- they cannot ask more than once per M.POLL_GUARD however often they fire; `emunah pipes now`
 --- passes true, because a person asking has a reason.
-function M.poll(force)
+function M.poll(force, shown)
    if not force and not emunah.timers.ready("pipes.poll") then return false end
    emunah.timers.start("pipes.poll", M.POLL_GUARD)
-   return emunah.act.send("pipelist", {})
+   -- Our own housekeeping is sent quietly and its output gagged (see M.gag). A poll someone
+   -- asked for -- `emunah pipes now` -- is shown, because they asked to see it.
+   if shown then return emunah.act.send("pipelist", {}) end
+   if emunah.act.send("pipelist", { quiet = true }) then
+      M.quietly("list")
+      return true
+   end
+   return false
 end
 
 --- How soon to look again while there is still something to do.
@@ -373,15 +433,17 @@ function M.keep()
             warnedStock[pipe.id] = nil
             -- The BARE id here, and the token for LIGHT below. Both forms are verified, each
             -- in its own command, and neither is assumed to work in the other's.
-            if emunah.act.send(("put %s in %s"):format(herb, pipe.id), {}) then
+            if emunah.act.send(("put %s in %s"):format(herb, pipe.id), { quiet = true }) then
                M.acted(pipe, "fill")
+               M.quietly("fill")
                return true
             end
          end
 
       elseif pipe.status ~= "lit" then
-         if emunah.act.send("light " .. pipe.token, {}) then
+         if emunah.act.send("light " .. pipe.token, { quiet = true }) then
             M.acted(pipe, "light")
+            M.quietly("light")
             return true
          end
       end
@@ -424,7 +486,7 @@ do
       if id then table.insert(emunah._persist.pipeTriggers, id) end
    end
 
-   -- NOTHING HERE CALLS deleteLine(), AND THAT IS DELIBERATE.
+   -- NOTHING HERE CALLS deleteLine() DIRECTLY, AND THAT IS DELIBERATE.
    --
    -- An earlier version hid the output of its own polls: the header, the rules and each row
    -- were deleted when the poll was ours. Reported in play as "it's also only lighting the
@@ -433,9 +495,9 @@ do
    -- it, and the rows after the deleted one never reached this trigger at all. Only pipe one
    -- was ever recorded, so only pipe one was ever lit.
    --
-   -- The state machine was never at fault and a test drives it end to end. The gag was
-   -- cosmetic; parsing every row is the entire feature. Do not reintroduce it -- if the
-   -- polling output is too noisy, poll less often (M.POLL) rather than hiding it.
+   -- The state machine was never at fault and a test drives it end to end. Parsing every
+   -- row is the entire feature, so the gag that replaced it (M.gag, above) never deletes
+   -- from inside a trigger: it records the line and deletes after the packet is done.
 
    -- A PIPELIST row.
    --
@@ -450,7 +512,34 @@ do
          matches[2], matches[3], matches[4], matches[5], matches[6]
       if status ~= "lit" and status ~= "out" then return end
       M.record(status, token, contents, puffs, months)
+      if ours("list") then M.gag() end
       M.chain()
+   end))
+
+   -- The rest of OUR PIPELIST: its header and the two rules around the rows. Seen at
+   -- 13:05:24.87:
+   --
+   --     Status  Pipe         Contents                       Puffs Months
+   --     -------------------------------------------------------------------------------
+   --     out     pipe367581   a skullcap flower              8     195
+   --     ...
+   --     -------------------------------------------------------------------------------
+   --
+   -- The second rule ends the listing, and with it the gag.
+   keep(tempRegexTrigger([[^Status\s+Pipe\s+Contents\s+Puffs\s+Months\s*$]], function()
+      if ours("list") then M.gag() end
+   end))
+   keep(tempRegexTrigger([[^[-][-][-][-][-][-][-][-][-][-]+\s*$]], function()
+      if not ours("list") then return end
+      M.gag()
+      quiet.rules = quiet.rules + 1
+      if quiet.rules >= 2 then quiet = nil end
+   end))
+
+   -- The tinderbox, ahead of every LIGHT: "You use a soot-blackened tinderbox to make fire."
+   -- (13:05:25.08). The tinderbox's description is left open.
+   keep(tempRegexTrigger([[^You use .+ to make fire\.$]], function()
+      if ours("light") then M.gag() end
    end))
 
    -- A pipe going out. The fast path: this arrives the moment it happens, where the poll
@@ -496,6 +585,7 @@ do
             attempts[pipe.id] = 0
             emunah.timers.stop("pipes.pipe." .. pipe.id)
          end
+         if ours("light") then M.gag() quiet = nil end
          M.chain()
       end))
    end
@@ -509,6 +599,7 @@ do
          attempts[pipe.id] = 0
          emunah.timers.stop("pipes.pipe." .. pipe.id)
       end
+      if ours("light") then M.gag() quiet = nil end
       M.chain()
    end))
 
@@ -527,6 +618,7 @@ do
          attempts[pipe.id] = 0
          emunah.timers.stop("pipes.pipe." .. pipe.id)
       end
+      if ours("fill") then M.gag() quiet = nil end
       M.chain()
    end))
 

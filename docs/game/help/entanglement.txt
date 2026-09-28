@@ -1,0 +1,19 @@
+Source: https://www.achaea.com/game-help/?what=entanglement
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+13.7.7 Entanglement
+While fighting another adventurer or denizen, you may find yourself unable
+to move due to being entangled in some way or another. There are numerous
+types of entanglement -- you could become "webbed" by a web tattoo, or
+entangled in ropes, or impaled by a weapon, or transfixed by elemental fire,
+and more.
+
+When you are in such a predicament, you must WRITHE to free yourself. It
+takes time to writhe out from entanglement, and if you WRITHE again while
+you are already writhing, it will take even longer! Just WRITHE once, then
+wait until you are free of that entanglement.
+
+It is possible for you to be entangled in more than one way at the same
+time. For example, you could be both entangled in a web tattoo, AND impaled
+by a weapon. In such cases, you will need to WRITHE once, then wait until
+you are free from the first entanglement, then WRITHE again.

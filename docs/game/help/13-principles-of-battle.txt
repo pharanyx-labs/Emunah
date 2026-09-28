@@ -1,0 +1,47 @@
+Source: https://www.achaea.com/game-help/?what=the-principles-of-battle
+Fetched: 2026-09-28 from the website copy of the in-game help. Body below is verbatim.
+
+13 THE PRINCIPLES OF BATTLE
+The Principles of Battle
+
+   13.1    Combatprinciples Some basic information about combat.
+   13.2    Preparation      Preparing for combat.
+   13.2.1  Defence          Beneficial effects of plants and minerals.
+   13.3    Defending        Defending yourself successfully.
+
+   13.4    Weapons          Learn about the weapons in Achaea.
+   13.4.1  Wielding         Wielding and wearing armour, clothing, and weapons.
+
+   13.4.2  Proficiencies    Becoming adept at use of classes of weapons.
+   13.4.3  Proficiency Teachers
+   13.4.4  Scabbards        Sheathing, Drawing, and Scabbards.
+   13.4.5  Buying Weapons   Where, how, what, in weapons and armour, to buy.
+
+   13.5    Armour           Learn about armour in Achaea.
+   13.6    Saferooms        Read about rooms which are safe, by Divine order.
+
+   13.7    Heal             About healing, curing, afflictions, etc.
+   13.7.1  Healinglist      A list of common natural and alchemical curatives.
+   13.7.2  Afflictions      List of afflictions, and what cures them.
+   13.7.3  Curing Balances  Waiting to cure again.
+   13.7.4  Compose          About composing and concentrating.
+   13.7.5  Smoking          Put this in your pipe and smoke it.
+   13.7.6  Tinderboxes      Light my fire!
+   13.7.7  Entanglement     How to WRITHE out of entanglement.
+   13.7.8  Curingsystem     Set up a server-side curing system. Important!
+
+   13.8    Denizencombat    Adventurer vs. denizen combat.
+
+   13.9    Bodypartdamage   The system of body parts and damaging them.
+   13.9.1  Target           The target command.
+
+   13.10   Combattips       Some tips for success in combat.
+   13.10.1 Fleeing          Fleeing combat.
+
+   13.11   Combat_rankings  Are you good enough to be #1?
+   13.12   Assassins        The ways and means of the Quisalis Mark.
+   13.13   Champions        Avenge the weak.
+   13.14   Contracts        And HIRING!
+   13.15   Dauntless        The Dauntless!
+
+Last updated: 3/11/2026

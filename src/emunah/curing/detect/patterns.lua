@@ -407,23 +407,7 @@ end
 -- ---------------------------------------------------------------------------
 
 do
-   local function onProne()
-      if not detect.prone then
-         emunah.log.debug("Knocked down -- standing up.")
-         detect.standUp()
-      end
-      detect.prone = true
-      -- Backstop, for the same reason the stun guard exists: this flag gates sending, so a
-      -- missed "You stand up." would leave the bot refusing to act indefinitely.
-      emunah.timers.start("prone.guard", detect.PRONE_GUARD, function()
-         if detect.prone then
-            emunah.log.debug("No stand confirmation after %.1fs -- assuming upright.",
-               detect.PRONE_GUARD)
-            detect.prone = false
-            emunah.event.raise("recovered")
-         end
-      end)
-   end
+   local function onProne() detect.onProne() end
 
    for _, pattern in ipairs({
       [[^You must be standing first\.$]],           -- the rejection: backstop
@@ -446,11 +430,7 @@ do
       [[^You are not fallen or kneeling\.$]],
       [[^You are already standing\.$]],
    }) do
-      local upId = tempRegexTrigger(pattern, function()
-         emunah.timers.stop("prone.guard")
-         detect.prone = false
-         emunah.event.raise("recovered")
-      end)
+      local upId = tempRegexTrigger(pattern, function() detect.onStood() end)
       if upId then
          emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
          table.insert(emunah._persist.detectTriggers, upId)
@@ -777,24 +757,7 @@ end
 -- ---------------------------------------------------------------------------
 
 do
-   local function onStunned()
-      if not detect.stunned then
-         emunah.log.debug("Stunned -- holding every command until it passes.")
-      end
-      detect.stunned = true
-      -- Backstop. detect.stunned blocks EVERYTHING, so a missed "You are no longer
-      -- stunned." would not degrade the bot, it would freeze it outright. A stun is
-      -- momentary by definition, so an upper bound costs nothing when the clear arrives
-      -- normally (it just cancels this) and rescues the session when it does not.
-      emunah.timers.start("stun.guard", detect.STUN_GUARD, function()
-         if detect.stunned then
-            emunah.log.debug("No stun-clear message after %.1fs -- assuming it passed.",
-               detect.STUN_GUARD)
-            detect.stunned = false
-            emunah.event.raise("recovered")
-         end
-      end)
-   end
+   local function onStunned() detect.onStunned() end
 
    for _, pattern in ipairs({
       [[^You are momentarily stunned]],
@@ -808,14 +771,7 @@ do
    end
 
    local clearId = tempRegexTrigger([[^You are no longer stunned\.$]], function()
-      emunah.timers.stop("stun.guard")
-      detect.stunned = false
-      -- A knockdown and a stun routinely arrive on the same hit, and while stunned the
-      -- STAND above is refused like everything else. Stun lifting is therefore the moment
-      -- to actually get up -- otherwise nothing retries it and we sit prone until the
-      -- prone guard lapses.
-      if detect.prone then detect.standUp() end
-      emunah.event.raise("recovered")
+      detect.onUnstunned()
    end)
    if clearId then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
@@ -835,14 +791,14 @@ end
 -- WHAT IS DELIBERATELY MISSING
 -- ---------------------------
 -- The onset below is the one for a SLEEP you typed yourself. What an opponent's sleep
--- prints, and what a successful WAKE prints, have never been observed -- and the wake
--- message that HAS been seen is specifically the rested one at the end of a full night:
+-- prints has never been observed, and is not guessed. The wake lines are: one observed
 --
 --     06:03:15.10  You open your eyes and stretch languidly, feeling deliciously well-rested.
 --
--- Guessing the other two would be the failure this file's header warns about, and there is
--- no cost to leaving them out: Char.Afflictions.Remove carried the wake in the same capture,
--- and detect.SLEEP_GUARD bounds an involuntary sleep even if both were lost.
+-- and the rest taken verbatim from svof's trigger set (github.com/svof/svof), along with
+-- the line that says a WAKE has been accepted and must not be repeated. Char.Afflictions
+-- .Remove carries the wake as well, and detect.SLEEP_GUARD bounds an involuntary sleep
+-- even if every line were lost.
 -- ---------------------------------------------------------------------------
 
 do
@@ -862,13 +818,139 @@ do
       end
    end
 
-   local wokeId = tempRegexTrigger(
+   -- The wake lines. The first was observed at 06:03:15.10; the rest are svof's
+   -- `svo done waking` trigger, verbatim. "You already are awake." is the reply to a WAKE
+   -- that arrived after the sleep had ended, and is just as conclusive.
+   for _, pattern in ipairs({
       [[^You open your eyes and stretch languidly, feeling deliciously well-rested\.$]],
-      function() detect.onWake() end)
-   if wokeId then
+      [[^You open your eyes and yawn mightily\.$]],
+      [[^You already are awake\.$]],
+      [[^You are jerked awake by the pain\.$]],
+   }) do
+      local id = tempRegexTrigger(pattern, function() detect.onWake() end)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+
+   -- WAKE accepted: the struggle has begun, and another WAKE would only prolong it (HELP
+   -- SLEEPING). svof's `svo start waking` trigger, verbatim.
+   local startId = tempRegexTrigger(
+      [[^You begin your struggle to escape from the dreamworld\.$]],
+      function() detect.onWakeStart() end)
+   if startId then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
-      table.insert(emunah._persist.detectTriggers, wokeId)
+      table.insert(emunah._persist.detectTriggers, startId)
    end
 end
+
+-- ---------------------------------------------------------------------------
+-- Writhing. Send once, then wait -- see engine.onWritheStart for why. All verbatim from
+-- svof's trigger set.
+-- ---------------------------------------------------------------------------
+
+do
+   local function persist(id)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+   local function engine() return emunah.curing.engine end
+
+   for _, pattern in ipairs({
+      [[^You begin to struggle free of your entanglement\.$]],
+      [[^You begin trying to wrest your mind free of that which has transfixed it\.$]],
+      [[^You begin to writhe furiously to escape the \w+ that has impaled you\.$]],
+   }) do
+      persist(tempRegexTrigger(pattern, function() engine().onWritheStart() end))
+   end
+
+   for _, pattern in ipairs({
+      [[^You have writhed free of your entanglement by (?:ropes|tied ropes|webs)\.$]],
+      [[^You have writhed free of your state of transfixation\.$]],
+      [[^With an heroic effort you manage to writhe yourself free from the weapon that impaled you\.$]],
+   }) do
+      persist(tempRegexTrigger(pattern, function() engine().onWritheFree() end))
+   end
+
+   persist(tempRegexTrigger(
+      [[^You begin to writhe helplessly, throwing your body off balance\.$]],
+      function() engine().onWritheHelpless() end))
+end
+
+-- ---------------------------------------------------------------------------
+-- Unconsciousness. Held like stun (core/act.lua). Both lines are verbatim from svof's
+-- trigger set: the onset it knows for passing out from hunger (which also knocks you
+-- down, so prone is asserted alongside, as svof does), and the wear-off. Other onsets
+-- are per attacker and are not guessed -- detect.UNCONSCIOUS_GUARD bounds a missed clear.
+-- ---------------------------------------------------------------------------
+
+do
+   local function persist(id)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+
+   persist(tempRegexTrigger(
+      [[^Your legs collapse from under you and consciousness leaves you as you pass out from extreme hunger\.$]],
+      function()
+         detect.onUnconscious()
+         detect.onProne()
+      end))
+
+   persist(tempRegexTrigger([[^You regain consciousness with a start\.$]], function()
+      detect.onConscious()
+   end))
+
+   -- ARM BALANCE. Recovery per arm is svof's `Got left arm` / `Got right arm`; the
+   -- all-limbs line is the one Achaea prints when balance returns (observed 06:50:16.49,
+   -- docs/game/balance.md). Loss is svof's `Lost arm balance`: arm-strike attacks, one
+   -- arm at a time -- the right if the left is damaged, else the left if it still has
+   -- balance, else the right.
+   persist(tempRegexTrigger([[^You have recovered balance on your left arm\.$]],
+      function() detect.gainArmBalance("left") end))
+   persist(tempRegexTrigger([[^You have recovered balance on your right arm\.$]],
+      function() detect.gainArmBalance("right") end))
+   persist(tempRegexTrigger([[^You have recovered balance on all limbs\.$]], function()
+      detect.gainArmBalance("left")
+      detect.gainArmBalance("right")
+   end))
+
+   local function leftArmDamaged()
+      for _, name in ipairs({ "crippledleftarm", "mangledleftarm", "mutilatedleftarm" }) do
+         if emunah.act.afflicted(name) then return true end
+      end
+      return false
+   end
+   for _, pattern in ipairs({
+      [[^You ball up one fist and hammerfist]],
+      [[^You launch a powerful uppercut at ]],
+      [[^You form a spear hand and stab out towards ]],
+      [[^You unleash a powerful hook towards ]],
+   }) do
+      persist(tempRegexTrigger(pattern, function()
+         if leftArmDamaged() then
+            detect.loseArmBalance("right")
+         elseif detect.armBalance.left then
+            detect.loseArmBalance("left")
+         else
+            detect.loseArmBalance("right")
+         end
+      end))
+   end
+end
+
+-- Mucous shuts smoking the way asthma does (afflist.blocks). The refusal, verbatim from
+-- svof's `Mucous` trigger.
+detect.define("mucous", {
+   gain = { [[^Your lungs are too clogged with mucous for you to attempt smoking\.$]] },
+   -- svof's `svo mucous woreoff`. Without it a text-detected mucous would hold the smoke
+   -- vector until a GMCP removal that may never come for an affliction GMCP never added.
+   cure = { [[^You manage to cough away the mucous filling your lungs\.$]] },
+})
 
 return true
