@@ -313,20 +313,44 @@ local function ours(kind)
    return entry ~= nil and entry.n > 0 and emunah.util.now() <= entry.untilAt
 end
 
+--- How far from its recorded number a gagged line is looked for before giving up on it.
+M.GAG_SEARCH = 200
+
+--- Where the line reading `text` is now, looking outward from where it was recorded.
+---
+--- DELETE BY TEXT, NOT BY NUMBER. A line's number is recorded when its trigger fires and
+--- used a moment later, and anything that moves the buffer in between -- Mudlet trimming
+--- the scrollback once it is full, another script deleting a line -- makes that number
+--- point somewhere else. Deleting by number then removes the wrong line AND leaves the
+--- right one: "overgagging on some lines and not gagging others" (2026-09-28), both at
+--- once. So the recorded number is only where the search starts, and a line whose text is
+--- not found is left alone rather than something else being deleted in its place.
+local function locate(line, text)
+   local count = type(getLineCount) == "function" and getLineCount("main") or line
+   for offset = 0, M.GAG_SEARCH do
+      for _, at in ipairs(offset == 0 and { line } or { line - offset, line + offset }) do
+         if at >= 1 and at <= count then
+            moveCursor("main", 0, at)
+            if getCurrentLine() == text then return at end
+         end
+      end
+   end
+   return nil
+end
+
 local function flushGags()
    table.sort(gagged, function(a, b) return a.line > b.line end)
-   local last, removedAbove = nil, 0
+   local removedAbove, removed = 0, {}
    for _, entry in ipairs(gagged) do
-      local line, expect = entry.line, entry.text
-      if line ~= last then
-         moveCursor("main", 0, line)
-         -- An old prompt is only removed while it still reads as it did: if you have typed a
-         -- command since, Mudlet echoed it onto that prompt, and the line is yours.
-         if expect == nil or getCurrentLine() == expect then
-            deleteLine("main")
-            if lastPrompt and line < lastPrompt.line then removedAbove = removedAbove + 1 end
-         end
-         last = line
+      -- An old prompt is only removed while it still reads as it did: if you have typed a
+      -- command since, Mudlet echoed it onto that prompt, and the line is yours -- the text
+      -- no longer matches, so locate() does not find it.
+      local at = entry.text and locate(entry.line, entry.text)
+      if at and not removed[at] then
+         moveCursor("main", 0, at)
+         deleteLine("main")
+         removed[at] = true
+         if lastPrompt and at < lastPrompt.line then removedAbove = removedAbove + 1 end
       end
    end
    if lastPrompt then lastPrompt.line = lastPrompt.line - removedAbove end
@@ -334,18 +358,24 @@ local function flushGags()
    moveCursorEnd("main")
 end
 
+--- Record the line being processed for deletion. Returns false if it was already recorded:
+--- two triggers gagging one line must count it once, or the block's gag count outruns its
+--- lines and M.onLine collapses a prompt that still has a visible line above it.
 local function gagCurrent()
-   if type(getLineNumber) ~= "function" then return end
+   if type(getLineNumber) ~= "function" then return false end
    local line = getLineNumber("main")
-   if not line then return end
+   if not line then return false end
+   for _, entry in ipairs(gagged) do
+      if entry.line == line then return false end
+   end
    if #gagged == 0 then tempTimer(0, flushGags) end
-   gagged[#gagged + 1] = { line = line }
+   gagged[#gagged + 1] = { line = line, text = getCurrentLine() }
+   return true
 end
 
 --- Hide the line being processed, once the packet it arrived in has been dealt with.
 function M.gag()
-   block.gagged = block.gagged + 1
-   gagCurrent()
+   if gagCurrent() then block.gagged = block.gagged + 1 end
 end
 
 --- Every line passes through here (see the `^` trigger below).
