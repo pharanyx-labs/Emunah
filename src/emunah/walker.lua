@@ -626,6 +626,39 @@ local function onFailedPath()
 end
 
 event.register("emunah.room", onRoom, "walker")
+
+-- ---------------------------------------------------------------------------
+-- retreat
+-- ---------------------------------------------------------------------------
+
+--- The rooms most recently stood in, oldest first, the current room last. Recorded whether
+--- or not a walk is running: a retreat is back along the way you actually came.
+M.TRAIL = 12
+M.trail = {}
+
+event.register("emunah.room", function(_, num)
+   if not num or M.trail[#M.trail] == num then return end
+   M.trail[#M.trail + 1] = num
+   if #M.trail > M.TRAIL then table.remove(M.trail, 1) end
+end, "walker")
+
+--- Go back to the room you were in `steps` rooms ago (F12, 2026-09-28: "turn it off, move
+--- three rooms away and then stop"). Back along the way you came, because those are rooms
+--- already walked -- and, when hunting, already cleared -- rather than a direction nobody
+--- has looked at. With a shorter trail it goes as far back as it knows.
+--- @return boolean whether a walk back was started
+function M.retreat(steps)
+   steps = steps or 3
+   local here = M.currentRoom() or M.trail[#M.trail]
+   local target = #M.trail > 1 and M.trail[math.max(1, #M.trail - steps)] or nil
+   if not target or target == here then
+      log.info("Nowhere behind you to retreat to.")
+      return false
+   end
+   log.info("Retreating to room %s, %d room(s) back the way you came.",
+      tostring(target), math.min(steps, #M.trail - 1))
+   return goTo(target)
+end
 event.register("emunah.walker.move", function() M.move() end, "walker")
 event.register("emunah.walker.stop", function() M.stop("requested") end, "walker")
 

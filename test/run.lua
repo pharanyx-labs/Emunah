@@ -9318,15 +9318,29 @@ ok(not emunah.walker.enabled and not emunah.bashing.enabled, "hunt is off to sta
 mock.press(mudlet.keymodifier.None, mudlet.key.F11)
 ok(emunah.walker.enabled and emunah.bashing.enabled, "F11 starts the hunt")
 
+-- F12 (2026-09-28): stop, go back three rooms the way you came, and stay there.
+mock.feed("Room.Info", { num = 2, name = "Room 2", area = "Test", exits = { w = 1, e = 3 } })
+mock.feed("Room.Info", { num = 3, name = "Room 3", area = "Test", exits = { w = 2, e = 4 } })
+mock.feed("Room.Info", { num = 4, name = "Room 4", area = "Test", exits = { w = 3, e = 5 } })
+mock.feed("Room.Info", { num = 5, name = "Room 5", area = "Test", exits = { w = 4 } })
+mock.map.walkedTo = {}
 mock.press(mudlet.keymodifier.None, mudlet.key.F12)
 ok(not emunah.walker.enabled and not emunah.bashing.enabled, "F12 stops the hunt")
+eq(mock.map.walkedTo[#mock.map.walkedTo], 2, "...and walks back to the room three rooms ago")
+eq(#mock.map.walkedTo, 1, "...and nowhere else: not back to where the walk started")
 
--- Nothing running: says so rather than doing nothing silently, same fix as plain
--- `emunah hunt off`.
+-- Standing where the trail began: nowhere to go, and it says so.
+emunah.walker.trail = { 7 }
 mock.echoed = {}
 mock.press(mudlet.keymodifier.None, mudlet.key.F12)
-ok(table.concat(mock.echoed, " "):find("not running"),
-   "F12 with nothing running says so", table.concat(mock.echoed, " "))
+ok(table.concat(mock.echoed, " "):find("Nowhere behind you", 1, true),
+   "F12 with no trail says so", table.concat(mock.echoed, " "))
+
+-- `emset bash on` walks the area too (2026-09-28), and `bash off` stops both.
+emunah.commands.dispatch("bash on")
+ok(emunah.walker.enabled and emunah.bashing.enabled, "'bash on' starts bashing AND the walk")
+emunah.commands.dispatch("bash off")
+ok(not emunah.walker.enabled and not emunah.bashing.enabled, "'bash off' stops both")
 
 -- ===========================================================================
 suite("commands")
