@@ -1345,6 +1345,39 @@ mock.line("You may eat another plant or mineral.")
 ok(emunah.have.balance("herb"), "...until the game says so")
 emunah.timers.stopAll()
 
+-- "THAT PIPE ISN'T LIT." (reconnect, 2026-09-28): `smoke elm` for earworm refused at
+-- 15:03:32.95, 39.12 and 55.49, landing only at 58.95. Now the refusal frees the slot and the
+-- balance (it costs nothing: no "lungs have recovered" followed any of the three), marks the
+-- elm pipe out so it is relit at once, and holds elm until it is.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+emunah.pipes.forget()
+emunah.pipes.record("lit", "pipe101", "slippery elm", 10, 1)
+mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("smoke elm", 1, true), "earworm: smoke elm",
+   table.concat(mock.sent, " | "))
+emunah.config.set("pipes.enabled", true)
+mock.sent = {}
+mock.line("That pipe isn't lit.")
+ok(emunah.have.balance("smoke"), "the refusal hands smoke balance back")
+eq(queue.awaiting("smoke"), nil, "...and frees the slot")
+ok(not emunah.have.pipe("elm"), "...and elm is not smoked until relit")
+ok(table.concat(mock.sent, " | "):find("light pipe101", 1, true),
+   "...while the elm pipe is relit straight away", table.concat(mock.sent, " | "))
+mock.line("You carefully light your treasured pipe until it is smoking nicely.")
+ok(emunah.have.pipe("elm"), "once lit, elm can be smoked again")
+emunah.pipes.forget()
+mock.feed("Char.Afflictions.List", {})
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+
+-- NOT LOGGED IN: nothing is sent at the login menu (2026-09-28: `perform bliss` went out at
+-- "Enter an option or enter your character's name.").
+raiseEvent("sysDisconnectionEvent")
+eq(emunah.act.blocked(), "not logged in", "after a disconnect, every command is held")
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+eq(emunah.act.blocked(), nil, "...until the first Char.Vitals of the new session")
+
 -- A BALANCE BACK ON ITS TIMER wakes the engine; it does not wait for the next prompt.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 emunah.have.spend("smoke")

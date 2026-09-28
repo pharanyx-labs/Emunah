@@ -432,6 +432,10 @@ end, "curing.defkeepup")
 --- One pass. Queues at most one defence per vector, at a priority no cure will lose to.
 function M.tick()
    if not M.enabled then return end
+   -- At the login menu there is no character to keep defences on: act.send would refuse,
+   -- but the hold messages below would still print there (2026-09-28, before login).
+   local vitals = emunah.gmcp.vitals
+   if vitals and vitals.live and not vitals.live() then return end
    if M.checking then return M.checkDefences() end
 
    -- Do not fight the curing engine for a balance while afflicted; cures come first, and

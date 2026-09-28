@@ -97,6 +97,11 @@ function M.blocked(needs)
    -- gmcp/, and this module is reachable from both.
    local detect = emunah.curing and emunah.curing.detect
 
+   -- NOT IN THE GAME: NOTHING. Before the first Char.Vitals of a connection, anything sent
+   -- lands on the login menu (gmcp/vitals.lua's M.live()).
+   local session = emunah.gmcp and emunah.gmcp.vitals
+   if session and session.live and not session.live() then return "not logged in" end
+
    -- DEAD: NOTHING. Every automated command is held while dead, at the user's direction --
    -- the system pauses completely and resumes on revival. (It used to be opt-in, verified
    -- only for OUTR and EAT; `alive` is still accepted and now redundant.)

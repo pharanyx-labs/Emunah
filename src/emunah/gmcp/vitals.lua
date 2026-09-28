@@ -98,10 +98,25 @@ local function parseCharstats(list)
    return stats, text
 end
 
+--- Is a character actually in the game?
+---
+--- From the first Char.Vitals of a connection until it drops. Before that, whatever is
+--- typed goes to the LOGIN MENU: on 2026-09-28 a reconnect left the last session's vitals
+--- in place, keep-up saw a live character, and `perform bliss` went out at "Enter an option
+--- or enter your character's name." -- which the game took as a name. Kept in _persist so
+--- an `emreload` mid-session does not look like a fresh connection.
+function M.live()
+   return emunah._persist ~= nil and emunah._persist.inSession == true
+end
+
 --- Handle an incoming Char.Vitals.
 local function onVitals()
    local v = gmcp.Char.Vitals
    if type(v) ~= "table" then return end
+
+   -- In a game session. Char.Vitals is only sent once a character is in; see M.live().
+   emunah._persist = emunah._persist or {}
+   emunah._persist.inSession = true
 
    -- Snapshot before mutating, so damage taken this tick is derivable. Written in place:
    -- the shape is fixed and this runs on every prompt, so a fresh six-key table here is a
@@ -292,5 +307,9 @@ event.gmcp("Char.Vitals", onVitals, "gmcp.vitals")
 if gmcp and gmcp.Char and gmcp.Char.Vitals then
    onVitals()
 end
+
+emunah.event.register("sysDisconnectionEvent", function()
+   if emunah._persist then emunah._persist.inSession = nil end
+end, "gmcp.vitals")
 
 return M
