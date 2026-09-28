@@ -290,12 +290,12 @@ function M.blockedBy(vector)
    return nil
 end
 
---- FOCUS is refused below this much willpower. svof's check_focus holds focus at
+--- FOCUS is refused below this much willpower. The reference system's check_focus holds focus at
 --- `stats.currentwillpower <= 75`; willpower is the resource mental abilities draw on
 --- (HELP WILLPOWER), so a focus sent without it is a refusal, not a cure.
 M.FOCUS_MIN_WILLPOWER = 75
 
---- Percent of maximum mana at or below which FOCUS is held. svof's default `manause`.
+--- Percent of maximum mana at or below which FOCUS is held. The reference system's default `manause`.
 M.FOCUS_MIN_MANA = 35
 
 --- Why a vector cannot be used right now, beyond its own balance -- or nil.
@@ -314,7 +314,7 @@ function M.vectorBlocked(vector)
       if vitals and vitals.maxwp > 0 and vitals.wp <= M.FOCUS_MIN_WILLPOWER then
          return "low willpower"
       end
-      -- svof check_focus also needs can_usemana(): mana above `conf.manause`, the share of
+      -- The reference system's check_focus also needs can_usemana(): mana above `conf.manause`, the share of
       -- maximum mana below which it stops spending mana on skills (default 35%). Mana is
       -- what an enemy Priest's kill route drains (docs/game/priest-abilities.md).
       local floor = tonumber(emunah.config.get("curing.focusMinMana", M.FOCUS_MIN_MANA))
@@ -367,7 +367,7 @@ function M.cure(option)
 
    -- Blockers of ONE cure rather than a whole vector: confusion stops CONCENTRATE (HELP
    -- COMPOSE) without stopping COMPOSE or CLOT on the same slot.
-   -- And svof's per-cure conditions (afflist.CONDITIONS).
+   -- And the reference system's per-cure conditions (afflist.CONDITIONS).
    if option.unless then
       for _, name in ipairs(option.unless) do
          if emunah.act.afflicted(name) then

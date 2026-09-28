@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Generate EmunahTriggers.xml -- svof's affliction and state triggers, wired to Emunah.
+"""Generate EmunahTriggers.xml -- the reference system's affliction and state triggers, wired to Emunah.
 
-svof (github.com/svof/svof) carries ~2250 Mudlet triggers: the onset, cure and wear-off
+The reference system carries ~2250 Mudlet triggers: the onset, cure and wear-off
 lines for most afflictions in the game, collected over years of play. Emunah's own
 patterns (curing/detect/patterns.lua) are deliberately few, because every line in them has
-to be sourced. The user has named svof as that source, and ruled it more credible than
+to be sourced. The user has named the reference system as that source, and ruled it more credible than
 Emunah on curing, so this turns its trigger set into an importable Mudlet package whose
 only code is a call into Emunah's detect module:
 
@@ -12,16 +12,16 @@ only code is a call into Emunah's detect module:
     emunah.curing.detect.textCure("<server name>"[, via])   -- cured / worn off
     emunah.curing.detect.textState("<state>", on)           -- stunned, prone, sleeping, unconscious
     emunah.curing.detect.textIllusion("<reason>")           -- this block is an illusion
-    emunah.curing.detect.textLine() / textPrompt()          -- svof's Prompt trigger
+    emunah.curing.detect.textLine() / textPrompt()          -- the reference system's Prompt trigger
 
-ANTI-ILLUSION is svof's, in the same layers (see curing/detect/init.lua): reports wait for
-the prompt and are discarded with the whole block if one of svof's "Generic illusions"
+ANTI-ILLUSION is the reference system's, in the same layers (see curing/detect/init.lua): reports wait for
+the prompt and are discarded with the whole block if one of the reference system's "Generic illusions"
 triggers fires in it; a cure line tied to a balance needs that cure in flight, not sooner
 than half the ping; and the server must confirm a gained affliction.
 
 WHAT IS TAKEN, AND WHAT IS NOT
 ------------------------------
-A trigger is converted only when its meaning is certain from svof's own script. Every
+A trigger is converted only when its meaning is certain from the reference system's own script. Every
 statement has to be a bare `svo.valid.<fn>()` call whose name says what happened:
 
     simple<aff>, proper_<aff>, venom_<aff>            -> gained
@@ -31,21 +31,21 @@ statement has to be a bare `svo.valid.<fn>()` call whose name says what happened
 Anything else -- a conditional, an illusion check, a DIAG line (diag.lua parses those in
 context), a class tracker, an argument -- is skipped rather than interpreted. So are
 multi-line, filter, colour and chained triggers, Lua-function and line-spacer patterns,
-and svof's inactive triggers.
+and the reference system's inactive triggers.
 
-Names are translated to the SERVER'S name through svof's own `gamename` table
+Names are translated to the SERVER'S name through the reference system's own `gamename` table
 (raw-svo.dict.lua), because Emunah confirms a text report against Char.Afflictions by name
 (engine.TEXT_CONFIRM). A name Emunah does not know is dropped: it could never be cured,
 and would only sit in the panel.
 
-A pattern that svof uses to cure two DIFFERENT afflictions is ambiguous without svof's
+A pattern that the reference system uses to cure two DIFFERENT afflictions is ambiguous without the reference system's
 action tracking, and its cure is dropped. Lines Emunah's own patterns.lua already handles
 are skipped, so nothing fires twice.
 
 Usage:
-    python3 tools/build-svof-triggers.py <svof-dir-or-xml> [--dict raw-svo.dict.lua] [output]
+    python3 tools/build-trigger-package.py <source-dir-or-xml> [--dict raw-svo.dict.lua] [output]
 
-<svof-dir-or-xml> is the svof checkout (the repo root, or its output/ folder after a build)
+<source-dir-or-xml> is the reference system's checkout (the repo root, or its output/ folder after a build)
 or the path to `svo (install the zip, not me).xml` itself. Output defaults to
 EmunahTriggers.xml at the repository root.
 """
@@ -61,7 +61,7 @@ AFFLIST = ROOT / "src" / "emunah" / "curing" / "afflist.lua"
 PATTERNS = ROOT / "src" / "emunah" / "curing" / "detect" / "patterns.lua"
 MAIN_XML = "svo (install the zip, not me).xml"
 
-# svof internal name -> Emunah state. These are states Emunah models directly
+# The reference system internal name -> Emunah state. These are states Emunah models directly
 # (curing/detect), not afflictions the engine cures.
 STATES = {
     "stun": "stunned",
@@ -77,11 +77,11 @@ PLAIN_TYPES = {"0", "1", "2", "3"}
 
 GAIN = [re.compile(r"^simple(\w+)$"), re.compile(r"^proper_(\w+)$"), re.compile(r"^venom_(\w+)$")]
 # A cure line tied to a curing balance: accepted only while that balance's cure is in
-# flight (detect.textCure's `via`, svof's checkany over the balance's actions).
+# flight (detect.textCure's `via`, the reference system's checkany over the balance's actions).
 VIA = re.compile(r"^(herb|salve|focus|smoke|tree)_cured_(\w+)$")
 CURE = [re.compile(r"^generic_(\w+)$"), re.compile(r"^cured_?(\w+)$"),
         re.compile(r"^(\w+)_woreoff$")]
-# svof's plain illusion flag, optionally behind its anti-illusion switch.
+# The reference system's plain illusion flag, optionally behind its anti-illusion switch.
 ILLUSION = re.compile(r"^(?:if svo\.conf\.aillusion then )?svo\.ignore_illusion\("
                       r"(?:\"[^\"]*\"|'[^']*')?\)(?: end)?$")
 CALL = re.compile(r"^svo\.valid\.(\w+)\(\)$")
@@ -104,7 +104,7 @@ def find_inputs(source, dict_arg):
                   base / "svo", base.parent / "svo"]
         dict_path = next((c for c in search if c.is_file()), None)
         if not dict_path:
-            sys.exit("cannot find raw-svo.dict.lua (or the compiled `svo` file) for svof's "
+            sys.exit("cannot find raw-svo.dict.lua (or the compiled `svo` file) for the reference system's "
                      "gamename table -- pass --dict")
     return xml_path, dict_path
 
@@ -179,7 +179,7 @@ def walk(element, inside_group, found):
 
 
 def convert_illusion(trigger):
-    """svof's plain illusion triggers -- a pair of lines that cannot really arrive together
+    """The reference system's plain illusion triggers -- a pair of lines that cannot really arrive together
     -- copied with their multi-line settings, the script swapped for detect.textIllusion."""
     script = re.sub(r"\s+", " ", (trigger.findtext("script") or "").strip())
     if not ILLUSION.match(script):
@@ -191,7 +191,7 @@ def convert_illusion(trigger):
     if not patterns or not set(types) <= PLAIN_TYPES | {"5"}:
         return "illusion pattern type needs context"
     name = trigger.findtext("name") or "illusion"
-    return ([("illusion", "svof: " + name)], list(zip(patterns, types)),
+    return ([("illusion", "the reference system: " + name)], list(zip(patterns, types)),
             trigger.get("isMultiline") == "yes", trigger.findtext("conditonLineDelta") or "0")
 
 
@@ -221,7 +221,7 @@ def convert(trigger, names, known, native):
             actions.append(("state_on" if kind == "gain" else "state_off", STATES[aff]))
             continue
         server = names.get(aff, aff)
-        # svof's unknown* placeholders track "something, not sure what" -- the server never
+        # The reference system's unknown* placeholders track "something, not sure what" -- the server never
         # sends those names, so they could never be confirmed.
         if server not in known or server.startswith("unknown"):
             continue                       # Emunah cannot act on it; drop this statement
@@ -293,13 +293,13 @@ GROUP_OPEN = """{indent}<TriggerGroup isActive="yes" isFolder="yes" isTempTrigge
 {indent}    <regexCodeList />
 {indent}    <regexCodePropertyList />"""
 
-HEADER_NOTE = """-- EmunahTriggers: svof's affliction, state and anti-illusion lines, feeding Emunah.
--- Generated by tools/build-svof-triggers.py -- regenerate rather than edit by hand.
+HEADER_NOTE = """-- EmunahTriggers: the reference system's affliction, state and anti-illusion lines, feeding Emunah.
+-- Generated by tools/build-trigger-package.py -- regenerate rather than edit by hand.
 -- Every trigger only calls emunah.curing.detect.text*, and does nothing when Emunah is not
--- loaded. Anti-illusion is svof's: nothing counts until the prompt, one illusion discards
+-- loaded. Anti-illusion is the reference system's: nothing counts until the prompt, one illusion discards
 -- the whole block, a cure line needs its cure in flight, and the server must confirm a
 -- gained affliction (engine.TEXT_CONFIRM). `emunah set curing.antiIllusion false` turns
--- the first two off, as svof's `vconfig aillusion` does."""
+-- the first two off, as the reference system's `vconfig aillusion` does."""
 
 
 PROMPT_PATTERN = ("if isPrompt() then return true else "
@@ -324,7 +324,7 @@ def render(groups):
                                for p, _ in kept),
             types="\n".join(f"{indent}            <integer>{t}</integer>" for _, t in kept))
 
-    # THE PROMPT, first: svof's own `Prompt` trigger, a Lua-function pattern that fires on
+    # THE PROMPT, first: the reference system's own `Prompt` trigger, a Lua-function pattern that fires on
     # the prompt line and counts every other line as it goes (its paragraph_length). Here
     # the prompt closes the block -- reports applied or, on an illusion, discarded -- and
     # stands in for Char.Vitals as the heartbeat when none arrived.
@@ -348,12 +348,12 @@ def render(groups):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("svof", help="svof checkout, its output/ folder, or the main svof XML")
+    parser.add_argument("source", help="the reference system's checkout, its output/ folder, or its main XML")
     parser.add_argument("output", nargs="?", default=str(ROOT / "EmunahTriggers.xml"))
     parser.add_argument("--dict", help="raw-svo.dict.lua (or the compiled svo file)")
     args = parser.parse_args()
 
-    xml_path, dict_path = find_inputs(args.svof, args.dict)
+    xml_path, dict_path = find_inputs(args.source, args.dict)
     names = gamenames(dict_path)
     if not names:
         sys.exit(f"no gamename entries found in {dict_path}")
@@ -367,7 +367,8 @@ def main():
     skipped = {}
     converted = []
     for trigger in found:
-        name = trigger.findtext("name") or "svof trigger"
+        # Named without the source's own prefix: the names describe the line, not where it came from.
+        name = re.sub(r"^svo\s+", "", trigger.findtext("name") or "trigger")
         result = convert_illusion(trigger)
         if result is None:
             result = convert(trigger, names, known, native)
@@ -378,7 +379,7 @@ def main():
             continue
         converted.append((name, *result))
 
-    # A line svof uses to cure two DIFFERENT afflictions needs svof's action tracking to
+    # A line the reference system uses to cure two DIFFERENT afflictions needs the reference system's action tracking to
     # tell which; without it, drop the cure rather than guess.
     def is_cure(action):
         return action == "cure" or action.startswith("cure@")
@@ -390,11 +391,11 @@ def main():
             cures_by_line.setdefault(pattern, set()).update(cured)
     ambiguous = {p for p, cured in cures_by_line.items() if len(cured) > 1}
 
-    # ONE LINE, SEVERAL ROUTES. svof has a trigger per route for the same cure line --
+    # ONE LINE, SEVERAL ROUTES. The reference system has a trigger per route for the same cure line --
     # herb_cured_X, tree_cured_X, generic_X -- and firing them all would both double the
     # cure and log the routes that were not in flight as illusions. Merged per line and
-    # affliction: if svof also takes it as a general cure, no balance has to be in flight
-    # (svof believes it then too); otherwise any one of the listed balances will do.
+    # affliction: if the reference system also takes it as a general cure, no balance has to be in flight
+    # (the reference system believes it then too); otherwise any one of the listed balances will do.
     merged, order = {}, []
     for name, actions, kept, multiline, delta in converted:
         if len(actions) == 1 and is_cure(actions[0][0]) and not multiline:
@@ -457,7 +458,7 @@ def main():
     for reason, count in sorted(skipped.items(), key=lambda kv: -kv[1]):
         print(f"  {count:5}  {reason}")
     if dropped_ambiguous:
-        print(f"  {dropped_ambiguous:5}  cure actions on a line svof uses for two afflictions")
+        print(f"  {dropped_ambiguous:5}  cure actions on a line the reference system uses for two afflictions")
     return 0
 
 

@@ -58,7 +58,7 @@ function M.isStunned()
    return M.stunned
 end
 
---- True while unconscious. Blocks every command, like stun: every one of svof's gates
+--- True while unconscious. Blocks every command, like stun: every one of the reference system's gates
 --- (check_herb, check_salve, check_sip, check_balanceful_acts ...) refuses on
 --- `affs.unconsciousness` alongside stun and sleep. Text-driven -- the GMCP name is not
 --- confirmed, so it is not guessed into STATE_FLAGS below. See patterns.lua.
@@ -68,7 +68,7 @@ function M.isUnconscious()
    return M.unconscious
 end
 
---- Backstop for a missed "You regain consciousness with a start.": svof's
+--- Backstop for a missed "You regain consciousness with a start.": The reference system's
 --- `unconsciousness.waitingfor` uses customwait = 7 and clears it on timeout.
 M.UNCONSCIOUS_GUARD = 7.0
 
@@ -146,27 +146,27 @@ end
 -- ---------------------------------------------------------------------------
 -- The imported trigger package's entry points, and its ANTI-ILLUSION.
 --
--- EmunahTriggers.xml (tools/build-svof-triggers.py) calls only these, with the server's
+-- EmunahTriggers.xml (tools/build-trigger-package.py) calls only these, with the server's
 -- name for each affliction. What it reports is text, and text can be faked: an opponent can
--- send you any line they like. svof defends against that in layers, and these are them:
+-- send you any line they like. The reference system defends against that in layers, and these are them:
 --
---   1. NOTHING COUNTS UNTIL THE PROMPT. svof's lifevision collects what a block of output
+--   1. NOTHING COUNTS UNTIL THE PROMPT. The reference system's lifevision collects what a block of output
 --      reports and applies it at the prompt. Here the block is everything since the last
 --      Char.Vitals (Achaea sends one per prompt), committed on the `vitals` event -- which
 --      is raised before `tick`, so the engine sees the committed state the same prompt.
---   2. ONE ILLUSION SPOILS THE BLOCK. svof's ignore_illusion() discards everything in the
---      paragraph. M.textIllusion() is its equivalent, called by the package's copy of svof's
+--   2. ONE ILLUSION SPOILS THE BLOCK. The reference system's ignore_illusion() discards everything in the
+--      paragraph. M.textIllusion() is its equivalent, called by the package's copy of the reference system's
 --      "Generic illusions" triggers -- pairs of lines that cannot really arrive together.
---   3. A CURE LINE NEEDS A CURE IN PROGRESS. svof's herb_cured_*/focus_cured_*/... accept a
+--   3. A CURE LINE NEEDS A CURE IN PROGRESS. The reference system's herb_cured_*/focus_cured_*/... accept a
 --      cure line only while that balance's action is in flight, never sooner than half the
 --      ping after sending it, and -- for an affliction other than the one being cured --
 --      only if it is actually tracked. M.textCure(name, via) checks the same.
 --   4. THE SERVER HAS THE LAST WORD. A gained affliction is dropped unless Char.Afflictions
---      confirms it (engine.TEXT_CONFIRM). svof: "serverside curing is completely immune" to
+--      confirms it (engine.TEXT_CONFIRM). The reference system: "serverside curing is completely immune" to
 --      illusions -- which is exactly what GMCP is.
 --
 -- `emunah set curing.antiIllusion false` applies reports the moment they arrive instead
--- (svof's `vconfig aillusion`); layers 3 and 4 still apply.
+-- (the reference system's `vconfig aillusion`); layers 3 and 4 still apply.
 -- ---------------------------------------------------------------------------
 
 local paragraph = {}
@@ -283,11 +283,11 @@ end
 
 event.register("emunah.vitals", function() M.commitText() end, "curing.detect")
 
---- Lines since the last prompt: svof's `paragraph_length`, kept by the same trigger.
+--- Lines since the last prompt: The reference system's `paragraph_length`, kept by the same trigger.
 M.paragraphLength = 0
 
 --- A non-prompt line. Called by the package's prompt trigger for every line that is not a
---- prompt, exactly as svof's `Prompt` trigger counts them.
+--- prompt, exactly as the reference system's `Prompt` trigger counts them.
 function M.textLine()
    M.paragraphLength = M.paragraphLength + 1
 end
@@ -302,7 +302,7 @@ function M.textPrompt()
    if vitals and vitals.onPrompt then vitals.onPrompt() end
 end
 
---- Arm balance. svof holds every balance-taking action until BOTH arms have it
+--- Arm balance. The reference system holds every balance-taking action until BOTH arms have it
 --- (check_balanceful_acts: `not bals.rightarm or not bals.leftarm`). It is lost by
 --- arm-specific attacks and announced back per arm -- see patterns.lua for the lines.
 M.armBalance = { left = true, right = true }
@@ -403,7 +403,7 @@ end
 --- enough that a stand which was genuinely refused is retried promptly.
 M.STAND_GUARD = 1.0
 
---- Legs too damaged to stand on. svof's prone isadvisable refuses STAND on any of these
+--- Legs too damaged to stand on. The reference system's prone isadvisable refuses STAND on any of these
 --- (a merely BROKEN leg does not stop it), as well as while entangled or paralysed.
 M.STAND_BLOCKING_LEGS = {
    "crippledleftleg",  "crippledrightleg",
@@ -422,7 +422,7 @@ function M.standUp()
    for _, leg in ipairs(M.STAND_BLOCKING_LEGS) do
       if emunah.act.afflicted(leg) then return false end
    end
-   -- Equilibrium as well as balance: svof will not stand without both (prone isadvisable),
+   -- Equilibrium as well as balance: The reference system will not stand without both (prone isadvisable),
    -- which is also HELP EQUILIBRIUM's default -- "not having balance prevents you from
    -- using an ability that requires equilibrium, and vice versa". `unbound` holds it while
    -- entangled; paralysis comes with `bal`.
@@ -481,8 +481,8 @@ M.SLEEP_GUARD = 20.0
 --- ONCE IT HAS STARTED, NEVER AGAIN. HELP SLEEPING: "when you type WAKE, you will begin
 --- to struggle your way out of sleep ... Typing WAKE repeatedly will only delay this
 --- process, so just do it once, and wait." The start is announced -- "You begin your
---- struggle to escape from the dreamworld." (svof's `svo start waking` trigger) -- and
---- from then until the sleep ends M.waking holds every further WAKE, the same way svof
+--- struggle to escape from the dreamworld." (the reference system's `start waking` trigger) -- and
+--- from then until the sleep ends M.waking holds every further WAKE, the same way the reference system
 --- parks in `curingsleep` with no retry. Before that line, a WAKE that went unanswered is
 --- still retried once per round trip: it may simply have been lost.
 function M.wakeUp()

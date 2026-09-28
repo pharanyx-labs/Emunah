@@ -37,15 +37,15 @@ git clone https://github.com/pharanyx-labs/Emunah.git ~/src/Emunah
 **2. Install `Emunah.xml`** through *Package Manager → Install*.
 
 **2b. Optional: install `EmunahTriggers.xml`** the same way. It is a trigger-only package
-of about 660 of svof's lines: affliction gained and cured, states (stun, prone, sleep,
-unconscious), svof's prompt trigger (a backup for `Char.Vitals`), and svof's illusion
+of about 660 of the reference system's lines: affliction gained and cured, states (stun, prone, sleep,
+unconscious), the reference system's prompt trigger (a backup for `Char.Vitals`), and the reference system's illusion
 catchers. Each calls `emunah.curing.detect.text*` and does nothing if Emunah is not loaded.
-Anti-illusion follows svof:
+Anti-illusion follows the reference system:
 - nothing it reports counts until the prompt;
 - one illusion discards the whole block;
 - a cure line needs its cure in flight;
 - an affliction is dropped unless the server confirms it within ~2 seconds.
-Regenerate it with `python3 tools/build-svof-triggers.py <svof checkout>`; don't edit it by
+Regenerate it with `python3 tools/build-trigger-package.py <reference checkout>`; don't edit it by
 hand.
 
 **3. Point the bootstrap at the checkout.** This is stored per profile and only needs doing
@@ -93,7 +93,7 @@ standing between this and player combat. A plausible-but-wrong pattern is worse 
 missing one — it asserts an affliction the character does not have, and the engine spends a
 balance curing it — so the shipped set in `src/emunah/curing/detect/patterns.lua` contains
 only patterns confirmed against real output. The optional `EmunahTriggers.xml` package adds
-svof's lines on top, behind svof's anti-illusion (see Installation).
+the reference system's lines on top, behind the reference system's anti-illusion (see Installation).
 
 See [docs/afflictions.md](docs/afflictions.md) for the table's structure and verification
 process.
@@ -119,7 +119,7 @@ emset curing.method minerals  a setting
 ```
 
 `emhelp <module>` is the reference: it says what the module does, lists its commands, and
-lists every setting with its current value. Click a setting to change it, as with svof's
+lists every setting with its current value. Click a setting to change it, as with the reference system's
 `vconfig`. It is generated from `src/emunah/help.lua`, which the test suite checks against the
 code, so a command or setting added without being documented fails `lua test/run.lua`.
 

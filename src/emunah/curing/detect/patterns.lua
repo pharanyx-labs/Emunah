@@ -795,7 +795,7 @@ end
 --
 --     06:03:15.10  You open your eyes and stretch languidly, feeling deliciously well-rested.
 --
--- and the rest taken verbatim from svof's trigger set (github.com/svof/svof), along with
+-- and the rest taken verbatim from the reference system's trigger set, along with
 -- the line that says a WAKE has been accepted and must not be repeated. Char.Afflictions
 -- .Remove carries the wake as well, and detect.SLEEP_GUARD bounds an involuntary sleep
 -- even if every line were lost.
@@ -818,8 +818,8 @@ do
       end
    end
 
-   -- The wake lines. The first was observed at 06:03:15.10; the rest are svof's
-   -- `svo done waking` trigger, verbatim. "You already are awake." is the reply to a WAKE
+   -- The wake lines. The first was observed at 06:03:15.10; the rest are the reference system's
+   -- `done waking` trigger, verbatim. "You already are awake." is the reply to a WAKE
    -- that arrived after the sleep had ended, and is just as conclusive.
    for _, pattern in ipairs({
       [[^You open your eyes and stretch languidly, feeling deliciously well-rested\.$]],
@@ -835,7 +835,7 @@ do
    end
 
    -- WAKE accepted: the struggle has begun, and another WAKE would only prolong it (HELP
-   -- SLEEPING). svof's `svo start waking` trigger, verbatim.
+   -- SLEEPING). The reference system's `start waking` trigger, verbatim.
    local startId = tempRegexTrigger(
       [[^You begin your struggle to escape from the dreamworld\.$]],
       function() detect.onWakeStart() end)
@@ -847,7 +847,7 @@ end
 
 -- ---------------------------------------------------------------------------
 -- Writhing. Send once, then wait -- see engine.onWritheStart for why. All verbatim from
--- svof's trigger set.
+-- The reference system's trigger set.
 -- ---------------------------------------------------------------------------
 
 do
@@ -881,9 +881,9 @@ do
 end
 
 -- ---------------------------------------------------------------------------
--- Unconsciousness. Held like stun (core/act.lua). Both lines are verbatim from svof's
+-- Unconsciousness. Held like stun (core/act.lua). Both lines are verbatim from the reference system's
 -- trigger set: the onset it knows for passing out from hunger (which also knocks you
--- down, so prone is asserted alongside, as svof does), and the wear-off. Other onsets
+-- down, so prone is asserted alongside, as the reference system does), and the wear-off. Other onsets
 -- are per attacker and are not guessed -- detect.UNCONSCIOUS_GUARD bounds a missed clear.
 -- ---------------------------------------------------------------------------
 
@@ -906,9 +906,9 @@ do
       detect.onConscious()
    end))
 
-   -- ARM BALANCE. Recovery per arm is svof's `Got left arm` / `Got right arm`; the
+   -- ARM BALANCE. Recovery per arm is the reference system's `Got left arm` / `Got right arm`; the
    -- all-limbs line is the one Achaea prints when balance returns (observed 06:50:16.49,
-   -- docs/game/balance.md). Loss is svof's `Lost arm balance`: arm-strike attacks, one
+   -- docs/game/balance.md). Loss is the reference system's `Lost arm balance`: arm-strike attacks, one
    -- arm at a time -- the right if the left is damaged, else the left if it still has
    -- balance, else the right.
    persist(tempRegexTrigger([[^You have recovered balance on your left arm\.$]],
@@ -945,16 +945,16 @@ do
 end
 
 -- Mucous shuts smoking the way asthma does (afflist.blocks). The refusal, verbatim from
--- svof's `Mucous` trigger.
+-- The reference system's `Mucous` trigger.
 detect.define("mucous", {
    gain = { [[^Your lungs are too clogged with mucous for you to attempt smoking\.$]] },
-   -- svof's `svo mucous woreoff`. Without it a text-detected mucous would hold the smoke
+   -- The reference system's `mucous woreoff`. Without it a text-detected mucous would hold the smoke
    -- vector until a GMCP removal that may never come for an affliction GMCP never added.
    cure = { [[^You manage to cough away the mucous filling your lungs\.$]] },
 })
 
 -- ---------------------------------------------------------------------------
--- DEFENCES: read the listing. svof's `svo def start` and `Def line` triggers mark its ends:
+-- DEFENCES: read the listing. The reference system's `def start` and `Def line` triggers mark its ends:
 --
 --     You have the following defences:
 --     <one line per defence>
@@ -990,7 +990,7 @@ do
    end))
 
    -- BLISS, which neither Char.Defences nor DEF ever shows (deflist.SYNTHETIC.bliss). Its
-   -- lines, verbatim from svof's defs_data.bliss.
+   -- lines, verbatim from the reference system's defs_data.bliss.
    for _, pattern in ipairs({
       [[^You pour blessings of bliss over yourself, granting visions of the majesty of the divine\.$]],
       [[^The divine choir lingers on in your mind, and your spirit soars\.$]],

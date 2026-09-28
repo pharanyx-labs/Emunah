@@ -64,7 +64,7 @@ declared. Answer these from `docs/game/`, not from memory, for every new or chan
    rule. Don't add a command that bypasses `act.send` or the queue.
 
 `EmunahTriggers.xml` is generated from svof's trigger set by
-`tools/build-svof-triggers.py`. Change the generator and regenerate; never hand-edit the
+`tools/build-trigger-package.py`. Change the generator and regenerate; never hand-edit the
 XML. Its triggers may only call `detect.text*`. Anti-illusion is svof's, in four layers
 documented at the top of that section of `curing/detect/init.lua`:
 - text reports wait for the prompt;

@@ -45,19 +45,19 @@ local M = {}
 --- pulling moss out of the rift still works while anorexic, which is why the pull and the
 --- eat are queued separately.
 M.blocks = {
-   -- `elixir` too: svof's sip gate (raw-svo.skeleton.lua check_sip) refuses to sip while
+   -- `elixir` too: The reference system's sip gate (the reference system's skeleton module check_sip) refuses to sip while
    -- anorexic, as does its purgative gate. Anorexia is loss of the desire for food OR
    -- drink (HELP VENOM, slike: "lose all desire for food or drink").
    anorexia  = { "herb", "moss", "elixir" },
    slickness = { "salve" },
    asthma    = { "smoke" },
-   -- svof check_smoke refuses on `mucous` as well as asthma. The refusal line it matches
+   -- The reference system's check_smoke refuses on `mucous` as well as asthma. The refusal line it matches
    -- is "Your lungs are too clogged with mucous for you to attempt smoking."
    mucous    = { "smoke" },
-   -- svof check_focus refuses on `inquisition` (a Priest affliction: "The words echo ...
+   -- The reference system's check_focus refuses on `inquisition` (a Priest affliction: "The words echo ...
    -- in your mind, interrupting your concentration.").
    inquisition = { "focus" },
-   -- TOUCH TREE. svof's touchtree isadvisable refuses on paralysis, on any of these
+   -- TOUCH TREE. The reference system's touchtree isadvisable refuses on paralysis, on any of these
    -- entanglements, and on EITHER arm being numb -- a numb arm cannot reach the tattoo the
    -- way a broken one cannot (both-arms-broken is have.bothArmsBroken(), not a table
    -- entry, because it takes two afflictions together). Paralysis is also enforced by
@@ -86,10 +86,10 @@ M.blocks = {
 
 --- Blockers with no cure: they end on their own. Listed so the "every blocker has an
 --- escape" invariant can tell a lock with no key from one that times out. Each has a
---- wear-off line in svof's trigger set ("You manage to cough away the mucous filling your
+--- wear-off line in the reference system's trigger set ("You manage to cough away the mucous filling your
 --- lungs.", "Clarity returns to your mind as the echoing accusations fade from memory.",
 --- "Feeling returns to your left arm." / "...right arm.") and a `waitingfor` rather than a
---- cure in its dictionary (raw-svo.dict.lua).
+--- cure in its dictionary (the reference system's dict module).
 M.wearsOff = {
    mucous         = true,
    inquisition    = true,
@@ -103,7 +103,7 @@ M.wearsOff = {
 --- movement and attacks while active (act.blocked's `entangled`).
 M.writhes = {
    transfixed = true,
-   -- svof's gamename for transfixed.
+   -- The reference system's gamename for transfixed.
    transfixation = true,
    impaled    = true,
    bound      = true,
@@ -366,9 +366,9 @@ M.afflictions = {
       priority = { salve = 6 },
    },
    -- COMPOSE first. HELP AFFLICTIONS: "Fear: Compose"; HELP COMPOSE: "a state of panic
-   -- ... If this happens to you, COMPOSE." svof has it as a misc action ahead of focus
+   -- ... If this happens to you, COMPOSE." The reference system has it as a misc action ahead of focus
    -- (dict.fear.misc, action "compose"). It costs no curing balance, so it goes on `special`.
-   -- COMPOSE only. svof's dict.fear.focus is switched off outright (`return false`, with
+   -- COMPOSE only. The reference system's dict.fear.focus is switched off outright (`return false`, with
    -- the old condition commented out), so focus is not a fear cure there at all.
    fear = {
       cures = { { vector = "special", command = "compose" } },
@@ -376,7 +376,7 @@ M.afflictions = {
    },
    -- DISRUPTED EQUILIBRIUM. HELP COMPOSE: equilibrium "will not return no matter how long
    -- you wait. If this happens to you, simply CONCENTRATE." -- and confusion prevents
-   -- concentrating. The name is svof's gamename for dict.disrupt; svof concentrates only
+   -- concentrating. The name is the reference system's gamename for dict.disrupt; the reference system concentrates only
    -- when not confused (and not asleep, which act.blocked covers).
    disrupted = {
       cures = { { vector = "special", command = "concentrate", unless = { "confusion" } } },
@@ -719,8 +719,8 @@ M.afflictions = {
    },
    -- HERB CURE RESTORED. It was removed after 20:57:29-20:58:04, when goldenseal was eaten
    -- every ~5s without clearing stupidity -- but HELP AFFLICTIONS ("Stupidity: Eat
-   -- Goldenseal / Plumbum") and svof (dict.stupidity.herb, eatcure goldenseal/plumbum) both
-   -- say it is the cure, and svof outranks this table on curing. That capture predates the
+   -- Goldenseal / Plumbum") and the reference system (dict.stupidity.herb, eatcure goldenseal/plumbum) both
+   -- say it is the cure, and the reference system outranks this table on curing. That capture predates the
    -- fix for eating inside herb balance ("The plant has no effect.", docs/game/balance.md),
    -- which fits the symptom exactly. Rank 7 is what it had before removal.
    stupidity = {
@@ -790,9 +790,9 @@ M.afflictions = {
    },
 }
 
---- THE SERVER'S NAMES, per svof. svof keeps its own internal names and records what the
---- server calls each in a `gamename` field (raw-svo.dict.lua: "what serverside calls this
---- by -- names can be different as they were revealed years after Svof was made"). Where
+--- THE SERVER'S NAMES, per the reference system. The reference system keeps its own internal names and records what the
+--- server calls each in a `gamename` field (the reference system's dict module: "what serverside calls this
+--- by -- names can be different as they were revealed years after the reference system was made"). Where
 --- that differs from the key this table uses, the server's name is added as an alias of
 --- the same definition, so an affliction is cured whichever name Char.Afflictions uses.
 --- Aliases share the definition table: one cure, one rank, never two to keep in step.
@@ -804,7 +804,7 @@ M.ALIASES = {
    burning           = "ablaze",
    whisperingmadness = "madness",
    -- The AFFLICTION is `blind`/`deaf`; `blindness`/`deafness` are the DEFENCES from bayberry
-   -- and hawthorn (svof: blindaff -> "blind", blind -> "blindness").
+   -- and hawthorn (the reference system: blindaff -> "blind", blind -> "blindness").
    blind             = "blindness",
    deaf              = "deafness",
 }
@@ -812,7 +812,7 @@ for alias, target in pairs(M.ALIASES) do
    M.afflictions[alias] = M.afflictions[target]
 end
 
---- WHEN NOT TO CURE, per svof. Each entry is the extra condition in svof's
+--- WHEN NOT TO CURE, per the reference system. Each entry is the extra condition in the reference system's
 --- dict.<affliction>.<balance>.isadvisable beyond "we have it" -- the cases where the cure
 --- would be wasted, undone, or done in the wrong order:
 ---
@@ -820,7 +820,7 @@ end
 ---   unlessInFlight  don't, while a cure is in flight on any of these balances
 ---
 --- Applied onto the cure options below at load, so have.cure() checks them for every
---- caller. svof's internal names are translated to the server's (see M.ALIASES): its
+--- caller. The reference system's internal names are translated to the server's (see M.ALIASES): its
 --- `madness` is `whisperingmadness`, `mutilated` is `mangled`, `mangled` is `damaged`,
 --- `crippled` is `broken`. Both spellings of madness are listed, as both are keyed here.
 local MADNESS = { "madness", "whisperingmadness" }
@@ -849,7 +849,7 @@ M.CONDITIONS = {
    dizziness      = { herb = { unlessInFlight = { "focus" } } },
    shyness        = { herb = { unlessInFlight = { "focus" } } },
    epilepsy       = { herb = { unlessInFlight = { "focus" } } },
-   -- "curing impatience before hypochondria will make it get re-applied" -- svof, and the
+   -- "curing impatience before hypochondria will make it get re-applied" -- the reference system, and the
    -- same for lethargy, illness (the server's nausea) and addiction.
    impatience     = { herb = { unless = plus(MADNESS, "hypochondria"),
                                unlessInFlight = { "focus" } } },
@@ -863,7 +863,7 @@ M.CONDITIONS = {
    madness        = { smoke = { unless = { "hecate" } } },
    -- Bloodroot does not clear slickness under stain.
    slickness      = { herb = { unless = { "stain" } } },
-   -- Salves, in svof's order: torso trauma first; frozen and hypothermia before shivering;
+   -- Salves, in the reference system's order: torso trauma first; frozen and hypothermia before shivering;
    -- blind before scalded (the same epidermal cures both).
    heartseed      = { salve = { unless = { "mildtrauma" } } },
    hypothermia    = { salve = { unless = { "mildtrauma" } } },

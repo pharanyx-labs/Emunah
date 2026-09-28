@@ -134,7 +134,7 @@ end
 --- raised after that list reads as down, and keep-up raises it again. DEFENCES is the whole
 --- truth right now.
 ---
---- Conservative the way svof's process_defs is: a defence whose DEF line we know, and which
+--- Conservative the way the reference system's process_defs is: a defence whose DEF line we know, and which
 --- is not listed, is gone; one listed is up; one whose DEF line we do not know is left as it
 --- was, because its absence from the lines we could read says nothing.
 function M.applyDefListing(names)
