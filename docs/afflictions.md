@@ -182,6 +182,10 @@ failed eats may have landed inside herb balance (`The plant has no effect.`, see
 
 Substantive corrections to the data, most recent first.
 
+**svof's per-cure conditions.** `CONDITIONS` carries the extra clauses of svof's
+`isadvisable` for each cure (madness, hypochondria, focus-in-flight, limb order, and the
+pairs listed in `docs/game/curing.md`). Fear lost its focus option: svof's is switched off.
+
 **Brought in line with svof, which outranks this table on curing (user's ruling).** Fear
 COMPOSEs before focusing; stupidity eats goldenseal again (rank 7); `disrupted`
 CONCENTRATEs unless confused. `ALIASES` adds the server's names from svof's `gamename`

@@ -9675,6 +9675,37 @@ mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 ok(sent():find("apply epidermal"), "`blind` is cured from the table, not left unknown", sent())
 engine.enabled = false
 
+-- SVOF'S PER-CURE CONDITIONS (afflist.CONDITIONS).
+for name in pairs(emunah.curing.afflist.CONDITIONS) do
+   ok(emunah.curing.afflist.known(name), name .. " in CONDITIONS is in the cure table")
+end
+local have = emunah.have
+local function option(name, vector)
+   return emunah.curing.afflist.curesVia(name, vector)[1]
+end
+reset()
+engine.add("whisperingmadness", "gmcp")
+ok(not have.cure(option("confusion", "focus")), "no focusing confusion under whispering madness")
+reset()
+engine.add("hypochondria", "gmcp")
+ok(not have.cure(option("impatience", "herb")), "impatience waits for hypochondria (else re-applied)")
+reset()
+engine.add("mangledleftleg", "gmcp")
+ok(not have.cure(option("brokenleftleg", "salve")), "a broken leg waits for the mangled one")
+ok(not have.cure(option("damagedrightleg", "salve")), "...as does a damaged one on either leg")
+reset()
+queue.push("focus", "focus", { tag = "stupidity", confirm = 5 })
+emunah.have.recover("focus")
+queue.flush()
+local okHerb, why = have.cure(option("dizziness", "herb"))
+ok(not okHerb and tostring(why):find("focus"), "no goldenseal while a focus is in flight", why)
+eq(#emunah.curing.afflist.curesVia("fear", "focus"), 0, "fear is never focused (svof has it off)")
+reset()
+mock.feed("Char.Vitals", { mp = "300", maxmp = "1000" })
+queue.push("focus", "focus", { tag = "stupidity" })
+eq(queue.flush(), 0, "no focus at 30% mana (svof manause, 35%)")
+mock.feed("Char.Vitals", { mp = "1000", maxmp = "1000" })
+
 -- DEATH PAUSES EVERYTHING (user's rule), and curing resumes on revival.
 reset()
 emunah.bashing.enabled = true

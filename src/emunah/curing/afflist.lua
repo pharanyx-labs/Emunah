@@ -368,9 +368,11 @@ M.afflictions = {
    -- COMPOSE first. HELP AFFLICTIONS: "Fear: Compose"; HELP COMPOSE: "a state of panic
    -- ... If this happens to you, COMPOSE." svof has it as a misc action ahead of focus
    -- (dict.fear.misc, action "compose"). It costs no curing balance, so it goes on `special`.
+   -- COMPOSE only. svof's dict.fear.focus is switched off outright (`return false`, with
+   -- the old condition commented out), so focus is not a fear cure there at all.
    fear = {
-      cures = { { vector = "special", command = "compose" }, { vector = "focus" } },
-      priority = { special = 1, focus = 20 },
+      cures = { { vector = "special", command = "compose" } },
+      priority = { special = 1 },
    },
    -- DISRUPTED EQUILIBRIUM. HELP COMPOSE: equilibrium "will not return no matter how long
    -- you wait. If this happens to you, simply CONCENTRATE." -- and confusion prevents
@@ -808,6 +810,87 @@ M.ALIASES = {
 }
 for alias, target in pairs(M.ALIASES) do
    M.afflictions[alias] = M.afflictions[target]
+end
+
+--- WHEN NOT TO CURE, per svof. Each entry is the extra condition in svof's
+--- dict.<affliction>.<balance>.isadvisable beyond "we have it" -- the cases where the cure
+--- would be wasted, undone, or done in the wrong order:
+---
+---   unless          don't, while any of these afflictions is up
+---   unlessInFlight  don't, while a cure is in flight on any of these balances
+---
+--- Applied onto the cure options below at load, so have.cure() checks them for every
+--- caller. svof's internal names are translated to the server's (see M.ALIASES): its
+--- `madness` is `whisperingmadness`, `mutilated` is `mangled`, `mangled` is `damaged`,
+--- `crippled` is `broken`. Both spellings of madness are listed, as both are keyed here.
+local MADNESS = { "madness", "whisperingmadness" }
+local function plus(list, ...)
+   local out = {}
+   for _, name in ipairs(list) do out[#out + 1] = name end
+   for _, name in ipairs({ ... }) do out[#out + 1] = name end
+   return out
+end
+
+M.CONDITIONS = {
+   -- Mental afflictions are not cured under whispering madness (herb and focus alike).
+   masochism      = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   recklessness   = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   vertigo        = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   loneliness     = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   dementia       = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   paranoia       = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   hallucinations = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   confusion      = { herb = { unless = MADNESS }, focus = { unless = MADNESS } },
+   hypersomnia    = { herb = { unless = MADNESS } },
+   stupidity      = { focus = { unless = MADNESS },
+                      -- A focus in flight may cure it; eating goldenseal on top wastes the herb.
+                      herb = { unlessInFlight = { "focus" } } },
+   dissonance     = { herb = { unlessInFlight = { "focus" } } },
+   dizziness      = { herb = { unlessInFlight = { "focus" } } },
+   shyness        = { herb = { unlessInFlight = { "focus" } } },
+   epilepsy       = { herb = { unlessInFlight = { "focus" } } },
+   -- "curing impatience before hypochondria will make it get re-applied" -- svof, and the
+   -- same for lethargy, illness (the server's nausea) and addiction.
+   impatience     = { herb = { unless = plus(MADNESS, "hypochondria"),
+                               unlessInFlight = { "focus" } } },
+   lethargy       = { herb = { unless = plus(MADNESS, "hypochondria") } },
+   nausea         = { herb = { unless = plus(MADNESS, "hypochondria") } },
+   illness        = { herb = { unless = plus(MADNESS, "hypochondria") } },
+   addiction      = { herb = { unless = plus(MADNESS, "hypochondria") } },
+   -- Smoke: valerian is not smoked for hellsight under inquisition; elm not for madness
+   -- under hecate.
+   hellsight      = { smoke = { unless = { "inquisition" } } },
+   madness        = { smoke = { unless = { "hecate" } } },
+   -- Bloodroot does not clear slickness under stain.
+   slickness      = { herb = { unless = { "stain" } } },
+   -- Salves, in svof's order: torso trauma first; frozen and hypothermia before shivering;
+   -- blind before scalded (the same epidermal cures both).
+   heartseed      = { salve = { unless = { "mildtrauma" } } },
+   hypothermia    = { salve = { unless = { "mildtrauma" } } },
+   frozen         = { salve = { unless = { "hypothermia" } } },
+   shivering      = { salve = { unless = { "frozen", "hypothermia" } } },
+   scalded        = { salve = { unless = { "blind" } } },
+   -- LIMBS, worst first. A damaged limb waits for any mangled one on that pair of limbs; a
+   -- broken one for its own limb's mangled or damaged state, and for paresthesia.
+   damagedleftleg  = { salve = { unless = { "mangledleftleg", "mangledrightleg" } } },
+   damagedrightleg = { salve = { unless = { "mangledleftleg", "mangledrightleg" } } },
+   damagedleftarm  = { salve = { unless = { "mangledleftarm", "mangledrightarm" } } },
+   damagedrightarm = { salve = { unless = { "mangledleftarm", "mangledrightarm" } } },
+   brokenleftleg   = { salve = { unless = { "mangledleftleg", "damagedleftleg", "parestolegs" } } },
+   brokenrightleg  = { salve = { unless = { "mangledrightleg", "damagedrightleg", "parestolegs" } } },
+   brokenleftarm   = { salve = { unless = { "mangledleftarm", "damagedleftarm", "parestoarms" } } },
+   brokenrightarm  = { salve = { unless = { "mangledrightarm", "damagedrightarm", "parestoarms" } } },
+}
+
+for name, byVector in pairs(M.CONDITIONS) do
+   local definition = M.afflictions[name]
+   for _, option in ipairs(definition and definition.cures or {}) do
+      local condition = byVector[option.vector]
+      if condition then
+         option.unless = option.unless or condition.unless
+         option.unlessInFlight = condition.unlessInFlight
+      end
+   end
 end
 
 -- ---------------------------------------------------------------------------

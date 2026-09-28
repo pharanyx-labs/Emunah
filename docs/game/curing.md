@@ -118,7 +118,7 @@ block can land while a cure waits for its balance.
 | sip elixir | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_sip]; [play] for paralysis |
 | apply salve | slickness; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_salve]; [play] for paralysis |
 | smoke | asthma, mucous; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_smoke] |
-| focus | impatience, inquisition, willpower ≤ 75; paralysis | `afflist.blocks`, `have.vectorBlocked` | [svof check_focus] |
+| focus | impatience, inquisition, willpower ≤ 75, mana ≤ 35% (svof `manause`, `curing.focusMinMana`); paralysis | `afflist.blocks`, `have.vectorBlocked` | [svof check_focus] |
 | touch tree | paralysis, webbed, bound, transfixed, roped, impaled, either arm numb, both arms disabled | `afflist.blocks`, `have.vectorBlocked` | [svof touchtree], [play] |
 | writhe | a writhe already under way | `have.balance("writhe")` | [HELP entanglement], [svof] |
 | wake | a wake already under way; a sleep you chose | `detect.wakeUp` | [HELP sleeping], [svof] |
@@ -245,6 +245,30 @@ Each is a candidate bug unless marked fixed.
 | 5 | `crippled<limb>` cured with restoration. | Crippled limb: **mending**. | **Not a real disagreement.** svof's internal `crippled` is the server's `broken`, and Emunah cures `broken*` with mending. By svof's `gamename` table, `mangled` is the server's `damaged` and `mutilated` is its `mangled`. |
 | 6 | **Fixed**: `disrupted` (svof's gamename) CONCENTRATEs, never while confused. | Equilibrium won't return without `CONCENTRATE`. Confusion blocks it. | |
 | 7 | `stinky` has no cure entry. | `SCRUB`, only at a water location. | Harmless: tracked, never cured. |
+
+## Per-cure conditions (svof `isadvisable`)
+
+Beyond whole-vector blockers, svof holds individual cures when they'd be wasted, undone or
+done out of order. Emunah keeps these in `afflist.CONDITIONS`, checked by `have.cure()`:
+
+- **Whispering madness** blocks the herb and focus cures of confusion, dementia,
+  paranoia, hallucinations, masochism, recklessness, vertigo, loneliness, and the herb
+  cure of hypersomnia, impatience, lethargy, nausea and addiction. It also blocks focusing
+  stupidity.
+- **Hypochondria first:** impatience, lethargy, nausea and addiction are re-applied if
+  cured under it.
+- **Not while a focus is in flight:** goldenseal for stupidity, dissonance, dizziness,
+  shyness, epilepsy and impatience. The focus may already cure it.
+- **Limbs worst first:** mangled, then damaged, then broken. Paresthesia comes before
+  a break on that limb pair.
+- **Pairs:**
+  - inquisition blocks valerian for hellsight;
+  - hecate blocks elm for madness;
+  - stain blocks bloodroot for slickness;
+  - mild trauma blocks heartseed and hypothermia;
+  - frozen and hypothermia come before shivering;
+  - blind comes before scalded.
+- **Fear** is COMPOSE only. svof has its focus cure switched off.
 
 ## Server names (svof `gamename`)
 
