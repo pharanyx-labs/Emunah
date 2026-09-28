@@ -177,7 +177,9 @@ function M.send(command, needs)
    M.lastHeld = nil
 
    emunah.log.debug("-> %s", command)
-   send(command)
+   -- `quiet`: don't echo the command locally. For housekeeping whose output is gagged too
+   -- (pipes.lua), where a lone echoed "light pipe367581" is the noise left behind.
+   if needs and needs.quiet then send(command, false) else send(command) end
    return true
 end
 

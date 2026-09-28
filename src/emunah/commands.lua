@@ -1624,7 +1624,7 @@ M.handlers.pipes = function(arg)
    local pipes = emunah.pipes
    if arg == "on" then pipes.start()
    elseif arg == "off" then pipes.stop()
-   elseif arg == "now" then pipes.poll(true)
+   elseif arg == "now" then pipes.poll(true, true)
    else
       local on = emunah.config.get("pipes.enabled", true) ~= false
       header("Pipes")

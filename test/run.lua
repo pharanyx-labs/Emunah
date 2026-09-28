@@ -9720,6 +9720,73 @@ ok(not emunah.bashing.enabled, "...but the hunt stays off until restarted")
 reset()
 end)()
 
+suite("pipes: our own housekeeping is gagged, and still fully parsed")
+
+;(function()
+local pipes = emunah.pipes
+emunah.timers.stopAll()
+pipes.forget()
+emunah.config.set("pipes.enabled", true)   -- the pipes suite leaves it switched off
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+
+-- Only this suite's lines: earlier suites left identical PIPELIST text further up.
+local start = #mock.buffer
+local function inBuffer(text)
+   for index = start + 1, #mock.buffer do if mock.buffer[index] == text then return true end end
+   return false
+end
+
+-- The transcript that asked for this, 13:04:56-13:05:27: a poll, then three lights.
+mock.sent, mock.echoed_sends = {}, {}
+pipes.poll(true)
+eq(mock.sent[#mock.sent], "pipelist", "our poll goes out")
+eq(mock.echoed_sends[#mock.echoed_sends], false, "...without echoing the command")
+
+local rows = {
+   "Status  Pipe         Contents                       Puffs Months ",
+   "-------------------------------------------------------------------------------",
+   "out     pipe367581   a skullcap flower              8     195",
+   "out     pipe408402   slippery elm                   9     195",
+   "out     pipe422328   a valerian leaf                9     195",
+   "-------------------------------------------------------------------------------",
+}
+mock.line("The celestial flowers of the aurora bloom and fade slowly, their rhythm steady and soothing.")
+for _, row in ipairs(rows) do mock.line(row) end
+-- THE REGRESSION THAT BANNED GAGGING HERE: every row must be parsed, not just the first.
+eq(#pipes.list(), 3, "all three rows parsed while being gagged")
+mock.advance(0)
+for _, row in ipairs(rows) do
+   ok(not inBuffer(row), "gagged: " .. row)
+end
+ok(inBuffer("The celestial flowers of the aurora bloom and fade slowly, their rhythm steady and soothing."),
+   "...and the unrelated line around them is left alone")
+
+-- A LIGHT of ours: the tinderbox and the success line go.
+mock.sent, mock.echoed_sends = {}, {}
+pipes.keep()
+eq(mock.sent[1], "light pipe367581", "the first cold pipe is lit")
+eq(mock.echoed_sends[1], false, "...quietly")
+mock.line("You use a soot-blackened tinderbox to make fire.")
+mock.line("You carefully light your treasured pipe until it is smoking nicely.")
+eq(pipes.pipes["367581"].status, "lit", "the light is still recorded")
+mock.advance(0)
+ok(not inBuffer("You use a soot-blackened tinderbox to make fire."), "tinderbox line gagged")
+ok(not inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
+   "lit line gagged")
+
+-- YOURS ARE NOT: a PIPELIST you typed, or `emunah pipes now`, is shown in full.
+mock.advance(pipes.QUIET_WINDOW + 0.1)
+local before = #mock.buffer
+for _, row in ipairs(rows) do mock.line(row) end
+mock.advance(0)
+eq(#mock.buffer, before + #rows, "a PIPELIST we did not send is not gagged")
+mock.sent, mock.echoed_sends = {}, {}
+emunah.timers.stop("pipes.poll")
+pipes.poll(true, true)
+eq(mock.echoed_sends[#mock.echoed_sends], true, "`emunah pipes now` echoes, as asked for")
+emunah.timers.stopAll()
+end)()
+
 suite("EmunahTriggers.xml: svof's lines, feeding Emunah")
 
 ;(function()
