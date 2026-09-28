@@ -150,7 +150,7 @@ Handled three ways, because each catches a different moment:
   Config migration 4 renames a saved entry.
 - `The elixir flows down your throat without effect.` abandons that defence immediately —
   the game has said plainly there was nothing to do, so retrying is delay, not protection.
-- The budget warning and `emunah defs names` list the names `Char.Defences` is reporting
+- The budget warning lists the names `Char.Defences` is reporting
   that nothing claims. The right answer is almost always in there.
 
 **`speed` has not been checked** against a live `Char.Defences` — the family does not always
@@ -242,7 +242,7 @@ note above.
 
 `deflist.M.IMPORTED` holds 16 defences whose raise commands have **not been watched working
 here**. They are kept in their own table, lose to anything in `M.commands`, and are labelled
-`[unverified]` in the `emdefs` grid — the difference between "we have seen this work" and
+`[unverified]` in the `emset defs` grid — the difference between "we have seen this work" and
 "we believe this works" has to survive contact with the code rather than living in someone's
 memory.
 
@@ -257,7 +257,7 @@ Two things they are deliberately conservative about:
 
 The **names** have not been checked against a live `Char.Defences` either, and that is the
 likeliest thing to be wrong. When one is, the defence never appears, the attempt budget
-stops after three tries and says so, and `emunah defs add <name> <command>` corrects it.
+stops after three tries and says so, and `emset defs add <name> <command>` corrects it.
 That is the intended way to find out, and it is why none is enabled by default.
 
 **Known conflict, left alone:** `nightsight on` versus Emunah's own `nightsight`. Neither
@@ -340,7 +340,7 @@ loudly rather than passed over.
 A blank line (`send("")`) makes Achaea emit a fresh prompt, and with it `Char.Vitals` — the
 tick everything in Emunah hangs off. Used when a decision changes between game events, so
 it is acted on immediately rather than whenever the game next says something: toggling a
-defence in `emdefs` does this.
+defence in `emset defs` does this.
 
 ## `PERFORM INSPIRATION`
 
@@ -374,4 +374,4 @@ Char.Defences.Remove = { "inspiration" }
 
 Nothing strips it; it simply lapses after about ten minutes. That is exactly the shape
 keep-up exists for, so it is in `defkeepup.M.commands` and needs only
-`emunah defs add inspiration`.
+`emset defs add inspiration`.

@@ -279,6 +279,10 @@ function mock.install(homeDir)
    mock.latency = 0.1
    function _G.getNetworkLatency() return mock.latency end
 
+   -- Mudlet's printCmdLine(text): puts text on the input line for the user to finish.
+   mock.cmdLine = nil
+   function _G.printCmdLine(text) mock.cmdLine = tostring(text) end
+
    mock.echoed_sends = {}
    function _G.send(command, echo)
       mock.sent[#mock.sent + 1] = tostring(command)

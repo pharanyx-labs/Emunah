@@ -103,7 +103,7 @@ end
 
 function M.start()
    if M.enabled then
-      log.warn("Already bashing. 'emunah bash stop' first.")
+      log.warn("Already bashing. 'emset bash off' first.")
       return false
    end
 

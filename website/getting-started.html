@@ -90,8 +90,6 @@
 <tr><td><code>emunah</code></td><td>the full command list</td></tr>
 <tr><td><code>emset status</code></td><td>character, class, curing state, tracked afflictions, skills indexed, inventory count</td></tr>
 <tr><td><code>emset ui show</code></td><td>turns the interface on if it isn't already — vitals strip, affliction panel, chat, room panel, map</td></tr>
-<tr><td><code>emset have</code></td><td>a full capability report: which cure vectors are ready, blocked, or recovering</td></tr>
-<tr><td><code>emset gmcp</code></td><td>a raw dump of everything Emunah currently knows from GMCP</td></tr>
 </tbody>
 </table>
 
@@ -102,12 +100,12 @@
 Settings persist per Mudlet profile in <code>emunah-config.lua</code> (in your Mudlet home
 directory), so two characters in the same Mudlet installation keep separate priorities,
 defence lists, and UI layout without any extra work. Read or write any setting directly
-with <code>emset set</code> — see the <a href="commands.html#config">Configuration</a>
+with <code>emset &lt;setting&gt; &lt;value&gt;</code> — see the <a href="commands.html#using">Command Reference</a>
 section of the command reference.
 </p>
 <div class="callout callout-note">
 <div class="callout-title">Nothing runs until it is enabled</div>
-<p>The curing engine and defence keep-up never auto-enable on a fresh install; they are turned on explicitly with <code>emset cure on</code> and <code>emset defs on</code>. The same applies to the walker, hunting and PvP.</p>
+<p>The curing engine and defence keep-up never auto-enable on a fresh install; they are turned on explicitly with <code>emset curing on</code> and <code>emset defs on</code>. The same applies to the walker, hunting and PvP.</p>
 </div>
 
 <h3>Healing thresholds</h3>
@@ -125,7 +123,7 @@ percentage.
 <tr><td><code>curing.handsThreshold</code></td><td>50%</td><td>Equilibrium</td></tr>
 </tbody>
 </table>
-<pre><code>emset set curing.healthThreshold 75</code></pre>
+<pre><code>emset curing.healthThreshold 75</code></pre>
 <p>
 The configuration file carries a schema version. When a shipped default is found to be
 wrong, a migration corrects the stored value on load — a stored setting otherwise outlives
@@ -180,7 +178,7 @@ cd package &amp;&amp; muddle</code></pre>
 </tr>
 <tr>
   <td>A setting doesn't seem to take effect</td>
-  <td>Check it actually saved: <code>emset set &lt;key&gt;</code> with no value reads the current value back. Booleans and numbers are coerced automatically; anything else is stored as a string.</td>
+  <td>Check it actually saved: <code>emset &lt;setting&gt;</code> with no value reads the current value back. Booleans and numbers are coerced automatically; anything else is stored as a string.</td>
 </tr>
 <tr>
   <td>Reloading after adding a new file does nothing</td>

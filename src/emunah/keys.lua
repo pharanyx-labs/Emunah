@@ -156,7 +156,7 @@ function M.build()
       -- Said at info, not debug. Someone whose numpad has stopped working is owed the one
       -- sentence that explains it, and `emunah keys on` is the whole fix.
       log.info("Numpad movement is <ansi_light_red>off<ansi_yellow> in settings "
-         .. "-- `emunah keys on` to restore it.")
+         .. "-- `emset keys.numpad true` to restore it.")
       return false
    end
 
@@ -210,7 +210,7 @@ function M.build()
    -- "the numpad broke" with nothing anywhere to explain it.
    if bound == 0 then
       log.warn("No numpad bindings were installed -- movement keys will do nothing. "
-         .. "`emunah keys` shows the state.")
+         .. "`emset keys.numpad` shows the state.")
       return false
    end
 

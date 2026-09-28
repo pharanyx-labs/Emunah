@@ -5,7 +5,7 @@
 --- YOUR OWN state -- so everything here has to come from third-person combat text, and the
 --- same discipline that governs curing/detect/patterns.lua applies: a pattern that fires on
 --- the wrong line asserts an affliction on the wrong person, which is worse than not
---- knowing. Grow this from `emunah learn on` transcripts of real fights, not from memory --
+--- knowing. Grow this from learn mode (`detect.startLearning()`) transcripts of real fights, not from memory --
 --- see patterns.lua's header for the reasoning this module inherits wholesale.
 ---
 --- This file ships with NO patterns, deliberately -- it is framework, not corpus, exactly

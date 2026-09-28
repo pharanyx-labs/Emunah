@@ -90,7 +90,7 @@ balance", separate from bal/eq, and play agrees for every vector tested:
   was refused for balance in the same second **[play, balance.md]**.
 - FOCUS and TOUCH TREE cost neither **[play, defences.md]**.
 - **[open]** Salve, smoke and sip have not been shown in a transcript to work off balance.
-  The code assumes they do. The `emunah debug` output from one fight would settle it.
+  The code assumes they do. The `emset debug` output from one fight would settle it.
 
 What *does* block cures is the character's state rather than a balance:
 

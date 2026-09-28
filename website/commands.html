@@ -37,802 +37,360 @@
 
 <h1>Command Reference</h1>
 <p class="lede">
-Ninety-four commands across five areas. Every one of them is also in the client itself
-&mdash; type <code>emhelp</code>.
+Everything Emunah does, one module at a time &mdash; the same text <code>emhelp</code> shows in
+the client.
 </p>
 
-<h2 id="prefix">The prefix</h2>
+<h2 id="using">Using it</h2>
+<pre><code>emhelp                        # the modules, and whether each is on
+emhelp curing                 # one module: what it does, its commands, its settings
+emset                         # status
+emset curing on               # a command
+emset curing.method minerals  # a setting</code></pre>
 <p>
-Everything runs through one dispatcher, under two names:
-</p>
-<pre><code>emset status      # the short form -- what you type, and what this page uses
-emunah status     # the long form -- identical; what reads best in a script</code></pre>
-<p>
-A single entry point rather than a scatter of top-level aliases, for two reasons: Achaea has a
-large command vocabulary of its own and colliding with it is easy, and one entry point means
-bare <code>emset</code> can list everything the system does.
-</p>
-
-<div class="callout callout-warn">
-<div class="callout-title">There is no longer a <code>!</code> prefix</div>
-<p>
-<code>!</code> used to be a second universal prefix meaning exactly what <code>emunah</code>
-means. It has been <strong>removed, not deprecated</strong> &mdash; <code>!</code> now falls
-through to the game untouched, and the test suite asserts that it does.
-</p>
-<p>
-Two spellings for every command meant everything documenting one had to pick a side, and they
-picked differently: the in-game help said <code>!</code>, this website said
-<code>emunah</code>, and the README said both in different tables. Settling on one is what
-lets <code>emhelp</code> state a single syntax per command.
-</p>
-</div>
-
-<p>
-A handful of commands additionally have a <strong>bare form</strong>, with no prefix at all
-&mdash; <code>pp</code>, <code>emdefs</code>, <code>ndb</code>, <code>pipes</code>,
-<code>manna</code>, <code>affpop</code>, <code>emhelp</code>, <code>emreload</code> and
-<code>sleep</code>. Those are the ones typed mid-fight, where a few extra keystrokes is the
-difference between using the command and not bothering. They are marked below.
-</p>
-
-<div class="callout callout-note">
-<div class="callout-title">This page is generated from the data the client uses</div>
-<p>
-<code>src/emunah/help.lua</code> holds the command reference as a table, and
-<code>emhelp</code> renders it in Mudlet. This page is rendered from that same table, so it
-cannot describe a command the client does not have. The test suite asserts the other
-direction: every handler, every bare alias and every shipped setting must appear in it, or
-<code>lua test/run.lua</code> fails.
-</p>
-</div>
-
-<h2 id="emhelp">emhelp</h2>
-<p>
-The reference, in the client, where you need it.
-</p>
-<pre><code>emhelp                     # the index
-emhelp curing              # one topic
-emhelp bash                # every bash command
-emhelp defs                # every defence command
-emhelp search gold         # find a command by what it does
-emhelp settings            # every setting, with its current value
-emhelp settings curing     # ...for one topic, with explanations
-emhelp keys                # the key bindings
-emhelp all                 # everything</code></pre>
-<p>
-Every line printed is clickable, so the index, a topic, a command and its cross-references are
-all one click from each other. <code>emhelp</code> keeps its own name rather than living under
-the prefix, because it is the one command you type <em>before</em> you know what the prefix is.
-</p>
-
-<h2 id="settings">Settings</h2>
-<p>
-Read and written with <code>emset set</code>:
-</p>
-<pre><code>emset set                            # dump the whole table
-emset set curing.confirmWait         # read one
-emset set curing.healthThreshold 75  # write one, and save it</code></pre>
-<p>
-There are seventy-eight documented keys. Thirty-six ship in the defaults file; the rest are
-read with a fallback at their use site and can be set, but will not appear in the config file
-until you do. <code>emhelp settings</code> lists both, marks which is which, and marks any
-value that differs from its default.
+There is one prefix, <code>emset</code>. Every setting can be set by name with
+<code>emset &lt;setting&gt; &lt;value&gt;</code>; in the client, <code>emhelp &lt;module&gt;</code>
+lists them with their current values, and clicking one changes it. The only words outside
+<code>emset</code> are <code>emhelp</code>, <code>emreload</code> (which works even if the
+command module failed to load) and <code>sleep</code> (which is the game's SLEEP, marked as
+yours so Emunah does not wake you out of it).
 </p>
 
 
-<h2 id="core">Core</h2>
-<p>State, settings, reloading and diagnostics.</p>
+<h2 id="system">System</h2>
+<p>Emunah runs off GMCP: vitals, afflictions, defences, inventory and the room arrive from the game and everything else reacts to them once per prompt. Every command goes through one gate that knows when the game would refuse it -- stunned, asleep, unconscious, dead, off balance, prone, paralysed, entangled -- and holds it rather than wasting it. Death pauses everything until you are alive again. Settings are saved per profile.</p>
 
 <div class="cmd-block">
 <span class="cmd-syntax">emset</span>
-<p><strong>Bare form:</strong> <code>emset</code></p>
-<p>the short list -- the ten commands a normal session uses</p>
-<p>Bare <code>emset</code>, with no subcommand. This used to print the full forty-line reference, which is a lot to hand someone who typed nothing but the prefix. <code>emhelp</code> has everything.</p>
+<p>status: curing, defences, safety floors, what is tracked</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">emunah &lt;command&gt;</span>
-<p>the long form of the same prefix</p>
-<p>Every command in this reference is written <code>emset ...</code>, because that is what you type. <code>emunah ...</code> is the identical dispatcher under its full name, and is what appears in comments, log lines and scripts, where the extra letters read better than they type. <code>emset status</code> and <code>emunah status</code> are the same command. There used to be a <code>!</code> prefix as well; it has been removed rather than deprecated, and now falls through to the game untouched.</p>
-<pre><code>emset status
-emset bash on</code></pre>
+<span class="cmd-syntax">emset &lt;setting&gt; [value]</span>
+<p>show or change any setting, e.g. <code>emset curing.method minerals</code></p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">emhelp</span>
-<p><strong>Bare form:</strong> <code>emhelp</code></p>
-<p>this help system -- index, topics, per-command cards, search</p>
-<p>With no argument, the index. With a topic name, that topic's commands. With a command, the full card for it: syntax, arguments, examples, the settings it touches and what they are set to right now. Everything printed is clickable.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;topic&gt;</code></td><td>one of the categories listed by the index</td></tr>
-<tr><td><code>&lt;command&gt;</code></td><td>any command, with or without the <code>emunah</code>/<code>emset</code> prefix</td></tr>
-</tbody></table>
-<pre><code>emhelp
-emhelp curing
-emhelp bash
-emhelp search gold</code></pre>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emhelp search &lt;word&gt;</span>
-<p>find every command mentioning a word</p>
-<p>Matches across syntax, summary, detail text and setting names, so searching for what you want to DO usually finds it even when you do not know what the command is called.</p>
-<pre><code>emhelp search gold
-emhelp search balance</code></pre>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emhelp settings [topic|key]</span>
-<p>every setting, its default, and what it is right now</p>
-<p>Includes the keys that are settable but not in the shipped defaults -- there are more of those than there are shipped ones, and none of them were documented anywhere before this. A value differing from its default is marked.</p>
-<pre><code>emhelp settings
-emhelp settings curing
-emhelp settings bashing.attack</code></pre>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emhelp keys</span>
-<p>the numpad and function-key bindings</p>
-<p>Read from keys.lua's own tables rather than transcribed, so it cannot disagree with what is actually bound.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emhelp all</span>
-<p>every command in every topic, in one page</p>
-<p>For reading through, or for searching with Mudlet's own buffer search.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset help</span>
-<p>the same index as <code>emhelp</code></p>
-<p>Kept because it is what the system has always answered to, and because <code>emset help</code> reads better in a script than <code>emhelp</code> does.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset status</span>
-<p>system and character state on one screen</p>
-<p>Version, character, class, whether curing and keep-up and the interface are running, the cure method, how many afflictions are tracked, how many skills and inventory items are indexed, the log level, and the three safety floors -- which are shown in red when set to zero, because a disabled floor looks identical to a low one until it kills you.</p>
-<p class="credit">Settings: <code>curing.enabled</code>, <code>defences.enabled</code>, <code>ui.enabled</code>, <code>curing.method</code>, <code>logLevel</code>, <code>bashing.stopBelowHealth</code>, <code>pvp.stopBelowHealth</code>, <code>watch.critical</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset set</span>
-<p>dump the whole configuration table</p>
-<p>The raw table. <code>emhelp settings</code> is the readable version, with defaults and explanations.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset set &lt;key&gt;</span>
-<p>read one setting</p>
-<p>Prints <code>(unset)</code> when the key has never been written, which is different from a key set to its default.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;key&gt;</code></td><td>a dotted path, e.g. curing.confirmWait</td></tr>
-</tbody></table>
-<pre><code>emset set curing.confirmWait</code></pre>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset set &lt;key&gt; &lt;value&gt;</span>
-<p>write one setting, and save it</p>
-<p><code>true</code>, <code>false</code> and numbers are coerced; everything else is stored as a string. Written straight to disk, so it survives a reload and a restart.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;key&gt;</code></td><td>a dotted path -- see <code>emhelp settings</code> for all of them</td></tr>
-<tr><td><code>&lt;value&gt;</code></td><td>true, false, a number, or text</td></tr>
-</tbody></table>
-<pre><code>emset set curing.healthThreshold 75
-emset set bashing.attack "angel sear"</code></pre>
+<span class="cmd-syntax">emhelp [module]</span>
+<p>this help: the modules, or one module's commands and settings</p>
 </div>
 
 <div class="cmd-block">
 <span class="cmd-syntax">emset reload</span>
-<p>re-read every module from disk</p>
-<p>Re-executes the bootstrap, so a newly ADDED module is picked up too -- re-requiring the existing manifest silently would not see it.</p>
+<p>reload Emunah from disk, keeping its state</p>
 </div>
 
 <div class="cmd-block">
 <span class="cmd-syntax">emreload</span>
-<p><strong>Bare form:</strong> <code>emreload</code></p>
-<p>the same reload, as one word</p>
-<p>Owned by the loader rather than commands.lua, so it still works when commands.lua is the module that failed to compile.</p>
+<p>the same, and still works if the command module failed to load</p>
 </div>
 
 <div class="cmd-block">
 <span class="cmd-syntax">emset debug</span>
-<p>toggle verbose logging -- every command sent, and every command held</p>
-<p>The single most useful thing to turn on before reporting a problem. The held lines are the valuable half: they say why the system decided NOT to act, which is invisible otherwise and is usually the actual complaint.</p>
-<p class="credit">Settings: <code>logLevel</code></p>
+<p>debug log: every command sent, and every command held with the reason</p>
 </div>
 
 <div class="cmd-block">
 <span class="cmd-syntax">emset debug gmcp</span>
-<p>trace GMCP traffic in and out</p>
-<p>Off by default and separately toggled, because it is a lot of output. This is what to paste when the question is what the game actually said.</p>
+<p>trace every GMCP message in and out</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">emset debug handlers|timers|queue</span>
-<p>internals: registered handlers, live timers, the action queue</p>
-<p><code>queue</code> is the one to reach for when something is not being sent: it shows what is pending on each vector and what is in flight awaiting confirmation.</p>
+<span class="cmd-syntax">emset debug queue|timers|handlers</span>
+<p>dump the action queue, the timers or the event handlers</p>
 </div>
 
-<div class="cmd-block">
-<span class="cmd-syntax">emset gmcp [refresh]</span>
-<p>tracked GMCP state, or ask the game to resend it</p>
-<p><code>refresh</code> re-requests inventory, rift and skills. Useful after a desync, and the first thing to try when a cure is refused for something you are holding.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset have [thing]</span>
-<p>capability report, or check one item or skill</p>
-<p>With no argument: how many skills and items are indexed, how many rift entries, and for each cure vector whether it is ready, recovering, or blocked by an affliction. With an argument: whether that is a skill you have, an item in inventory, an entry in the rift, or a defence currently up.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>[thing]</code></td><td>a skill name, item name or defence name</td></tr>
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>logLevel</code></td><td>info</td><td>debug, info, warn or error. <code>emset debug</code> toggles between info and debug.</td></tr>
+<tr><td><code>schema</code></td><td>9</td><td>Config format version. Managed by the migrations; do not set this by hand.</td></tr>
 </tbody></table>
-<pre><code>emset have
-emset have bloodroot
-emset have rebounding</code></pre>
+
+<h2 id="curing">Curing</h2>
+<p>Tracks your afflictions from GMCP (and from EmunahTriggers.xml, with svof's anti-illusion) and cures them on the right balance: herbs, salves, elixirs, moss, smoking, FOCUS, the tree tattoo, COMPOSE, CONCENTRATE, CLOT and WRITHE. One cure per balance at a time, never inside a balance, never while something blocks it (anorexia, slickness, asthma, paralysis...). Follows svof's rules for what to cure first and when not to. Sips health and mana, eats moss, keeps cures pulled from the rift into your inventory, and wakes you from a sleep you did not choose.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset curing</span>
+<p>on or off, and every affliction being tracked</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">emset chat [rebuild]</span>
-<p>chat capture vs rendering -- which half is working</p>
-<p>Capture and rendering are separate modules and fail independently. "Chat stopped" has three different causes -- the game stopped sending, the console broke, or no console was ever built -- and this tells them apart in one line.</p>
-<p class="credit">Settings: <code>ui.chatTabs</code></p>
+<span class="cmd-syntax">emset curing on|off</span>
+<p>switch curing on or off</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">emset chyron &lt;text&gt; | clear</span>
-<p>queue an announcement on the scrolling strip at the top</p>
-<p>Up to three messages scroll on a loop. The manual entry point to the same call anything else in the codebase would make programmatically.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;text&gt;</code></td><td>what to scroll</td></tr>
-<tr><td><code>clear</code></td><td>drop everything queued</td></tr>
-</tbody></table>
-<pre><code>emset chyron Anzerloi is in the arena
-emset chyron clear</code></pre>
+<span class="cmd-syntax">emset pause</span>
+<p>pause or resume curing and defences together</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">emset ui [rebuild|reset|show]</span>
-<p>toggle, rebuild or reset the interface</p>
-<p>With no argument, toggles the whole interface off and on. <code>rebuild</code> recreates the containers, <code>reset</code> discards saved geometry, <code>show</code> un-hides them -- which is the one to try if the interface has gone invisible.</p>
-<p class="credit">Settings: <code>ui.enabled</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset ui map [on|off|centre|rebuild|float|embed|raw|height &lt;n&gt;]</span>
-<p>the map: status, size, or where it lives</p>
-<p>With no argument it REPORTS and never toggles -- deliberately, because the map has about eight ways to be broken and the report distinguishes them. <code>float</code> detaches it into its own dock; <code>raw</code> bypasses Geyser entirely.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>height &lt;n&gt;</code></td><td>percent of the window, 10-70</td></tr>
-</tbody></table>
-<p class="credit">Settings: <code>ui.map</code>, <code>ui.mapHeight</code>, <code>ui.mapFloat</code></p>
-</div>
-
-<h2 id="curing">Curing &amp; defences</h2>
-<p>The affliction engine, defence keep-up, and detection.</p>
-
-<div class="cmd-block">
-<span class="cmd-syntax">pp</span>
-<p><strong>Bare form:</strong> <code>pp</code></p>
-<p>pause or resume curing AND defence keep-up together</p>
-<p>Both, as one action, on purpose. A cure engine paused while keep-up carries on raising defences is not the fight paused, it is half paused -- and the half still running is the half that spends balances. Resuming is defined as "either one is currently off", so one press always lands on a clean state.</p>
-<p class="credit">Settings: <code>curing.enabled</code>, <code>defences.enabled</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset cure on|off</span>
-<p>the curing engine alone</p>
-<p>Off by default. Curing is opt-in because a system that starts eating herbs the moment it loads is not something to hand someone unannounced.</p>
-<p class="credit">Settings: <code>curing.enabled</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset affs</span>
-<p>tracked afflictions, their cure vectors, source and age</p>
-<p>Shows why an affliction is NOT being cured when that is the case -- the refusal reason, or "no cure defined". Prints a red warning inside the list when curing is switched off, rather than only in the header.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emdefs</span>
-<p><strong>Bare form:</strong> <code>emdefs</code></p>
-<p>the clickable defence grid</p>
-<p>Three states per defence, not two, and that is the point of building a grid rather than printing a list. <code>[ ]</code> off, <code>[o]</code> defup (raise it once if it is missing), <code>[x]</code> keepup (raise it whenever it is missing), <code>[-]</code> we hold no command capable of raising it at all. The NAME is coloured by what is actually true right now: green up, red wanted but down, dim down. A defence sitting wanted-but-unraisable looks identical to one that is merely down, and stays that way forever, which is why the fourth state exists.</p>
-<p class="credit">Settings: <code>defences.keepup</code>, <code>defences.commands</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset defs on|off</span>
-<p>defence keep-up as a whole</p>
-<p class="credit">Settings: <code>defences.enabled</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset defs list</span>
-<p>wanted defences, with mode and whether each is up</p>
-<p><code>done (lapsed)</code> means a defup-mode defence was raised once and has since fallen; that is expected, not a fault.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset defs add &lt;name&gt; [command]</span>
-<p>want a defence, optionally supplying how to raise it</p>
-<p>The second form is for defences we have no command for -- tattoos, mostly. Without it, a defence can be wanted and unraisable, which the grid shows as <code>[-]</code>.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;name&gt;</code></td><td>a Char.Defences name -- see <code>emset defs names</code></td></tr>
-<tr><td><code>[command]</code></td><td>what raises it, e.g. <code>touch boar</code></td></tr>
-</tbody></table>
-<pre><code>emset defs add rebounding
-emset defs add insomnia touch moss</code></pre>
-<p class="credit">Settings: <code>defences.commands</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset defs mode &lt;name&gt; defup|keepup|off</span>
-<p>how hard to try for one defence</p>
-<p><code>defup</code> raises it once if missing and then leaves it alone. <code>keepup</code> raises it whenever it is missing, indefinitely. <code>off</code> stops wanting it.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;name&gt;</code></td><td>a Char.Defences name</td></tr>
-</tbody></table>
-<pre><code>emset defs mode rebounding keepup
-emset defs mode speed defup</code></pre>
-<p class="credit">Settings: <code>defences.keepup</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset defs names</span>
-<p>every name Char.Defences uses, and whether we can raise it</p>
-<p>The names the game uses and the names people type diverge more than they should -- a defence is usually known by whatever grants it, and the game names it after what it does. <code>venom</code> is the elixir; <code>poisonresist</code> is the defence.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset defs remove &lt;name&gt;</span>
-<p>stop wanting a defence (<code>drop</code> also works)</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;name&gt;</code></td><td>a defence currently on the wanted list</td></tr>
-</tbody></table>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset prio &lt;aff&gt; &lt;vector&gt; &lt;rank&gt;</span>
-<p>override a cure priority</p>
-<p>Lower ranks are cured first. Per-vector, because the right order to eat herbs in is not the right order to apply salves in.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;aff&gt;</code></td><td>an affliction name</td></tr>
-<tr><td><code>&lt;vector&gt;</code></td><td>herb, salve, elixir, smoke, focus, tree, writhe or special</td></tr>
-<tr><td><code>&lt;rank&gt;</code></td><td>a number; lower is cured sooner</td></tr>
-</tbody></table>
-<pre><code>emset prio paralysis herb 1</code></pre>
-<p class="credit">Settings: <code>priorities</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset detect</span>
-<p>detection pattern coverage</p>
-<p>How many afflictions are known, how many have gain patterns, how many have cure patterns. The gap between the first and the second is the honest measure of how much of the corpus is written.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset learn on|off</span>
-<p>log candidate affliction messages to a file</p>
-<p>For building the pattern corpus: records lines that arrived alongside an affliction change, so a real message can be lifted verbatim rather than guessed at.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">affpop [on|off]</span>
-<p><strong>Bare form:</strong> <code>affpop</code></p>
-<p>walk AFFLICTION LIST and AFFLICTION SHOW into a corpus file</p>
-<p>Sends AFFLICTION LIST, answers the MORE prompts itself, then AFFLICTION SHOW for every name it found. One command, several hundred round trips -- run it somewhere quiet.</p>
-</div>
-
-<h2 id="combat">Combat &amp; movement</h2>
-<p>Bashing, hunting, the area walker, kill lists and PvP.</p>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset bash on|off</span>
-<p>the combat loop</p>
-<p>Attacks whatever is targeted, retargets when something dies, and stops when health falls below the floor. Does NOT move on its own -- <code>emset hunt</code> is the version that walks.</p>
-<p class="credit">Settings: <code>bashing.attack</code>, <code>bashing.stopBelowHealth</code>, <code>bashing.soloOnly</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset bash</span>
-<p>the session report</p>
-<p>Attack, costs, target and its health, an estimate of the kill, how many killed, damage dealt and taken, rooms cleared, and how fresh the room's item list is -- that last one being the usual reason a loop looks stuck.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset bash attack &lt;command&gt;</span>
-<p>what to attack with</p>
-<p>One matched pair of surrounding quotes is stripped, so a multi-word attack can be given either way.</p>
-<pre><code>emset bash attack angel sear
-emset bash attack "angel sear"</code></pre>
-<p class="credit">Settings: <code>bashing.attack</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset bash balance eq|bal|both</span>
-<p>what the attack REQUIRES before it can be sent</p>
-<p class="credit">Settings: <code>bashing.balance</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset bash consumes eq|bal</span>
-<p>what the attack SPENDS when it lands</p>
-<p>A distinct axis from <code>balance</code>, and getting them confused is why an attack loop stalls: Angel Sear requires both but consumes equilibrium, so a system watching balance for its recovery waits for a signal that never comes.</p>
-<p class="credit">Settings: <code>bashing.consumes</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset bash health &lt;n&gt;</span>
-<p>stop attacking below this percentage of health</p>
-<p>Zero disables the floor, and <code>emset status</code> shows it in red when it is zero.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;n&gt;</code></td><td>percent, 0-100</td></tr>
-</tbody></table>
-<p class="credit">Settings: <code>bashing.stopBelowHealth</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset hunt [off]</span>
-<p>walk the area AND kill things</p>
-<p>Starts the walker first and then the bashing loop, in that order deliberately: the reverse attacks whatever is in the room before the walker has decided where it is.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset walk start|stop|pause|resume</span>
-<p>the area walker on its own, with no fighting</p>
-<p class="credit">Settings: <code>walker.auto</code>, <code>walker.stepDelay</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset walk</span>
-<p>walker report: area, rooms remaining, visited, unreachable, avoided</p>
-<p>"Paced by" is the useful field -- it says what the walker is currently waiting on, which is usually the answer to why it has stopped.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset walk move|next</span>
-<p>take exactly one step</p>
-<p>For when auto-stepping is off, or for stepping through a route by hand to see where it goes wrong.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset walk avoid &lt;id&gt; | unavoid &lt;id&gt;</span>
-<p>never route through a room, or stop avoiding it</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;id&gt;</code></td><td>a room number, as shown by <code>emset walk</code> and the room panel</td></tr>
-</tbody></table>
-<p class="credit">Settings: <code>walker.avoid</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset walk auto [off]</span>
-<p>step automatically, or only on request</p>
-<p>Anything that is not the literal word <code>off</code> turns it on.</p>
-<p class="credit">Settings: <code>walker.auto</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset walk delay &lt;seconds&gt;</span>
-<p>seconds between steps, 0.1 to 30</p>
-<p class="credit">Settings: <code>walker.stepDelay</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset walk return</span>
-<p>toggle returning to the starting room when finished</p>
-<p>Session-only -- this one is deliberately not persisted.</p>
-<p class="credit">Settings: <code>walker.returnToStart</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset mobs</span>
-<p>denizens recorded for this area, and which are on the kill list</p>
-<p class="credit">Settings: <code>denizens.autoRecord</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset mobs here</span>
-<p>what is in the room now, by replica number</p>
-<p>Green is on the kill list, yellow is already dealt with, grey is skipped. Clickable.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset mobs target|done|reset</span>
-<p>target the next wanted denizen, mark the current one engaged, or clear the room</p>
-<p><code>reset</code> forgets what has been dealt with in this room, which is what to use when the loop thinks a room is clear and it is not.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset mobs add|remove|skip|kill &lt;name&gt;</span>
-<p>edit the per-area kill list</p>
-<p><code>skip</code> keeps the denizen recorded but off the list -- different from <code>remove</code>, which forgets it and lets auto-recording add it back.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;name&gt;</code></td><td>a denizen name as the game writes it</td></tr>
-</tbody></table>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset mobs areas</span>
-<p>every area with recorded denizens</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset pvp on|off</span>
-<p>the PvP loop</p>
-<p>NEVER auto-targets. A system that picks its own target in a player fight is one mis-parse away from attacking an ally, so the target is always explicit.</p>
-<p class="credit">Settings: <code>pvp.stopBelowHealth</code>, <code>pvp.verses</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset pvp target &lt;name&gt; | target off</span>
-<p>who to fight</p>
-<p>Refuses a name recorded as an ally, and refuses your own.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;name&gt;</code></td><td>a player name</td></tr>
-</tbody></table>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset pvp attack &lt;n&gt;</span>
-<p>how many afflictions to stack before switching to damage</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;n&gt;</code></td><td>a count</td></tr>
-</tbody></table>
-<p class="credit">Settings: <code>pvp.attackAtAfflictions</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset keys [on|off|rebuild]</span>
-<p>numpad movement bindings</p>
-<p><code>rebuild</code> re-binds everything, which is the fix for "enabled but nothing is bound" -- a state the report will tell you about explicitly.</p>
-<p class="credit">Settings: <code>keys.numpad</code></p>
+<span class="cmd-syntax">emset prio &lt;affliction&gt; &lt;balance&gt; &lt;rank&gt;</span>
+<p>cure an affliction sooner or later on one balance; lower is sooner</p>
 </div>
 
 <div class="cmd-block">
 <span class="cmd-syntax">sleep</span>
-<p><strong>Bare form:</strong> <code>sleep</code></p>
-<p>SLEEP, and record that you meant it</p>
-<p>The one place this system deliberately shadows an Achaea verb, because the collision IS the mechanism. Being asleep is otherwise indistinguishable from an opponent having put you there -- same affliction, same GMCP payload, same blocked state -- and the only evidence that a sleep was wanted is that you asked for it a moment earlier. The command still goes to the game; this records intent, it does not replace the verb. Anchored to a bare SLEEP: <code>sleep</code> with an argument is a different command and passes straight through.</p>
+<p>SLEEP, marked as yours so Emunah does not wake you out of it</p>
 </div>
 
-<h2 id="economy">Shop, loot &amp; sustenance</h2>
-<p>Buying, picking up gold, pipes and the manna rite.</p>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset shop [proprietor]</span>
-<p>redraw the last WARES seen -- clickable, buys by replica number</p>
-<p>Grouped by category. Clicking an item buys it. The listing is whatever the game last showed, so this is a redraw rather than a fresh query.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>[proprietor]</code></td><td>a named shop, when more than one has been seen</td></tr>
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>curing.enabled</code></td><td>false</td><td>Off by default, deliberately. Curing is opt-in.</td></tr>
+<tr><td><code>curing.method</code></td><td>herbs</td><td>herbs or minerals. Changes which item every cure resolves to.</td></tr>
+<tr><td><code>curing.confirmWait</code></td><td>2 s</td><td>How long a sent cure holds its vector waiting for the game to confirm it, before the vector is re-armed.</td></tr>
+<tr><td><code>curing.reconcileEvery</code></td><td>20 ticks</td><td>How often the tracked list is reconciled against Char.Afflictions wholesale.</td></tr>
+<tr><td><code>curing.healthThreshold</code></td><td>80 %</td><td>Sip health below this.</td></tr>
+<tr><td><code>curing.manaThreshold</code></td><td>85 %</td><td></td></tr>
+<tr><td><code>curing.iridThreshold</code></td><td>68 %</td><td>Eat irid moss below this, on health or mana.</td></tr>
+<tr><td><code>curing.handsThreshold</code></td><td>50 %</td><td>PERFORM HANDS below this. Costs equilibrium, which attacking also spends, so this is set low on purpose.</td></tr>
+<tr><td><code>curing.irid</code></td><td>true</td><td></td></tr>
+<tr><td><code>curing.diag</code></td><td>true</td><td>Send DIAG when the affliction list is in doubt -- which is what answers <code>loki</code>, the one affliction GMCP does not report honestly.</td></tr>
+<tr><td><code>curing.clotThreshold</code></td><td>30</td><td>Bleeding above this is clotted.</td></tr>
+<tr><td><code>curing.focusGuilt</code></td><td>false</td><td></td></tr>
+<tr><td><code>curing.elixirConfirm</code></td><td>7 s</td><td></td></tr>
+<tr><td><code>curing.mossConfirm</code></td><td>9 s</td><td></td></tr>
+<tr><td><code>curing.riftConfirm</code></td><td>1.5 s</td><td></td></tr>
+<tr><td><code>curing.restock</code></td><td>true</td><td>Pull consumables out of the rift as they run low.</td></tr>
+<tr><td><code>curing.restockEvery</code></td><td>1 ticks</td><td>Every prompt by default. It used to be every tenth, which made each pull ten prompts apart for no benefit -- only one pull can be in flight anyway.</td></tr>
+<tr><td><code>curing.restockSalves</code></td><td>false</td><td></td></tr>
+<tr><td><code>curing.stockTarget</code></td><td>1</td><td>How many of each consumable to keep in hand.</td></tr>
+<tr><td><code>curing.recovery.&lt;vector&gt;</code></td><td>per vector s</td><td>Override the fallback recovery time for one vector, e.g. curing.recovery.herb.</td></tr>
+<tr><td><code>curing.antiIllusion</code></td><td>true</td><td>svof's anti-illusion for EmunahTriggers.xml: reports wait for the prompt, and a block containing an illusion is discarded whole. Off applies each report the moment its line arrives.</td></tr>
+<tr><td><code>curing.textConfirm</code></td><td>2 s</td><td>How long an affliction reported by text waits for the server to confirm it before it is dropped as an illusion.</td></tr>
+<tr><td><code>curing.focusMinMana</code></td><td>35 % of max</td><td>FOCUS is held at or below this mana (svof's <code>manause</code>).</td></tr>
+<tr><td><code>priorities</code></td><td>{}</td><td>Per-affliction, per-vector rank overrides. Written by <code>emset prio</code>.</td></tr>
 </tbody></table>
-<p class="credit">Settings: <code>shop.stowIn</code></p>
+
+<h2 id="defences">Defences</h2>
+<p>Raises the defences you choose and keeps them up. Each one is off, defup (raise it once) or keepup (raise it whenever it drops). Knows the command for the herb, salve, elixir and skill defences; tattoos and anything else can be taught. Never raises a defence that is already up, and never spends the balance while curing needs it.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset defs</span>
+<p>the defence grid: click to cycle off / defup / keepup</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">emset shop spent</span>
-<p>gold spent this session, itemised</p>
-<p>Verified against Char.Status rather than assumed from what was sent -- a purchase that was refused should not appear in the ledger.</p>
+<span class="cmd-syntax">emset defs on|off</span>
+<p>switch defence keep-up on or off</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">emset shop limit &lt;gp&gt; | off</span>
-<p>hold back any single purchase over &lt;gp&gt;</p>
-<p>A click is one keystroke away from a very expensive mistake in a shop that lists by replica number.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;gp&gt;</code></td><td>gold, or <code>off</code> to clear the limit</td></tr>
+<span class="cmd-syntax">emset defs add &lt;name&gt; [command]</span>
+<p>keep a defence up, with the command that raises it if it is not known</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset defs remove &lt;name&gt;</span>
+<p>stop keeping a defence up</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset defs mode &lt;name&gt; defup|keepup|off</span>
+<p>raise it once, keep it up, or leave it alone</p>
+</div>
+
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>defences.enabled</code></td><td>false</td><td></td></tr>
+<tr><td><code>defences.keepup</code></td><td>{}</td><td>name -&gt; "defup" or "keepup". Written by the defence grid.</td></tr>
+<tr><td><code>defences.commands</code></td><td>{}</td><td>name -&gt; the command that raises it, for defences we ship no command for.</td></tr>
 </tbody></table>
-<p class="credit">Settings: <code>shop.confirmAbove</code></p>
+
+<h2 id="pipes">Pipes</h2>
+<p>Keeps your pipes filled and lit so smoking cures are always ready: refills an empty pipe with the herb it holds, relights one that has gone out, and reads PIPELIST now and then to stay honest. Its own commands and their output are hidden.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset pipes</span>
+<p>each pipe: lit or out, what it holds, puffs left</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">emset loot [on|off|now]</span>
-<p>pick up gold from corpses</p>
-<p><code>now</code> sweeps once regardless of the setting. By default it only lifts gold when alone and from kills it believes are ours.</p>
-<p class="credit">Settings: <code>loot.gold</code>, <code>loot.aloneOnly</code>, <code>loot.ownKillsOnly</code>, <code>loot.noDenizens</code>, <code>loot.stowIn</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">pipes [on|off]</span>
-<p><strong>Bare form:</strong> <code>pipes</code></p>
-<p>keep the pipes filled and lit</p>
-<p>The <code>smoke</code> cure vector needs a lit pipe with the right herb in it, and nothing else maintains that. Without this, smoke cures are refused for a reason that looks like a missing herb.</p>
-<p class="credit">Settings: <code>pipes.enabled</code>, <code>pipes.assign</code>, <code>pipes.poll</code></p>
+<span class="cmd-syntax">emset pipes on|off</span>
+<p>switch pipe upkeep on or off</p>
 </div>
 
 <div class="cmd-block">
 <span class="cmd-syntax">emset pipes now</span>
-<p>check the pipes immediately rather than on the next poll</p>
+<p>send PIPELIST now, and show it</p>
+</div>
+
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>pipes.enabled</code></td><td>true</td><td></td></tr>
+<tr><td><code>pipes.assign</code></td><td>(unset)</td><td>Which herb goes in which pipe.</td></tr>
+<tr><td><code>pipes.poll</code></td><td>300 s</td><td></td></tr>
+</tbody></table>
+
+<h2 id="manna">Manna</h2>
+<p>Performs the manna rite: the three commands, with the waits between them, done for you once each is possible.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset manna</span>
+<p>perform the manna rite</p>
+</div>
+
+<h2 id="hunting">Hunting</h2>
+<p>Bashing and walking. Bashing attacks the denizens in the room, one at a time by replica number, on the balance and equilibrium your attack uses. The walker explores an area room by room. <code>hunt</code> runs both: clear a room, move on. Stops itself when health drops below its floor, when a player arrives, or when damage comes in too fast.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset hunt [off]</span>
+<p>walk and bash together; <code>off</code> stops both</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">manna</span>
-<p><strong>Bare form:</strong> <code>manna</code></p>
-<p>the sustenance rite: perform, get bowl, drink bowl</p>
-<p>Three commands with real waits between them. One word because it is a thing you do several times a day and the sequence is fiddly to type.</p>
+<span class="cmd-syntax">emset bash</span>
+<p>bashing: target, kills, damage, whether it is running</p>
 </div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset bash on|off</span>
+<p>bash the room you are in</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset bash attack &lt;command&gt;</span>
+<p>the attack, sent as <code>&lt;command&gt; &lt;replica&gt;</code></p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset walk</span>
+<p>the walker: area, rooms left, visited</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset walk start|stop</span>
+<p>explore the current area, or stop</p>
+</div>
+
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>walker.avoid</code></td><td>{}</td><td></td></tr>
+<tr><td><code>walker.auto</code></td><td>true</td><td></td></tr>
+<tr><td><code>walker.stepDelay</code></td><td>0.6 s</td><td>0.1 to 30.</td></tr>
+<tr><td><code>walker.returnToStart</code></td><td>true</td><td>Toggled in-session by <code>emset walk return</code>; not persisted.</td></tr>
+<tr><td><code>walker.stopBelowHealth</code></td><td>40 %</td><td></td></tr>
+<tr><td><code>walker.stopOnPlayer</code></td><td>false</td><td></td></tr>
+<tr><td><code>walker.transitTimeout</code></td><td>8 s</td><td></td></tr>
+<tr><td><code>bashing.attack</code></td><td>angel sear</td><td></td></tr>
+<tr><td><code>bashing.balance</code></td><td>both</td><td>What the attack REQUIRES: eq, bal or both.</td></tr>
+<tr><td><code>bashing.consumes</code></td><td>eq</td><td>What the attack SPENDS: eq or bal. Not the same question as <code>balance</code>.</td></tr>
+<tr><td><code>bashing.stopBelowHealth</code></td><td>50 %</td><td>Zero disables the floor.</td></tr>
+<tr><td><code>bashing.maxAttempts</code></td><td>40</td><td></td></tr>
+<tr><td><code>bashing.walkWhenClear</code></td><td>true</td><td></td></tr>
+<tr><td><code>bashing.stopOnPlayer</code></td><td>false</td><td></td></tr>
+<tr><td><code>bashing.soloOnly</code></td><td>true</td><td></td></tr>
+<tr><td><code>bashing.resumeMargin</code></td><td>10 points</td><td>How far above the health floor to recover before resuming.</td></tr>
+<tr><td><code>bashing.penitence</code></td><td>true</td><td>Priest only.</td></tr>
+<tr><td><code>bashing.desolation</code></td><td>true</td><td>Priest only.</td></tr>
+<tr><td><code>watch.critical</code></td><td>30 %</td><td>The floor everything stops at. Zero disables it.</td></tr>
+<tr><td><code>watch.damageSpike</code></td><td>25 %</td><td></td></tr>
+<tr><td><code>watch.damageWindow</code></td><td>10 ticks</td><td></td></tr>
+<tr><td><code>watch.damageSpikeBelow</code></td><td>60 %</td><td></td></tr>
+<tr><td><code>watch.endurance</code></td><td>15 %</td><td></td></tr>
+<tr><td><code>watch.willpower</code></td><td>15 %</td><td></td></tr>
+<tr><td><code>watch.mana</code></td><td>10 %</td><td></td></tr>
+<tr><td><code>watch.resource</code></td><td>10 %</td><td></td></tr>
+<tr><td><code>denizens.autoRecord</code></td><td>true</td><td></td></tr>
+</tbody></table>
+
+<h2 id="pvp">PvP</h2>
+<p>Attacks the player you name, and only that player: it never picks a target by itself. Tracks the afflictions you have given them. Stops below its health floor.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset pvp</span>
+<p>target, their afflictions, attacks sent</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset pvp on|off</span>
+<p>start or stop attacking the target</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset pvp target &lt;name&gt;|off</span>
+<p>choose the target, or clear it</p>
+</div>
+
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>pvp.stopBelowHealth</code></td><td>60 %</td><td>Higher than the bashing floor on purpose.</td></tr>
+<tr><td><code>pvp.verses</code></td><td>true</td><td>Recite Zeal verses to apply afflictions.</td></tr>
+<tr><td><code>pvp.attackAtAfflictions</code></td><td>2</td><td>Switch from afflicting to damage at this many stacked.</td></tr>
+</tbody></table>
+
+<h2 id="loot">Loot &amp; shop</h2>
+<p>Picks up gold from the room after a kill and stows it. Shop purchases above a set price ask before buying.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset loot</span>
+<p>whether gold pickup is on, and how much has been picked up</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset loot on|off</span>
+<p>switch gold pickup on or off</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset loot now</span>
+<p>sweep the room now</p>
+</div>
+
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>loot.gold</code></td><td>true</td><td></td></tr>
+<tr><td><code>loot.aloneOnly</code></td><td>true</td><td>Only lift gold with nobody else in the room.</td></tr>
+<tr><td><code>loot.ownKillsOnly</code></td><td>false</td><td></td></tr>
+<tr><td><code>loot.noDenizens</code></td><td>true</td><td>Do not stop to loot while something is still alive.</td></tr>
+<tr><td><code>loot.stowIn</code></td><td>backpack452292</td><td>Where gold goes. This default is one character's backpack id and will not be yours.</td></tr>
+<tr><td><code>shop.stowIn</code></td><td>(caller's choice)</td><td></td></tr>
+<tr><td><code>shop.confirmAbove</code></td><td>(unset) gp</td><td>Purchases above this price ask for confirmation.</td></tr>
+</tbody></table>
 
 <h2 id="people">People</h2>
-<p>The name database, dossiers, standing and highlighting.</p>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb</span>
-<p><strong>Bare form:</strong> <code>ndb</code></p>
-<p>the roster</p>
-<p><code>ndb</code> works bare, without the <code>emunah</code> prefix, deliberately: the database is consulted mid-fight about a name that just walked in, and five extra keystrokes at that moment is the difference between looking someone up and not bothering.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb ally|enemy|neutral|dragons|marks|infamous</span>
-<p>filtered rosters</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb city|house|order|class &lt;name&gt;</span>
-<p>everyone recorded with that affiliation</p>
-<pre><code>ndb city Mhaldor
-ndb class Serpent</code></pre>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb here</span>
-<p>who is in the room, with what we know about them</p>
-<p>Unknowns are shown with a <code>?</code> and "not recorded" rather than omitted -- that someone is present and unrecorded is itself worth seeing.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb show &lt;person&gt;</span>
-<p>the full dossier (<code>who</code> and <code>whois</code> also work)</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;person&gt;</code></td><td>a name</td></tr>
-</tbody></table>
-</div>
+<p>A database of everyone you have seen: city, house, class, and whether they are an ally or an enemy, filled from WHO lists, HONOURS and the Achaea web API. Names are highlighted in the game text by what they are to you.</p>
 
 <div class="cmd-block">
 <span class="cmd-syntax">emset whois &lt;person&gt;</span>
-<p>the dossier on one person</p>
-<p>Falls back to the Achaea web API when the name is not recorded, so this answers for anyone, not only people already seen.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;person&gt;</code></td><td>a name</td></tr>
-</tbody></table>
-<p class="credit">Settings: <code>namedb.autoFetch</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb stats</span>
-<p>coverage: standing, cities, and what is still unknown</p>
-<p>The gaps are the point -- how many records have no city, no class -- because that is what says whether the database is worth trusting yet.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb fields</span>
-<p>the settable field schema</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb set &lt;person&gt; &lt;field&gt; &lt;value&gt;</span>
-<p>record a fact by hand</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;field&gt;</code></td><td>one of the names from <code>ndb fields</code></td></tr>
-</tbody></table>
-<pre><code>ndb set Malefactor city Mhaldor</code></pre>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb note &lt;person&gt; &lt;text&gt;</span>
-<p>attach a free-text note</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb unnote &lt;person&gt; [index]</span>
-<p>drop one note, or all of them</p>
-<p>With no index, every note on that person goes.</p>
+<p>everything known about someone</p>
 </div>
 
 <div class="cmd-block">
 <span class="cmd-syntax">emset iff &lt;person&gt; ally|enemy|auto</span>
-<p>declare a standing -- declaration beats derivation</p>
-<p><code>auto</code> hands the decision back to the derived rules (city, house and order hostility). An explicit declaration always wins, and survives an import.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;person&gt;</code></td><td>a name</td></tr>
+<p>mark someone as an ally or an enemy, or go back to what their city says</p>
+</div>
+
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>namedb.capture</code></td><td>true</td><td></td></tr>
+<tr><td><code>namedb.autoFetch</code></td><td>true</td><td>Look names up against the Achaea web API automatically.</td></tr>
+<tr><td><code>names.enabled</code></td><td>true</td><td></td></tr>
+<tr><td><code>names.cityTint</code></td><td>true</td><td></td></tr>
 </tbody></table>
+
+<h2 id="interface">Interface</h2>
+<p>The panels around the game text: vitals, afflictions, defences, chat tabs, the room and its people, your target, and the map.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset ui</span>
+<p>whether the panels and the map are on</p>
 </div>
 
 <div class="cmd-block">
-<span class="cmd-syntax">ndb hostile [off] &lt;kind&gt; &lt;org&gt;</span>
-<p>treat a whole city, house or order as hostile</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>&lt;kind&gt;</code></td><td>city, house or order</td></tr>
+<span class="cmd-syntax">emset ui rebuild</span>
+<p>rebuild the panels; also fixes one that is missing or stuck</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset ui map on|off</span>
+<p>show or hide the map</p>
+</div>
+
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>ui.enabled</code></td><td>true</td><td>Whether the panel interface is built at all.</td></tr>
+<tr><td><code>ui.map</code></td><td>true</td><td></td></tr>
+<tr><td><code>ui.mapHeight</code></td><td>42 % of window</td><td>Clamped to 10-70.</td></tr>
+<tr><td><code>ui.mapFloat</code></td><td>false</td><td>Detaches the map into its own window. <code>emset ui rebuild</code> after changing it.</td></tr>
+<tr><td><code>ui.chatTabs</code></td><td>Tells, City, House, Market, Says, Misc</td><td></td></tr>
+<tr><td><code>keys.numpad</code></td><td>true</td><td></td></tr>
 </tbody></table>
-<pre><code>ndb hostile city Mhaldor
-ndb hostile off city Mhaldor</code></pre>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb capture [on|off]</span>
-<p>which listings are being read, and what each is waiting for</p>
-<p>Names are learned from CW, CLWHO, QW, HONOURS and the guardian angel. The report says which of those have produced anything, which is how you tell "not implemented" from "never seen one".</p>
-<p class="credit">Settings: <code>namedb.capture</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb api [on|off]</span>
-<p>the Achaea web API: transport, queue, cache, hits and misses</p>
-<p>Requests are serialised and cached (six hours for a hit, twenty-four for a miss) because the endpoint sends no rate-limit headers and it seemed unwise to find the limit experimentally.</p>
-<p class="credit">Settings: <code>namedb.autoFetch</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb refresh [&lt;person&gt;|all]</span>
-<p>re-fetch one person, or everybody, one per second</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb online</span>
-<p>who is online now, split into known and new</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb learn</span>
-<p>record and enrich everyone currently online</p>
-<p>The fastest way to go from an empty database to a useful one.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb prune [days]</span>
-<p>drop records that are only a name</p>
-<p>Anything declared, noted, or given a single fact by hand survives, so this can never quietly discard judgement.</p>
-<table><thead><tr><th>Argument</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>[days]</code></td><td>also require the last sighting to be this old</td></tr>
-</tbody></table>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb forget &lt;person&gt; | forget all</span>
-<p>delete one record, or the whole database</p>
-<p><code>forget all</code> confirms twice and names the count at stake, with a fifteen-second window on the confirmation.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb export [fields &lt;a,b,c&gt;] [path]</span>
-<p>write the database out, optionally as a field subset</p>
-<p>Notes are excluded from a field-subset export, since those are yours.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb import &lt;path&gt;</span>
-<p>merge somebody else's database into yours</p>
-<p>Additive. Their file is evidence about people you have not met, not a correction of judgement you have already recorded -- so your own <code>iff</code> and your own notes survive intact.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">ndb path</span>
-<p>where the database is stored, and how many records it holds</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset names [on|off]</span>
-<p>highlight known names in the game text</p>
-<p>With no argument, prints the legend: what each colour and weight means. Colour answers "where do they stand relative to me"; weight answers "is there something notable about this person". They stack, and each is independently readable.</p>
-<p class="credit">Settings: <code>names.enabled</code></p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset names ignore &lt;person&gt; | unignore &lt;person&gt;</span>
-<p>keep one name out of the highlighter</p>
-<p>For the ally whose name is a common word, or the shopkeeper you see forty times an hour. Forgets nothing else about them.</p>
-</div>
-
-<div class="cmd-block">
-<span class="cmd-syntax">emset names tint on|off</span>
-<p>tint neutral names by city</p>
-<p class="credit">Settings: <code>names.cityTint</code></p>
-</div>
 
 <footer>
-Everything here is also <code>emhelp</code> in the client, from the same source. See
-<a href="curing.html">Curing Engine</a> for what the curing commands are actually driving.
+Generated from <code>src/emunah/help.lua</code> by <code>tools/build-commands-page.lua</code>.
+See <a href="curing.html">Curing Engine</a> for what the curing commands are driving.
 </footer>
 
 <div class="page-nav">
@@ -843,14 +401,17 @@ Everything here is also <code>emhelp</code> in the client, from the same source.
 </div>
 <div class="toc">
   <div class="toc-title">On this page</div>
-  <a href="#prefix">The prefix</a>
-  <a href="#emhelp">emhelp</a>
-  <a href="#settings">Settings</a>
-  <a href="#core">Core</a>
-  <a href="#curing">Curing &amp; defences</a>
-  <a href="#combat">Combat &amp; movement</a>
-  <a href="#economy">Shop, loot &amp; sustenance</a>
+  <a href="#using">Using it</a>
+  <a href="#system">System</a>
+  <a href="#curing">Curing</a>
+  <a href="#defences">Defences</a>
+  <a href="#pipes">Pipes</a>
+  <a href="#manna">Manna</a>
+  <a href="#hunting">Hunting</a>
+  <a href="#pvp">PvP</a>
+  <a href="#loot">Loot &amp; shop</a>
   <a href="#people">People</a>
+  <a href="#interface">Interface</a>
 </div>
 </main>
 </div>

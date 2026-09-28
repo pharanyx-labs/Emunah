@@ -287,7 +287,7 @@ function M.purchase(repnum, qty, mode)
    local cap = M.confirmAbove()
    if cap and cost > cap then
       log.warn("Shop: %s would cost %dgp, over the %dgp confirm limit -- not sent. "
-         .. "Raise it with 'emunah shop limit <gp>' or buy it by hand.", item.id, cost, cap)
+         .. "Raise it with `emset shop.confirmAbove <gp>` or buy it by hand.", item.id, cost, cap)
       return false
    end
 

@@ -87,12 +87,12 @@ anorexic.
 
 **Adding an affliction.** Add an entry with its cure and a rank within that vector's list.
 
-**Changing a priority without editing the table.** `emunah prio <affliction> <vector> <n>`
+**Changing a priority without editing the table.** `emset prio <affliction> <vector> <n>`
 is stored in the profile config and applied by `afflist.priority()` ahead of the built-in
 value.
 
 **Adding detection patterns.** See `src/emunah/curing/detect/patterns.lua`. Grow the corpus
-from `emunah learn on` output rather than from memory, and anchor every pattern with `^` and
+from learn-mode output (`lua emunah.curing.detect.startLearning()`) rather than from memory, and anchor every pattern with `^` and
 `$` — an unanchored pattern matches the same words quoted back in a tell.
 
 The rule throughout: **a plausible-but-wrong entry is worse than a missing one.** A gap is

@@ -265,12 +265,12 @@ say exactly what's wrong. Everything else grows from evidence, not assumption.
 </div>
 
 <h3>Growing the corpus from evidence</h3>
-<pre><code>emset learn on     # log candidate lines while you fight
-# ... fight, or spar in the arena ...
-emset learn off
-emset detect        # coverage report</code></pre>
+<pre><code>lua emunah.curing.detect.startLearning()   -- log candidate lines while you fight
+-- ... fight, or spar in the arena ...
+lua emunah.curing.detect.stopLearning()
+lua display(emunah.curing.detect.coverage())</code></pre>
 <p>
-<code>emset learn on</code> logs lines matching Achaea's typical affliction-message shape
+Learn mode logs lines matching Achaea's typical affliction-message shape
 ("You ..." / "Your ...", short, present tense) to <code>emunah-learn.txt</code>. After the
 fight, read the file, and add exactly what you saw:
 </p>

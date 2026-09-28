@@ -31,7 +31,7 @@ The remaining work is `DIAG` output parsing, so the engine can reconcile its own
 against the ground truth rather than only putting it on screen. That needs one verbatim
 sample of the output.
 
-The workflow is `emunah learn on` → fight or spar → `emunah learn off` → add what was
+The workflow is `lua emunah.curing.detect.startLearning()` → fight or spar → `...stopLearning()` → add what was
 actually observed. Priority order:
 
 1. Onset detection for the blocking afflictions: anorexia, asthma, slickness, paralysis.
@@ -67,7 +67,7 @@ which is the correct behaviour for an unknown.
 
 **Tattoo keep-up.** `boar` and `moss` are passive defences raised by `touch`, stripped only
 by a specific action, by death, or by leaving the realms. The machinery is in place —
-`emunah defs add <name> <command>` supplies the command, and the attempt budget stops a
+`emset defs add <name> <command>` supplies the command, and the attempt budget stops a
 wrong name from spending a balance every few seconds — but the names as `Char.Defences`
 reports them have not been observed, and guessing one means the defence silently never goes
 up.

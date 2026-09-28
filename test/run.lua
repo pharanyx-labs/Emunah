@@ -2292,122 +2292,51 @@ ndb.people = {}
 mock.store[ndb.path] = nil
 
 -- ===========================================================================
-suite("D3: destructive ndb commands ask twice, via one shared confirm helper")
-
--- `ndb forget all` already asked twice before this change; `ndb unnote <person>` with no
--- index did not -- it wiped every note against them on the first call. Both now go through
--- the same `util.confirm()` helper (core/util.lua) rather than each hand-rolling its own
--- pending-timestamp variable.
-;(function()
-local ndb = emunah.namedb
-local dispatch = emunah.commands.dispatch
-
-ndb.people = {}
-ndb.record("Anzerloi")
-ndb.note("Anzerloi", "verifies priest mechanics")
-ndb.note("Anzerloi", "trustworthy informant")
-eq(#ndb.notes("Anzerloi"), 2, "two notes recorded, to start")
-
-mock.echoed = {}
-dispatch("ndb unnote Anzerloi")
-eq(#ndb.notes("Anzerloi"), 2,
-   "the first `ndb unnote <person>` (no index) asks rather than wiping immediately")
-local askOutput = table.concat(mock.echoed, " ")
-ok(askOutput:find("[Dd]rop every note"), "...and says what it is about to drop", askOutput)
-ok(askOutput:find("2"), "...naming how many notes are at stake", askOutput)
-
-mock.echoed = {}
-dispatch("ndb unnote Anzerloi")
-eq(#ndb.notes("Anzerloi"), 0, "the repeat within the window confirms and wipes them")
-
--- A single-note index removal is not a bulk wipe and was never gated -- confirm that stays
--- true, so the new guard did not accidentally widen to cover it.
-ndb.note("Anzerloi", "one note")
-mock.echoed = {}
-dispatch("ndb unnote Anzerloi 1")
-eq(#ndb.notes("Anzerloi"), 0, "removing one note by index still happens immediately")
-
--- `ndb forget all` behaves exactly as before the refactor: ask, then confirm within 15s.
-ndb.people = {}
-ndb.record("Passerby")
-mock.echoed = {}
-dispatch("ndb forget all")
-ok(ndb.get("Passerby") ~= nil, "the first `ndb forget all` asks rather than forgetting")
-mock.echoed = {}
-dispatch("ndb forget all")
-ok(ndb.get("Passerby") == nil, "the repeat within 15s confirms and forgets everyone")
-
-ndb.people = {}
-mock.store[ndb.path] = nil
-mock.echoed = {}
-end)()
-
 -- ===========================================================================
 suite("(continued)")
 
 -- ===========================================================================
-suite("emhelp: the command reference, checked against the commands")
+suite("emhelp: every module, checked against the commands and the settings")
 
--- THIS SUITE IS THE POINT OF help.lua BEING A TABLE.
---
--- The help it replaced was sixty lines of hardcoded cecho, and it had drifted: `sleep` was
--- undocumented, so were `bash consumes`, `pvp attack`, most of `walk`, most of `ndb`, and
--- every single configuration setting. Nothing caught that because there was nothing to
--- catch it WITH -- print statements cannot be checked against the code they describe.
---
--- What follows is that check. A new command or setting now fails the suite until it is
--- documented, which is the only mechanism that has ever kept documentation current.
-
+-- help.lua is a table so that it can be checked. A command or setting added without being
+-- documented fails here, and so does one documented after it was removed.
 do
 local help = emunah.help
 
-ok(#help.topics >= 5, "help defines topics")
-ok(#help.entries() >= 60, "...covering the real command surface", #help.entries())
+ok(#help.modules >= 8, "help defines the modules", #help.modules)
 
--- EVERY HANDLER IS DOCUMENTED.
+-- EVERY HANDLER IS DOCUMENTED, AND NOTHING THAT IS NOT A HANDLER.
 local documented = {}
-for _, row in ipairs(help.entries()) do
-   if row.entry.handler then documented[row.entry.handler] = true end
+for _, row in ipairs(help.commands()) do
+   if row.command.handler then documented[row.command.handler] = true end
 end
-
-local undocumented = {}
+local undocumented, phantom = {}, {}
 for name in pairs(emunah.commands.handlers) do
    if not documented[name] then undocumented[#undocumented + 1] = name end
 end
-table.sort(undocumented)
-eq(#undocumented, 0, "every command handler appears in the help",
-   table.concat(undocumented, ", "))
+for name in pairs(documented) do
+   if not emunah.commands.handlers[name] then phantom[#phantom + 1] = name end
+end
+table.sort(undocumented); table.sort(phantom)
+eq(#undocumented, 0, "every command handler is in a module", table.concat(undocumented, ", "))
+eq(#phantom, 0, "no module documents a handler that does not exist", table.concat(phantom, ", "))
 
--- ...AND NOTHING IS DOCUMENTED THAT DOES NOT EXIST. The other direction matters just as
--- much: help for a command that was renamed or removed sends people at something that will
--- answer "Unknown command".
-local phantom = {}
-for handler in pairs(documented) do
-   if not emunah.commands.handlers[handler] then phantom[#phantom + 1] = handler end
+-- ONE PREFIX: every command is `emset ...` or `emhelp ...`, bar the two documented words
+-- that deliberately are not (sleep, emreload).
+local stray = {}
+for _, row in ipairs(help.commands()) do
+   local syntax = row.command.syntax
+   if not (syntax:find("^emset") or syntax:find("^emhelp") or row.command.alias) then
+      stray[#stray + 1] = syntax
+   end
 end
-table.sort(phantom)
-eq(#phantom, 0, "the help documents no handler that has been removed",
-   table.concat(phantom, ", "))
-
--- EVERY BARE ALIAS IS DOCUMENTED. These are the ones most easily forgotten, because they do
--- not go through the dispatcher at all -- `pp`, `emdefs`, `ndb`, `pipes`, `manna`, `affpop`,
--- `sleep`, `emreload`, `emhelp`.
-local aliased = {}
-for _, row in ipairs(help.entries()) do
-   if row.entry.alias then aliased[row.entry.alias] = true end
-end
-for _, alias in ipairs({ "pp", "emdefs", "ndb", "pipes", "manna", "affpop", "sleep",
-                         "emreload", "emhelp" }) do
-   ok(aliased[alias], ("the bare `%s` alias is documented"):format(alias))
-end
+eq(#stray, 0, "every command is under emset or emhelp", table.concat(stray, ", "))
 
 -- EVERY SHIPPED DEFAULT IS DOCUMENTED, walked recursively so a nested key cannot hide.
 local missingSettings = {}
 local function walkDefaults(node, prefix)
    for key, value in pairs(node) do
       local path = prefix and (prefix .. "." .. key) or key
-      -- The leaf tables (priorities, defences.keepup, walker.avoid, ui.chatTabs) are
-      -- documented as whole keys, not per-entry -- their contents are user data.
       if type(value) == "table" and not help.setting(path) and next(value) ~= nil
          and type(next(value)) == "string" then
          walkDefaults(value, path)
@@ -2421,76 +2350,55 @@ table.sort(missingSettings)
 eq(#missingSettings, 0, "every shipped config default is documented",
    table.concat(missingSettings, ", "))
 
--- EVERY CROSS-REFERENCE RESOLVES. A `see also` pointing at nothing is a dead end that only
--- shows up when somebody clicks it.
--- "Resolves" means "lands on at least one entry", not "on exactly one". `see = { "emhelp" }`
--- is a perfectly good reference to the emhelp family; clicking it lists them. What must
--- never happen is a reference that lands on NOTHING.
-local dangling = {}
-for _, row in ipairs(help.entries()) do
-   for _, other in ipairs(row.entry.see or {}) do
-      local matched = help.find(other)
-      if #matched == 0 then dangling[#dangling + 1] = row.entry.syntax .. " -> " .. other end
-   end
-   for _, key in ipairs(row.entry.settings or {}) do
-      if not help.setting(key) then
-         dangling[#dangling + 1] = row.entry.syntax .. " -> setting " .. key
-      end
+-- Every setting belongs to a module that exists, and says what it is.
+local orphans = {}
+for _, spec in ipairs(help.settings) do
+   if not help.module(spec.topic) then orphans[#orphans + 1] = spec.key end
+end
+eq(#orphans, 0, "every setting belongs to a module", table.concat(orphans, ", "))
+
+-- Every module says what it does, and every command says what it is for.
+for _, module in ipairs(help.modules) do
+   ok(module.does and #module.does > 40, module.id .. " says what it does")
+   for _, command in ipairs(module.commands) do
+      ok(command.summary and command.summary ~= "", command.syntax .. " has a summary")
    end
 end
-table.sort(dangling)
-eq(#dangling, 0, "every see-also and setting cross-reference resolves",
-   table.concat(dangling, " | "))
 
--- Every entry says something. An entry with a syntax and no summary is a row in a table
--- pretending to be documentation.
-local silent = {}
-for _, row in ipairs(help.entries()) do
-   if not row.entry.summary or row.entry.summary == "" then
-      silent[#silent + 1] = row.entry.syntax
-   end
-end
-eq(#silent, 0, "every entry has a summary", table.concat(silent, ", "))
-
--- LOOKUP. What someone actually types has to land somewhere sensible.
--- A keyword with several commands behind it LISTS them rather than picking one. `emhelp
--- bash` showing only the bare report, and hiding `attack`, `balance`, `consumes` and
--- `health`, is precisely the shape of thing the old help was bad at.
-local rows, found = help.find("bash")
-ok(#rows >= 5, "a keyword with a family behind it lists the whole family", #rows)
-eq(found, nil, "...rather than silently picking one of them")
-
-rows, found = help.find("emunah bash on|off")
-ok(found ~= nil, "the full syntax resolves to exactly that entry")
-rows, found = help.find("pp")
-ok(found ~= nil, "a bare alias resolves")
-rows, found = help.find("sleep")
-ok(found ~= nil, "...and so does a one-of-a-kind command")
-eq(help.topicById("curing") ~= nil, true, "a topic resolves by id")
-eq(help.topicById("Curing & defences") ~= nil, true, "...and by title")
-
-ok(#help.search("gold") > 0, "search finds commands by what they do, not their name")
-ok(#help.search("qqqzzz") == 0, "...and finds nothing for nonsense")
+-- LOOKUP: a module, a command word, or a setting all land on the right module.
+eq(help.lookup("curing").id, "curing", "emhelp curing -> curing")
+eq(help.lookup("bash").id, "hunting", "emhelp bash -> the module bash is in")
+eq(help.lookup("emset pipes now").id, "pipes", "...with or without the prefix")
+local module, spec = help.lookup("curing.method")
+eq(module.id, "curing", "emhelp curing.method -> its module")
+eq(spec and spec.key, "curing.method", "...pointing at the setting")
+eq(help.lookup("qqqzzz"), nil, "nonsense finds nothing")
 
 -- RENDERING. Every form has to run; a help system that errors is worse than none.
 mock.installGeyser()
-for _, args in ipairs({ "", "curing", "combat", "people", "economy", "core",
-                        "bash", "defs", "ndb show <person>", "sleep",
-                        "search gold", "settings", "settings curing",
-                        "settings curing.confirmWait", "keys", "all", "nonsense qqq" }) do
+ok(pcall(help.render, ""), "emhelp renders the module list")
+for _, m in ipairs(help.modules) do
+   ok(pcall(help.render, m.id), "emhelp " .. m.id .. " renders")
+end
+for _, args in ipairs({ "bash", "curing.method", "nonsense qqq" }) do
    ok(pcall(help.render, args), ("emhelp %q renders"):format(args))
 end
-ok(pcall(help.renderQuick), "the bare `!` list renders")
-
--- The settings report reads LIVE values, so it has to survive a key that is set to
--- something surprising as well as one that is unset.
 emunah.config.set("curing.confirmWait", 3.5)
-ok(pcall(help.render, "settings curing"), "the settings report renders a changed value")
+ok(pcall(help.render, "curing"), "a changed setting renders")
 emunah.config.set("curing.confirmWait", 2.0)
-
--- Put it back. The "UI degradation without Geyser" suite below asserts that Geyser is
--- absent, and a stub left installed here makes it fail somewhere it has nothing to do with.
 mock.uninstallGeyser()
+
+-- SETTINGS THROUGH emset: `emset <setting> <value>` sets it, typed and coerced.
+emunah.commands.dispatch("curing.confirmWait 1.5")
+eq(emunah.config.get("curing.confirmWait"), 1.5, "emset <setting> <number> stores a number")
+emunah.commands.dispatch("curing.antiIllusion off")
+eq(emunah.config.get("curing.antiIllusion"), false, "emset <setting> off stores false")
+emunah.commands.dispatch("curing.antiIllusion on")
+eq(emunah.config.get("curing.antiIllusion"), true, "...and on stores true")
+emunah.commands.dispatch("curing.confirmWait 2.0")
+mock.echoed = {}
+emunah.commands.dispatch("curing.nosuchthing 3")
+eq(emunah.config.get("curing.nosuchthing"), nil, "an undocumented setting is refused")
 end
 
 -- ===========================================================================
@@ -4646,7 +4554,7 @@ defkeepup.drop("madeupdefence")
 -- Clicking. The grid is a control surface, not a report, so this is the behaviour.
 mock.links = {}
 mock.echoed = {}
-emunah.commands.handlers.keepup()
+emunah.commands.handlers.defs()
 local shieldLink
 for index, link in ipairs(mock.links) do
    if link.text:find("shield", 1, true) then shieldLink = index end
@@ -4665,7 +4573,7 @@ eq(defkeepup.mode("shield"), nil, "and a third click switches it off")
 defkeepup.enabled = false
 mock.links = {}
 mock.echoed = {}
-emunah.commands.handlers.keepup()
+emunah.commands.handlers.defs()
 ok(table.concat(mock.echoed, " "):find("defences are OFF"),
    "the grid says when defences are off")
 local turnOn = false
@@ -4693,7 +4601,7 @@ mock.echoed = {}
 defkeepup.add("inspiration")
 local addedOff = table.concat(mock.echoed, " ")
 ok(addedOff:find("OFF"), "adding a defence while keep-up is off says so", addedOff)
-ok(addedOff:find("emunah defs on"), "...and names the command that fixes it", addedOff)
+ok(addedOff:find("emset defs on"), "...and names the command that fixes it", addedOff)
 ok(emunah.util.contains(defkeepup.wanted(), "inspiration"),
    "...while still adding it to the list, which was never the broken part")
 
@@ -4701,7 +4609,7 @@ ok(emunah.util.contains(defkeepup.wanted(), "inspiration"),
 mock.echoed = {}
 emunah.commands.dispatch("defs")
 local listing = table.concat(mock.echoed, " ")
-ok(listing:find("Nothing below is being raised"),
+ok(listing:find("nothing below is being raised"),
    "the defence list explains why everything reads MISSING", listing)
 
 -- And with it on, the claim is true again.
@@ -4728,7 +4636,7 @@ ok(not defkeepup.enabled,
 local unknownDefsOutput = table.concat(mock.echoed, " ")
 ok(unknownDefsOutput:find("Unknown"),
    "...and warns that the subcommand was not recognised", unknownDefsOutput)
-ok(unknownDefsOutput:find("Defences"),
+ok(unknownDefsOutput:find("defences"),
    "...while still showing the ordinary report", unknownDefsOutput)
 
 defkeepup.enabled = true
@@ -5558,15 +5466,6 @@ do
    eq(mock.widgets["emunah.chyron"].contents, blank,
       "...and nothing is scrolling anymore to change it back")
 
-   -- The manual command is the same entry point anything programmatic would use.
-   chyron.clear()
-   emunah.commands.handlers.chyron("hello", "world")
-   eq(#chyron.messages, 1, "`emunah chyron <text>` queues a message")
-   eq(chyron.messages[1].text, "hello world",
-      "...reassembled from the split first-word/rest arguments")
-   emunah.commands.handlers.chyron("clear")
-   eq(#chyron.messages, 0, "`emunah chyron clear` empties the queue")
-
    chyron.clear()
    emunah.timers.stopAll()
 end
@@ -5612,31 +5511,16 @@ walker.move()
 ok(walker.nextRoom ~= nil, "auto off: an explicit move() still steps")
 walker.setAuto(true)
 
--- D2 REGRESSION: `emunah walk auto <anything but "off">` used to enable auto-stepping --
--- `walker.setAuto(rest ~= "off")` treats a typo, a stray word, or no argument at all the
--- same as the literal word "on". An exact match is now required, like every other on/off
--- pair in this file.
-walker.setAuto(false)
-mock.echoed = {}
-emunah.commands.dispatch("walk auto glorp")
-ok(not emunah.config.get("walker.auto", true),
-   "`walk auto glorp` does not enable auto-stepping", tostring(emunah.config.get("walker.auto")))
-local autoTypoOutput = table.concat(mock.echoed, " ")
-ok(autoTypoOutput:find("Usage"), "...and warns instead", autoTypoOutput)
-
-mock.echoed = {}
-emunah.commands.dispatch("walk auto")
-ok(not emunah.config.get("walker.auto", true),
-   "bare `walk auto` (no argument) does not enable it either",
-   tostring(emunah.config.get("walker.auto")))
-
+-- `walk auto` is no longer a subcommand: auto-stepping is the `walker.auto` setting, and a
+-- removed subcommand must warn rather than start or stop anything.
 mock.echoed = {}
 emunah.commands.dispatch("walk auto on")
-ok(emunah.config.get("walker.auto", false), "`walk auto on` still enables it")
-
-mock.echoed = {}
-emunah.commands.dispatch("walk auto off")
-ok(not emunah.config.get("walker.auto", true), "`walk auto off` still disables it")
+ok(table.concat(mock.echoed, " "):find("Unknown"), "a removed `walk` subcommand warns",
+   table.concat(mock.echoed, " "))
+emunah.commands.dispatch("walker.auto false")
+ok(not emunah.config.get("walker.auto", true), "`emset walker.auto false` disables auto-stepping")
+emunah.commands.dispatch("walker.auto true")
+ok(emunah.config.get("walker.auto", false), "...and `true` enables it again")
 walker.setAuto(true)
 
 -- Reset for the assertions that follow.
@@ -7746,17 +7630,17 @@ for _ = 1, 5 do mock.advance(pipes.CHAIN + 0.01) end
 eq(#mock.sent, 0, "a pipe blocked on restock does not spin the chain timer",
    table.concat(mock.sent, " | "))
 
--- The bare aliases, which is what actually gets typed.
-ok(mock.command("pipes off"), "'pipes off' is matched by an alias")
+-- `emset pipes on|off`, which is what actually gets typed.
+ok(mock.command("emset pipes off"), "'emset pipes off' is matched")
 eq(emunah.config.get("pipes.enabled", true), false, "...and turns keep-up off")
 mock.sent = {}
 mock.advance(pipes.CHAIN + 0.01)
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 eq(#mock.sent, 0, "...so nothing is sent while it is off", table.concat(mock.sent, " | "))
 
-ok(mock.command("pipes on"), "'pipes on' is matched by an alias")
+ok(mock.command("emset pipes on"), "'emset pipes on' is matched")
 eq(emunah.config.get("pipes.enabled", true), true, "...and turns it back on")
-ok(mock.command("pipes"), "bare 'pipes' is matched too")
+ok(not mock.command("pipes"), "bare 'pipes' is no longer claimed -- one prefix")
 
 -- ===========================================================================
 suite("shop: WARES parsing and buying by replica number")
@@ -7902,13 +7786,9 @@ do
    eq(shop.find("goldink386609"), nil,
       "an item missing from the new listing is gone -- the old one is not left stale")
 
-   -- `emunah shop` and its sub-commands run without error.
-   ok(mock.command("emunah shop"), "'emunah shop' redraws the last listing")
-   ok(mock.command("emunah shop spent"), "'emunah shop spent' runs")
-   ok(mock.command("emunah shop limit 500"), "'emunah shop limit <gp>' runs")
-   eq(shop.confirmAbove(), 500, "...and sets it")
-   ok(mock.command("emunah shop limit off"), "'emunah shop limit off' clears it")
-   eq(shop.confirmAbove(), nil, "...back to no cap")
+   -- The purchase cap is a setting now (`emset shop.confirmAbove <gp>`), not a command.
+   emunah.commands.dispatch("shop.confirmAbove 500")
+   eq(shop.confirmAbove(), 500, "`emset shop.confirmAbove <gp>` sets the cap")
 
    -- ---------------------------------------------------------------------------
    -- A real transcript surfaced two more things: a shop can head a section with a plain
@@ -7941,9 +7821,10 @@ do
    local detect = emunah.curing.detect
    detect.stopCapture()
 
-   -- The bare alias sends AFFLICTION LIST immediately.
+   -- Starting the walk sends AFFLICTION LIST immediately. (No command any more: it is a
+   -- development tool, reached from Lua -- emunah.curing.detect.startWalk().)
    mock.sent = {}
-   ok(mock.command("affpop on"), "'affpop on' is matched by an alias")
+   detect.startWalk()
    eq(detect.walking, true, "...and starts the walk")
    ok(table.concat(mock.sent, " | "):find("affliction list", 1, true),
       "AFFLICTION LIST goes out first", table.concat(mock.sent, " | "))
@@ -7999,12 +7880,12 @@ do
 
    detect.stopCapture()
 
-   -- `emunah affpop on|off` reaches the same switch.
+   -- startWalk / stopCapture are the switch.
    mock.sent = {}
-   emunah.commands.dispatch("affpop on")
-   eq(detect.walking, true, "'emunah affpop on' starts the same walk")
-   emunah.commands.dispatch("affpop off")
-   eq(detect.walking, false, "...and stops it")
+   detect.startWalk()
+   eq(detect.walking, true, "startWalk starts the walk")
+   detect.stopCapture()
+   eq(detect.walking, false, "...and stopCapture stops it")
    eq(detect.capturing, false, "...capture too")
 end
 
@@ -8114,7 +7995,7 @@ emunah.timers.stop("cure.equilibrium")
 emunah.timers.stop("manna.step")
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 mock.sent = {}
-ok(mock.command("manna"), "'manna' is matched by an alias")
+ok(mock.command("emset manna"), "'emset manna' is matched")
 eq(table.concat(mock.sent, " | "), "perform rite of sustenance",
    "...and starts the sequence", table.concat(mock.sent, " | "))
 manna.stop()
@@ -8181,8 +8062,8 @@ local pvpAttack = table.concat(mock.sent, " | ")
 ok(pvpAttack:find("smite sarapis"),
    "attacks once the opponent is vulnerable enough to finish", pvpAttack)
 
--- `emunah pvp attack <n>` tunes the threshold, same shape as `emunah bash health`.
-emunah.commands.dispatch("pvp attack 3")
+-- The threshold is the `pvp.attackAtAfflictions` setting.
+emunah.commands.dispatch("pvp.attackAtAfflictions 3")
 eq(emunah.config.get("pvp.attackAtAfflictions"), 3, "the threshold is configurable")
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
@@ -8752,7 +8633,7 @@ eq(emunah.keys.count(), 24, "...all of them")
 emunah.config.set("keys.numpad", false)
 mock.echoed = {}
 eq(emunah.keys.build(), false, "disabled in settings does not bind")
-ok(table.concat(mock.echoed, " "):find("emunah keys on"),
+ok(table.concat(mock.echoed, " "):find("emset keys.numpad true", 1, true),
    "...and says how to turn it back on", table.concat(mock.echoed, " "))
 emunah.config.set("keys.numpad", true)
 emunah.keys.build()
@@ -9075,14 +8956,13 @@ local dispatched = {}
 local realDispatch = emunah.commands.dispatch
 emunah.commands.dispatch = function(input) dispatched[#dispatched + 1] = tostring(input or "") end
 
-ok(mock.command("emunah"), "bare 'emunah' is matched by an alias")
-eq(dispatched[#dispatched], "", "bare 'emunah' dispatches with an empty argument")
-
-ok(mock.command("emunah status"), "'emunah status' is matched")
-eq(dispatched[#dispatched], "status", "argument is captured")
-
-ok(mock.command("emunah prio paralysis herb 1"), "multi-word arguments are matched")
-eq(dispatched[#dispatched], "prio paralysis herb 1", "full argument string is captured")
+-- ONE PREFIX. `emunah` was the long form of emset; it is gone like `!` before it, and the
+-- old bare shortcuts with it. All of them now go to the game untouched.
+for _, word in ipairs({ "emunah", "emunah status", "pp", "emdefs", "ndb", "pipes", "manna",
+                        "affpop" }) do
+   ok(not mock.command(word), ("'%s' is no longer claimed"):format(word))
+end
+eq(#dispatched, 0, "none of them reached the dispatcher")
 
 -- THERE IS NO `!` PREFIX, and this asserts its absence rather than merely not testing it.
 --
@@ -9123,11 +9003,11 @@ emunah.commands.dispatch = realDispatch
 -- commands.lua) -- replaces the old 'ec' alias, which only touched curing.
 emunah.curing.engine.start()
 emunah.curing.defkeepup.start()
-ok(mock.command("pp"), "'pp' shorthand is matched by an alias")
+ok(mock.command("emset pause"), "'emset pause' is matched")
 ok(not emunah.curing.engine.enabled, "pp pauses curing when both were on")
 ok(not emunah.curing.defkeepup.enabled, "pp pauses defence keep-up when both were on")
 
-ok(mock.command("pp"), "'pp' toggles back")
+ok(mock.command("emset pause"), "'pp' toggles back")
 ok(emunah.curing.engine.enabled, "pp resumes curing")
 ok(emunah.curing.defkeepup.enabled, "pp resumes defence keep-up")
 
@@ -9135,7 +9015,7 @@ ok(emunah.curing.defkeepup.enabled, "pp resumes defence keep-up")
 -- than drifting further apart.
 emunah.curing.engine.stop()
 emunah.curing.defkeepup.start()
-mock.command("pp")
+mock.command("emset pause")
 ok(emunah.curing.engine.enabled, "pp resumes curing when only curing was off")
 ok(emunah.curing.defkeepup.enabled, "pp leaves defence keep-up on when only curing was off")
 ok(not mock.command("emote waves"), "an unrelated command is NOT swallowed by our aliases")
@@ -9395,7 +9275,7 @@ local keepup = emunah.curing.defkeepup
 engine.start(); keepup.start()
 
 mock.echoed = {}
-mock.command("pp")
+mock.command("emset pause")
 local pausedLines = {}
 for _, line in ipairs(mock.echoed) do
    if line:find("Curing", 1, true) or line:find("Defence keep%-up", 1, true)
@@ -9410,7 +9290,7 @@ ok(pausedLines[1] and pausedLines[1]:find("Paused", 1, true),
 ok(not engine.enabled and not keepup.enabled, "...and both are actually off")
 
 mock.echoed = {}
-mock.command("pp")
+mock.command("emset pause")
 local resumedLines = {}
 for _, line in ipairs(mock.echoed) do
    if line:find("Curing", 1, true) or line:find("Defence keep%-up", 1, true)
@@ -9443,21 +9323,21 @@ local engine = emunah.curing.engine
 engine.stop()
 
 mock.echoed = {}
-emunah.commands.dispatch("cure")
+emunah.commands.dispatch("curing")
 ok(not engine.enabled, "bare `cure` does not toggle curing on", tostring(engine.enabled))
 local bareOutput = table.concat(mock.echoed, " ")
 ok(bareOutput:find("Curing"), "...and shows a status report instead", bareOutput)
 
 mock.echoed = {}
-emunah.commands.dispatch("cure sttaus")
+emunah.commands.dispatch("curing sttaus")
 ok(not engine.enabled, "an unrecognised `cure` argument does not toggle it either")
 ok(table.concat(mock.echoed, " "):find("Unknown"),
    "...and warns that the argument was not recognised")
 
 mock.echoed = {}
-emunah.commands.dispatch("cure on")
+emunah.commands.dispatch("curing on")
 ok(engine.enabled, "`cure on` still turns it on")
-emunah.commands.dispatch("cure off")
+emunah.commands.dispatch("curing off")
 ok(not engine.enabled, "`cure off` still turns it off")
 end)()
 
@@ -10028,8 +9908,8 @@ eq(htmlAfter, perfAfter,
 -- documents -- the exact failure mode this project was already burned by once.
 local help = emunah.help
 local documentedSyntax = {}
-for _, row in ipairs(help.entries()) do
-   documentedSyntax[row.entry.syntax] = true
+for _, row in ipairs(help.commands()) do
+   documentedSyntax[row.command.syntax] = true
 end
 
 local commandsHtml = readFile("website/commands.html")

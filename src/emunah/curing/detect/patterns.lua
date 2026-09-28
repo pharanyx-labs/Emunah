@@ -11,9 +11,9 @@
 ---
 --- The right way to grow this file is from evidence:
 ---
----   1. `emunah learn on`
+---   1. `lua emunah.curing.detect.startLearning()`
 ---   2. fight, or have someone afflict you in the arena
----   3. `emunah learn off`, then read ~/.config/mudlet/profiles/<you>/emunah-learn.txt
+---   3. `lua emunah.curing.detect.stopLearning()`, then read ~/.config/mudlet/profiles/<you>/emunah-learn.txt
 ---   4. add the messages you actually saw, using the shape below
 ---
 --- Shape:
@@ -401,7 +401,7 @@ end
 --
 -- ONSET is what stops the wasted command. But there is one such message per attack per
 -- denizen, and exactly one has been observed, so this list is a seed and the rejection
--- above remains the backstop for everything not yet in it. `emunah learn on` while bashing
+-- above remains the backstop for everything not yet in it. learn mode (`detect.startLearning()`) while bashing
 -- captures more. Patterns anchor on the tail (the actor and verb vary) with a closing "."
 -- so a quotation of the same words in a tell -- which would end in ." -- does not match.
 -- ---------------------------------------------------------------------------

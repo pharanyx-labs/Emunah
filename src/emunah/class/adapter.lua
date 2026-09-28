@@ -179,7 +179,7 @@ local function tryDetect()
       if emunah.pvp and emunah.pvp.enabled then
          emunah.pvp.stop("class changed")
       end
-      log.warn("Check 'emunah bash attack' -- the attack command is per class.")
+      log.warn("Check 'emset bash attack' -- the attack command is per class.")
    end
 end
 

@@ -80,7 +80,7 @@ does not win. Both are asserted in the test suite.
 <tr><td><strong>Afflictions</strong></td><td>Ordered by <em>curing urgency</em> rather than onset, annotated with the vector that will cure each. During a fight the useful question is never "what do I have", it is "what is the system about to do about it, and on which balance".</td></tr>
 <tr><td><strong>Defences</strong></td><td>A three-column colour-coded grid. Green up, amber wanted but missing.</td></tr>
 <tr><td><strong>Vitals strip</strong></td><td>Health, mana, endurance, willpower, XP; balance and equilibrium lights; a light per cure vector (green ready, grey recovering, red blocked by an affliction); and class stats from <code>charstats</code>.</td></tr>
-<tr><td><strong>Chat</strong></td><td>Captured channels, tabbed. Capture and rendering are separate modules and fail independently, which is why <code>emset chat</code> reports on both halves.</td></tr>
+<tr><td><strong>Chat</strong></td><td>Captured channels, tabbed. Capture and rendering are separate modules and fail independently.</td></tr>
 </tbody>
 </table>
 <p>
@@ -95,11 +95,10 @@ A scrolling ticker in the top strip, for things that must not be missed. Up to t
 are held at once and all of them scroll continuously on a loop &mdash; the way a TV chyron
 actually moves, not a slideshow that pauses on each message in turn.
 </p>
-<pre><code>emset chyron &lt;text&gt;
-emset chyron clear</code></pre>
+<pre><code>lua emunah.ui.chyron.send("text")
+lua emunah.ui.chyron.clear()</code></pre>
 <p>
-Anything in the codebase can push to it programmatically; the command is the manual entry
-point to the same call.
+Anything in the codebase pushes to it with the same call.
 </p>
 
 <h2 id="echo">Banners and labels</h2>

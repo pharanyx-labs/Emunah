@@ -234,7 +234,7 @@ function M.float()
    emunah.config.set("ui.mapFloat", true)
    emunah.config.save()
    pcall(openMapWidget)
-   log.info("Map detached into its own widget. 'emunah ui map embed' to put it back.")
+   log.info("Map detached into its own widget. `emset ui.mapFloat false` then `emset ui rebuild` to put it back.")
    return true
 end
 
@@ -297,7 +297,7 @@ end
 function M.setHeight(pct)
    pct = tonumber(pct)
    if not pct then
-      log.warn("Usage: emunah ui map height <percent of window, 10-70>")
+      log.warn("Usage: emset ui.mapHeight <percent of window, 10-70>")
       return false
    end
    emunah.config.set("ui.mapHeight", pct)

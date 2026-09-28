@@ -91,7 +91,7 @@ function M.setTarget(name)
    local ndb = emunah.namedb
    if ndb and not ndb.attackable(name) then
       log.warn("Refusing to target <ansi_cyan>%s<ansi_yellow> -- %s. "
-         .. "`emunah iff %s auto` if that is wrong.",
+         .. "`emset iff %s auto` if that is wrong.",
          name, ndb.relationship(name), name)
       return false
    end
@@ -117,7 +117,7 @@ end
 
 function M.start()
    if M.enabled then
-      log.warn("Already in PvP mode. 'emunah pvp stop' first.")
+      log.warn("Already in PvP mode. 'emset pvp off' first.")
       return false
    end
 

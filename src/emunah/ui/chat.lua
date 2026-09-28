@@ -152,7 +152,7 @@ local function renderFailed(reason)
          tostring(reason))
    end
 
-   -- REBUILD RATHER THAN ASK. Telling someone to run `emunah ui rebuild` is no use when
+   -- REBUILD RATHER THAN ASK. Telling someone to run `emset ui rebuild` is no use when
    -- they are in a fight and the thing that broke is the window they would read the advice
    -- in. One attempt only: if the rebuild does not take, retrying per message turns a dead
    -- chat window into a dead client.
@@ -165,7 +165,7 @@ local function renderFailed(reason)
       log.info("Chat console rebuilt.")
       return true
    end
-   log.warn("Chat console could not be rebuilt (%s). `emunah ui rebuild` retries the "
+   log.warn("Chat console could not be rebuilt (%s). `emset ui rebuild` retries the "
       .. "whole interface.", tostring(built))
    return false
 end
@@ -185,7 +185,7 @@ function M.append(message)
       if not warnedNoConsole then
          warnedNoConsole = true
          log.warn("Chat has no console to render into (mode %q) -- messages are being "
-            .. "captured but not shown. `emunah ui rebuild` builds one.", M.mode)
+            .. "captured but not shown. `emset ui rebuild` builds one.", M.mode)
       end
       return
    end
