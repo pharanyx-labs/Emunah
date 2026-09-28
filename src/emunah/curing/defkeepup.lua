@@ -253,6 +253,18 @@ local blockedOn = {}
 --- Only for saying it once -- recomputed fresh from have.item() below, same as blockedOn.
 local waitingOn = {}
 
+--- A RAISE IN FLIGHT IS NOT A MISSING DEFENCE. Some land well after the command: hawthorn's
+--- deafness took 2.3s both times it was timed (eaten 14:18:55.28, "The aural world fades to
+--- silence." 57.62; eaten 14:33:25.08, deaf 27.38, 2026-09-28). In that gap the item is
+--- eaten and the defence not yet up, so keep-up read it as missing again: it said "no
+--- hawthorn in hand" about the hawthorn it had just eaten, and with a second one in hand it
+--- would have eaten that too. The herb's balance line frees the queue slot before the
+--- defence lands, so the queue cannot guard this. Covers the slowest raise with margin.
+M.RAISE_PENDING = 4.0
+
+--- name -> when its raise was sent.
+local raising = {}
+
 --- Which defence is holding this one back right now, or nil.
 ---
 --- Computed rather than read from the cache above: the cache is written on a tick, so a
@@ -432,6 +444,24 @@ function M.tick()
       -- SMOKE NEEDS A LIT PIPE, NOT THE HERB IN HAND -- have.cure() draws the same
       -- distinction. Checking possession instead here would hold `rebounding` forever on a
       -- character who smokes from a pipe but does not also carry loose skullcap.
+      -- Item raises only: the item is what vanishes before the defence lands. A tattoo or a
+      -- skill is paced by its own balance and confirm wait.
+      if vector and command and item and raising[name]
+         and util.now() - raising[name] < M.RAISE_PENDING then
+         vector, command = nil, nil
+      end
+
+      -- NOT KNOWING WHAT WE CARRY IS NOT CARRYING NOTHING -- the rule queueRestock() already
+      -- follows. Straight after a reload Char.Items has not answered yet, and this said "no
+      -- hawthorn in hand" (14:33:20.30) with a hawthorn in the pack, eaten four seconds later
+      -- without a pull. Held quietly until Char.Items.Inv has answered. `inventoryListed`,
+      -- not inventoryKnown(): the latter also asks for sight, a separate question.
+      local items = emunah.gmcp.items
+      if vector and command and item and vector ~= "smoke"
+         and not (items and items.inventoryListed) then
+         vector, command = nil, nil
+      end
+
       if vector and command and item then
          local held = (vector == "smoke") and have.pipe(item) or (have.item(item) > 0)
          if not held then
@@ -460,6 +490,7 @@ function M.tick()
             confirm  = emunah.config.get("curing.confirmWait", 2.0),
             onSent   = function()
                attempts[name] = (attempts[name] or 0) + 1
+               raising[name] = util.now()
 
                -- UNCONFIRMABLE: SATISFIED ON SEND, NOT ON Char.Defences. `bliss` produces no
                -- Char.Defences line ever, so the ordinary "defup done once confirmed" event
