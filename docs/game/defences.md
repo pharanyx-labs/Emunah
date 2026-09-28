@@ -291,6 +291,41 @@ still reachable through the ordinary toggle but is a poor fit — nothing gates 
 before this fix, just bounded rather than silent. `satiation` has not been given the same
 treatment and stays out.
 
+**Bliss is now tracked from its own lines, like svof (2026-09-28).** Its up state used to
+be "satisfied on send", held only in memory, so every `emreload` forgot it and sent
+`perform bliss` again. svof marks bliss `invisibledef` and reads it from these lines
+**[svof]**, which Emunah now does too (`deflist.SYNTHETIC.bliss`). The state is kept across
+reloads and cleared on death or disconnect.
+
+```
+You pour blessings of bliss over yourself, granting visions of the majesty of the divine.
+The divine choir lingers on in your mind, and your spirit soars.
+That person is already experiencing bliss.
+<name> pours blessings over you, and divine choirs begin to sing joyously at the edge of your hearing.
+```
+
+**[open]** Bliss's wear-off line. Neither svof nor a transcript records it, so bliss reads as
+up for the rest of the login once seen. `keepup` mode can't re-raise it until that line is known.
+
+### `DEFENCES` output, and the check after a reload
+
+The listing is bracketed by these two lines **[svof]**:
+
+```
+You have the following defences:
+<one line per defence>
+You are protected by N defences.
+```
+
+No line names its defence. `deflist.DEF_LINES` maps each one to the server's name: 199 lines,
+generated from svof's `defs_data`, with invisible defences left out. After `emreload`,
+keep-up sends `DEFENCES` and raises nothing until the listing has been read, or for 10s at
+most. A reload rebuilds the defence list from the last full `Char.Defences.List`, which
+misses every change since. The listing is applied the way svof's `process_defs` does:
+- a known line that's missing means that defence is down;
+- a listed line means it's up;
+- a defence whose line isn't known is left as it was.
+
 **"Costs a balance" ≠ the balance vector.** Achaea has several balances, and knowing a
 command spends one does not say which. `perform bliss` was recorded as costing balance and
 announced `Equilibrium used: 6.50s.` here. An unverified balance-costing defence therefore

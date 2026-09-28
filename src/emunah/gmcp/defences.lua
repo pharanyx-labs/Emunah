@@ -127,6 +127,37 @@ function M.missingFrom(wanted)
    return out
 end
 
+--- Apply a DEFENCES listing: the names its lines were read as (deflist.DEF_LINES).
+---
+--- What a reload needs. The list is rebuilt from the last Char.Defences.List still in the
+--- global gmcp table, and every Add and Remove since then is missing from it -- so a defence
+--- raised after that list reads as down, and keep-up raises it again. DEFENCES is the whole
+--- truth right now.
+---
+--- Conservative the way svof's process_defs is: a defence whose DEF line we know, and which
+--- is not listed, is gone; one listed is up; one whose DEF line we do not know is left as it
+--- was, because its absence from the lines we could read says nothing.
+function M.applyDefListing(names)
+   local listed = {}
+   for _, name in ipairs(names) do listed[tostring(name):lower()] = true end
+   local known = {}
+   for _, name in pairs(emunah.curing.deflist.DEF_LINES or {}) do known[name] = true end
+
+   for name in pairs(M.active) do
+      if known[name] and not listed[name] then
+         M.active[name] = nil
+         event.raise("defence.lost", name)
+      end
+   end
+   for name in pairs(listed) do
+      if not M.active[name] then
+         record({ name = name })
+         event.raise("defence.added", name)
+      end
+   end
+   event.raise("defences.list", M.names())
+end
+
 event.gmcp("Char.Defences.List",   onList,   "gmcp.defences")
 event.gmcp("Char.Defences.Add",    onAdd,    "gmcp.defences")
 event.gmcp("Char.Defences.Remove", onRemove, "gmcp.defences")

@@ -387,6 +387,7 @@ end, "curing.defkeepup")
 --- One pass. Queues at most one defence per vector, at a priority no cure will lose to.
 function M.tick()
    if not M.enabled then return end
+   if M.checking then return M.checkDefences() end
 
    -- Do not fight the curing engine for a balance while afflicted; cures come first, and
    -- a defence raised mid-lock is usually stripped again immediately. Deliberate defences
@@ -514,6 +515,47 @@ end
 
 event.register("emunah.tick", function()
    M.tick()
+end, "curing.defkeepup")
+
+-- ---------------------------------------------------------------------------
+-- after a reload: ask DEFENCES before raising anything
+-- ---------------------------------------------------------------------------
+--
+-- A reload rebuilds the defence list from the last full Char.Defences.List, which predates
+-- every change since (gmcp/defences.lua's applyDefListing). Raising defences off that stale
+-- list is what sent `perform bliss` on every `emreload`. So after a reload keep-up holds, sends
+-- DEFENCES, and resumes once the listing has been read -- or after M.CHECK_TIMEOUT, so a
+-- lost reply cannot stall it. DEFENCES costs equilibrium (0.50s, docs/game/defences.md).
+
+M.CHECK_TIMEOUT = 10.0
+M.checking = false
+local checkSent = false
+
+function M.checkDefences()
+   if checkSent then return end
+   if emunah.act.send("defences", { eq = true }) then
+      checkSent = true
+   end
+end
+
+--- The listing has been read (patterns.lua). Resume.
+function M.defencesChecked()
+   if not M.checking then return end
+   M.checking, checkSent = false, false
+   emunah.timers.stop("defkeepup.check")
+   log.debug("DEFENCES read -- keep-up resumes.")
+end
+
+event.register("emunah.loaded", function(_, reloading)
+   local vitals = emunah.gmcp and emunah.gmcp.vitals
+   if not (reloading and vitals and vitals.maxhp > 0) then return end
+   M.checking, checkSent = true, false
+   emunah.timers.start("defkeepup.check", M.CHECK_TIMEOUT, function()
+      if M.checking then
+         log.debug("No DEFENCES listing after %.0fs -- keep-up resumes anyway.", M.CHECK_TIMEOUT)
+         M.checking, checkSent = false, false
+      end
+   end)
 end, "curing.defkeepup")
 
 -- React immediately when a defence drops rather than waiting for the next tick; losing

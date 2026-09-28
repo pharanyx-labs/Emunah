@@ -162,14 +162,12 @@ M.commands = {
    -- "Invisible defences cannot be kept up", below -- except this time kept, deliberately,
    -- as an unconfirmable one-shot rather than removed outright.
    --
-   -- `unconfirmable = true` says the confirmation is never coming: defup marks it satisfied
-   -- the moment the command is SENT (defkeepup.lua's onSent), not when Char.Defences agrees,
-   -- because it never will. Keepup mode is still reachable through the ordinary toggle cycle
-   -- but is a poor fit for it -- `satisfied` does not gate keepup's re-raise, so it would
-   -- retry every tick until the normal 3-attempt budget stops it, spending up to 19.5s of
-   -- equilibrium for a buff that was already up. Same needs as inspiration; see the note
-   -- there on `perform` commands wanting balance and equilibrium both.
-   bliss        = { vector = "equilibrium", command = "perform bliss", unconfirmable = true,
+   -- NOW TRACKED FROM ITS OWN LINES, like svof (defs_data.bliss: invisibledef, with three
+   -- `on` lines and one for another player's blessing) -- see M.SYNTHETIC.bliss. It used to
+   -- be `unconfirmable`, satisfied the moment it was sent; that lived only in memory, so every
+   -- `emreload` forgot it and sent `perform bliss` again. Same needs as inspiration; see the
+   -- note there on `perform` commands wanting balance and equilibrium both.
+   bliss        = { vector = "equilibrium", command = "perform bliss",
                     needs = { bal = true, eq = true, standing = true } },
 
    -- Priest (Spirituality). `angel summon` -- verified live via `emunah debug gmcp`
@@ -397,7 +395,27 @@ M.SYNTHETIC = {
       local attrib = items.attrib(mace)
       return attrib.wielded_left or attrib.wielded_right
    end,
+   -- Invisible to Char.Defences and to DEF alike (confirmed 22 minutes into the buff; svof
+   -- marks it `invisibledef` too), so up comes from its own lines -- patterns.lua, "Bliss" --
+   -- and is kept in emunah._persist so `emreload` does not forget it. Cleared on death and
+   -- disconnect. No wear-off line is known (svof has none either): until one is captured,
+   -- bliss reads as up for the rest of the login once seen.
+   bliss = function()
+      return emunah._persist ~= nil and emunah._persist.blissUp == true
+   end,
 }
+
+--- Bliss seen going up (or already up). Raises the same event a Char.Defences add would,
+--- so keep-up confirms it the ordinary way.
+function M.setBliss(up)
+   emunah._persist = emunah._persist or {}
+   local was = emunah._persist.blissUp == true
+   emunah._persist.blissUp = up and true or nil
+   if up and not was then event.raise("defence.added", "bliss") end
+   if was and not up then event.raise("defence.lost", "bliss") end
+end
+
+event.register("emunah.character.died", function() M.setBliss(false) end, "curing.deflist")
 
 --- Is this defence up right now?
 ---
@@ -427,7 +445,10 @@ event.register("emunah.items.added",   markMaceSeen, "curing.deflist")
 event.register("emunah.items.updated", markMaceSeen, "curing.deflist")
 
 event.register("sysDisconnectionEvent", function()
-   if emunah._persist then emunah._persist.maceSummoned = nil end
+   if emunah._persist then
+      emunah._persist.maceSummoned = nil
+      emunah._persist.blissUp = nil
+   end
 end, "curing.deflist")
 
 --- Which command raises `trackmace` depends on which of three states the mace is actually
@@ -585,5 +606,216 @@ function M.known(extra)
    table.sort(out)
    return out
 end
+
+-- ---------------------------------------------------------------------------
+-- DEF output, line by line
+-- ---------------------------------------------------------------------------
+--
+-- DEFENCES prints one line per defence, and none of them names it. This is how a line is
+-- turned back into the server's name, so a DEFENCES listing can be read (see
+-- gmcp/defences.lua's applyDefListing and patterns.lua's "DEFENCES" section).
+-- Generated from svof's defs_data (raw-svo.defs.lua): each defence's line in DEF output,
+-- mapped to the server's name through svof's gamename table. Invisible defences are omitted.
+M.DEF_LINES = {
+   ["A basilisk spirit co-habits your body."] = "basilisk",
+   ["A bear spirit co-habits your body."] = "bear",
+   ["A cheetah spirit co-habits your body."] = "cheetah",
+   ["A condor spirit co-habits your body."] = "condor",
+   ["A curseward has been established about your person."] = "curseward",
+   ["A gopher spirit co-habits your body."] = "gopher",
+   ["A gorilla spirit co-habits your body."] = "gorilla",
+   ["A hydra spirit co-habits your body."] = "hydra",
+   ["A hyena spirit co-habits your body."] = "hyena",
+   ["A jackdaw spirit co-habits your body."] = "jackdaw",
+   ["A jaguar spirit co-habits your body."] = "jaguar",
+   ["A nightingale spirit co-habits your body."] = "nightingale",
+   ["A sloth spirit co-habits your body."] = "sloth",
+   ["A songbird is perched upon your shoulder."] = "songbird",
+   ["A squirrel spirit co-habits your body."] = "squirrel",
+   ["A turtle spirit co-habits your body."] = "turtle",
+   ["A wildcat spirit co-habits your body."] = "wildcat",
+   ["A wolf spirit co-habits your body."] = "wolf",
+   ["A wolverine spirit co-habits your body."] = "wolverine",
+   ["A wyvern spirit co-habits your body."] = "wyvern",
+   ["An aura of bedevilment has been established about your person."] = "bedevilaura",
+   ["An eagle spirit co-habits your body."] = "eagle",
+   ["An elephant spirit co-habits your body."] = "elephant",
+   ["An icewyrm spirit co-habits your body."] = "icewyrm",
+   ["An owl spirit co-habits your body."] = "owl",
+   ["As an insubstantial astral light, you are immune from many attacks."] = "astralform",
+   ["Cobra-like, you are weaving back and forth to dodge blows."] = "weaving",
+   ["Concealed by a shifting veil of shadow."] = "shadowveil",
+   ["Diamond-hard skin protects you."] = "diamondskin",
+   ["Fury rages in your eyes."] = "fury",
+   ["Magically supple granite coats your body."] = "stoneskin",
+   ["Phased slightly out of reality, you are effectively untouchable."] = "phased",
+   ["Serpentine scales protect your body."] = "scales",
+   ["Surrounded by the power of Arctar."] = "arctar",
+   ["The Drunken Sailor stance protects you."] = "drunkensailor",
+   ["The Heart's Fury stance protects you."] = "heartsfury",
+   ["The devilmark is upon your breast."] = "devilmark",
+   ["The swiftcurse is upon you."] = "swiftcurse",
+   ["Travelling the world more quickly due to time dilation."] = "blur",
+   ["You are able to detect wormholes due to possessing the second sight."] = "secondsight",
+   ["You are able to navigate forests more easily."] = "fleetness",
+   ["You are acknowledged by Jy'Barrak Golgotha, Emperor of Chaos."] = "golgothagrace",
+   ["You are alert to incoming projectiles."] = "projectiles",
+   ["You are alert to those who would pursue you."] = "elusiveness",
+   ["You are annihilating knowledge from the minds around you."] = "psivanish",
+   ["You are attempting to deflect arrows toward less vital areas."] = "deflect",
+   ["You are attempting to pluck arrows from the air."] = "arrowcatching",
+   ["You are attuned to local telepathic interference."] = "telesense",
+   ["You are aware of all nearby ship movements."] = "shipwarning",
+   ["You are aware of movement in the skies."] = "skywatch",
+   ["You are aware of movement on the ground."] = "groundwatch",
+   ["You are balancing on the balls of your feet."] = "balancing",
+   ["You are bathed in an aura of radiant sunlight."] = "vigour",
+   ["You are bathed in the glorious protection of decaying flesh."] = "putrefaction",
+   ["You are blind."] = "blindness",
+   ["You are bolstered by the energy of mercury."] = "mercury",
+   ["You are bolstered by the energy of sulphur."] = "sulphur",
+   ["You are bonded to your spirit totem."] = "bonding",
+   ["You are bouncing around acrobatically."] = "acrobatics",
+   ["You are circulating electricity throughout your body."] = "circulate",
+   ["You are cloaking your attempts at establishing a mindlock."] = "mindcloak",
+   ["You are coated in an insulating unguent."] = "caloric",
+   ["You are concentrating on clotting your wounds."] = "firstaid",
+   ["You are concentrating on maintaining control over your faculties."] = "antiforce",
+   ["You are concentrating on maintaining distance from the dreamworld."] = "metawake",
+   ["You are concentrating on mastery of bladecraft."] = "blademastery",
+   ["You are deaf."] = "deafness",
+   ["You are deep within the Shin trance."] = "shintrance",
+   ["You are diverting excess Shin energy into regeneration."] = "bind",
+   ["You are emanating an aura of death."] = "deathaura",
+   ["You are enacting the Gaital form."] = "gaital",
+   ["You are enacting the Tykonos form."] = "tykonos",
+   ["You are enacting the Willows in Rain Storm form."] = "rain",
+   ["You are enacting the Willows shaken by the Wind form."] = "willow",
+   ["You are enacting the the Live Oak form."] = "oak",
+   ["You are enacting the the Unrelenting Storm form."] = "maelstrom",
+   ["You are enchanted against cold damage."] = "coldresist",
+   ["You are enchanted against electric damage."] = "electricresist",
+   ["You are enchanted against fire damage."] = "fireresist",
+   ["You are enchanted against magic damage."] = "magicresist",
+   ["You are enhancing your durability against denizens."] = "durability",
+   ["You are enhancing your ocular prowess."] = "truestare",
+   ["You are enhancing your precision through the power of Terminus."] = "precision",
+   ["You are extremely heavy and difficult to move."] = "density",
+   ["You are feeling extremely energetic."] = "kola",
+   ["You are feeling quite selfish."] = "selfishness",
+   ["You are flailing a wielded quarterstaff."] = "flail",
+   ["You are flying evasively."] = "evasion",
+   ["You are focussing your vast intellect on comprehending language."] = "psicomprehend",
+   ["You are hunting heretics."] = "heresy",
+   ["You are in the Arash stance."] = "arash",
+   ["You are in the Bear stance."] = "bear",
+   ["You are in the Cat stance."] = "cat",
+   ["You are in the Doya stance."] = "doya",
+   ["You are in the Dragon stance."] = "dragon",
+   ["You are in the Eagle stance."] = "eagle",
+   ["You are in the Horse stance."] = "horse",
+   ["You are in the Mir stance."] = "mir",
+   ["You are in the Rat stance."] = "rat",
+   ["You are in the Sanya stance."] = "sanya",
+   ["You are in the Scorpion stance."] = "scorpion",
+   ["You are in the Thyr stance."] = "thyr",
+   ["You are lipreading to overcome deafness."] = "lipreading",
+   ["You are listening in on another conversation."] = "listen",
+   ["You are looking a little shady today."] = "slippery",
+   ["You are maintaining consciousness at all times."] = "consciousness",
+   ["You are masking your egress."] = "disperse",
+   ["You are of transcendent mind."] = "psitranscend",
+   ["You are paced for bursts of exertion."] = "pacing",
+   ["You are performing retaliatory strikes against your attackers."] = "retaliation",
+   ["You are poised to glide across the surface of water."] = "waterwalking",
+   ["You are preparing to impale onrushing attackers."] = "impaling",
+   ["You are protected by a layer of flexible armour."] = "secondskin",
+   ["You are protected by a reflective barrier."] = "tin",
+   ["You are protected by the bell tattoo."] = "belltattoo",
+   ["You are protected by the power of a Frost Spiritshield."] = "frostblessing",
+   ["You are protected by the power of a Thermal Spiritshield."] = "thermalblessing",
+   ["You are protected by the power of an Earth Spiritshield."] = "earthblessing",
+   ["You are protected from damage by a tune of safety."] = "tune",
+   ["You are protected from hand-held weapons with an aura of rebounding."] = "rebounding",
+   ["You are protected from the creation of physical images of yourself."] = "lay",
+   ["You are protected from the fangs of serpents."] = "fangbarrier",
+   ["You are pushing your mind beyond its limits."] = "psibreakthrough",
+   ["You are regenerating endurance at an increased rate."] = "enduranceblessing",
+   ["You are regenerating lost health through the power of Kaido."] = "regeneration",
+   ["You are regenerating willpower at an increased rate."] = "willpowerblessing",
+   ["You are resisting magical damage."] = "resistance",
+   ["You are seeing the world around you with greater clarity of vision."] = "clarity",
+   ["You are shimmering with a ghostly light."] = "ghost",
+   ["You are soaring high above the ground."] = "flying",
+   ["You are standing firm against attempts to move you."] = "standingfirm",
+   ["You are standing within a prismatic barrier."] = "lyre",
+   ["You are surrounded by a cloak of protection."] = "cloak",
+   ["You are surrounded by a healing mist."] = "panacea",
+   ["You are surrounded by a nearly invisible magical shield."] = "shield",
+   ["You are surrounded by a non-conducting chargeshield."] = "chargeshield",
+   ["You are surrounded by a pocket of air."] = "airpocket",
+   ["You are surrounded by draconic armour."] = "dragonarmour",
+   ["You are surrounded by one reflection of yourself."] = "reflections",
+   ["You are tempered against fire damage."] = "frost",
+   ["You are temporarily numbed to damage."] = "numb",
+   ["You are trying to absorb blows to your body."] = "bodyblock",
+   ["You are using Tekura to evade incoming attacks."] = "evadeblock",
+   ["You are using your hypersense."] = "hypersense",
+   ["You are using your superior constitution to prevent nausea."] = "constitution",
+   ["You are using your telesense."] = "mindtelesense",
+   ["You are utilising hypersight."] = "hypersight",
+   ["You are utilising the trance to store Kai energy."] = "kaitrance",
+   ["You are vigilantly watching for potential danger."] = "vigilance",
+   ["You are walking on a small cushion of air."] = "levitating",
+   ["You are walking with the grace of the stars."] = "starburst",
+   ["You are watching the skies for danger."] = "dodging",
+   ["You are watching the trees or rigging above for signs of movement."] = "treewatch",
+   ["You have a great affinity with your spirit form."] = "affinity",
+   ["You have a will of iron."] = "ironwill",
+   ["You have accepted a blessing for aid in times of need."] = "preaching",
+   ["You have augmented your own body for enhanced defence."] = "bodyaugment",
+   ["You have boosted the power of your Kai Trance."] = "kaiboost",
+   ["You have cast a mindnet over the local area."] = "mindnet",
+   ["You have distorted your own aura."] = "distortedaura",
+   ["You have divined the future."] = "extispicy",
+   ["You have enhanced your vision to be able to see traces of lifeforce."] = "lifevision",
+   ["You have insomnia, and cannot easily go to sleep."] = "insomnia",
+   ["You have softened the focus of your eyes."] = "softfocusing",
+   ["You have summoned your draconic breath weapon."] = "dragonbreath",
+   ["You have sworn vengeance upon those who would slay you."] = "vengeance",
+   ["You have taken the form of the Viridian."] = "viridian",
+   ["You have tentacles flailing from your body."] = "tentacles",
+   ["You have used great guile to conceal yourself."] = "hiding",
+   ["You is suffused with indomitable might."] = "indomitability",
+   ["You possess the sight of the third eye."] = "thirdeye",
+   ["You will call upon your fortitude in need."] = "vitality",
+   ["You will try to pinch block a weakened foe."] = "pinchblock",
+   ["Your actions are cloaked in secrecy."] = "shroud",
+   ["Your being is protected by the soulcage."] = "soulcage",
+   ["Your blood is being heated by the sun."] = "basking",
+   ["Your blows will rupture veins and arteries with every strike."] = "rupturesight",
+   ["Your body is weathering the storm of life a little better."] = "weathering",
+   ["Your fists are covered with dense granite."] = "stonefist",
+   ["Your hands are gripping your wielded items tightly."] = "gripping",
+   ["Your health is enhanced by the beauties of an Aria."] = "aria",
+   ["Your limbs are suffused with divinely-inspired strength."] = "inspiration",
+   ["Your mind has been attuned to the realm of Death."] = "deathsight",
+   ["Your mind is focussed to perfection."] = "mentalclarity",
+   ["Your mind is racing with enhanced speed."] = "scholasticism",
+   ["Your mind is split, allowing constant meditation."] = "splitmind",
+   ["Your movements are incredibly stealthy."] = "stealth",
+   ["Your movements are trailed by profusions of wild growth."] = "wildgrowth",
+   ["Your person is surrounded by black demonic armour."] = "armour",
+   ["Your regeneration is boosted."] = "boostedregeneration",
+   ["Your resistance to damage by poison has been increased."] = "poisonresist",
+   ["Your sense of time is heightened, and your reactions are speeded."] = "speed",
+   ["Your senses are attuned to nearby movement."] = "alertness",
+   ["Your senses are magically heightened."] = "mindseye",
+   ["Your skin is hard and tough like the bark of an oak tree."] = "barkskin",
+   ["Your skin is toughened."] = "toughness",
+   ["Your strikes are guided by unnatural luck."] = "guidedstrike",
+   ["Your vision is heightened to see in the dark."] = "nightsight",
+   ["Your water weird allows you to walk on water."] = "waterweird",
+}
 
 return M
