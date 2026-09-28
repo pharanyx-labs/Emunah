@@ -354,6 +354,16 @@ function M.cure(option)
       return false, ("%s is blocked by %s"):format(vector, blocker)
    end
 
+   -- Blockers of ONE cure rather than a whole vector: confusion stops CONCENTRATE (HELP
+   -- COMPOSE) without stopping COMPOSE or CLOT on the same slot.
+   if option.unless then
+      for _, name in ipairs(option.unless) do
+         if emunah.act.afflicted(name) then
+            return false, ("%s is prevented by %s"):format(option.command or vector, name)
+         end
+      end
+   end
+
    local definition = curelist.vectors[vector]
    if definition and definition.needsItem then
       local item = curelist.resolveItem(option)

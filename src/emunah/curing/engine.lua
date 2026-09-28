@@ -101,7 +101,9 @@ local diagSent = false
 
 --- Vectors we resolve cures on, in the order we consider them. Order only affects which
 --- vector gets first refusal on a shared resource; they are otherwise independent.
-M.VECTORS = { "salve", "herb", "smoke", "elixir", "focus", "tree" }
+-- `special` carries the cures that cost no curing balance: COMPOSE for fear, CONCENTRATE
+-- for disrupted equilibrium (svof's misc actions). CLOT uses the same slot.
+M.VECTORS = { "salve", "herb", "smoke", "elixir", "focus", "tree", "special" }
 
 M.enabled = false
 

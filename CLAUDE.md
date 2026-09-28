@@ -20,9 +20,11 @@ Before writing code that depends on how the game behaves:
 2. **Then check svof.** [svof](https://github.com/svof/svof) is the reference the user has
    named for curing methodology and balance blockers: gates in `raw-svo.skeleton.lua`
    (`check_herb`, `check_sip`, ...), per-action rules in `raw-svo.dict.lua`
-   (`isadvisable`), and verbatim game lines in `svo (install the zip, not me).xml`. It
-   dates from 2021, so a timestamped transcript beats it. Cite it as `[svof]` in
-   `docs/game/` when you use it.
+   (`isadvisable`, and `gamename` for the server's name of each affliction), and verbatim
+   game lines in `svo (install the zip, not me).xml`. **On curing and balances, svof's
+   logic is more credible than Emunah's own** (the user's ruling). Where they disagree,
+   change Emunah to match unless a timestamped transcript shows svof is wrong for today's
+   game (it dates from 2021). Cite it as `[svof]` in `docs/game/`.
 3. **If it is not in either, ask.** One question costs the user a paste. A wrong guess costs a
    play session, a bug report, and a round trip — and tends to surface as a *worse* bug than
    the one being fixed.

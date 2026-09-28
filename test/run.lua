@@ -1034,13 +1034,10 @@ ok(table.concat(mock.sent, " | "):find("focus"),
    "out of lobelia, it focuses rather than doing nothing at all",
    table.concat(mock.sent, " | "))
 
--- STUPIDITY'S HERB CURE WAS REMOVED. Confirmed live 20:57:29-20:58:04 with no opponent
--- present: the engine pulled goldenseal from the rift and ate it every ~5s for at least
--- five cycles, and stupidity was still tracked after every one -- so even with goldenseal
--- in hand, it must never be reached for again. `emunah affpop` exists to get this properly
--- re-verified against AFFLICTION SHOW STUPIDITY.
-eq(afflist2.priority("stupidity", "herb"), nil, "stupidity has no herb priority any more")
-eq(#afflist2.curesVia("stupidity", "herb"), 0, "...and no herb cure option at all")
+-- STUPIDITY'S HERB CURE IS BACK. Removed after 20:57:29-20:58:04, restored on HELP
+-- AFFLICTIONS and svof (dict.stupidity.herb) agreeing on goldenseal -- see afflist.lua.
+eq(afflist2.priority("stupidity", "herb"), 7, "stupidity eats goldenseal again, at rank 7")
+eq(#afflist2.curesVia("stupidity", "herb"), 1, "...one herb option")
 
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Items.List", { location = "inv", items = {
@@ -1050,11 +1047,11 @@ mock.feed("IRE.Rift.List", {})
 engine.add("stupidity", "trigger")
 mock.sent = {}
 engine.tick(); queue.flush()
-ok(not table.concat(mock.sent, " | "):find("goldenseal", 1, true),
-   "goldenseal in hand is never reached for to cure stupidity",
+ok(table.concat(mock.sent, " | "):find("eat goldenseal", 1, true),
+   "goldenseal in hand is eaten for stupidity (HELP, svof)",
    table.concat(mock.sent, " | "))
 ok(table.concat(mock.sent, " | "):find("focus"),
-   "...focus is still tried instead", table.concat(mock.sent, " | "))
+   "...and focus goes too, on its own balance", table.concat(mock.sent, " | "))
 
 mock.feed("Char.Items.List", { location = "inv", items = {} })
 
@@ -1192,10 +1189,14 @@ mock.feed("Char.Items.List", { location = "inv", items = {
 } })
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 
-eq(afflist.known("weariness"), false, "weariness is not in the cure table")
+-- `weariness` itself is now in the table: it is svof's gamename for `weakness`
+-- (afflist.ALIASES), which that very payload confirms. The fallback is exercised with a name
+-- the table cannot know instead.
+eq(afflist.known("weariness"), true, "weariness is known, as svof's name for weakness")
+eq(afflist.known("unlistedaffliction"), false, "unlistedaffliction is not in the cure table")
 mock.sent = {}
-mock.feed("Char.Afflictions.Add", { name = "weariness", cure = "EAT KELP",
-   desc = "Weariness increases the rate at which you use endurance." })
+mock.feed("Char.Afflictions.Add", { name = "unlistedaffliction", cure = "EAT KELP",
+   desc = "An affliction the table has never heard of." })
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 ok(table.concat(mock.sent, " | "):find("eat kelp"),
    "an affliction the table has never heard of is cured from the server's own suggestion",
@@ -1234,7 +1235,7 @@ mock.feed("Char.Items.List", { location = "inv", items = {
    { id = "1", name = "a piece of kelp", attrib = "e" },
    { id = "2", name = "a bloodroot leaf", attrib = "e" },
 } })
-mock.feed("Char.Afflictions.Add", { name = "weariness", cure = "EAT KELP" })
+mock.feed("Char.Afflictions.Add", { name = "unlistedaffliction", cure = "EAT KELP" })
 mock.feed("Char.Afflictions.Add", { name = "paralysis", cure = "EAT BLOODROOT" })
 mock.sent = {}
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
@@ -9644,6 +9645,35 @@ ok(detect.armsBalanced(), "the all-limbs line restores both")
 mock.line("You unleash a powerful hook towards a rat.")
 mock.advance(detect.ARM_GUARD + 0.01)
 ok(detect.armsBalanced(), "a missed recovery line is bounded by the backstop")
+
+-- FEAR: COMPOSE first (HELP AFFLICTIONS, svof dict.fear.misc).
+reset()
+engine.enabled = true
+mock.feed("Char.Afflictions.Add", { name = "fear", cure = "COMPOSE" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sent():find("compose"), "fear is composed away", sent())
+
+-- DISRUPTED: CONCENTRATE, but never while confused (HELP COMPOSE, svof dict.disrupt).
+reset()
+engine.add("disrupted", "trigger")
+engine.tick(); queue.flush()
+ok(sent():find("concentrate"), "disrupted equilibrium is concentrated back", sent())
+reset()
+engine.add("disrupted", "trigger")
+engine.add("confusion", "trigger")
+engine.tick(); queue.flush()
+ok(not sent():find("concentrate"), "...but not while confused", sent())
+
+-- THE SERVER'S NAMES (svof gamename): `blind` is the affliction, cured like blindness.
+reset()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "31", name = "an epidermal salve", attrib = "e" },
+} })
+mock.feed("IRE.Rift.List", {})
+mock.feed("Char.Afflictions.Add", { name = "blind", cure = "APPLY EPIDERMAL" })
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sent():find("apply epidermal"), "`blind` is cured from the table, not left unknown", sent())
+engine.enabled = false
 
 -- DEATH PAUSES EVERYTHING (user's rule), and curing resumes on revival.
 reset()

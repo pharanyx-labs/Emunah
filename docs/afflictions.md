@@ -133,7 +133,7 @@ under any spelling, because no table key ever matches.
 None of these block normal use; the engine has fought on this table extensively. They are
 the concrete items to settle before relying on the data more heavily in PvP.
 
-**1. Five entries may be defences rather than afflictions.** `frost`, `levitation`, `mass`,
+**1. Five entries may be defences rather than afflictions.** *Answered by svof: its `gamename` table lists `mass` → `density`, `levitation` → `levitating`, `venom` → `poisonresist` as defences.* `frost`, `levitation`, `mass`,
 `speed` and `venom` are each listed as cured by drinking or applying an item of the same
 name. The curatives glossary describes all five items as proactive buffs — "Speed: increases
 ability to dodge physical attacks", "Mass: prevents unwilling movement" — rather than
@@ -155,7 +155,7 @@ name suggests a location-agnostic fallback rather than a copy of the first.
 content the general pages do not cover — unverifiable from that source rather than known
 wrong.
 
-**5. `fear` resolves through the `focus` vector**, but the published page names the action
+**5. (Resolved: fear now COMPOSEs first, per HELP and svof.)** `fear` resolved through the `focus` vector, but the published page names the action
 "Compose", and `COMPOSE` is a real command with its own help file (`docs/game/help/compose.txt`:
 "At times, you may find yourself in a state of panic ... If this happens to you, COMPOSE.").
 So this is probably a different command, not a difference in wording. Unverified whether FOCUS also works.
@@ -165,7 +165,7 @@ effects have been seen named but have no confirmed cure, so they are absent from
 rather than guessed into it. `crescendo` was in this list until 2026-08-03 -- see the change
 history below.
 
-**7. `stupidity`'s herb cure (`goldenseal`) does not work.** Unlike the ~75 entries checked
+**7. (Resolved: goldenseal restored, per HELP and svof.)** `stupidity`'s herb cure (`goldenseal`) did not work. Unlike the ~75 entries checked
 against the published help, this one had no recorded provenance at all, and confirmed live
 20:57:29-20:58:04 (no opponent present): the engine pulled goldenseal from the rift and ate
 it every ~5 seconds for at least five cycles, and `stupidity` was still tracked after every
@@ -181,6 +181,13 @@ failed eats may have landed inside herb balance (`The plant has no effect.`, see
 ## Change history
 
 Substantive corrections to the data, most recent first.
+
+**Brought in line with svof, which outranks this table on curing (user's ruling).** Fear
+COMPOSEs before focusing; stupidity eats goldenseal again (rank 7); `disrupted`
+CONCENTRATEs unless confused. `ALIASES` adds the server's names from svof's `gamename`
+table (`lovers`, `weariness`, `pacified`, `airpocket`, `burning`, `whisperingmadness`,
+`blind`, `deaf`), and `transfixation` joins the writhes. A cross-check of every cure svof
+and this table share, with svof's names translated, found no other difference.
 
 **Vector blockers brought in line with svof.** `afflist.blocks` gained `anorexia` →
 `elixir`, `mucous` → `smoke`, `inquisition` → `focus`, and a `tree` block for paralysis,

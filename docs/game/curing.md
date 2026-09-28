@@ -240,11 +240,19 @@ Each is a candidate bug unless marked fixed.
 |---|---|---|---|
 | 1 | **Fixed**: was: `engine.lua` pushes `writhe` every tick while entangled. The only confirmation is the entanglement's removal, so if that takes longer than `curing.confirmWait` (2s) the send times out and it goes out again. `afflist.lua` describes the cure as "repeated WRITHE". | WRITHE once, then wait. Repeating makes it take longer. | Entanglement lasts longer than it should, in the fights where it matters most. |
 | 2 | **Fixed**: was: `detect/init.lua` `wakeUp()` resends WAKE every `WAKE_GUARD` (1.0s) while asleep, on the reasoning that "attempt" means it can fail. | WAKE once. "Typing WAKE repeatedly will only delay this process." | Every involuntary sleep lasts longer. |
-| 3 | `fear` cured by the `focus` vector. | Fear: `COMPOSE`. | Possibly works anyway. Unverified. `docs/afflictions.md` open question 5. |
-| 4 | `stupidity`'s goldenseal cure removed after it "did not work" (20:57:29-20:58:04). | Stupidity: eat goldenseal / plumbum. | The removal may have been a herb-balance collision (see `The plant has no effect.`, or server-side curing) rather than a wrong cure. Re-test before trusting either. |
-| 5 | `crippled<limb>` cured with restoration. | Crippled limb: **mending**. Damaged/mangled: restoration. | The user confirmed restoration live (`priest-abilities.md`), so the code is right by the play-beats-HELP rule. The web copy may be stale. Recorded so nobody "fixes" it back from HELP. |
-| 6 | Disrupted equilibrium isn't modelled. | Equilibrium won't return without `CONCENTRATE`. Confusion blocks CONCENTRATE. | Any eq-gated action waits forever. |
+| 3 | **Fixed**: `fear` now COMPOSEs first, focus second (svof `dict.fear.misc`). | Fear: `COMPOSE`. | |
+| 4 | **Fixed**: goldenseal restored at rank 7 (HELP and svof agree). | Stupidity: eat goldenseal / plumbum. | The 20:57 failure predates the eat-inside-herb-balance fix. |
+| 5 | `crippled<limb>` cured with restoration. | Crippled limb: **mending**. | **Not a real disagreement.** svof's internal `crippled` is the server's `broken`, and Emunah cures `broken*` with mending. By svof's `gamename` table, `mangled` is the server's `damaged` and `mutilated` is its `mangled`. |
+| 6 | **Fixed**: `disrupted` (svof's gamename) CONCENTRATEs, never while confused. | Equilibrium won't return without `CONCENTRATE`. Confusion blocks it. | |
 | 7 | `stinky` has no cure entry. | `SCRUB`, only at a water location. | Harmless: tracked, never cured. |
+
+## Server names (svof `gamename`)
+
+svof records what the server calls each affliction where its own name differs. Emunah
+accepts both (`afflist.ALIASES`): `lovers`, `weariness`, `pacified`, `airpocket`, `burning`,
+`whisperingmadness`, `transfixation`, and the affliction `blind`/`deaf`. Note that
+`blindness`/`deafness` are the **defences** from bayberry and hawthorn. `weariness` is also
+confirmed by a real `Char.Afflictions.Add` payload quoted in the tests.
 
 ## Adding to this file
 

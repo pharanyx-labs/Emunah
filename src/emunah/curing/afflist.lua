@@ -67,6 +67,7 @@ M.blocks = {
    webbed        = { "tree" },
    bound         = { "tree" },
    transfixed    = { "tree" },
+   transfixation = { "tree" },
    roped         = { "tree" },
    impaled       = { "tree" },
    numbedleftarm  = { "tree" },
@@ -102,6 +103,8 @@ M.wearsOff = {
 --- movement and attacks while active (act.blocked's `entangled`).
 M.writhes = {
    transfixed = true,
+   -- svof's gamename for transfixed.
+   transfixation = true,
    impaled    = true,
    bound      = true,
    webbed     = true,
@@ -362,9 +365,20 @@ M.afflictions = {
       cures = { { vector = "salve", item = "mending", alt = "renewal", location = "body" } },
       priority = { salve = 6 },
    },
+   -- COMPOSE first. HELP AFFLICTIONS: "Fear: Compose"; HELP COMPOSE: "a state of panic
+   -- ... If this happens to you, COMPOSE." svof has it as a misc action ahead of focus
+   -- (dict.fear.misc, action "compose"). It costs no curing balance, so it goes on `special`.
    fear = {
-      cures = { { vector = "focus" } },
-      priority = { focus = 20 },
+      cures = { { vector = "special", command = "compose" }, { vector = "focus" } },
+      priority = { special = 1, focus = 20 },
+   },
+   -- DISRUPTED EQUILIBRIUM. HELP COMPOSE: equilibrium "will not return no matter how long
+   -- you wait. If this happens to you, simply CONCENTRATE." -- and confusion prevents
+   -- concentrating. The name is svof's gamename for dict.disrupt; svof concentrates only
+   -- when not confused (and not asleep, which act.blocked covers).
+   disrupted = {
+      cures = { { vector = "special", command = "concentrate", unless = { "confusion" } } },
+      priority = { special = 2 },
    },
    firedisrupt = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" }, { vector = "focus" } },
@@ -701,17 +715,15 @@ M.afflictions = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" } },
       priority = { herb = 16 },
    },
-   -- HERB CURE REMOVED, INTERIM. `goldenseal` had no provenance in docs/afflictions.md
-   -- (unlike the ~75 entries checked against the published help) and confirmed live
-   -- 20:57:29-20:58:04 it does not work: with no opponent present, the engine pulled
-   -- goldenseal from the rift and ate it every ~5s for at least five cycles, and
-   -- `stupidity` was still tracked after every one. Focus is left in place -- these three
-   -- tests were never exercising the herb path (no goldenseal in hand or rift in any of
-   -- them) -- pending `AFFLICTION SHOW STUPIDITY` (see `affpop` in curing/detect/init.lua)
-   -- to say what actually cures it, if anything does.
+   -- HERB CURE RESTORED. It was removed after 20:57:29-20:58:04, when goldenseal was eaten
+   -- every ~5s without clearing stupidity -- but HELP AFFLICTIONS ("Stupidity: Eat
+   -- Goldenseal / Plumbum") and svof (dict.stupidity.herb, eatcure goldenseal/plumbum) both
+   -- say it is the cure, and svof outranks this table on curing. That capture predates the
+   -- fix for eating inside herb balance ("The plant has no effect.", docs/game/balance.md),
+   -- which fits the symptom exactly. Rank 7 is what it had before removal.
    stupidity = {
-      cures = { { vector = "focus" } },
-      priority = { focus = 2 },
+      cures = { { vector = "herb", item = "goldenseal", alt = "plumbum" }, { vector = "focus" } },
+      priority = { herb = 7, focus = 2 },
    },
    stuttering = {
       cures = { { vector = "salve", item = "epidermal", alt = "sensory", location = "head" } },
@@ -775,6 +787,28 @@ M.afflictions = {
       priority = { salve = 45 },
    },
 }
+
+--- THE SERVER'S NAMES, per svof. svof keeps its own internal names and records what the
+--- server calls each in a `gamename` field (raw-svo.dict.lua: "what serverside calls this
+--- by -- names can be different as they were revealed years after Svof was made"). Where
+--- that differs from the key this table uses, the server's name is added as an alias of
+--- the same definition, so an affliction is cured whichever name Char.Afflictions uses.
+--- Aliases share the definition table: one cure, one rank, never two to keep in step.
+M.ALIASES = {
+   lovers            = "inlove",
+   weariness         = "weakness",
+   pacified          = "pacifism",
+   airpocket         = "waterbubble",
+   burning           = "ablaze",
+   whisperingmadness = "madness",
+   -- The AFFLICTION is `blind`/`deaf`; `blindness`/`deafness` are the DEFENCES from bayberry
+   -- and hawthorn (svof: blindaff -> "blind", blind -> "blindness").
+   blind             = "blindness",
+   deaf              = "deafness",
+}
+for alias, target in pairs(M.ALIASES) do
+   M.afflictions[alias] = M.afflictions[target]
+end
 
 -- ---------------------------------------------------------------------------
 -- queries
