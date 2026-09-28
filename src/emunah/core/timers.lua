@@ -30,7 +30,8 @@ function M.start(name, duration, onExpire)
    M.stop(name)
 
    local reg = registry()
-   local entry = { name = name, duration = duration, startedAt = emunah.util.now() }
+   local entry = { name = name, duration = duration, startedAt = emunah.util.now(),
+                   onExpire = onExpire }
 
    entry.id = tempTimer(duration, function()
       -- Guard against a timer outliving the generation that created it: if the registry
@@ -61,14 +62,44 @@ function M.stop(name)
    return true
 end
 
+--- How long past its end a cooldown may still be sitting in the registry before it is
+--- treated as orphaned. Mudlet runs a due tempTimer on its next event-loop pass, so a live
+--- one is never this late.
+M.ORPHAN_GRACE = 0.5
+
+--- A cooldown whose time is up is OVER, whether or not its tempTimer callback ran.
+---
+--- Asking only "is the entry there?" made a lost callback permanent. Live, 15:20:28 on
+--- 2026-09-28: smoke balance read down with "cure.smoke" at 0.0s remaining, and `smoke
+--- elm` for earworm sat queued behind it for as long as anyone watched -- the timer had
+--- ended, its entry had not. How the callback was lost is not yet known (a stale
+--- killTimer on a reused id is the prime suspect), so this does not guess at it: it
+--- expires the orphan exactly as the callback would have, and says so, so the next one
+--- names the timer involved.
+local function expireIfLapsed(name)
+   local reg = registry()
+   local entry = reg[name]
+   if not entry then return nil end
+   if emunah.util.now() - entry.startedAt < entry.duration + M.ORPHAN_GRACE then return entry end
+   reg[name] = nil
+   log.warn("Timer %q outlived its callback by %.1fs -- expiring it now.", name,
+      emunah.util.now() - entry.startedAt - entry.duration)
+   if entry.onExpire then
+      local ok, err = pcall(entry.onExpire, name)
+      if not ok then log.error("Timer callback for %q failed: %s", name, tostring(err)) end
+   end
+   emunah.event.raise("timer.expired", name)
+   return nil
+end
+
 --- Is this cooldown currently running?
 function M.active(name)
-   return registry()[name] ~= nil
+   return expireIfLapsed(name) ~= nil
 end
 
 --- Inverse of active(): the cooldown is available for use.
 function M.ready(name)
-   return registry()[name] == nil
+   return expireIfLapsed(name) == nil
 end
 
 --- Seconds left, or 0 when not running.

@@ -3360,6 +3360,17 @@ ok(emunah.timers.remaining("cure.herb") > 0, "recovery reports time remaining")
 mock.advance(emunah.curing.curelist.recovery("herb") + 0.1)
 ok(emunah.timers.ready("cure.herb"), "vector recovers when the timer lapses")
 
+-- A COOLDOWN PAST ITS END IS OVER, even if its tempTimer never fired. Live 15:20:28
+-- (2026-09-28): "cure.smoke" at 0.0s remaining still read as running, and `smoke elm` for
+-- earworm waited behind it indefinitely.
+emunah.timers.stopAll()
+emunah.have.spend("smoke")
+mock.timers = {}                                  -- the callback is lost
+mock.clock = mock.clock + emunah.curing.curelist.recovery("smoke") + 1
+ok(emunah.timers.ready("cure.smoke"), "a cooldown whose callback was lost still ends")
+ok(emunah.have.balance("smoke"), "...so smoke balance comes back")
+emunah.timers.stopAll()
+
 emunah.have.spend("salve")
 emunah.have.recover("salve")
 ok(emunah.timers.ready("cure.salve"), "trigger confirmation clears a vector early")
