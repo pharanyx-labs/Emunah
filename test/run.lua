@@ -9654,6 +9654,48 @@ ok(not inBuffer("You use a soot-blackened tinderbox to make fire."), "tinderbox 
 ok(not inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
    "lit line gagged")
 
+-- THE LAST LINE IS ALWAYS A CURRENT PROMPT. Reported 13:23:14.92-13:23:17.41: five bare
+-- prompts in a row, one per relight, because only the replies were gagged. Now a run of
+-- our housekeeping collapses into one prompt -- the newest -- at the bottom of the window.
+local p1 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:14.92-"
+local p2 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:15.13-"
+local p3 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:15.90-"
+local visitor = "Glancing around for the Iron Carnival, a lost visitor enters from the southwest."
+local function relight(id)
+   emunah.timers.stop("pipes.action")
+   emunah.timers.stop("pipes.pipe." .. id)
+   pipes.pipes[id].status = "out"
+   pipes.keep()
+   mock.line("You use a soot-blackened tinderbox to make fire.")
+   mock.line("You carefully light your treasured pipe until it is smoking nicely.")
+end
+mock.prompt(p1)
+relight("408402")
+mock.prompt(p2)
+mock.advance(0)
+relight("422328")
+mock.prompt(p3)
+mock.advance(0)
+ok(not inBuffer(p1) and not inBuffer(p2), "the prompts our relights stranded are removed")
+eq(mock.buffer[#mock.buffer], p3, "...and the newest prompt is the last line in the window")
+
+-- A block with anything else in it keeps its prompt.
+mock.line(visitor)
+local p4 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:17.41-"
+mock.prompt(p4)
+mock.advance(0)
+ok(inBuffer(visitor) and inBuffer(p3), "an ordinary block leaves the prompt before it alone")
+eq(mock.buffer[#mock.buffer], p4, "...and ends on its own prompt")
+
+-- A prompt you typed a command onto is yours, and stays.
+mock.typedEcho("score")
+relight("367581")
+local p5 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:18.20-"
+mock.prompt(p5)
+mock.advance(0)
+ok(inBuffer(p4 .. "score"), "a prompt carrying a typed command is never removed")
+eq(mock.buffer[#mock.buffer], p5, "...and the newest prompt is still last")
+
 -- YOURS ARE NOT: a PIPELIST you typed, or `emunah pipes now`, is shown in full.
 mock.advance(pipes.QUIET_WINDOW + 0.1)
 local before = #mock.buffer

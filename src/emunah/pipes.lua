@@ -262,6 +262,13 @@ M.QUIET_WINDOW = 3.0
 local quiet = nil        -- { kind = "list"|"light"|"fill", untilAt = <time>, rules = n }
 local gagged = {}
 
+--- Lines since the last prompt, and how many of them were gagged. See M.onLine.
+local block = { lines = 0, gagged = 0 }
+
+--- The last prompt seen: its line number (kept current as lines above it are deleted) and
+--- its text, so a command typed onto it afterwards can be noticed.
+local lastPrompt = nil
+
 function M.quietly(kind)
    quiet = { kind = kind, untilAt = emunah.util.now() + M.QUIET_WINDOW, rules = 0 }
 end
@@ -271,26 +278,61 @@ local function ours(kind)
 end
 
 local function flushGags()
-   table.sort(gagged, function(a, b) return a > b end)
-   local last = nil
-   for _, line in ipairs(gagged) do
+   table.sort(gagged, function(a, b) return a.line > b.line end)
+   local last, removedAbove = nil, 0
+   for _, entry in ipairs(gagged) do
+      local line, expect = entry.line, entry.text
       if line ~= last then
          moveCursor("main", 0, line)
-         deleteLine("main")
+         -- An old prompt is only removed while it still reads as it did: if you have typed a
+         -- command since, Mudlet echoed it onto that prompt, and the line is yours.
+         if expect == nil or getCurrentLine() == expect then
+            deleteLine("main")
+            if lastPrompt and line < lastPrompt.line then removedAbove = removedAbove + 1 end
+         end
          last = line
       end
    end
+   if lastPrompt then lastPrompt.line = lastPrompt.line - removedAbove end
    gagged = {}
    moveCursorEnd("main")
 end
 
---- Hide the line being processed, once the packet it arrived in has been dealt with.
-function M.gag()
+local function gagCurrent()
    if type(getLineNumber) ~= "function" then return end
    local line = getLineNumber("main")
    if not line then return end
    if #gagged == 0 then tempTimer(0, flushGags) end
-   gagged[#gagged + 1] = line
+   gagged[#gagged + 1] = { line = line }
+end
+
+--- Hide the line being processed, once the packet it arrived in has been dealt with.
+function M.gag()
+   block.gagged = block.gagged + 1
+   gagCurrent()
+end
+
+--- Every line passes through here (see the `^` trigger below).
+---
+--- THE LAST LINE IS ALWAYS A CURRENT PROMPT. Gagging the replies alone left a bare prompt
+--- behind for every relight -- five in a row at 13:23:14.92-13:23:17.41 -- but gagging the
+--- new prompt instead would leave a stale one at the bottom of the window. So when a whole
+--- block was ours and gagged, its prompt is KEPT, and the prompt before it -- which that
+--- block would otherwise have left stranded above it -- is the one removed. Any run of
+--- housekeeping collapses into the one, current, prompt. A block with anything else in it
+--- (someone arriving, a line you typed) leaves both prompts alone.
+function M.onLine()
+   if type(isPrompt) == "function" and isPrompt() then
+      if block.gagged > 0 and block.lines == block.gagged and lastPrompt then
+         if #gagged == 0 then tempTimer(0, flushGags) end
+         gagged[#gagged + 1] = { line = lastPrompt.line, text = lastPrompt.text }
+      end
+      local line = type(getLineNumber) == "function" and getLineNumber("main") or nil
+      lastPrompt = line and { line = line, text = getCurrentLine() } or nil
+      block.lines, block.gagged = 0, 0
+   else
+      block.lines = block.lines + 1
+   end
 end
 
 -- ---------------------------------------------------------------------------
@@ -498,6 +540,9 @@ do
    -- The state machine was never at fault and a test drives it end to end. Parsing every
    -- row is the entire feature, so the gag that replaced it (M.gag, above) never deletes
    -- from inside a trigger: it records the line and deletes after the packet is done.
+
+   -- Every line, for M.onLine's per-block count.
+   keep(tempRegexTrigger([[^]], function() M.onLine() end))
 
    -- A PIPELIST row.
    --
