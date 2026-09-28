@@ -42,6 +42,15 @@ end
 mock.install(ROOT)
 _G.EMUNAH_ROOT = ROOT
 
+-- No test ever runs git: emunahReload() pulls main first (emunahUpdate), and this answers
+-- for git instead. Tests that exercise the update replace `mock.git`.
+mock.git = function(_, args)
+   if args:find("^rev%-parse %-%-abbrev%-ref") then return "main", true end
+   if args:find("^rev%-parse %-%-short") then return "abc1234", true end
+   return "", true
+end
+EMUNAH_GIT_RUNNER = function(root, args) return mock.git(root, args) end
+
 local function load()
    dofile(ROOT .. "/src/emunah.lua")
 end
@@ -69,6 +78,66 @@ for _, line in ipairs(mock.echoed) do
    if count then loadedModules = tonumber(count) end
 end
 eq(loadedModules, 53, "all 53 manifest modules loaded")
+
+-- ===========================================================================
+suite("emreload keeps the checkout current with main")
+
+-- Asked for 2026-09-28: "after each change, i just want to emreload and be sure my current
+-- system is current with main". A scripted git answers here; no test runs the real one.
+do
+   local function script(branch, before, after, pullOutput)
+      local calls, heads = {}, { before, after }
+      mock.git = function(_, args)
+         calls[#calls + 1] = args
+         if args:find("^rev%-parse %-%-abbrev%-ref") then return branch, true end
+         if args:find("^rev%-parse %-%-short") then return table.remove(heads, 1) or after, true end
+         if args:find("^pull") then return pullOutput or "", not (pullOutput or ""):find("fatal") end
+         if args:find("^log") then return "Cloak: raise it with TOUCH CLOAK", true end
+         return "", true
+      end
+      return calls
+   end
+   local function said() return table.concat(mock.echoed, " ") end
+
+   local calls = script("main", "9ef1237", "ca31b04")
+   mock.echoed = {}
+   eq(emunahUpdate(ROOT), "updated", "behind main: it pulls")
+   ok(emunah.util.contains(calls, "pull --ff-only --quiet origin main"),
+      "...fast-forward only, from origin main", table.concat(calls, " | "))
+   ok(said():find("ca31b04", 1, true) and said():find("TOUCH CLOAK", 1, true),
+      "...and says which commit it is now on", said())
+
+   script("main", "ca31b04", "ca31b04")
+   mock.echoed = {}
+   eq(emunahUpdate(ROOT), "current", "already at main: says so")
+   ok(said():find("Up to date", 1, true), "...in so many words", said())
+
+   calls = script("claude/some-branch", "x", "x")
+   eq(emunahUpdate(ROOT), "branch", "on another branch: left alone")
+   ok(not emunah.util.contains(calls, "pull --ff-only --quiet origin main"), "...no pull")
+
+   script("main", "a", "a", "fatal: Not possible to fast-forward, aborting.")
+   mock.echoed = {}
+   eq(emunahUpdate(ROOT), "error", "local edits in the way: reported, not forced")
+   ok(said():find("Not possible to fast-forward", 1, true), "...with git's reason", said())
+
+   -- A failed pull never stops the reload itself.
+   mock.echoed = {}
+   emunahReload()
+   ok(said():find("loaded", 1, true), "...and the reload still happens", said())
+
+   emunah.config.set("system.update", false)
+   calls = script("main", "a", "b")
+   eq(emunahUpdate(ROOT), "off", "system.update off: no git at all")
+   eq(#calls, 0, "...not one command")
+   emunah.config.set("system.update", true)
+
+   mock.git = function(_, args)
+      if args:find("^rev%-parse %-%-abbrev%-ref") then return "main", true end
+      if args:find("^rev%-parse %-%-short") then return "abc1234", true end
+      return "", true
+   end
+end
 
 -- ===========================================================================
 suite("reload safety (the headline fix)")

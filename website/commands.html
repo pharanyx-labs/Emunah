@@ -77,7 +77,7 @@ yours so Emunah does not wake you out of it).
 
 <div class="cmd-block">
 <span class="cmd-syntax">emset reload</span>
-<p>reload Emunah from disk, keeping its state</p>
+<p>update from GitHub's main (unless <code>system.update</code> is off), then reload Emunah from disk, keeping its state</p>
 </div>
 
 <div class="cmd-block">
@@ -102,6 +102,7 @@ yours so Emunah does not wake you out of it).
 
 <table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>logLevel</code></td><td>info</td><td>debug, info, warn or error. <code>emset debug</code> toggles between info and debug.</td></tr>
+<tr><td><code>system.update</code></td><td>true</td><td>Pull main (fast-forward only) before every reload. Off, a reload loads what is on disk.</td></tr>
 <tr><td><code>schema</code></td><td>9</td><td>Config format version. Managed by the migrations; do not set this by hand.</td></tr>
 </tbody></table>
 

@@ -53,7 +53,8 @@ M.modules = {
    { syntax = "emhelp [module]",
      summary = "this help: the modules, or one module's commands and settings" },
    { syntax = "emset reload", handler = "reload",
-     summary = "reload Emunah from disk, keeping its state" },
+     summary = "update from GitHub's main (unless `system.update` is off), then reload "
+        .. "Emunah from disk, keeping its state" },
    { syntax = "emreload", alias = "emreload",
      summary = "the same, and still works if the command module failed to load" },
    { syntax = "emset debug", handler = "debug",
@@ -212,6 +213,9 @@ M.settings = {
 -- core
 { key = "logLevel", default = "info", type = "string", topic = "system", shipped = true,
   detail = "debug, info, warn or error. `emset debug` toggles between info and debug." },
+{ key = "system.update", default = true, type = "boolean", topic = "system", shipped = true,
+  detail = "Pull main (fast-forward only) before every reload. Off, a reload loads what is "
+     .. "on disk." },
 { key = "schema", default = 9, type = "number", topic = "system", shipped = true,
   detail = "Config format version. Managed by the migrations; do not set this by hand." },
 
