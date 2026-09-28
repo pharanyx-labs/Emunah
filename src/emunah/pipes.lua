@@ -103,7 +103,14 @@ M.ATTEMPTS = 3
 ---   filled   "You fill your pipe with a skullcap flower."   -> contents, and M.FULL_PUFFS
 ---   empty    "There is nothing in the pipe to light."       -> puffs 0
 ---   -1 puff  "You take a long drag of skullcap off your pipe."
-M.POLL = 300
+---
+--- OFF BY DEFAULT (0), as the reference system has it: it never sends PIPELIST on its own,
+--- only when asked, and tracks pipes from the lines above. The five-minute poll was the
+--- "sometimes I see the output from pipelist, which disappears a second later" of
+--- 2026-09-28: its reply is gagged after the packet (see M.gag), so it shows until then.
+--- A poll still goes out when the pipes are not known at all -- after login, a reload, or
+--- an unlit refusal with nothing on record -- since then there is nothing to track from.
+M.POLL = 0
 
 --- Puffs in a freshly filled pipe.
 ---
@@ -757,9 +764,10 @@ end
 
 event.register("emunah.tick", function()
    if not enabled() then return end
-   if emunah.timers.ready("pipes.poll.due") then
-      emunah.timers.start("pipes.poll.due",
-         tonumber(emunah.config.get("pipes.poll", M.POLL)) or M.POLL)
+   local every = tonumber(emunah.config.get("pipes.poll", M.POLL)) or M.POLL
+   local unknown = next(M.pipes) == nil
+   if (unknown or every > 0) and emunah.timers.ready("pipes.poll.due") then
+      emunah.timers.start("pipes.poll.due", unknown and M.POLL_GUARD or every)
       M.poll()
    end
    M.keep()
