@@ -2942,6 +2942,53 @@ engine.tick()
 ok(engine.has("asthma"), "the thaw reconciles immediately, without waiting for the periodic pass")
 ok(engine.has("paralysis"), "...without discarding trigger-detected state")
 
+-- CONCENTRATE 3 SECONDS INTO A BLACKOUT that has not lifted. The game's advice (an NPC,
+-- 2026-09-28): "it's wise to CONCENTRATE after 3 seconds of blackout have passed without it
+-- wearing off" -- blackout hides a disrupted equilibrium, which the reference system assumes
+-- a few seconds in. On a timer, so it goes out even if no prompt does.
+local function concentrates()
+   local n = 0
+   for _, command in ipairs(mock.sent) do if command == "concentrate" then n = n + 1 end end
+   return n
+end
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = true
+mock.feed("Char.Afflictions.List", {})
+engine.tick()
+mock.sent = {}
+mock.feed("Char.Afflictions.List", { { name = "blackout" } })
+engine.tick()
+mock.advance(engine.BLACKOUT_CONCENTRATE - 0.1)
+eq(concentrates(), 0, "no CONCENTRATE before the blackout has lasted 3 seconds")
+mock.advance(0.2)
+eq(concentrates(), 1, "CONCENTRATE once it has, with no prompt needed", table.concat(mock.sent, " | "))
+mock.advance(10); engine.tick(); mock.advance(10); engine.tick()
+eq(concentrates(), 1, "...and only once per blackout: nothing can confirm it while blind")
+
+-- A blackout that lifts in time needs nothing.
+mock.feed("Char.Afflictions.List", {})
+engine.tick()
+queue.reset(); mock.sent = {}
+mock.feed("Char.Afflictions.List", { { name = "blackout" } })
+engine.tick()
+mock.advance(1)
+mock.feed("Char.Afflictions.List", {})
+engine.tick()
+mock.advance(5); engine.tick()
+eq(concentrates(), 0, "a blackout that wears off inside 3 seconds sends nothing")
+
+-- Confusion prevents concentrating (HELP COMPOSE): held while confused, sent once cured.
+engine.clear(); queue.reset(); mock.sent = {}
+mock.feed("Char.Afflictions.List", { { name = "blackout" } })
+engine.tick()
+engine.add("confusion", "trigger")
+mock.advance(engine.BLACKOUT_CONCENTRATE + 0.1)
+eq(concentrates(), 0, "not while confused")
+engine.remove("confusion")
+queue.reset()
+engine.tick()
+eq(concentrates(), 1, "...but as soon as the confusion is gone, if still blacked out")
+
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 mock.feed("Char.Afflictions.List", {})
 
