@@ -9727,6 +9727,40 @@ mock.advance(0)
 ok(not inBuffer(p1) and not inBuffer(p2), "the prompts our relights stranded are removed")
 eq(mock.buffer[#mock.buffer], p3, "...and the newest prompt is the last line in the window")
 
+-- TWO RELIGHTS IN FLIGHT AT ONCE. The first reply used to clear the single "ours" slot, so
+-- the second pipe's tinderbox and success lines were shown. Each kind now counts its own.
+pipes.pipes["408402"].status = "out"
+pipes.pipes["422328"].status = "out"
+emunah.timers.stop("pipes.action")
+emunah.timers.stop("pipes.pipe.408402")
+emunah.timers.stop("pipes.pipe.422328")
+pipes.keep()
+emunah.timers.stop("pipes.action")
+pipes.keep()
+local both = {
+   "You use a soot-blackened tinderbox to make fire.",
+   "You carefully light your treasured pipe until it is smoking nicely.",
+   "You use a soot-blackened tinderbox to make fire.",
+   "You carefully light your treasured pipe until it is smoking nicely.",
+}
+local before = #mock.buffer
+for _, line in ipairs(both) do mock.line(line) end
+mock.advance(0)
+eq(#mock.buffer, before, "both relights' lines are gagged, not just the first one's")
+
+-- A relight sent in the middle of our PIPELIST does not un-gag the rest of the listing.
+emunah.timers.stop("pipes.poll")
+pipes.poll(true)
+before = #mock.buffer
+mock.line("Status  Pipe         Contents                       Puffs Months ")
+mock.line("-------------------------------------------------------------------------------")
+mock.line("out     pipe367581   a skullcap flower              8     195")
+pipes.quietly("light")
+mock.line("lit     pipe408402   slippery elm                   9     195")
+mock.line("-------------------------------------------------------------------------------")
+mock.advance(0)
+eq(#mock.buffer, before, "a relight mid-listing leaves the whole listing gagged")
+
 -- A block with anything else in it keeps its prompt.
 mock.line(visitor)
 local p4 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:17.41-"
