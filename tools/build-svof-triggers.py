@@ -8,9 +8,16 @@ to be sourced. The user has named svof as that source, and ruled it more credibl
 Emunah on curing, so this turns its trigger set into an importable Mudlet package whose
 only code is a call into Emunah's detect module:
 
-    emunah.curing.detect.textGain("<server name>")     -- affliction gained
-    emunah.curing.detect.textCure("<server name>")     -- affliction cured / worn off
-    emunah.curing.detect.textState("<state>", on)      -- stunned, prone, sleeping, unconscious
+    emunah.curing.detect.textGain("<server name>")          -- affliction gained
+    emunah.curing.detect.textCure("<server name>"[, via])   -- cured / worn off
+    emunah.curing.detect.textState("<state>", on)           -- stunned, prone, sleeping, unconscious
+    emunah.curing.detect.textIllusion("<reason>")           -- this block is an illusion
+    emunah.curing.detect.textLine() / textPrompt()          -- svof's Prompt trigger
+
+ANTI-ILLUSION is svof's, in the same layers (see curing/detect/init.lua): reports wait for
+the prompt and are discarded with the whole block if one of svof's "Generic illusions"
+triggers fires in it; a cure line tied to a balance needs that cure in flight, not sooner
+than half the ping; and the server must confirm a gained affliction.
 
 WHAT IS TAKEN, AND WHAT IS NOT
 ------------------------------
@@ -69,8 +76,14 @@ STATES = {
 PLAIN_TYPES = {"0", "1", "2", "3"}
 
 GAIN = [re.compile(r"^simple(\w+)$"), re.compile(r"^proper_(\w+)$"), re.compile(r"^venom_(\w+)$")]
-CURE = [re.compile(r"^\w+?_cured_(\w+)$"), re.compile(r"^generic_(\w+)$"),
-        re.compile(r"^cured_?(\w+)$"), re.compile(r"^(\w+)_woreoff$")]
+# A cure line tied to a curing balance: accepted only while that balance's cure is in
+# flight (detect.textCure's `via`, svof's checkany over the balance's actions).
+VIA = re.compile(r"^(herb|salve|focus|smoke|tree)_cured_(\w+)$")
+CURE = [re.compile(r"^generic_(\w+)$"), re.compile(r"^cured_?(\w+)$"),
+        re.compile(r"^(\w+)_woreoff$")]
+# svof's plain illusion flag, optionally behind its anti-illusion switch.
+ILLUSION = re.compile(r"^(?:if svo\.conf\.aillusion then )?svo\.ignore_illusion\("
+                      r"(?:\"[^\"]*\"|'[^']*')?\)(?: end)?$")
 CALL = re.compile(r"^svo\.valid\.(\w+)\(\)$")
 
 
@@ -129,15 +142,19 @@ def native_lines():
 
 
 def classify(fn):
+    """(kind, affliction, via)"""
     for pattern in GAIN:
         match = pattern.match(fn)
         if match:
-            return "gain", match.group(1)
+            return "gain", match.group(1), None
+    match = VIA.match(fn)
+    if match:
+        return "cure", match.group(2), match.group(1)
     for pattern in CURE:
         match = pattern.match(fn)
         if match:
-            return "cure", match.group(1)
-    return None, None
+            return "cure", match.group(1), None
+    return None, None, None
 
 
 def statements(script):
@@ -152,9 +169,6 @@ def statements(script):
 def walk(element, inside_group, found):
     for child in element:
         if child.tag == "TriggerGroup":
-            name = (child.findtext("name") or "").lower()
-            if "illusion" in name:          # svof's illusion catchers: never afflictions
-                continue
             walk(child, True, found)
         elif child.tag == "Trigger":
             has_children = any(c.tag in ("Trigger", "TriggerGroup") for c in child)
@@ -162,6 +176,23 @@ def walk(element, inside_group, found):
                 found.append(child)
             # A trigger with children is a chain; its children only fire inside it, so
             # neither it nor they are plain line matches. Not descended into.
+
+
+def convert_illusion(trigger):
+    """svof's plain illusion triggers -- a pair of lines that cannot really arrive together
+    -- copied with their multi-line settings, the script swapped for detect.textIllusion."""
+    script = re.sub(r"\s+", " ", (trigger.findtext("script") or "").strip())
+    if not ILLUSION.match(script):
+        return None
+    if trigger.get("isActive") != "yes":
+        return "inactive"
+    patterns = [s.text or "" for s in trigger.find("regexCodeList") or []]
+    types = [i.text for i in trigger.find("regexCodePropertyList") or []]
+    if not patterns or not set(types) <= PLAIN_TYPES | {"5"}:
+        return "illusion pattern type needs context"
+    name = trigger.findtext("name") or "illusion"
+    return ([("illusion", "svof: " + name)], list(zip(patterns, types)),
+            trigger.get("isMultiline") == "yes", trigger.findtext("conditonLineDelta") or "0")
 
 
 def convert(trigger, names, known, native):
@@ -183,7 +214,7 @@ def convert(trigger, names, known, native):
         call = CALL.match(statement)
         if not call:
             return "script is more than plain svo.valid calls"
-        kind, aff = classify(call.group(1))
+        kind, aff, via = classify(call.group(1))
         if not kind:
             return "svo.valid function is not a gain/cure"
         if aff in STATES:
@@ -194,7 +225,7 @@ def convert(trigger, names, known, native):
         # sends those names, so they could never be confirmed.
         if server not in known or server.startswith("unknown"):
             continue                       # Emunah cannot act on it; drop this statement
-        actions.append((kind, server))
+        actions.append(("cure@" + via if kind == "cure" and via else kind, server))
     if not actions:
         return "no affliction Emunah knows"
 
@@ -212,14 +243,24 @@ def lua_call(action, name):
         return f'emunah.curing.detect.textGain("{name}")'
     if action == "cure":
         return f'emunah.curing.detect.textCure("{name}")'
+    if action.startswith("cure@"):
+        vias = action[5:].split(",")
+        via = f'"{vias[0]}"' if len(vias) == 1 else "{ " + ", ".join(f'"{v}"' for v in vias) + " }"
+        return f'emunah.curing.detect.textCure("{name}", {via})'
+    if action == "illusion":
+        return f'emunah.curing.detect.textIllusion({lua_string(name)})'
     return f'emunah.curing.detect.textState("{name}", {"true" if action == "state_on" else "false"})'
 
 
-TRIGGER = """{indent}<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+def lua_string(text):
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+TRIGGER = """{indent}<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="{multiline}" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 {indent}    <name>{name}</name>
 {indent}    <script>{script}</script>
 {indent}    <triggerType>0</triggerType>
-{indent}    <conditonLineDelta>0</conditonLineDelta>
+{indent}    <conditonLineDelta>{delta}</conditonLineDelta>
 {indent}    <mStayOpen>0</mStayOpen>
 {indent}    <mCommand></mCommand>
 {indent}    <packageName></packageName>
@@ -252,12 +293,20 @@ GROUP_OPEN = """{indent}<TriggerGroup isActive="yes" isFolder="yes" isTempTrigge
 {indent}    <regexCodeList />
 {indent}    <regexCodePropertyList />"""
 
-HEADER_NOTE = """-- EmunahTriggers: svof's affliction and state lines, feeding Emunah.
+HEADER_NOTE = """-- EmunahTriggers: svof's affliction, state and anti-illusion lines, feeding Emunah.
 -- Generated by tools/build-svof-triggers.py -- regenerate rather than edit by hand.
--- Every trigger only calls emunah.curing.detect.textGain / textCure / textState, and does
--- nothing when Emunah is not loaded. An affliction reported here is dropped unless the
--- server confirms it within a couple of seconds (engine.TEXT_CONFIRM), so a faked line
--- cannot leave Emunah curing a phantom."""
+-- Every trigger only calls emunah.curing.detect.text*, and does nothing when Emunah is not
+-- loaded. Anti-illusion is svof's: nothing counts until the prompt, one illusion discards
+-- the whole block, a cure line needs its cure in flight, and the server must confirm a
+-- gained affliction (engine.TEXT_CONFIRM). `emunah set curing.antiIllusion false` turns
+-- the first two off, as svof's `vconfig aillusion` does."""
+
+
+PROMPT_PATTERN = ("if isPrompt() then return true else "
+                  "if emunah and emunah.curing and emunah.curing.detect then "
+                  "emunah.curing.detect.textLine() end return false end")
+PROMPT_SCRIPT = ("if emunah and emunah.curing and emunah.curing.detect then\n"
+                 "   emunah.curing.detect.textPrompt()\nend")
 
 
 def render(groups):
@@ -265,21 +314,34 @@ def render(groups):
            '<MudletPackage version="1.001">', "    <TriggerPackage>"]
     out.append(GROUP_OPEN.format(indent="        ", name="EmunahTriggers",
                                  script=escape(HEADER_NOTE), package="EmunahTriggers"))
+    indent = " " * 12
+
+    def trigger(name, script, kept, multiline=False, delta="0"):
+        return TRIGGER.format(
+            indent=indent + "    ", name=escape(name), script=escape(script),
+            multiline="yes" if multiline else "no", delta=escape(delta),
+            patterns="\n".join(f"{indent}            <string>{escape(p)}</string>"
+                               for p, _ in kept),
+            types="\n".join(f"{indent}            <integer>{t}</integer>" for _, t in kept))
+
+    # THE PROMPT, first: svof's own `Prompt` trigger, a Lua-function pattern that fires on
+    # the prompt line and counts every other line as it goes (its paragraph_length). Here
+    # the prompt closes the block -- reports applied or, on an illusion, discarded -- and
+    # stands in for Char.Vitals as the heartbeat when none arrived.
+    out.append(GROUP_OPEN.format(indent=indent, name="Prompt", script="", package=""))
+    out.append(trigger("Emunah prompt", PROMPT_SCRIPT, [(PROMPT_PATTERN, "4")]))
+    out.append(indent + "</TriggerGroup>")
+
     for title, triggers in groups:
         if not triggers:
             continue
-        out.append(GROUP_OPEN.format(indent="            ", name=escape(title), script="",
+        out.append(GROUP_OPEN.format(indent=indent, name=escape(title), script="",
                                      package=""))
-        for name, actions, kept in triggers:
+        for name, actions, kept, multiline, delta in triggers:
             calls = "\n".join("   " + lua_call(a, n) for a, n in actions)
             script = f"if emunah and emunah.curing and emunah.curing.detect then\n{calls}\nend"
-            indent = " " * 16
-            out.append(TRIGGER.format(
-                indent=indent, name=escape(name), script=escape(script),
-                patterns="\n".join(f"{indent}        <string>{escape(p)}</string>"
-                                   for p, _ in kept),
-                types="\n".join(f"{indent}        <integer>{t}</integer>" for _, t in kept)))
-        out.append("            </TriggerGroup>")
+            out.append(trigger(name, script, kept, multiline, delta))
+        out.append(indent + "</TriggerGroup>")
     out += ["        </TriggerGroup>", "    </TriggerPackage>", "</MudletPackage>", ""]
     return "\n".join(out)
 
@@ -305,28 +367,65 @@ def main():
     skipped = {}
     converted = []
     for trigger in found:
-        result = convert(trigger, names, known, native)
+        name = trigger.findtext("name") or "svof trigger"
+        result = convert_illusion(trigger)
+        if result is None:
+            result = convert(trigger, names, known, native)
+            if not isinstance(result, str):
+                result = (*result, False, "0")
         if isinstance(result, str):
             skipped[result] = skipped.get(result, 0) + 1
             continue
-        converted.append((trigger.findtext("name") or "svof trigger", *result))
+        converted.append((name, *result))
 
     # A line svof uses to cure two DIFFERENT afflictions needs svof's action tracking to
     # tell which; without it, drop the cure rather than guess.
+    def is_cure(action):
+        return action == "cure" or action.startswith("cure@")
+
     cures_by_line = {}
-    for _, actions, kept in converted:
-        cured = {n for a, n in actions if a == "cure"}
+    for _, actions, kept, _, _ in converted:
+        cured = {n for a, n in actions if is_cure(a)}
         for pattern, _ in kept:
             cures_by_line.setdefault(pattern, set()).update(cured)
     ambiguous = {p for p, cured in cures_by_line.items() if len(cured) > 1}
 
-    groups = {"Afflictions gained": [], "Afflictions cured": [], "States": []}
+    # ONE LINE, SEVERAL ROUTES. svof has a trigger per route for the same cure line --
+    # herb_cured_X, tree_cured_X, generic_X -- and firing them all would both double the
+    # cure and log the routes that were not in flight as illusions. Merged per line and
+    # affliction: if svof also takes it as a general cure, no balance has to be in flight
+    # (svof believes it then too); otherwise any one of the listed balances will do.
+    merged, order = {}, []
+    for name, actions, kept, multiline, delta in converted:
+        if len(actions) == 1 and is_cure(actions[0][0]) and not multiline:
+            key = (tuple(kept), actions[0][1])
+            via = actions[0][0][5:] if actions[0][0].startswith("cure@") else None
+            if key not in merged:
+                merged[key] = (name, kept, set())
+                order.append(("cure", key))
+            merged[key][2].add(via)
+        else:
+            order.append(("other", (name, actions, kept, multiline, delta)))
+    converted = []
+    for kind, item in order:
+        if kind == "other":
+            converted.append(item)
+            continue
+        name, kept, vias = merged[item]
+        if None in vias:
+            action = "cure"
+        else:
+            action = "cure@" + ",".join(sorted(vias))
+        converted.append((name, [(action, item[1])], kept, False, "0"))
+
+    groups = {"Anti-illusion": [], "Afflictions gained": [], "Afflictions cured": [],
+              "States": []}
     seen = set()
     dropped_ambiguous = 0
-    for name, actions, kept in converted:
+    for name, actions, kept, multiline, delta in converted:
         if any(p in ambiguous for p, _ in kept):
             before = len(actions)
-            actions = [(a, n) for a, n in actions if a != "cure"]
+            actions = [(a, n) for a, n in actions if not is_cure(a)]
             dropped_ambiguous += before - len(actions)
             if not actions:
                 continue
@@ -335,20 +434,23 @@ def main():
             continue
         seen.add(key)
         kinds = {a for a, _ in actions}
-        if kinds & {"state_on", "state_off"}:
+        if "illusion" in kinds:
+            group = "Anti-illusion"
+        elif kinds & {"state_on", "state_off"}:
             group = "States"
         elif "gain" in kinds:
             group = "Afflictions gained"
         else:
             group = "Afflictions cured"
-        groups[group].append((name, actions, kept))
+        groups[group].append((name, actions, kept, multiline, delta))
 
     output = pathlib.Path(args.output)
     output.write_text(render(list(groups.items())), encoding="utf-8")
     ET.parse(output)                        # the result must at least be well-formed XML
 
-    total = sum(len(v) for v in groups.values())
+    total = sum(len(v) for v in groups.values()) + 1
     print(f"wrote {output} -- {total} triggers from {len(found)} in {xml_path.name}")
+    print(f"  {'Prompt':20} 1")
     for title, triggers in groups.items():
         print(f"  {title:20} {len(triggers)}")
     print("skipped:")

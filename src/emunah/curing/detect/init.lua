@@ -144,20 +144,36 @@ function M.onConscious()
 end
 
 -- ---------------------------------------------------------------------------
--- The imported trigger package's entry points. EmunahTriggers.xml (tools/
--- build-svof-triggers.py) calls only these, with the server's name for each affliction.
+-- The imported trigger package's entry points, and its ANTI-ILLUSION.
+--
+-- EmunahTriggers.xml (tools/build-svof-triggers.py) calls only these, with the server's
+-- name for each affliction. What it reports is text, and text can be faked: an opponent can
+-- send you any line they like. svof defends against that in layers, and these are them:
+--
+--   1. NOTHING COUNTS UNTIL THE PROMPT. svof's lifevision collects what a block of output
+--      reports and applies it at the prompt. Here the block is everything since the last
+--      Char.Vitals (Achaea sends one per prompt), committed on the `vitals` event -- which
+--      is raised before `tick`, so the engine sees the committed state the same prompt.
+--   2. ONE ILLUSION SPOILS THE BLOCK. svof's ignore_illusion() discards everything in the
+--      paragraph. M.textIllusion() is its equivalent, called by the package's copy of svof's
+--      "Generic illusions" triggers -- pairs of lines that cannot really arrive together.
+--   3. A CURE LINE NEEDS A CURE IN PROGRESS. svof's herb_cured_*/focus_cured_*/... accept a
+--      cure line only while that balance's action is in flight, never sooner than half the
+--      ping after sending it, and -- for an affliction other than the one being cured --
+--      only if it is actually tracked. M.textCure(name, via) checks the same.
+--   4. THE SERVER HAS THE LAST WORD. A gained affliction is dropped unless Char.Afflictions
+--      confirms it (engine.TEXT_CONFIRM). svof: "serverside curing is completely immune" to
+--      illusions -- which is exactly what GMCP is.
+--
+-- `emunah set curing.antiIllusion false` applies reports the moment they arrive instead
+-- (svof's `vconfig aillusion`); layers 3 and 4 still apply.
 -- ---------------------------------------------------------------------------
 
---- An affliction gained, on probation until the server confirms it (engine.TEXT_CONFIRM).
-function M.textGain(name)
-   local engine = emunah.curing.engine
-   if engine then engine.addText(name) end
-end
+local paragraph = {}
+local illusion = nil
 
---- An affliction cured. Frees the queue slot waiting on it, as a native cure line does; if
---- the server still reports it, the next reconcile adopts it again.
-function M.textCure(name)
-   M.onCure(tostring(name or ""):lower())
+local function antiIllusion()
+   return emunah.config.get("curing.antiIllusion", true) ~= false
 end
 
 local TEXT_STATES = {
@@ -167,11 +183,123 @@ local TEXT_STATES = {
    unconscious = { on = "onUnconscious", off = "onConscious" },
 }
 
+--- Is this cure line believable? See layer 3 above. `via` is one balance, or a list of the
+--- balances the same line can come from (a tree touch and an eaten herb print the same
+--- "cured" line) -- any one of them in flight will do.
+local function cureBelievable(name, via)
+   if not via then return true end            -- a wear-off or general cure: no action to match
+   local engine = emunah.curing.engine
+   local action
+   if type(via) == "table" then
+      for _, vector in ipairs(via) do
+         action = emunah.queue.awaiting(vector)
+         if action then via = vector break end
+      end
+      if not action then via = table.concat(via, "/") end
+   else
+      action = emunah.queue.awaiting(via)
+   end
+   if not action then
+      return false, ("a %s cure for %s, but nothing is being cured on %s"):format(via, name, via)
+   end
+   if action.tag ~= name and not (engine and engine.has(name)) then
+      return false, ("a %s cure for %s, which we do not have"):format(via, name)
+   end
+   local latency = 0
+   if type(getNetworkLatency) == "function" then
+      local ok, value = pcall(getNetworkLatency)
+      if ok and tonumber(value) then latency = tonumber(value) end
+   end
+   local elapsed = emunah.util.now() - (action.sentAt or 0)
+   if elapsed < latency / 2 then
+      return false, ("a %s cure %.2fs after sending, faster than half the ping (%.2fs)")
+         :format(via, elapsed, latency)
+   end
+   return true
+end
+
+local function apply(report)
+   local kind, name = report[1], report[2]
+   if kind == "gain" then
+      local engine = emunah.curing.engine
+      if engine then engine.addText(name) end
+   elseif kind == "cure" then
+      local believable, why = cureBelievable(name, report[3])
+      if believable then
+         M.onCure(name)
+      else
+         log.info("Illusion ignored -- %s.", why)
+      end
+   elseif kind == "state" then
+      local handlers = TEXT_STATES[name]
+      if handlers then M[report[3] and handlers.on or handlers.off]() end
+   end
+end
+
+local function report(entry)
+   if antiIllusion() then
+      paragraph[#paragraph + 1] = entry
+   else
+      apply(entry)
+   end
+end
+
+--- An affliction gained, on probation until the server confirms it (engine.TEXT_CONFIRM).
+function M.textGain(name)
+   report({ "gain", tostring(name or ""):lower() })
+end
+
+--- An affliction cured. `via` is the curing balance the line belongs to (herb, salve, focus,
+--- smoke, tree), or nil for a wear-off or a general cure. Frees the queue slot waiting on it,
+--- as a native cure line does; if the server still reports it, the next reconcile adopts it.
+function M.textCure(name, via)
+   report({ "cure", tostring(name or ""):lower(), via })
+end
+
 --- A state entered or left.
 function M.textState(state, on)
-   local handlers = TEXT_STATES[state]
-   if not handlers then return end
-   M[on and handlers.on or handlers.off]()
+   report({ "state", state, on and true or false })
+end
+
+--- This block of output contains an illusion: throw away everything it reported.
+function M.textIllusion(reason)
+   illusion = illusion or reason or "a line that cannot be real"
+end
+
+--- Apply, or discard, what the block reported. Runs on every prompt.
+function M.commitText()
+   if illusion then
+      if #paragraph > 0 then
+         log.info("Illusion ignored -- %s; discarded %d report(s) with it.", illusion, #paragraph)
+      end
+      paragraph, illusion = {}, nil
+      return
+   end
+   if #paragraph == 0 then return end
+   local pending = paragraph
+   paragraph = {}
+   for index = 1, #pending do apply(pending[index]) end
+end
+
+event.register("emunah.vitals", function() M.commitText() end, "curing.detect")
+
+--- Lines since the last prompt: svof's `paragraph_length`, kept by the same trigger.
+M.paragraphLength = 0
+
+--- A non-prompt line. Called by the package's prompt trigger for every line that is not a
+--- prompt, exactly as svof's `Prompt` trigger counts them.
+function M.textLine()
+   M.paragraphLength = M.paragraphLength + 1
+end
+
+--- The prompt. Closes the block: its reports are applied (or discarded, on an illusion)
+--- whether or not a Char.Vitals came with it, and if none did, the prompt runs the
+--- heartbeat instead (gmcp.vitals.onPrompt).
+function M.textPrompt()
+   M.commitText()
+   M.paragraphLength = 0
+   local vitals = emunah.gmcp and emunah.gmcp.vitals
+   if vitals and vitals.onPrompt then vitals.onPrompt() end
 end
 
 --- Arm balance. svof holds every balance-taking action until BOTH arms have it

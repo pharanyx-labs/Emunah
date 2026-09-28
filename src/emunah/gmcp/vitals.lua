@@ -167,7 +167,27 @@ local function onVitals()
    event.raise("vitals", M)
 
    -- The system heartbeat. Curing, defence keep-up and the queue all hang off this.
+   M.sawVitals = true
    event.raise("tick", M.ticks)
+end
+
+--- Did a Char.Vitals arrive since the last prompt? Cleared by M.onPrompt().
+M.sawVitals = false
+
+--- The prompt trigger's backup (EmunahTriggers.xml, like svof's own `Prompt` trigger). Achaea
+--- sends Char.Vitals with every prompt, and the heartbeat hangs off it -- but a prompt with
+--- no Char.Vitals ahead of it (a dropped GMCP packet, a subscription lost at death, see
+--- gmcp/init.lua) would otherwise be a prompt on which nothing is cured. Then the prompt
+--- itself runs the heartbeat, on the state we already have.
+function M.onPrompt()
+   if M.sawVitals then
+      M.sawVitals = false
+      return false
+   end
+   M.ticks = M.ticks + 1
+   event.raise("vitals", M)
+   event.raise("tick", M.ticks)
+   return true
 end
 
 -- ---------------------------------------------------------------------------

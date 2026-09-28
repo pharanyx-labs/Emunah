@@ -65,8 +65,13 @@ declared. Answer these from `docs/game/`, not from memory, for every new or chan
 
 `EmunahTriggers.xml` is generated from svof's trigger set by
 `tools/build-svof-triggers.py`. Change the generator and regenerate; never hand-edit the
-XML. Its triggers may only call `detect.textGain` / `textCure` / `textState`. A text-reported
-affliction is on probation until the server confirms it (`engine.TEXT_CONFIRM`).
+XML. Its triggers may only call `detect.text*`. Anti-illusion is svof's, in four layers
+documented at the top of that section of `curing/detect/init.lua`:
+- text reports wait for the prompt;
+- an illusion discards the block;
+- a cure line needs its cure in flight;
+- the server must confirm a gain (`engine.TEXT_CONFIRM`).
+Don't add a path that applies text immediately.
 
 Achaea's server-side curing is **off** for this character, and the user turned off its
 sipping and defence upkeep by hand. Don't send `CURING` commands at login.

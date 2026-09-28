@@ -36,11 +36,15 @@ git clone https://github.com/pharanyx-labs/Emunah.git ~/src/Emunah
 
 **2. Install `Emunah.xml`** through *Package Manager → Install*.
 
-**2b. Optional: install `EmunahTriggers.xml`** the same way. It is a trigger-only package:
-about 640 of svof's affliction, cure and state lines, each calling into Emunah
-(`emunah.curing.detect.textGain` / `textCure` / `textState`). It does nothing if Emunah is
-not loaded. Afflictions it reports are dropped unless the server confirms them within
-~2 seconds, so an illusion can't leave Emunah curing something you don't have.
+**2b. Optional: install `EmunahTriggers.xml`** the same way. It is a trigger-only package
+of about 660 of svof's lines: affliction gained and cured, states (stun, prone, sleep,
+unconscious), svof's prompt trigger (a backup for `Char.Vitals`), and svof's illusion
+catchers. Each calls `emunah.curing.detect.text*` and does nothing if Emunah is not loaded.
+Anti-illusion follows svof:
+- nothing it reports counts until the prompt;
+- one illusion discards the whole block;
+- a cure line needs its cure in flight;
+- an affliction is dropped unless the server confirms it within ~2 seconds.
 Regenerate it with `python3 tools/build-svof-triggers.py <svof checkout>`; don't edit it by
 hand.
 

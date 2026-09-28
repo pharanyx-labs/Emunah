@@ -9701,13 +9701,81 @@ local function reset()
    mock.feed("Char.Afflictions.List", {})
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 end
+-- The end of a block of output: Achaea sends Char.Vitals with every prompt.
+local function prompt() mock.feed("Char.Vitals", { bal = "1", eq = "1" }) end
 
--- PROBATION. A text report the server never confirms is dropped: that is an illusion, and
+-- LAYER 1: NOTHING COUNTS UNTIL THE PROMPT.
+reset()
+detect.textGain("paralysis")
+ok(not engine.has("paralysis"), "a text report waits for the prompt")
+prompt()
+ok(engine.has("paralysis"), "...and is applied on it")
+
+-- LAYER 2: ONE ILLUSION SPOILS THE BLOCK -- everything reported with it is discarded.
+reset()
+detect.textGain("paralysis")
+detect.textState("stunned", true)
+detect.textIllusion("test pair")
+prompt()
+ok(not engine.has("paralysis"), "an illusion in the block discards its afflictions")
+eq(emunah.act.blocked(), nil, "...and its states")
+detect.textGain("paralysis")
+prompt()
+ok(engine.has("paralysis"), "...but only that block: the next one counts again")
+
+-- LAYER 3: A CURE LINE NEEDS A CURE IN PROGRESS.
+reset()
+engine.add("paranoia", "gmcp")
+detect.textCure("paranoia", "herb")
+prompt()
+ok(engine.has("paranoia"), "a herb cure line with no herb being eaten is an illusion")
+emunah.queue.push("herb", "eat ash", { tag = "paranoia", confirm = 5 })
+emunah.have.recover("herb")
+emunah.queue.flush()
+mock.latency = 0.4
+detect.textCure("paranoia", "herb")
+prompt()
+ok(engine.has("paranoia"), "...so is one faster than half the ping after the eat")
+mock.advance(0.3)
+detect.textCure("paranoia", "herb")
+prompt()
+ok(not engine.has("paranoia"), "...and one that fits is believed")
+mock.latency = 0
+reset()
+engine.add("stupidity", "gmcp")
+emunah.queue.push("herb", "eat goldenseal", { tag = "stupidity", confirm = 5 })
+emunah.have.recover("herb")
+emunah.queue.flush()
+detect.textCure("dizziness", "herb")
+prompt()
+ok(not engine.has("dizziness"), "a cure for something we do not have is ignored, not applied")
+detect.textCure("paranoia")
+prompt()   -- a wear-off / general cure needs no action in flight; must not error
+
+-- THE PROMPT TRIGGER: closes the block, and stands in for a missing Char.Vitals.
+reset()
+detect.textGain("paralysis")
+detect.textLine(); detect.textLine()
+eq(detect.paragraphLength, 2, "every non-prompt line is counted, as svof's paragraph_length")
+local ticks = emunah.gmcp.vitals.ticks
+detect.textPrompt()   -- reset() sent a Char.Vitals, so this prompt already had one
+ok(engine.has("paralysis"), "the prompt applies the block")
+eq(detect.paragraphLength, 0, "...and resets the count")
+eq(emunah.gmcp.vitals.ticks, ticks, "a prompt that came with Char.Vitals does not tick again")
+detect.textPrompt()
+eq(emunah.gmcp.vitals.ticks, ticks + 1, "no Char.Vitals since the last prompt: the prompt runs the heartbeat")
+prompt()
+ticks = emunah.gmcp.vitals.ticks
+detect.textPrompt()
+eq(emunah.gmcp.vitals.ticks, ticks, "...but not when Char.Vitals already did")
+
+-- LAYER 4 (PROBATION). A text report the server never confirms is dropped: that is an illusion, and
 -- before this a trigger-asserted affliction survived every reconcile.
 reset()
 engine.enabled = true
 detect.textGain("paralysis")
-ok(engine.has("paralysis"), "a text report is tracked at once")
+prompt()
+ok(engine.has("paralysis"), "a text report is tracked once its block ends")
 mock.advance(engine.TEXT_CONFIRM + 0.1)
 engine.tick()
 ok(not engine.has("paralysis"), "...and dropped when the server never confirms it")
@@ -9722,6 +9790,7 @@ ok(engine.has("paralysis"), "a confirmed report stays")
 reset()
 engine.add("blackout", "gmcp")
 detect.textGain("stupidity")
+prompt()
 mock.advance(engine.TEXT_CONFIRM + 5)
 engine.tick()
 ok(engine.has("stupidity"), "while blacked out the text is all there is, so it is kept")
@@ -9730,8 +9799,10 @@ engine.enabled = false
 -- STATES go straight in, like the native patterns.
 reset()
 detect.textState("stunned", true)
+prompt()
 eq(emunah.act.blocked(), "stunned", "textState stunned holds everything")
 detect.textState("stunned", false)
+prompt()
 eq(emunah.act.blocked(), nil, "...and clears")
 detect.textCure("nothingtracked")   -- must not error on something we are not tracking
 
@@ -9760,7 +9831,9 @@ if handle then
          if not okRun then bad[#bad + 1] = runErr end
       end
       for kind, name in code:gmatch('text(%a+)%("([%w]+)"') do
-         if kind == "State" then
+         if kind == "Illusion" then
+            -- a reason, not a name
+         elseif kind == "State" then
             if not states[name] then unknownNames[#unknownNames + 1] = name end
          elseif not (afflist.known(name) or afflist.isWrithe(name)
                      or #afflist.blockedVectors(name) > 0 or afflist.wearsOff[name]) then
@@ -9773,6 +9846,9 @@ if handle then
    eq(#unknownNames, 0, "every name it reports is one Emunah acts on",
       table.concat(unknownNames, ", "))
    ok(not xml:find("svo%."), "no svof code survives into the package")
+   ok(xml:find("<name>Emunah prompt</name>", 1, true)
+      and xml:find("isPrompt()", 1, true), "the package carries svof's prompt trigger")
+   ok(xml:find("textIllusion", 1, true), "...and svof's illusion catchers")
 end
 reset()
 end)()
