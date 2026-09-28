@@ -417,6 +417,33 @@ end
 
 event.register("emunah.character.died", function() M.setBliss(false) end, "curing.deflist")
 
+--- WHAT BLISS GRANTS, which DEFENCES does list. Bliss itself never appears there, but the
+--- three defences it provides do (the user, 2026-09-28: "it provides toughness, resistance
+--- and constitution"; their DEFENCES listing the same day, verbatim, with bliss up):
+---   You are using your superior constitution to prevent nausea.
+---   You are resisting magical damage.
+---   Your skin is toughened.
+--- So a DEFENCES listing settles bliss either way: all three up means bliss is up, and any
+--- one missing means it is down and keep-up casts it. This is what stops `perform bliss`
+--- after a reload or a restart, when the remembered state is stale or gone -- keep-up holds
+--- until that listing is read (defkeepup.checkDefences) -- and it catches bliss wearing
+--- off, whose own line has never been recorded.
+M.BLISS_GRANTS = { "toughness", "resistance", "constitution" }
+
+--- Settle bliss from a parsed DEFENCES listing (names, as DEF_LINES gives them).
+function M.blissFromListing(names)
+   local listed = {}
+   for _, name in ipairs(names or {}) do listed[tostring(name):lower()] = true end
+   for _, name in ipairs(M.BLISS_GRANTS) do
+      if not listed[name] then
+         M.setBliss(false)
+         return false
+      end
+   end
+   M.setBliss(true)
+   return true
+end
+
 --- Is this defence up right now?
 ---
 --- Ordinarily this is exactly `emunah.gmcp.defences.has(name)` -- Char.Defences is complete

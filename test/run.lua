@@ -4625,6 +4625,52 @@ do
    eq(defkeepup.checking, false, "no listing: keep-up resumes after the timeout")
 
    defkeepup.setMode("rebounding", nil)
+
+   -- BLISS FROM ITS DEFENCES. Bliss never lists itself, but toughness, resistance and
+   -- constitution -- what it grants (the user, 2026-09-28) -- do. The listing below is
+   -- theirs, verbatim, with bliss up.
+   queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
+   defkeepup.setMode("bliss", "keepup")
+   emunah.curing.deflist.setBliss(false)            -- a restart: the remembered state is gone
+   mock.sent = {}
+   raiseEvent("emunah.loaded", true)
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("bliss", 1, true),
+      "after a reload, bliss waits for the DEFENCES listing", table.concat(mock.sent, " | "))
+   for _, line in ipairs({
+      "You have the following defences:",
+      "Your wounds are being staunched by the moss tattoo.",
+      "Your mind has been attuned to the realm of Death.",
+      "You are using your superior constitution to prevent nausea.",
+      "You are resisting magical damage.",
+      "Your skin is toughened.",
+      "Your senses are magically heightened.",
+      "You are blind.",
+      "You are deaf.",
+      "You are benefitting from a 21% bonus to experience gain.",
+      "You are benefitting from a 1% bonus to critical hits.",
+      "You are protected by 8 defences.",
+   }) do mock.line(line) end
+   eq(defkeepup.state("bliss").up, true, "all three of its defences listed: bliss is up")
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("perform bliss", 1, true),
+      "...so it is not cast", table.concat(mock.sent, " | "))
+
+   -- One of the three missing: bliss has lapsed, and is cast.
+   mock.line("You have the following defences:")
+   mock.line("You are using your superior constitution to prevent nausea.")
+   mock.line("You are resisting magical damage.")
+   mock.line("You are protected by 2 defences.")
+   eq(defkeepup.state("bliss").up, false, "one of its defences missing: bliss is down")
+   queue.reset(); emunah.timers.stopAll()
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("perform bliss", 1, true),
+      "...and it is cast", table.concat(mock.sent, " | "))
+
+   defkeepup.setMode("bliss", nil)
+   emunah.curing.deflist.setBliss(false)
    queue.reset(); emunah.timers.stopAll()
 end
 
