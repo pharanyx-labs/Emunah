@@ -259,11 +259,44 @@ local waitingOn = {}
 --- eaten and the defence not yet up, so keep-up read it as missing again: it said "no
 --- hawthorn in hand" about the hawthorn it had just eaten, and with a second one in hand it
 --- would have eaten that too. The herb's balance line frees the queue slot before the
---- defence lands, so the queue cannot guard this. Covers the slowest raise with margin.
-M.RAISE_PENDING = 4.0
+--- defence lands, so the queue cannot guard this.
+---
+--- THE WAIT STARTS AT THE EAT, NOT THE SEND -- the reference system's model: `deaf.herb`
+--- starts `waitingondeaf` (customwait = 6) from the eat line. Timing it from the send was
+--- wrong the other way: at 14:37:23.71 `eat hawthorn` went out off equilibrium, the game
+--- did not eat it until 30.52 (just after equilibrium at 30.15), and a window counted from
+--- the send had run out by then.
+M.RAISE_PENDING = 6.0
 
---- name -> when its raise was sent.
+--- Longest to wait for the eat line itself before deciding the command was lost.
+M.EAT_PENDING = 15.0
+
+--- name -> { sent = time, eaten = time|nil } for item raises not yet seen to land.
 local raising = {}
+
+local function raisePending(name)
+   local r = raising[name]
+   if not r then return false end
+   local now = util.now()
+   if r.eaten then return now - r.eaten < M.RAISE_PENDING end
+   return now - r.sent < M.EAT_PENDING
+end
+
+-- The eat line starts the wait. Any "You eat ..." counts for every raise still waiting on
+-- one: an item raise is at most one per vector in flight, and a line about another herb
+-- only starts the wait a little early.
+do
+   local id = tempRegexTrigger([[^You eat ]], function()
+      local now = util.now()
+      for _, r in pairs(raising) do
+         if not r.eaten and now - r.sent < M.EAT_PENDING then r.eaten = now end
+      end
+   end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
 
 --- Which defence is holding this one back right now, or nil.
 ---
@@ -446,8 +479,7 @@ function M.tick()
       -- character who smokes from a pipe but does not also carry loose skullcap.
       -- Item raises only: the item is what vanishes before the defence lands. A tattoo or a
       -- skill is paced by its own balance and confirm wait.
-      if vector and command and item and raising[name]
-         and util.now() - raising[name] < M.RAISE_PENDING then
+      if vector and command and item and raisePending(name) then
          vector, command = nil, nil
       end
 
@@ -490,7 +522,7 @@ function M.tick()
             confirm  = emunah.config.get("curing.confirmWait", 2.0),
             onSent   = function()
                attempts[name] = (attempts[name] or 0) + 1
-               raising[name] = util.now()
+               if item then raising[name] = { sent = util.now() } end
 
                -- UNCONFIRMABLE: SATISFIED ON SEND, NOT ON Char.Defences. `bliss` produces no
                -- Char.Defences line ever, so the ordinary "defup done once confirmed" event
