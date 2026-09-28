@@ -3957,7 +3957,8 @@ do
    eq(select(1, deflist.resolve("deafness")), "herb", "deaf is raised on the herb vector too")
    eq(select(2, deflist.resolve("deafness")), "eat hawthorn", "...by eating hawthorn")
    -- A tattoo, touched (16:07:10.56, 2026-09-28): the bare `cloak` was never a command.
-   eq(select(2, deflist.resolve("cloak")), "touch cloak", "cloak is raised by touching its tattoo")
+   -- Read from the table: resolve() also asks have.skill("cloak"), which needs a skill index.
+   eq(deflist.commands.cloak.command, "touch cloak", "cloak is raised by touching its tattoo")
 
    mock.feed("Char.Defences.List", {})
    defkeepup.enabled = true
