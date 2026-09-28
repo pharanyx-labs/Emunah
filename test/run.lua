@@ -3961,6 +3961,46 @@ do
       "...so the attempt budget is never spent chasing a defence already up")
 
    mock.feed("Char.Defences.Remove", { "deafness" })
+
+   -- A RAISE IN FLIGHT IS NOT A MISSING DEFENCE (2026-09-28). Hawthorn's deafness lands
+   -- ~2.3s after the eat; in that gap keep-up said "no hawthorn in hand" about the one it had
+   -- just eaten, and with a second in hand would have eaten that too.
+   queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
+   mock.advance(defkeepup.RAISE_PENDING)
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "1", name = "a red hawthorn berry", attrib = "e" },
+      { id = "2", name = "a red hawthorn berry", attrib = "e" },
+   } })
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("eat hawthorn", 1, true), "deafness is raised",
+      table.concat(mock.sent, " | "))
+   mock.line("You may eat another plant or mineral.")
+   mock.advance(1.5)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("hawthorn", 1, true),
+      "...and not eaten again while the first is still taking effect",
+      table.concat(mock.sent, " | "))
+
+   -- NOT KNOWING WHAT WE CARRY (14:33:20.30, just after a reload): no "no hawthorn in hand"
+   -- and no raise until Char.Items.Inv has answered.
+   queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
+   mock.advance(defkeepup.RAISE_PENDING)
+   -- What a reload leaves: nothing listed, and nothing known to be listed.
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   emunah.gmcp.items.inventoryListed = false
+   mock.echoed = {}; mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.echoed, " "):find("no hawthorn in hand", 1, true),
+      "an inventory not yet listed is not reported as having no hawthorn")
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "1", name = "a red hawthorn berry", attrib = "e" },
+   } })
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("eat hawthorn", 1, true),
+      "...and the raise goes out once it is", table.concat(mock.sent, " | "))
+
    defkeepup.setMode("deaf", nil)
    defkeepup.enabled = false
 
