@@ -246,6 +246,32 @@ Each is a candidate bug unless marked fixed.
 | 6 | **Fixed**: `disrupted` (svof's gamename) CONCENTRATEs, never while confused. | Equilibrium won't return without `CONCENTRATE`. Confusion blocks it. | |
 | 7 | `stinky` has no cure entry. | `SCRUB`, only at a water location. | Harmless: tracked, never cured. |
 
+## Text reports and anti-illusion
+
+`EmunahTriggers.xml` (svof's lines, see `tools/build-svof-triggers.py`) reports afflictions,
+cures and states as text, and text can be faked. svof's defences, as Emunah applies them
+(`curing/detect/init.lua`):
+
+1. **Nothing counts until the prompt.** Reports are held until `Char.Vitals`, or the
+   package's prompt trigger (svof's `Prompt`: fires on `isPrompt()`, counts every other
+   line as `paragraphLength`).
+2. **One illusion discards the block.** svof's 23 "Generic illusions" triggers are pairs
+   of lines that can't really arrive together, for example `The curse of the Aeon wears
+   off...` with `You feel incredibly tired, and fall asleep immediately.`
+3. **A cure line needs its cure in flight.** Herb, salve, focus, smoke and tree cure lines
+   are believed only while that balance's cure is out, not sooner than half the ping, and
+   for another affliction only if it is tracked.
+4. **The server confirms gains.** An affliction reported by text is dropped unless
+   `Char.Afflictions` reports it within `engine.TEXT_CONFIRM` (2s). Blackout is the
+   exception.
+
+The prompt trigger is also the heartbeat's backup. A prompt with no `Char.Vitals` since the
+last one runs the tick itself (`gmcp.vitals.onPrompt`).
+
+**[open]** The server's name for unconsciousness. svof's `gamename` table doesn't list it,
+but it doesn't list `sleeping` either, so its absence proves nothing. Unconsciousness is
+tracked from text only until a `Char.Afflictions` capture shows the name.
+
 ## Per-cure conditions (svof `isadvisable`)
 
 Beyond whole-vector blockers, svof holds individual cures when they'd be wasted, undone or
