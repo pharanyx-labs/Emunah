@@ -39,6 +39,11 @@ not independently confirmed from a transcript — no herb was eaten in any captu
 smoke, focus and elixir each have their own too, evidenced by each having a distinct
 rejection message.
 
+**Smoke balance announces its return:** `Your lungs have recovered enough to smoke another
+mineral or plant.` Seen at 14:18:47.21 and 14:18:52.50 (2026-09-28), 1.5–1.7s after each
+smoke. SMOKE is a "puff cure": per Anzerloi (2026-09-28), "you can do it if on puff balance
+and not asthmatic". It doesn't wait on elixir, herb, balance or equilibrium.
+
 ## Rejections
 
 Exact wording — these are trigger patterns, so they matter verbatim.

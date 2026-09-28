@@ -1358,6 +1358,16 @@ event.register("emunah.character.died", function()
    M.forgetSalveStock()
 end, "curing.engine")
 
+-- A CURING TIMER LAPSING IS A BALANCE COMING BACK, and nothing else will say so. The engine
+-- ticks on prompts, and a balance recovered on its fallback timer (or a server-cure pace
+-- running out) produces none: the cure it frees waits for whatever unrelated line brings the
+-- next one. bashing.lua found the same stall for its own timers on 2026-08-04; curing had it
+-- too. Only `cure.*` timers: they are the ones M.tick() reads.
+event.register("emunah.timer.expired", function(_, name)
+   if not M.enabled then return end
+   if type(name) == "string" and name:sub(1, 5) == "cure." then M.tick() end
+end, "curing.engine")
+
 event.register("emunah.balance.recovered", function(_, vector)
    if vector ~= "rift" then return end
    emunah.timers.start("restock.chain", M.RESTOCK_CHAIN, function() M.restockNow() end)

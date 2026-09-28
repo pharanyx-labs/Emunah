@@ -1222,11 +1222,12 @@ mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 eq(#mock.sent, 0, "...still throttled just short of the retry pace")
 
-mock.advance(0.2)
+-- No prompt needed: the pace lapsing wakes the engine itself.
 mock.sent = {}
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+mock.advance(0.2)
 ok(table.concat(mock.sent, " | "):find("eat kelp"),
-   "...and resends once the retry pace has actually elapsed", table.concat(mock.sent, " | "))
+   "...and resends once the retry pace has actually elapsed, without waiting for a prompt",
+   table.concat(mock.sent, " | "))
 
 -- REGRESSION: the pace is for a cure the game keeps refusing, not for the next affliction of
 -- the same name. Live 2026-09-28: SMOKE ELM cured earworm at 14:18:45.68, a second earworm
@@ -1242,6 +1243,50 @@ mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 ok(table.concat(mock.sent, " | "):find("eat kelp"),
    "...and a fresh one of the same name is cured at once, not after the old pace",
    table.concat(mock.sent, " | "))
+
+-- SMOKE BALANCE IS ANNOUNCED: "Your lungs have recovered enough to smoke another mineral or
+-- plant." (live, 14:18:47.21 and 14:18:52.50 on 2026-09-28). It gives the balance and the
+-- slot back at once, rather than after the 2s fallback and the confirm wait.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("smoke elm"), "earworm is smoked from the server's suggestion",
+   table.concat(mock.sent, " | "))
+ok(not emunah.have.balance("smoke"), "...which spends smoke balance")
+mock.line("Your lungs have recovered enough to smoke another mineral or plant.")
+ok(emunah.have.balance("smoke"), "the recovery line gives it straight back")
+eq(queue.awaiting("smoke"), nil, "...and frees the slot")
+
+-- THE TRANSCRIPT ITSELF: the elm cures the first earworm, a second lands 3.4s later, and it
+-- goes out at once -- neither the pace nor the pending sip holds it.
+mock.feed("Char.Afflictions.Remove", { "earworm" })
+mock.advance(1.5)
+mock.feed("Char.Vitals", { hp = "730", maxhp = "1000", bal = "1", eq = "1" })
+emunah.have.spend("elixir")
+mock.advance(1.9)
+mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "730", maxhp = "1000", bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("smoke elm"),
+   "a second earworm is smoked on the prompt it lands, with the sip still down",
+   table.concat(mock.sent, " | "))
+
+-- A BALANCE BACK ON ITS TIMER wakes the engine; it does not wait for the next prompt.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+emunah.have.spend("smoke")
+mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("smoke elm", 1, true), "nothing smoked while smoke balance is down",
+   table.concat(mock.sent, " | "))
+mock.advance(emunah.curing.curelist.recovery("smoke") + 0.1)
+ok(table.concat(mock.sent, " | "):find("smoke elm"),
+   "...and the elm goes out the moment the fallback lapses, with no prompt in between",
+   table.concat(mock.sent, " | "))
+mock.feed("Char.Afflictions.List", {})
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+engine.clear(); queue.reset(); emunah.timers.stopAll()
 
 -- The table still wins where it has an opinion: it carries priority, which the server does
 -- not send and which decides what to cure first when several things are wrong at once.
@@ -3857,6 +3902,9 @@ do
    mock.feed("Char.Items.List", { location = "inv", items = {
       { id = "1", name = "some epidermal salve", attrib = "e" },
    } })
+   -- The server's list agrees, so a periodic reconcile landing on one of these prompts keeps
+   -- it rather than dropping a "gmcp" affliction the server never reported.
+   mock.feed("Char.Afflictions.List", { { name = "blindness" } })
    engine.add("blindness", "gmcp")
    mock.sent = {}
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })

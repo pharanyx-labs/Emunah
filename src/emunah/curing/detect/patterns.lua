@@ -137,6 +137,22 @@ detect.balance("herb", {
 -- would also stop us stocking up for the moment it lifts.
 -- ---------------------------------------------------------------------------
 
+-- ---------------------------------------------------------------------------
+-- Smoke balance, announced by the game.
+--
+-- "Your lungs have recovered enough to smoke another mineral or plant." -- seen live at
+-- 14:18:47.21 and 14:18:52.50 on 2026-09-28, 1.5s and 1.7s after each smoke. Unmatched,
+-- smoke came back only when the 2s fallback lapsed, and the slot stayed held for the whole
+-- confirm wait. SMOKE is a puff cure: smoke balance and no asthma (or mucous) is all it
+-- needs, so every fraction of a second spent waiting on a timer is pure delay.
+-- ---------------------------------------------------------------------------
+
+detect.balance("smoke", {
+   gain = {
+      [[^Your lungs have recovered enough to smoke another mineral or plant\.$]],
+   },
+})
+
 detect.balance("moss", {
    spend = {
       [[^You eat some irid moss\.$]],
