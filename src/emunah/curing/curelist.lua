@@ -25,7 +25,14 @@ local M = {}
 
 --- Vector definitions.
 M.vectors = {
-   herb    = { recovery = 1.8, command = "eat %s",          needsItem = true  },
+   -- Herb and smoke are ANNOUNCED ("You may eat another plant or mineral.", "Your lungs have
+   -- recovered enough to smoke..."), so like the elixir these are nets for a lost line, not
+   -- estimates. At 1.8 the herb net lapsed before the real line: bloodroot sent 14:26:03.27,
+   -- eaten 04.11, balance announced 05.65 -- 2.4s send to balance -- and since a lapsing
+   -- timer ticks the engine, `eat ash` went out at ~05.1 inside it. The balance line then
+   -- freed the ash's slot as if it were its own, and `eat bloodroot` followed straight into
+   -- the ash's balance: "The plant has no effect." (14:26:06.05), still paralysed.
+   herb    = { recovery = 3.5, command = "eat %s",          needsItem = true  },
    salve   = { recovery = 1.8, command = "apply %s to %s",  needsItem = true  },
    -- Elixir recovery is deliberately LONG. Achaea announces sip balance returning
    -- ("You may drink another health or mana elixir."), and curing/detect/patterns.lua
@@ -33,7 +40,7 @@ M.vectors = {
    -- for a missed message. An under-estimate here re-sends `drink health` mid-sip and
    -- wastes the vial; an over-estimate costs at most one late sip.
    elixir  = { recovery = 6.0, command = "drink %s",        needsItem = true  },
-   smoke   = { recovery = 2.0, command = "smoke %s",        needsItem = true  },
+   smoke   = { recovery = 3.5, command = "smoke %s",        needsItem = true  },
    -- Irid moss. Its own balance, with herb balance untouched. MEASURED at 5.94s: eaten
    -- 12:41:01.61, "You may eat another bit of irid moss or potash." at 12:41:07.55. The
    -- first estimate of ~2.75s came from reading a transcript where the announcement's

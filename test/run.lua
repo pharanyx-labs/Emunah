@@ -336,10 +336,14 @@ eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss,elixir",
 eq(table.concat(afflist.blockedVectors("mucous"), ","), "smoke", "mucous blocks smoking (svof)")
 eq(table.concat(afflist.blockedVectors("inquisition"), ","), "focus",
    "inquisition blocks focusing (svof)")
-for _, name in ipairs({ "paralysis", "webbed", "bound", "transfixed", "roped", "impaled",
-                        "numbedleftarm", "numbedrightarm" }) do
+for _, name in ipairs({ "paralysis", "numbedleftarm", "numbedrightarm" }) do
    eq(table.concat(afflist.blockedVectors(name), ","), "tree",
       name .. " blocks touching the tree (svof touchtree)")
+end
+-- The entanglements block OUTR as well: the reference system's `canoutr`. Paralysis does not.
+for _, name in ipairs({ "webbed", "bound", "transfixed", "roped", "impaled" }) do
+   eq(table.concat(afflist.blockedVectors(name), ","), "tree,rift",
+      name .. " blocks touching the tree and pulling from the rift")
 end
 eq(table.concat(afflist.blockedVectors("slickness"), ","), "salve", "slickness blocks applying")
 eq(table.concat(afflist.blockedVectors("asthma"), ","), "smoke", "asthma blocks smoking")
@@ -1081,7 +1085,7 @@ engine.enabled = true
 engine.forgetStock()
 -- An earlier suite switches restocking off for its own isolation and a later one switches
 -- it back on; this suite sits between them, so it says what it needs and puts it back.
-local restockWas = emunah.config.get("curing.restock", true)
+emunah._testRestockWas = emunah.config.get("curing.restock", true)
 emunah.config.set("curing.restock", true)
 -- This suite is written against a target of three; the shipped default is 1 (see
 -- engine.lua's M.STOCK_TARGET), so pin it explicitly rather than let the numbers below
@@ -1112,7 +1116,8 @@ ok(table.concat(mock.sent, " | "):find("outr 3 irid"),
 
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 engine.forgetStock()
-emunah.config.set("curing.restock", restockWas)
+emunah.config.set("curing.restock", emunah._testRestockWas)
+emunah._testRestockWas = nil
 emunah.config.set("curing.stockTarget", nil)
 
 -- ===========================================================================
@@ -1302,6 +1307,43 @@ end
 mock.feed("Char.Afflictions.List", {})
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 engine.clear(); queue.reset(); emunah.timers.stopAll()
+
+-- THE 14:26 FIGHT (2026-09-28). Paralysed, bloodroot only in the rift: OUTR was held by
+-- paralysis, so nothing went out for 74 seconds. The reference system pulls while paralysed.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+emunah._testRestockWas = emunah.config.get("curing.restock", true)
+emunah.config.set("curing.restock", true)
+engine.forgetStock()
+mock.feed("Char.Afflictions.List", { { name = "paralysis", cure = "EAT BLOODROOT" } })
+mock.sent = {}
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = "716", desc = "bloodroot leaf" } })
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(engine.has("paralysis") and table.concat(mock.sent, " | "):find("outr %d+ %a+"),
+   "paralysed, with the cure only in the rift, OUTR still goes out", table.concat(mock.sent, " | "))
+-- ...but not while webbed: WRITHE first, as the reference system's `canoutr` says.
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+mock.feed("Char.Afflictions.List", { { name = "paralysis", cure = "EAT BLOODROOT" },
+   { name = "webbed", cure = "WRITHE" } })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(not table.concat(mock.sent, " | "):find("outr"), "no OUTR while webbed",
+   table.concat(mock.sent, " | "))
+emunah.config.set("curing.restock", emunah._testRestockWas)
+emunah._testRestockWas = nil
+mock.feed("Char.Afflictions.List", {})
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+
+-- THE HERB NET MUST NOT BEAT THE GAME'S OWN LINE. 14:26:03.27 bloodroot sent, balance
+-- announced 05.65: 2.4s. A 1.8s net lapsed first, woke the engine, and sent `eat ash`
+-- inside the balance.
+emunah.have.spend("herb")
+mock.advance(2.4)
+ok(not emunah.have.balance("herb"), "2.4s after an eat, herb balance is still waited for")
+mock.line("You may eat another plant or mineral.")
+ok(emunah.have.balance("herb"), "...until the game says so")
+emunah.timers.stopAll()
 
 -- A BALANCE BACK ON ITS TIMER wakes the engine; it does not wait for the next prompt.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
@@ -3265,7 +3307,7 @@ ok(emunah.timers.ready("cure.herb"), "vector starts ready")
 emunah.have.spend("herb")
 ok(not emunah.timers.ready("cure.herb"), "spending starts the recovery timer")
 ok(emunah.timers.remaining("cure.herb") > 0, "recovery reports time remaining")
-mock.advance(3.0)
+mock.advance(emunah.curing.curelist.recovery("herb") + 0.1)
 ok(emunah.timers.ready("cure.herb"), "vector recovers when the timer lapses")
 
 emunah.have.spend("salve")
@@ -4205,6 +4247,25 @@ do
    mock.line("Equilibrium used: 1.00s.")
    eq(engine.has("slickness"), false,
       "an unrelated tracked affliction is still cleared by a bare state's confirmed picture")
+
+   -- SOME BARE STATES ARE AFFLICTIONS. 14:27:11.30 on 2026-09-28, verbatim: DIAG listed
+   -- "paralysed." and "moving inevitably towards a grand finale.", and Emunah logged "DIAG
+   -- cleared: paralysis, crescendo." -- dropping both while still paralysed.
+   engine.clear()
+   engine.add("paralysis", "gmcp")
+   engine.add("crescendo", "gmcp")
+   mock.line("You are:")
+   mock.line("blind.")
+   mock.line("moving inevitably towards a grand finale.")
+   mock.line("paralysed.")
+   mock.line("Equilibrium used: 1.00s.")
+   ok(engine.has("paralysis"), "DIAG's \"paralysed.\" keeps paralysis")
+   ok(engine.has("crescendo"), "...and its grand finale keeps crescendo")
+   engine.clear()
+   mock.line("You are:")
+   mock.line("paralysed.")
+   mock.line("Equilibrium used: 1.00s.")
+   ok(engine.has("paralysis"), "...and adds paralysis when it was not tracked")
 
    -- REGRESSION: DIAG's leading indefinite article defeated the squash. Confirmed live
    -- 2026-08-05: "afflicted by a crippled left arm." squashed to "acrippledleftarm", which
