@@ -828,8 +828,15 @@ local function markSettling(item, held)
    settling[item] = { held = held, until_ = util.now() + M.RESTOCK_SETTLE }
 end
 
+--- Is restocking standing down for the quit prayer? See M.onQuitPrayer(). Declared up here,
+--- above both restockers that ask it.
+local function quitting()
+   return M.leaving
+end
+
 local function queueRestock()
    if emunah.config.get("curing.restock", true) == false then return end
+   if quitting() then return end
    -- One pull at a time, and never in competition with the emergency pull in queueIrid():
    -- if the rift vector is busy there is nothing to decide.
    if queue.pending("rift") or queue.awaiting("rift") then return end
@@ -939,6 +946,7 @@ local function queueSalveRestock()
    -- disabled, until there is a confirmed way to read a vial's contents back from GMCP --
    -- turning this on without that fix reproduces the drain.
    if emunah.config.get("curing.restockSalves", false) ~= true then return end
+   if quitting() then return end
    -- Shares the rift vector with herb pulls: never in competition with a pull that is
    -- actually needed right now.
    if queue.pending("rift") or queue.awaiting("rift") then return end
@@ -1066,6 +1074,36 @@ local function queueDiag()
          log.info("Loki is up -- DIAG for what is actually afflicting us.")
       end,
    })
+end
+
+-- ---------------------------------------------------------------------------
+-- Quitting: the pack goes into the rift
+-- ---------------------------------------------------------------------------
+--
+-- "You grow still and begin to silently pray for preservation of your soul while you are
+-- out of the land." is the quit prayer: the character is leaving the game (the user,
+-- 2026-10-03, who also asked for the command). On it, everything carried goes into the rift
+-- with INR ALL.
+--
+-- AND RESTOCKING STOPS until the session ends, or it undoes this on the next prompt: the pack
+-- reads empty, every curative is under target, and `outr` pulls them straight back out. The
+-- disconnect that follows clears it, so the next login restocks as usual.
+
+--- True from the quit prayer until the disconnect.
+M.leaving = false
+
+function M.onQuitPrayer()
+   M.leaving = true
+   -- Ahead of any pull waiting on the rift slot: priority 0 pre-empts a restock's 50.
+   queue.push("rift", "inr all", {
+      priority = 0,
+      tag      = "quit",
+      needs    = { alive = true },
+      confirm  = emunah.config.get("curing.riftConfirm", 1.5),
+      onSent   = function() have.spend("rift") end,
+   })
+   queue.flushVector("rift")
+   log.info("Leaving the game -- storing everything in the rift. No restocking until you log back in.")
 end
 
 --- Check stock and act on it now, without waiting for a prompt.
@@ -1440,6 +1478,8 @@ end, "curing.engine")
 event.register("sysDisconnectionEvent", function()
    M.clear()
    queue.reset()
+   -- The quit prayer's hold on restocking ends with the session it was for.
+   M.leaving = false
    -- Inventory and rift counts are both re-listed on connect, and a death may have emptied
    -- the pack in between, so the restocking ledger from the last session means nothing.
    M.forgetStock()

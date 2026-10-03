@@ -13,32 +13,36 @@
 local M = {}
 
 M.colour = {
-   -- surfaces, darkest to lightest
-   base      = "#0d1117",
-   panel     = "#131a23",
-   raised    = "#1b242f",
-   border    = "#2a3644",
-   borderLit = "#3d5166",
+   -- surfaces, darkest to lightest. A cool slate rather than pure grey: it reads as
+   -- deliberate next to the game text without competing with it.
+   base      = "#0a0e13",
+   panel     = "#10151c",
+   raised    = "#171e27",
+   border    = "#232c38",
+   borderLit = "#36465a",
 
    -- text
-   text      = "#c9d4e0",
-   textDim   = "#7d8b9c",
-   textBright = "#f0f6fc",
+   text      = "#c9d3de",
+   textDim   = "#76838f",
+   textBright = "#eef3f8",
 
    -- accents
-   health    = "#c2453e",
-   mana      = "#3d7ec4",
-   endurance = "#c98b2e",
-   willpower = "#7b5cc4",
-   experience = "#2e9962",
+   health    = "#d1504a",
+   mana      = "#3f8bd6",
+   endurance = "#d0973a",
+   willpower = "#8b68d6",
+   experience = "#38a571",
 
-   balance   = "#4fb3d9",
-   equilibrium = "#9b7fd4",
+   balance   = "#4fb6df",
+   equilibrium = "#a284de",
 
-   affliction = "#d15c5c",
-   defence   = "#5cb87a",
-   warning   = "#d9a441",
+   affliction = "#e26363",
+   defence   = "#58c084",
+   warning   = "#e0ae48",
    inactive  = "#3a4553",
+   -- Section titles and anything that says "this is ours, in progress": a cure sent and
+   -- waiting for its answer is drawn in it, so in-flight reads differently from ready.
+   accent    = "#5aa7f5",
    -- A genuinely dark red, distinct from the brighter `health`/`affliction` accents --
    -- reserved for "everything has stopped" states (the paused banner) so it reads as more
    -- severe than an ordinary affliction warning.
@@ -70,6 +74,8 @@ end
 --- further down would leave repalette() assigning to a same-named global and silently
 --- clearing nothing.
 local dcCache, dcbCache, dcHexCache = {}, {}, {}
+--- M.shade()'s memo, here with the others for the same reason.
+local shadeCache = {}
 
 --- A decho colour prefix, e.g. theme.dc("health") .. "text"
 function M.dc(name)
@@ -95,7 +101,7 @@ end
 --- today, and this exists so that if something starts to, the way to keep the cache honest
 --- is already here rather than having to be discovered.
 function M.repalette()
-   dcCache, dcbCache, dcHexCache = {}, {}, {}
+   dcCache, dcbCache, dcHexCache, shadeCache = {}, {}, {}, {}
 end
 
 --- A decho colour prefix from a raw "#rrggbb" string rather than a M.colour key -- for
@@ -114,11 +120,75 @@ function M.dcHex(hex)
    return hit
 end
 
+--- Body text is small on purpose: the panels are reference, read at a glance, and every point
+--- of type is a row the room or the affliction list does not get. Headings sit two points
+--- above the text they head, which is what makes a dense panel scannable.
 M.font = {
    family = "Ubuntu Mono",   -- Mudlet ships this; falls back gracefully
-   size   = 10,
-   small  = 9,
+   size   = 9,               -- consoles: chat
+   small  = 8,               -- panels, gauges, the HUD
+   header = 10,              -- section titles
 }
+
+-- ---------------------------------------------------------------------------
+-- rich text, for Labels
+-- ---------------------------------------------------------------------------
+--
+-- The structured panels -- afflictions, defences, the balance strip, the status pills -- are
+-- Labels drawing Qt rich text, not MiniConsoles drawing decho. A console is a monospace
+-- character grid: columns line up only by padding with spaces, and a name longer than its
+-- column pushes the rest of the row out. A rich-text table aligns itself, takes a background
+-- per cell, and costs the same single draw. Consoles stay where they earn it: the room
+-- (clickable denizens need dechoLink) and chat (scrollback).
+
+--- Escape text for rich text. Item and player names come from the game, and a `<` in one
+--- would otherwise be read as markup and swallow the rest of the panel.
+function M.esc(text)
+   return (tostring(text or ""):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+end
+
+--- A palette colour as "#rrggbb", for rich text.
+function M.hex(name)
+   return M.colour[name] or name
+end
+
+--- Coloured text. `name` is a palette key or a raw "#rrggbb".
+function M.span(name, text, bold)
+   if bold then
+      return string.format('<span style="color:%s; font-weight:bold">%s</span>', M.hex(name), text)
+   end
+   return string.format('<span style="color:%s">%s</span>', M.hex(name), text)
+end
+
+--- A small filled tag: text on a tinted background of its own colour.
+function M.pill(name, text)
+   local colour = M.hex(name)
+   return string.format('<span style="background-color:%s; color:%s; font-weight:bold">&nbsp;%s&nbsp;</span>',
+      M.shade(colour, 0.28), colour, text)
+end
+
+--- Draw a Label body only when it differs from what the label shows. The Label counterpart
+--- of M.paint() below, and for the same reason: one draw per change, none otherwise.
+function M.paintLabel(label, key, html)
+   if not label then return false end
+   local cache = emunah._persist and emunah._persist.paintedBodies
+   if not cache then
+      emunah._persist = emunah._persist or {}
+      emunah._persist.paintedBodies = {}
+      cache = emunah._persist.paintedBodies
+   end
+   if cache[key] == html then return false end
+   cache[key] = html
+   label:echo(html)
+   return true
+end
+
+--- A section title bar's content: the title on the left, a summary in its own colour.
+function M.headerHTML(title, summary, summaryColour)
+   local right = summary and summary ~= ""
+      and ("&nbsp;&nbsp;" .. M.span(summaryColour or "textDim", summary)) or ""
+   return M.span("accent", "&#9632;") .. "&nbsp;" .. M.span("textBright", title, true) .. right
+end
 
 -- ---------------------------------------------------------------------------
 -- painting a console
@@ -220,11 +290,63 @@ function M.paintNow()
    end
 end
 
+-- ---------------------------------------------------------------------------
+-- the countdown clock
+-- ---------------------------------------------------------------------------
+--
+-- Some of what the panels show is a function of time, not of events: a balance's seconds
+-- remaining, an affliction's age. Nothing in the game marks those moments, so a slow clock
+-- redraws them -- and only while something is actually counting. Each panel registers one
+-- function that repaints (through the paint caches, so an unchanged body costs a compare)
+-- and returns whether it still has anything live. When none do, the clock stops; the next
+-- balance spent or affliction tracked starts it again.
+--
+-- Deliberately coarse. Every tick is Qt work on the thread that handles the next packet,
+-- so this runs at `ui.refresh` seconds (0.2 by default), not at the speed a number could
+-- change. 0 switches countdowns off altogether.
+
+local tickers = {}
+
+--- Register a panel's clock function. `fn()` repaints and returns true while it has
+--- something counting down.
+function M.ticking(key, fn)
+   tickers[key] = fn
+end
+
+--- Make sure the clock is running. Cheap to call on every event that might start a count.
+function M.wakeClock()
+   local interval = tonumber(emunah.config.get("ui.refresh", 0.2)) or 0.2
+   if interval <= 0 then return end
+   emunah._persist = emunah._persist or {}
+   if emunah._persist.uiClock then return end
+   emunah._persist.uiClock = tempTimer(interval, M.clockTick)
+end
+
+function M.clockTick()
+   if emunah._persist then emunah._persist.uiClock = nil end
+   local busy = false
+   for key, fn in pairs(tickers) do
+      local ok, live = pcall(fn)
+      if not ok then
+         emunah.log.error("UI clock for %s failed: %s", key, tostring(live))
+      elseif live then
+         busy = true
+      end
+   end
+   if busy then M.wakeClock() end
+end
+
 -- A reload replaces this module; a timer the previous generation armed would run the old
 -- painters against widgets the new one is about to rebuild. The new build paints anyway.
-if emunah._persist and emunah._persist.paintTimer then
-   killTimer(emunah._persist.paintTimer)
-   emunah._persist.paintTimer = nil
+if emunah._persist then
+   if emunah._persist.paintTimer then
+      killTimer(emunah._persist.paintTimer)
+      emunah._persist.paintTimer = nil
+   end
+   if emunah._persist.uiClock then
+      killTimer(emunah._persist.uiClock)
+      emunah._persist.uiClock = nil
+   end
 end
 
 -- ---------------------------------------------------------------------------
@@ -242,46 +364,83 @@ function M.panelStyle(opts)
    ]], opts.background or M.colour.panel, opts.border or M.colour.border, opts.margin or 2)
 end
 
---- A section header strip.
+--- A section header strip: a raised bar with an accent rule along its foot.
 function M.headerStyle()
    return string.format([[
       background-color: %s;
       color: %s;
       border: 0px;
       border-bottom: 1px solid %s;
+      border-top-left-radius: 3px;
+      border-top-right-radius: 3px;
       qproperty-alignment: 'AlignLeft | AlignVCenter';
       padding-left: 6px;
       font-family: "%s";
       font-size: %dpt;
-      font-weight: bold;
-   ]], M.colour.raised, M.colour.textDim, M.colour.border, M.font.family, M.font.small)
+   ]], M.colour.raised, M.colour.textDim, M.colour.borderLit, M.font.family, M.font.header)
 end
 
---- Gauge front, tinted by resource. `shade` darkens the right-hand stop for a little
---- depth without needing an image.
+--- The body of a rich-text section: top-aligned, padded, the darkest surface.
+function M.bodyStyle()
+   return string.format([[
+      background-color: %s;
+      color: %s;
+      border: 0px;
+      qproperty-alignment: 'AlignLeft | AlignTop';
+      padding: 4px 6px;
+      font-family: "%s";
+      font-size: %dpt;
+   ]], M.colour.base, M.colour.text, M.font.family, M.font.small)
+end
+
+--- Text on a gauge or a one-line label: centred, bright, small.
+function M.captionStyle(align)
+   return string.format([[
+      color: %s; background-color: transparent; border: 0px;
+      font-family: "%s"; font-size: %dpt;
+      qproperty-alignment: '%s';
+      padding-left: 6px; padding-right: 6px;
+   ]], M.colour.textBright, M.font.family, M.font.small, align or "AlignCenter")
+end
+
+--- Gauge front, tinted by resource: a vertical gradient from the colour to a darker stop,
+--- for depth without an image.
 function M.gaugeFront(resource)
-   local colour = M.colour[resource] or M.colour.health
+   local colour = M.colour[resource] or resource or M.colour.health
    return string.format([[
       background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
          stop:0 %s, stop:1 %s);
       border-radius: 3px;
       border: 1px solid %s;
-   ]], colour, M.shade(colour, 0.65), M.colour.border)
+   ]], colour, M.shade(colour, 0.6), M.shade(colour, 0.45))
 end
 
-function M.gaugeBack()
+function M.gaugeBack(resource)
+   local colour = M.colour[resource or "base"] or M.colour.base
    return string.format([[
       background-color: %s;
       border-radius: 3px;
       border: 1px solid %s;
-   ]], M.colour.base, M.colour.border)
+   ]], resource and M.shade(colour, 0.18) or M.colour.base, M.colour.border)
 end
 
 --- Multiply a hex colour's channels. Used for gradient stops so the palette stays one
 --- list of base colours rather than a list of pairs.
 --- @param hex string "#rrggbb"
 --- @param factor number 0..1 darkens, >1 lightens
+---
+--- Memoised: the balance strip and the status pills tint a cell per balance on every
+--- repaint, from a fixed palette and a handful of factors -- a pattern match, three
+--- tonumbers, a closure and a format each time for an answer that never changes.
 function M.shade(hex, factor)
+   local byFactor = shadeCache[hex]
+   if not byFactor then
+      byFactor = {}
+      shadeCache[hex] = byFactor
+   end
+   local hit = byFactor[factor]
+   if hit then return hit end
+
    local r, g, b = hex:match("^#(%x%x)(%x%x)(%x%x)$")
    if not r then return hex end
    local function apply(channel)
@@ -290,7 +449,9 @@ function M.shade(hex, factor)
       if value > 255 then value = 255 end
       return value
    end
-   return string.format("#%02x%02x%02x", apply(r), apply(g), apply(b))
+   hit = string.format("#%02x%02x%02x", apply(r), apply(g), apply(b))
+   byFactor[factor] = hit
+   return hit
 end
 
 --- Colour for a health-style percentage: green when healthy, through amber, to red.

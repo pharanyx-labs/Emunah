@@ -1,75 +1,67 @@
---- Afflictions and defences panel.
+--- Afflictions and defences: the middle and bottom sections of the left-hand column.
 ---
---- The two lists no longer share a container. Afflictions sits at the BOTTOM of the
---- left-hand column, below ui/roompanel.lua's room/items console -- at about half its
---- former height, since urgency-sorted text is dense and does not need the room the room
---- panel does. Defences sits at the bottom of the right-hand column, below chat, in the
---- slot the room panel used to occupy (see ui/layout.lua's diagram). They are built
---- together here because both read the same GMCP-derived state and the split is purely
---- about which read affects which console.
+--- AFFLICTIONS answers the question that matters in a fight. It isn't "what do I have", it's
+--- "what is the system doing about it". Each row is one affliction, in curing order, with:
 ---
---- Afflictions are ordered by *curing urgency* rather than by onset time, and annotated
---- with the vector that will cure them -- during a fight the useful question is never
---- "what do I have", it is "what is the system about to do about it, and on which
---- balance". A list that answers only the first question looks informative and tells you
---- nothing you can act on.
+---   source   a filled dot when the server reports it, hollow when only a trigger has (on
+---            probation: engine.TEXT_CONFIRM). They differ in reliability, and hiding that
+---            would make a desync impossible to spot.
+---   cure     what will cure it: the herb, salve or command the engine would send.
+---   status   curing   sent, waiting for the game to answer
+---            next     everything is ready: it goes out on this prompt
+---            1.4s     its balance is recovering, and this is how long
+---            locked   its only way is shut by another affliction, named
+---            the reason the engine refused it (engine.refusals) -- "in the rift", "no
+---            tattoo" -- since a refusal you cannot see looks exactly like a hang
 ---
---- Colour carries the source of each affliction: server-confirmed afflictions are shown
---- solid, trigger-detected ones dimmer. That distinction matters because they have
---- genuinely different reliability, and hiding it would make a desync impossible to spot.
+--- No age column: in a column this narrow it cost the status its room, and the status is the
+--- part that says whether anything is wrong.
+---
+--- Above the rows: the incapacitating states (prone, stunned, asleep, unconscious), as
+--- pills, because each one holds every command. Below them: every curing vector currently
+--- shut and by what -- a lock, read off in one line.
+---
+--- DEFENCES lists what keep-up is owed first, then what is up.
+---
+--- Both are Labels drawing rich text (see ui/theme.lua for why), each painted in one call and
+--- not at all when unchanged, after the packet (theme.later).
 
 local M = {}
 
-local util  = emunah.util
-local theme = emunah.ui.theme
+local util   = emunah.util
+local theme  = emunah.ui.theme
 local layout = emunah.ui.layout
 
 M.widgets = {}
 
---- Height of the afflictions console, as a fraction of the left column -- about half its
---- former height (it used to own the top 57% of the whole column; text this dense does
---- not need more than this). ui/roompanel.lua reads this same constant to size the room
---- console that now sits above it, so the two cannot drift apart.
-M.AFFLICTIONS_HEIGHT = "28%"
+--- Curing vectors that can be shut by an affliction, in the order the lock line reads them.
+local LOCKABLE = { "herb", "salve", "smoke", "focus", "elixir", "purgative", "moss", "tree" }
+
+--- What each vector is called on screen. `elixir` is the health/mana sip.
+local VECTOR_NAME = {
+   herb = "herb", salve = "salve", smoke = "smoke", focus = "focus", elixir = "sip",
+   purgative = "purgative", moss = "moss", tree = "tree", special = "free", writhe = "writhe",
+}
 
 local function available()
-   return layout.container("left") ~= nil and layout.container("right") ~= nil
-      and type(Geyser) == "table"
+   return layout.container("left") ~= nil and type(Geyser) == "table"
 end
 
---- Afflictions own the bottom of the left column, below the room/items console (see
---- ui/roompanel.lua, which reads this same height so the two cannot drift apart).
---- Defences own the bottom of the right column, below chat (see ui/chat.lua, which reads
---- layout.CHAT_SPLIT the same way).
 function M.build()
    if not available() then return false end
-
    M.widgets = {}
 
-   -- No setStyleSheet on these: Geyser.MiniConsole does not have it. Background comes
-   -- from the `color` field via theme.consoleCons(); the border is the container's.
-   local afflictionsTop = string.format("%d%%", 100 - layout.percentOf(M.AFFLICTIONS_HEIGHT))
-   M.widgets.afflictions = Geyser.MiniConsole:new(theme.consoleCons({
-      name = "emunah.afflictions",
-      x = 4, y = afflictionsTop, width = "-8px", height = "-4px",
-      wrapAt = 34,
-   }), layout.container("left"))
-
-   -- Wider than afflictions' wrapAt: defences render in three columns (see M.update()),
-   -- and the right column is itself wider than the left (WIDTH_RIGHT > WIDTH_LEFT), so a
-   -- narrower wrap would clip or misalign the grid.
-   local defencesTop = string.format("%d%%", layout.percentOf(layout.CHAT_SPLIT) + 1)
-   M.widgets.defences = Geyser.MiniConsole:new(theme.consoleCons({
-      name = "emunah.defences",
-      x = 4, y = defencesTop, width = "-8px", height = "-4px",
-      wrapAt = 60,
-   }), layout.container("right"))
-
-   -- The consoles are brand new and empty; whatever theme.paint() last recorded describes
-   -- the widgets that were just replaced, so it has to go or the first paint is skipped and
-   -- the panels come up blank.
-   theme.forgetPainted("affpanel.afflictions")
-   theme.forgetPainted("affpanel.defences")
+   for _, key in ipairs({ "afflictions", "defences" }) do
+      local spec = layout.leftSection(key)
+      local section = layout.section(layout.container("left"), {
+         key = key, title = spec.title, y = spec.y, height = spec.height, body = "label",
+         refresh = function() M.update() end,
+      })
+      if section then
+         M.widgets[key] = section.body
+         M.widgets[key .. "Header"] = section.header
+      end
+   end
 
    M.update()
    return true
@@ -88,123 +80,235 @@ local function urgency(name)
    return bestVector, bestRank
 end
 
--- Both halves below build their whole body into a table and hand it to theme.paint() in one
--- piece. This used to be a decho per affliction row and a decho per defence CELL -- with a
--- full defence list that is thirty-odd separate Qt rich-text parses for one repaint, and the
--- panel repaints on six different events, several times a second in a fight.
---
--- `out` is reused across calls rather than allocated per repaint, for the same reason: this
--- is one of the most frequently re-entered functions in the UI.
-local out = {}
+--- What will cure it, as a word or two: the item for an item cure, else the command.
+local function cureText(name, vector)
+   local afflist  = emunah.curing.afflist
+   local curelist = emunah.curing.curelist
+   if afflist.isWrithe(name) then return "writhe" end
+   if not vector then return nil end
+   local option = afflist.curesVia(name, vector)[1]
+   if not option then return VECTOR_NAME[vector] or vector end
+   local command, item = curelist.command(option)
+   return item or command or VECTOR_NAME[vector] or vector
+end
 
-function M.update()
-   if not M.widgets.afflictions then return end
+--- Status cell for one affliction, and whether it is counting down.
+local function status(name, vector)
+   local engine = emunah.curing.engine
+   local queue  = emunah.queue
+   local have   = emunah.have
+   local afflist = emunah.curing.afflist
+
+   if afflist.isWrithe(name) then
+      if queue.awaiting("writhe") then return theme.span("accent", "writhing"), false end
+      local left = emunah.timers.remaining("writhe.busy")
+      if left > 0 then return theme.span("textDim", string.format("%.1fs", left)), true end
+      return theme.span("defence", "next"), false
+   end
+
+   if not vector then return theme.span("textDim", "no cure"), false end
+
+   local flight = queue.awaiting(vector)
+   if flight and flight.tag == name then return theme.span("accent", "curing"), false end
+
+   local blocker = queue.heldBy(vector)
+   if blocker then return theme.span("affliction", "&#10005; " .. theme.esc(blocker)), false end
+
+   local refusal = engine and engine.refusals and engine.refusals[name]
+   if refusal then return theme.span("warning", theme.esc(refusal)), false end
+
+   local left = emunah.timers.remaining("cure." .. vector)
+   if left > 0 then return theme.span("textDim", string.format("%s %.1fs", VECTOR_NAME[vector] or vector, left)), true end
+   if flight then return theme.span("textDim", VECTOR_NAME[vector] .. " busy"), false end
+
+   if not engine.enabled then return theme.span("textDim", "curing off"), false end
+   return theme.span("defence", "next"), false
+end
+
+--- The incapacitating states, as pills. Each one holds every command (core/act.lua).
+local function statePills()
+   local detect = emunah.curing.detect
+   if not detect then return nil end
+   local pills = {}
+   if detect.stunned then pills[#pills + 1] = theme.pill("affliction", "STUNNED") end
+   if detect.unconscious then pills[#pills + 1] = theme.pill("affliction", "UNCONSCIOUS") end
+   if detect.asleep then
+      pills[#pills + 1] = theme.pill(detect.voluntary and "textDim" or "affliction", "ASLEEP")
+   end
+   if detect.prone then pills[#pills + 1] = theme.pill("warning", "PRONE") end
+   if detect.armsBalanced and not detect.armsBalanced() then
+      pills[#pills + 1] = theme.pill("warning", "ARM OFF BAL")
+   end
+   if #pills == 0 then return nil end
+   return table.concat(pills, "&nbsp;")
+end
+
+--- Every lockable vector currently shut, grouped by what shuts it: "anorexia: herb sip
+--- purgative moss" reads as the one problem it is, where a list per vector repeats it.
+local function lockLine()
+   local order, byBlocker = {}, {}
+   for _, vector in ipairs(LOCKABLE) do
+      local blocker = emunah.queue.heldBy(vector)
+      if blocker then
+         local list = byBlocker[blocker]
+         if not list then
+            list = {}
+            byBlocker[blocker] = list
+            order[#order + 1] = blocker
+         end
+         list[#list + 1] = VECTOR_NAME[vector]
+      end
+   end
+   if #order == 0 then return nil, 0 end
+   local lines = {}
+   for index, blocker in ipairs(order) do
+      lines[index] = theme.span("affliction", "&#10005; " .. theme.esc(blocker), true)
+         .. theme.span("textDim", "&nbsp; shuts " .. table.concat(byBlocker[blocker], ", "))
+   end
+   return table.concat(lines, "<br>"), #order
+end
+
+local rows, html = {}, {}
+
+--- Repaint the afflictions section. Returns whether anything on it is counting.
+local function updateAfflictions()
+   local body = M.widgets.afflictions
+   if not body then return false end
 
    local engine  = emunah.curing.engine
    local deflist = emunah.curing.deflist
+   local live = false
 
-   -- Afflictions that are actually a defence held on purpose (blindness/deafness under
-   -- keep-up) are not something to cure -- engine.curableCount() and resolve() already
-   -- skip them for that reason. The panel is meant to show what needs fixing, so it has
-   -- to apply the same filter or it shows a defence working as usual as if it were a
-   -- problem.
-   local tracked = {}
+   -- Defences held on purpose (blind/deaf under keep-up) are not something to cure; the
+   -- engine skips them, and the panel agrees rather than flagging a working defence.
+   local count = 0
    for _, record in ipairs(engine and engine.list() or {}) do
       if not deflist.deliberate(record.name) then
-         tracked[#tracked + 1] = record
+         local vector, rank = urgency(record.name)
+         count = count + 1
+         local row = rows[count] or {}
+         rows[count] = row
+         row.name, row.vector, row.rank = record.name, vector, rank or 9999
+         row.source = record.source
       end
    end
+   for index = count + 1, #rows do rows[index] = nil end
+   table.sort(rows, function(a, b)
+      if a.rank ~= b.rank then return a.rank < b.rank end
+      return a.name < b.name
+   end)
 
    local n = 0
-   n = n + 1
-   out[n] = string.format("%safflictions %s(%d)\n",
-      theme.dc("textDim"), theme.dc("border"), math.floor(#tracked))
-
-   if #tracked == 0 then
+   local pills = statePills()
+   if pills then
       n = n + 1
-      out[n] = theme.dc("defence") .. "  clear\n"
-   else
-      -- Sort by urgency, unrankable afflictions last.
-      local rows = {}
-      for _, record in ipairs(tracked) do
-         local vector, rank = urgency(record.name)
-         rows[#rows + 1] = {
-            name = record.name, vector = vector, rank = rank or 9999,
-            source = record.source, age = emunah.util.now() - record.since,
-         }
-      end
-      table.sort(rows, function(a, b)
-         if a.rank ~= b.rank then return a.rank < b.rank end
-         return a.name < b.name
-      end)
-
-      for _, row in ipairs(rows) do
-         -- Trigger-sourced afflictions are dimmer: they are less certain than the
-         -- server's own list and the display should not pretend otherwise.
-         local nameColour = row.source == "gmcp"
-            and theme.dc("affliction")
-            or theme.dc("warning")
-
-         local vectorText = row.vector
-            and string.format("%s%s", theme.dc("textDim"), row.vector)
-            or string.format("%sno cure", theme.dc("border"))
-
-         n = n + 1
-         out[n] = string.format("%s  %-18s %s %s%.0fs\n",
-            nameColour, row.name, vectorText, theme.dc("border"), row.age)
-      end
+      html[n] = '<p style="margin:0 0 4px 0">' .. pills .. "</p>"
    end
 
-   theme.paint(M.widgets.afflictions, "affpanel.afflictions", table.concat(out, "", 1, n))
+   if count == 0 then
+      n = n + 1
+      html[n] = theme.span("defence", "&#10004; clear")
+   else
+      n = n + 1
+      html[n] = '<table width="100%" cellspacing="0" cellpadding="1">'
+      for index = 1, count do
+         local row = rows[index]
+         -- Only a report from the imported trigger package is on probation.
+         local confirmed = row.source ~= "text"
+         local dot = confirmed and "&#9679;" or "&#9675;"
+         local cure = cureText(row.name, row.vector)
+         local state, counting = status(row.name, row.vector)
+         live = live or counting
+         n = n + 1
+         html[n] = string.format(
+            '<tr><td width="10">%s</td><td>%s</td><td>%s</td><td align="right">%s</td></tr>',
+            theme.span(confirmed and "affliction" or "warning", dot),
+            theme.span(confirmed and "textBright" or "warning", theme.esc(row.name)),
+            cure and theme.span("textDim", theme.esc(cure)) or "",
+            state)
+      end
+      n = n + 1
+      html[n] = "</table>"
+   end
 
-   -- Defences.
+   local locks, lockLines = lockLine()
+   if locks then
+      n = n + 1
+      html[n] = '<p style="margin:4px 0 0 0">' .. locks .. "</p>"
+   end
+
+   -- Every row, the pills and the lock lines: the column is sized to show all of them.
+   layout.need("afflictions", { (pills and 1 or 0) + math.max(count, 1) + lockLines })
+
+   layout.header("afflictions", M.widgets.afflictionsHeader, "Afflictions",
+      count > 0 and tostring(count) or "clear", count > 0 and "affliction" or "defence")
+   theme.paintLabel(body, "body.afflictions", table.concat(html, "", 1, n))
+   return live
+end
+
+--- Repaint the defences section.
+local function updateDefences()
+   local body = M.widgets.defences
    local defences = emunah.gmcp.defences
-   local keepup   = emunah.curing.defkeepup
-   local console2 = M.widgets.defences
-   if not console2 or not defences then return end
+   if not body or not defences then return end
 
+   local keepup = emunah.curing.defkeepup
    local active  = defences.list()
    local missing = keepup and keepup.missing() or {}
-
-   -- A defence listed MISSING while keep-up is switched off is not a fault being reported,
-   -- it is a job nobody is doing -- and the panel said the same thing for both. Reported
-   -- from play: `emunah defs add inspiration`, then it sat red in this panel indefinitely.
    local keepingUp = keepup and keepup.enabled
-   n = 1
-   out[1] = string.format("%sdefences %s(%d up)%s\n",
-      theme.dc("textDim"), theme.dc("border"), #active,
-      (not keepingUp and #missing > 0) and (theme.dc("warning") .. "  keep-up off") or "")
 
-   -- One combined, colour-coded grid instead of two separate lists with status text: the
-   -- colour already says "required but not up" vs "up", and dropping the "MISSING"/"not
-   -- raised" text is what buys the room for three columns -- with the full defence list a
-   -- single column ran taller than the space above the map and the bottom of it was
-   -- unreadable.
-   local rows = {}
+   -- A defence missing while keep-up is OFF is not a fault, it is a job nobody is doing.
+   -- Reported from play: `emunah defs add inspiration`, then it sat red indefinitely.
+   local summary = string.format("%d up", #active)
+   local summaryColour = "defence"
+   if #missing > 0 then
+      summary = summary .. string.format(" \194\183 %d down", #missing)
+      summaryColour = "warning"
+   end
+   if not keepingUp and #missing > 0 then summary = summary .. " \194\183 keep-up off" end
+   layout.header("defences", M.widgets.defencesHeader, "Defences", summary, summaryColour)
+
+   -- Owed first, in the warning colour (dim when nobody is raising them), then what is up.
+   local cells = {}
    for _, name in ipairs(missing) do
-      rows[#rows + 1] = { name = name, colour = theme.dc("warning") }
+      cells[#cells + 1] = theme.span(keepingUp and "warning" or "textDim", "&#9675; " .. theme.esc(name))
    end
    for _, record in ipairs(active) do
-      rows[#rows + 1] = { name = record.name, colour = theme.dc("defence") }
+      cells[#cells + 1] = theme.span("defence", "&#9679; ") .. theme.span("text", theme.esc(record.name))
    end
 
-   local COLUMNS, COL_WIDTH = 3, 15
-   for index, row in ipairs(rows) do
-      local prefix = (index % COLUMNS == 1) and "  " or ""
-      n = n + 1
-      out[n] = string.format("%s%s%-" .. COL_WIDTH .. "s", prefix, row.colour, row.name)
-      if index % COLUMNS == 0 then
+   -- Two columns, or three when the left column is short of room (layout.reflow()).
+   local columns = layout.compact("defences") >= 2 and 3 or 2
+   local n = 0
+   if #cells == 0 then
+      n = 1
+      html[1] = theme.span("textDim", "none")
+   else
+      n = 1
+      html[1] = '<table width="100%" cellspacing="0" cellpadding="0">'
+      local width = math.floor(100 / columns)
+      for index = 1, #cells, columns do
          n = n + 1
-         out[n] = "\n"
+         local row = {}
+         for offset = 0, columns - 1 do
+            row[#row + 1] = string.format('<td width="%d%%">%s</td>', width, cells[index + offset] or "")
+         end
+         html[n] = "<tr>" .. table.concat(row) .. "</tr>"
       end
-   end
-   if #rows % COLUMNS ~= 0 then
       n = n + 1
-      out[n] = "\n"
+      html[n] = "</table>"
    end
-
-   theme.paint(console2, "affpanel.defences", table.concat(out, "", 1, n))
+   layout.need("defences", { math.max(1, math.ceil(#cells / 2)), math.max(1, math.ceil(#cells / 3)) })
+   theme.paintLabel(body, "body.defences", table.concat(html, "", 1, n))
 end
+
+function M.update()
+   local live = updateAfflictions()
+   updateDefences()
+   if live then theme.wakeClock() end
+end
+
+theme.ticking("affpanel", function() return updateAfflictions() end)
 
 emunah.event.registerAll({
    "emunah.affliction.tracked",
@@ -213,7 +317,17 @@ emunah.event.registerAll({
    "emunah.defences.list",
    "emunah.defence.added",
    "emunah.defence.lost",
+   "emunah.recovered",
+   "emunah.curing.enabled",
+   "emunah.curing.disabled",
+   "emunah.defkeepup.enabled",
+   "emunah.defkeepup.disabled",
 }, function() theme.later("affpanel", M.update) end, "ui.affpanel")   -- after the packet: theme.later()
+
+-- A cure sent, answered or refused changes a row's status with no affliction event at all.
+emunah.event.registerAll({ "emunah.timer.started", "emunah.timer.expired" }, function()
+   theme.later("affpanel", M.update)
+end, "ui.affpanel")
 
 emunah.event.register("emunah.ui.built", function() M.build() end, "ui.affpanel")
 

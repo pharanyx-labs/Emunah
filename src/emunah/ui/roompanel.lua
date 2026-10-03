@@ -1,20 +1,18 @@
 --- Room and items panel.
 ---
---- Occupies the TOP of the left-hand column, above the (now half-height) afflictions
---- console -- see ui/affpanel.lua, which owns that bottom slot. The target's own health
---- bar used to live here too; it moved to ui/vitals.lua so it can span the full window
---- width directly above the HP/MP/EP/WP row, in the same eyeline as the rest of the
---- vitals strip instead of tucked into a side column.
+--- The top section of the left-hand column (see ui/layout.lua's LEFT_SECTIONS): where you
+--- are, who the game admits is here, what you could fight, and what is on the ground.
 ---
---- Shows where you are, who the game admits is here, and what is on the ground.
+--- Grouped rather than listed. The room is the one panel whose length the game decides,
+--- and five copies of "a rat" in a row, or eleven coins one per line, push everything below
+--- them out of sight. People, denizens and items each get a heading with a count, and
+--- identical items collapse to one row with a multiplier.
 ---
 --- Room items
 --- ----------
---- gmcp/items.lua has always tracked room contents, but nothing rendered them -- so `ih`
---- would list four items in the game window while the panel showed none. They are
---- displayed here, and are worth having on screen: items appear and vanish without any
---- message you would notice mid-fight, and Char.Items.Add/Remove is how you learn a corpse
---- dropped loot, or that someone just put something down.
+--- gmcp/items.lua has always tracked room contents. They are worth having on screen: items
+--- appear and vanish without any message you would notice mid-fight, and Char.Items.Add/
+--- Remove is how you learn a corpse dropped loot, or that someone just put something down.
 ---
 --- The player list carries a caveat worth remembering: Room.Players omits anyone
 --- shrouded, hidden or phased, so it is "players the game will admit to", never "players
@@ -32,28 +30,19 @@ local function available()
    return layout.container("left") ~= nil and type(Geyser) == "table"
 end
 
+--- Characters per line in the room console.
+M.WRAP = 44
+
 function M.build()
    if not available() then return false end
-   local parent = layout.container("left")
-
-   -- Fills the left container from the top down to where afflictions start. Reads
-   -- ui/affpanel.lua's height constant directly (rather than keeping a second copy here)
-   -- so the two consoles cannot drift apart. See ui/theme.lua consoleColour(): MiniConsoles
-   -- take a background colour, not a stylesheet.
-   -- A few percent of top margin, not zero: right up against the container's top edge,
-   -- the room console's first line sat under the container's own title bar. Reported from
-   -- play. Subtracted from the height too, so the bottom edge stays where afflictions
-   -- expects it to start.
-   local TOP_MARGIN = 3
-   local affHeight = emunah.ui.affpanel.AFFLICTIONS_HEIGHT
-   local height = string.format("%d%%", 100 - layout.percentOf(affHeight) - TOP_MARGIN - 2)
-
-   M.widgets.room = Geyser.MiniConsole:new(theme.consoleCons({
-      name = "emunah.room",
-      x = 4, y = string.format("%d%%", TOP_MARGIN), width = "-8px", height = height,
-      fontSize = theme.font.small,
-      wrapAt = 42,
-   }), parent)
+   local spec = layout.leftSection("room")
+   local section = layout.section(layout.container("left"), {
+      key = spec.key, title = spec.title, y = spec.y, height = spec.height,
+      body = "console", cons = { fontSize = theme.font.small, wrapAt = M.WRAP },
+      refresh = function() M.update() end,
+   })
+   if not section then return false end
+   M.widgets.room, M.widgets.header = section.body, section.header
 
    -- The console is brand new and empty, so whatever signature the last paint recorded
    -- describes a widget that no longer exists. Without this the first update() after a
@@ -81,8 +70,9 @@ local function denizenRow(name, wantedColour)
    local area = den.area()
    local wanted = den.wanted(name, area)
    local colour = wanted and wantedColour or theme.dc("textDim")
-   local mark = wanted and "*" or " "
-   local text = string.format("%s%s %s\n", colour, mark, trimArticle(name))
+   -- A filled dot is "will be attacked", a hollow one "left alone".
+   local mark = wanted and "\226\151\143" or "\226\151\139"
+   local text = string.format("  %s%s %s\n", colour, mark, trimArticle(name))
    -- Re-render the panel after toggling so the click's effect is visible immediately,
    -- not just on the next unrelated room-panel update.
    local command = string.format(
@@ -178,27 +168,52 @@ function M.forgetPainted()
    lastSignature = nil
 end
 
+--- Characters on screen, not bytes: "×" and "▪" are two and three bytes of UTF-8.
+local function displayWidth(text)
+   local n = 0
+   for _ in tostring(text):gmatch("[^\128-\191]") do n = n + 1 end
+   return n
+end
+
+--- A heading inside the panel: the label in its own colour and capitals, the count, and a
+--- rule to the edge. People, mobiles and items have to read as three different things at a
+--- glance -- reported from play that items and mobiles were not clear apart -- so each gets
+--- its own colour here and its own mark on every row below it.
+local RULE = string.rep("\226\148\128", 40)   -- "─"
+
+local function heading(label, count, colourName)
+   plain(string.format("\n%s%s %s%d %s%s\n",
+      theme.dc(colourName or "textDim"), label, theme.dc("textBright"), count,
+      theme.dc("border"), RULE:sub(1, 3 * math.max(2, 28 - #label - #tostring(count)))))
+end
+
 function M.update()
    local room = emunah.gmcp.room
    local console = M.widgets.room
    if not console or not room then return end
 
    segmentCount = 0
+   local singleRows, pairedRows = 0, 0
+
+   layout.header("room", M.widgets.header, "Room", room.area or "", "textDim")
 
    plain(string.format("%s%s\n", theme.dc("textBright"), room.name or "unknown"))
-   plain(string.format("%s%s%s\n",
-      theme.dc("textDim"), room.area or "", room.num and (" #" .. room.num) or ""))
+
+   local where = {}
+   if room.num then where[#where + 1] = theme.dc("textDim") .. "#" .. room.num end
+   if room.hasDetail("shop") or room.hasDetail("bank") then
+      for _, detail in ipairs(room.details) do
+         where[#where + 1] = theme.dc("experience") .. detail
+      end
+   end
+   if #where > 0 then
+      plain(table.concat(where, theme.dc("border") .. "  \194\183  ") .. "\n")
+   end
 
    local exits = room.exitList()
-   plain(string.format("%sexits %s%s\n",
+   plain(string.format("%sexits  %s%s\n",
       theme.dc("textDim"), theme.dc("balance"),
-      #exits > 0 and table.concat(exits, " ") or "none"))
-
-   if room.hasDetail("shop") or room.hasDetail("bank") then
-      local details = {}
-      for _, detail in ipairs(room.details) do details[#details + 1] = detail end
-      plain(string.format("%s%s\n", theme.dc("experience"), table.concat(details, " ")))
-   end
+      #exits > 0 and table.concat(exits, " ") or (theme.dc("border") .. "none")))
 
    -- Short names, not the honorific fullname -- there is one line to work with here.
    -- Coloured per ui/names.lua's own policy (enemy/ally/city) so the panel agrees with
@@ -209,6 +224,7 @@ function M.update()
    -- would have captured nil.
    local players = room.playerShortNames()
    if #players > 0 then
+      heading("PEOPLE", #players, "warning")
       local names = emunah.ui.names
       local parts = {}
       for _, name in ipairs(players) do
@@ -216,39 +232,104 @@ function M.update()
          local colour = (style and style.colour) and theme.dcHex(style.colour) or theme.dc("warning")
          parts[#parts + 1] = colour .. name
       end
-      plain(string.format("%shere %s\n",
-         theme.dc("textDim"), table.concat(parts, theme.dc("textDim") .. ", ")))
+      plain("  " .. table.concat(parts, theme.dc("textDim") .. ", ") .. "\n")
    end
 
-   -- Room items.
    local items = emunah.gmcp.items
    if items then
       local here = items.at("room")
-      if #here > 0 then
-         plain(string.format("\n%sitems %s(%d)\n",
-            theme.dc("textDim"), theme.dc("border"), #here))
-         for _, item in ipairs(here) do
-            local attrib = items.attrib(item)
-            -- Colour by what the item IS: creatures are what you are about to fight,
-            -- corpses and containers are what you are about to loot.
+      local denizens, loot = {}, {}
+      for _, item in ipairs(here) do
+         local attrib = items.attrib(item)
+         if attrib.monster and not attrib.dead then
+            denizens[#denizens + 1] = item
+         else
+            loot[#loot + 1] = { item = item, attrib = attrib }
+         end
+      end
+
+      -- Mobiles one row each, never grouped: each row is its own click target, and the
+      -- wanted mark is per name.
+      if #denizens > 0 then
+         heading("MOBILES", #denizens, "affliction")
+         for _, item in ipairs(denizens) do
+            M.queueDenizen(item.name, theme.dc("affliction"))
+         end
+      end
+
+      -- Everything else grouped by name, in first-seen order. Colour by what the item IS:
+      -- corpses and containers are what you are about to loot.
+      if #loot > 0 then
+         heading("ITEMS", #loot, "experience")
+         local order, groups = {}, {}
+         for _, entry in ipairs(loot) do
+            local name = trimArticle(entry.item.name)
+            local group = groups[name]
+            if not group then
+               group = { name = name, count = 0, attrib = entry.attrib }
+               groups[name] = group
+               order[#order + 1] = group
+            end
+            group.count = group.count + 1
+         end
+         -- Two to a line when the left column is short of room (layout.reflow()) -- but only
+         -- two that each fit in half a line. A longer name takes a line of its own: cutting
+         -- it short would hide exactly what this is for.
+         local half = math.floor(M.WRAP / 2) - 4
+         local cells, widths = {}, {}
+         for index, group in ipairs(order) do
+            local attrib = group.attrib
             local colour = theme.dc("text")
-            if attrib.monster then
-               colour = theme.dc("affliction")
-            elseif attrib.dead then
+            if attrib.dead then
                colour = theme.dc("warning")
             elseif attrib.container then
                colour = theme.dc("experience")
             elseif attrib.takeable then
                colour = theme.dc("defence")
             end
+            local text = (group.count > 1 and (group.count .. "\195\151 ") or "") .. group.name
+            -- A square for a thing, where a mobile has a dot.
+            cells[index] = string.format("  %s\226\150\170 %s%s", theme.dc("border"), colour, text)
+            widths[index] = displayWidth(text)
+         end
 
-            if attrib.monster and not attrib.dead then
-               M.queueDenizen(item.name, colour)
+         -- Which items share a line, two-up: consecutive pairs where both fit.
+         local function rows(twoUp)
+            local out, index = {}, 1
+            while index <= #cells do
+               if twoUp and cells[index + 1] and widths[index] <= half and widths[index + 1] <= half then
+                  out[#out + 1] = { index, index + 1 }
+                  index = index + 2
+               else
+                  out[#out + 1] = { index }
+                  index = index + 1
+               end
+            end
+            return out
+         end
+
+         singleRows, pairedRows = #cells, #rows(true)
+         for _, row in ipairs(rows(layout.compact("room") >= 2)) do
+            if row[2] then
+               plain(cells[row[1]] .. string.rep(" ", half + 2 - widths[row[1]]) .. cells[row[2]] .. "\n")
             else
-               plain(string.format("%s  %s\n", colour, trimArticle(item.name)))
+               plain(cells[row[1]] .. "\n")
             end
          end
       end
+   end
+
+   -- Report the lines this takes, both ways, so the column can be sized to show all of it.
+   local lines = 0
+   for index = 1, segmentCount do
+      local segment = segments[index]
+      local text = type(segment) == "table" and segment.text or segment
+      for _ in text:gmatch("\n") do lines = lines + 1 end
+   end
+   if layout.compact("room") >= 2 then
+      layout.need("room", { lines - pairedRows + singleRows, lines })
+   else
+      layout.need("room", { lines, lines - singleRows + pairedRows })
    end
 
    -- Nothing on screen would change, so nothing is drawn. See the note above `segments`.

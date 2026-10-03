@@ -329,6 +329,10 @@ function mock.install(homeDir)
    --- console space (setBorderTop > 0) rather than only checking the container geometry
    --- that space is meant to correspond to.
    mock.borders = { left = 0, right = 0, top = 0, bottom = 0 }
+   --- Mudlet's hideWindow(name): labels and mini-consoles alike, by name.
+   mock.hiddenWindows = {}
+   function _G.hideWindow(name) mock.hiddenWindows[name] = true return true end
+
    function _G.setBorderLeft(px)   mock.borders.left   = px end
    function _G.setBorderRight(px)  mock.borders.right  = px end
    function _G.setBorderTop(px)    mock.borders.top    = px end
@@ -649,20 +653,22 @@ function mock.installGeyser()
          "echo", "decho", "cecho", "hecho", "clear", "show", "hide",
          "setColor", "setFont", "setFontSize", "setWrap", "setBufferSize",
          "enableScrollBar", "disableScrollBar", "setBackgroundImage", "resetFormat",
-         "cechoLink", "dechoLink", "echoLink", "hechoLink",
+         "cechoLink", "dechoLink", "echoLink", "hechoLink", "move", "resize",
       },
       -- Geyser.Label
       label = {
          "echo", "decho", "cecho", "hecho", "clear", "show", "hide",
          "setStyleSheet", "setFgColor", "setFont", "setFontSize", "setAlignment",
          "setBold", "setItalics", "setUnderline", "setBackgroundImage",
-         "setClickCallback", "setToolTip",
+         "setClickCallback", "setToolTip", "move", "resize",
       },
       -- Geyser.Gauge
       gauge = {
          "setValue", "setColor", "setText", "setFormat", "setStyleSheet",
-         "setFontSize", "setAlignment", "setFgColor", "echo", "show", "hide",
+         "setFontSize", "setAlignment", "setFgColor", "echo", "show", "hide", "move", "resize",
       },
+      -- Geyser.Container
+      container = { "show", "hide", "move", "resize" },
       adjustable = {
          "show", "hide", "save", "load", "attach", "detach", "lockContainer",
          "minimize", "restore", "echo", "setTitle",
@@ -721,6 +727,17 @@ function mock.installGeyser()
             self.style = sheet
             return self
          end,
+         -- Geyser's move(x, y) and resize(width, height): new constraints, same formats.
+         move = function(_, x, y)
+            self.cons.x, self.cons.y = x, y
+            return self
+         end,
+         resize = function(_, width, height)
+            self.cons.width, self.cons.height = width, height
+            return self
+         end,
+         enableScrollBar  = function() self.scrollBar = true  return self end,
+         disableScrollBar = function() self.scrollBar = false return self end,
          setValue = function(_, current, max, text)
             mock.count("value")
             self.value = { current = current, max = max, text = text }
