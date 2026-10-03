@@ -96,7 +96,7 @@ if emunah.ui.chyron and emunah.ui.chyron.send then
    emunah.ui.chyron.send("Zalydd has entered the room.", "warning")
 end
 
-mock.advance(0)
+mock.advance(0); mock.advance(0); mock.advance(0)
 
 -- ---------------------------------------------------------------------------
 -- Geometry, the way Geyser resolves it

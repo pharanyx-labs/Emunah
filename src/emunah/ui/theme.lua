@@ -120,10 +120,14 @@ function M.dcHex(hex)
    return hit
 end
 
+--- Body text is small on purpose: the panels are reference, read at a glance, and every point
+--- of type is a row the room or the affliction list does not get. Headings sit two points
+--- above the text they head, which is what makes a dense panel scannable.
 M.font = {
    family = "Ubuntu Mono",   -- Mudlet ships this; falls back gracefully
-   size   = 10,
-   small  = 9,
+   size   = 9,               -- consoles: chat
+   small  = 8,               -- panels, gauges, the HUD
+   header = 10,              -- section titles
 }
 
 -- ---------------------------------------------------------------------------
@@ -373,7 +377,7 @@ function M.headerStyle()
       padding-left: 6px;
       font-family: "%s";
       font-size: %dpt;
-   ]], M.colour.raised, M.colour.textDim, M.colour.borderLit, M.font.family, M.font.small)
+   ]], M.colour.raised, M.colour.textDim, M.colour.borderLit, M.font.family, M.font.header)
 end
 
 --- The body of a rich-text section: top-aligned, padded, the darkest surface.

@@ -53,12 +53,17 @@ local VECTORS = {
 }
 
 -- Rows, in pixels from the top of the strip.
--- A few pixels of top margin before row 1, not zero: right up against the container's top
--- edge, the target bar sat on top of (and hid) the game console's own input line. Reported
--- from play.
-local ROW1_Y, ROW1_H = 8, 22
-local ROW2_Y, ROW2_H = 34, 24
-local ROW3_Y, ROW3_H = 62, 22
+-- Rows HANG FROM THE BOTTOM EDGE, not the top. The strip sits on Mudlet's command line, and
+-- with the rows at the top any slack in the strip's height opened up between the balance row
+-- and where you type -- reported from play as "a large gap between where I type and the
+-- bal/eq/herb/salve" row. Anchored at the bottom, the balance row is the one right above the
+-- input, and any slack goes above the target bar instead. Negative y is Geyser's "from the
+-- bottom edge".
+local ROW3_H, ROW2_H, ROW1_H = 22, 24, 22
+local GAP = 4
+local ROW3_Y = string.format("-%dpx", ROW3_H + 2)
+local ROW2_Y = string.format("-%dpx", ROW3_H + 2 + GAP + ROW2_H)
+local ROW1_Y = string.format("-%dpx", ROW3_H + 2 + GAP + ROW2_H + GAP + ROW1_H)
 
 local function available()
    return layout.container("bottom") ~= nil and type(Geyser) == "table"

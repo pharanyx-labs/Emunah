@@ -19,6 +19,18 @@ local M = {}
 local log   = emunah.log
 local theme = emunah.ui.theme
 
+-- State for the left column's content-sized layout (see "Sizing the left column" below).
+-- Declared up here, above M.build() and M.section(), which reset and write it.
+M.sections = {}
+--- key -> { lines at density 1, lines at density 2, ... }
+local needs = {}
+--- key -> the density chosen
+local density = {}
+--- key -> "y:height" last applied, so an unchanged section is not moved
+local placed = {}
+--- Whether the room console's scrollbar is on.
+local scrolling = nil
+
 --- Fractions of the window given to each region.
 ---
 --- Layout:
@@ -51,18 +63,19 @@ local theme = emunah.ui.theme
 --- sits directly above the side columns' own content. See ui/chyron.lua.
 M.WIDTH_LEFT    = "19%"
 M.WIDTH_RIGHT   = "26%"
---- The combat HUD's share of the window: three rows of ~22px with gaps, which is 11% of a
---- 1080px window -- and not enough of a 768px one, where the balance row was cut off. So it
---- is whichever is larger, 11% or what the rows need in pixels. M.fit() recomputes it from
---- the window as it is now; every consumer reads M.HEIGHT_BOTTOM after that.
-M.HUD_PX = 98
-M.HEIGHT_BOTTOM = "11%"
+--- The combat HUD's share of the window: just what its three rows need (ui/vitals.lua), in
+--- whole percent of the window as it is now. A fixed 11% was too little at 768px, where the
+--- balance row was cut off, and too much at 1080px, where the slack became a gap between
+--- the HUD and the command line. M.fit() recomputes it; every consumer reads
+--- M.HEIGHT_BOTTOM after that.
+M.HUD_PX = 92
+M.HEIGHT_BOTTOM = "9%"
 
 function M.fit()
    local _, height = getMainWindowSize()
-   local pct = 11
+   local pct = 9
    if tonumber(height) and height > 0 then
-      pct = math.max(pct, math.ceil(M.HUD_PX * 100 / height))
+      pct = math.ceil(M.HUD_PX * 100 / height)
    end
    M.HEIGHT_BOTTOM = string.format("%d%%", pct)
    return M.HEIGHT_BOTTOM
@@ -75,10 +88,10 @@ M.HEIGHT_TOP    = "5%"
 --- gets the most: it is the only one whose length the game decides (a crowded room, a pile
 --- of loot). Afflictions next, because it is what changes in a fight.
 ---
---- They start 3% down, under the container's own title: content right against the top edge
---- sat beneath that title (reported from play, and the same margin ui/chat.lua keeps).
+--- The column has no title of its own (the sections are titled), so they start right under
+--- the container's top padding.
 M.LEFT_SECTIONS = {
-   { key = "room",        title = "Room",        y = 3,  height = 39 },
+   { key = "room",        title = "Room",        y = 1,  height = 41 },
    { key = "afflictions", title = "Afflictions", y = 42, height = 31 },
    { key = "defences",    title = "Defences",    y = 73, height = 27 },
 }
@@ -132,6 +145,36 @@ end
 
 M.containers = {}
 
+--- Widgets the previous UI created and this one does not. Mudlet keeps them, by name, for
+--- the life of the profile -- and an Adjustable.Container rebuilt under the same name is the
+--- SAME Qt widget, so an old panel's children reappear inside the new one. They are hidden
+--- on every build. (The old mini-consoles named here are also why the new panels must not
+--- reuse their names: see M.section().)
+M.LEGACY = {
+   "emunah.afflictions", "emunah.defences",
+   "emunah.balance", "emunah.equilibrium", "emunah.vectors",
+}
+
+local function hideLegacy()
+   if type(hideWindow) ~= "function" then return end
+   for _, name in ipairs(M.LEGACY) do pcall(hideWindow, name) end
+end
+
+--- Bumped whenever the default geometry changes. Adjustable.Container restores each panel's
+--- saved size and position, so a layout change is otherwise invisible to anyone who has run
+--- the old one -- and worse than invisible: the old bottom strip (16% of the window) came back
+--- over a console bordered for the new one (11%), and hid the last lines of game text.
+M.LAYOUT_VERSION = 2
+
+local function discardStaleGeometry()
+   if emunah.config.get("ui.layoutVersion", 1) == M.LAYOUT_VERSION then return end
+   local directory = getMudletHomeDir() .. "/AdjustableContainer/"
+   for _, name in ipairs(M.NAMES or {}) do os.remove(directory .. name .. ".lua") end
+   emunah.config.set("ui.layoutVersion", M.LAYOUT_VERSION)
+   emunah.config.save()
+   log.info("The interface layout changed -- panel positions reset to the new defaults.")
+end
+
 --- Tear down the previous generation of Geyser objects.
 local function teardown()
    emunah._persist = emunah._persist or {}
@@ -167,6 +210,10 @@ function M.build()
    end
 
    M.fit()
+   -- New widgets: nothing has been placed, and the room console starts without a scrollbar.
+   M.sections, placed, scrolling = {}, {}, nil
+   discardStaleGeometry()
+   hideLegacy()
    local removed = teardown()
    if removed > 0 then
       log.debug("Removed %d container(s) from the previous load.", removed)
@@ -236,7 +283,8 @@ function M.build()
 
    make("emunah.left", {
       x = 0, y = 0, width = M.WIDTH_LEFT, height = columnHeight,
-      titleText = "Situation",
+      -- No title: each section carries its own, and a column label over them was noise.
+      titleText = "",
    })
 
    -- Stops above the map region so the container's background label cannot paint over it.
@@ -269,16 +317,48 @@ function M.percentOf(spec)
    return tonumber(tostring(spec):match("(%d+)%%")) or 0
 end
 
+--- One of our containers' live geometry, in pixels, or nil if it cannot be read.
+local function measured(which, method)
+   local container = M.container(which)
+   if not container or type(container[method]) ~= "function" then return nil end
+   local ok, value = pcall(container[method], container)
+   return ok and tonumber(value) or nil
+end
+
+--- Set the console borders from where the containers ACTUALLY are.
+---
+--- Computing them from the layout's percentages assumed the containers were there too. They
+--- are not, whenever Adjustable.Container restores a saved size or the user drags an edge:
+--- the bottom strip came back taller than the border made room for, and covered the last
+--- lines of game text. So each border is measured off its container where that can be read,
+--- with a few pixels to spare, and the percentage is only the fallback.
 function M.resizeConsole()
    local width, height = getMainWindowSize()
    local function fraction(spec)
       return M.percentOf(spec) / 100
    end
+   local SPARE = 2
 
-   setBorderLeft(math.floor(width * fraction(M.WIDTH_LEFT)))
-   setBorderRight(math.floor(width * fraction(M.WIDTH_RIGHT)))
-   setBorderBottom(math.floor(height * fraction(M.HEIGHT_BOTTOM)))
-   setBorderTop(math.floor(height * fraction(M.HEIGHT_TOP)))
+   local left = width * fraction(M.WIDTH_LEFT)
+   local lx, lw = measured("left", "get_x"), measured("left", "get_width")
+   if lx and lw then left = lx + lw + SPARE end
+
+   local right = width * fraction(M.WIDTH_RIGHT)
+   local rx = measured("right", "get_x")
+   if rx then right = width - rx + SPARE end
+
+   local bottom = height * fraction(M.HEIGHT_BOTTOM)
+   local by = measured("bottom", "get_y")
+   if by then bottom = height - by + SPARE end
+
+   local top = height * fraction(M.HEIGHT_TOP)
+   local ty, th = measured("top", "get_y"), measured("top", "get_height")
+   if ty and th then top = ty + th + SPARE end
+
+   setBorderLeft(math.floor(left))
+   setBorderRight(math.floor(right))
+   setBorderBottom(math.floor(bottom))
+   setBorderTop(math.floor(top))
 end
 
 function M.clearConsoleBorders()
@@ -319,8 +399,13 @@ function M.section(parent, spec)
       for key, value in pairs(spec.cons or {}) do cons[key] = value end
       body = Geyser.MiniConsole:new(theme.consoleCons(cons), box)
    else
+      -- NOT "emunah.<key>". Mudlet keeps windows by name across a reload, and echo() looks a
+      -- name up among mini-consoles BEFORE labels: the previous UI's afflictions and
+      -- defences were mini-consoles of exactly those names, so this label's rich text was
+      -- printed into the old console as raw HTML -- and the defences into one nobody could
+      -- see. A name never used for a console cannot collide.
       body = Geyser.Label:new({
-         name = "emunah." .. spec.key,
+         name = "emunah.panel." .. spec.key,
          x = 0, y = M.HEADER_PX + 2, width = "100%", height = "-4px",
       }, box)
       body:setStyleSheet(theme.bodyStyle())
@@ -331,7 +416,142 @@ function M.section(parent, spec)
    theme.forgetPainted("body." .. spec.key)
    M.header(spec.key, header, spec.title)
 
-   return { box = box, header = header, body = body }
+   local section = { box = box, header = header, body = body, kind = spec.body,
+                     refresh = spec.refresh }
+   M.sections[spec.key] = section
+   placed[spec.key] = nil
+   return section
+end
+
+-- ---------------------------------------------------------------------------
+-- Sizing the left column to its content
+-- ---------------------------------------------------------------------------
+--
+-- Fixed shares were wrong in both directions at once: a room with a dozen things on the floor
+-- ran off the bottom of its section while the defences below sat on empty space, and twenty
+-- defences up showed a count in the title and nothing under it. "We need to see all data in
+-- every window." So each section says how many lines it has, and the column is divided by
+-- that, in pixels:
+--
+--   1. Every section is offered its lines in full. If they fit, the room takes any space left
+--      over (it is the one that grows when you walk somewhere busy).
+--   2. If they do not, sections lay themselves out more densely, in a fixed order -- defences
+--      to three columns, then room items to two -- until they fit.
+--   3. If even that will not fit, afflictions and defences keep their full height (a label
+--      cannot scroll) and the room takes what is left, with a scrollbar: still all there.
+--
+-- A section reports a list of line counts, one per density it can do, most spacious first,
+-- and reads back the density it was given with M.compact(). It is repainted only when that
+-- changes, so this settles in one pass.
+
+
+--- Order in which sections give up space, densest first. Afflictions never do: it is the one
+--- that matters in a fight, and it is short.
+M.COMPACT_ORDER = { "defences", "room" }
+
+--- Pixel height of one line of panel text, at the panels' font size: point size at 96 dpi,
+--- with line spacing. Slightly generous on purpose -- an estimate that is short cuts the last
+--- row off, one that is long costs a few pixels of space.
+function M.lineHeight()
+   return math.ceil(theme.font.small * 96 / 72 * 1.5)
+end
+
+--- Report a section's line counts. Lays the column out again once this packet is done.
+function M.need(key, levels)
+   local previous = needs[key]
+   if previous and #previous == #levels then
+      local same = true
+      for index = 1, #levels do
+         if previous[index] ~= levels[index] then same = false break end
+      end
+      -- The clock repaints afflictions five times a second; their line count rarely moves.
+      if same then return end
+   end
+   needs[key] = levels
+   theme.later("layout.reflow", M.reflow)
+end
+
+--- The density a section should render at (1 = most spacious).
+function M.compact(key)
+   return density[key] or 1
+end
+
+local function columnHeight()
+   local container = M.container("left")
+   if container and type(container.get_height) == "function" then
+      local ok, value = pcall(container.get_height, container)
+      if ok and tonumber(value) and value > 0 then return value - 8 end
+   end
+   local _, height = getMainWindowSize()
+   return math.floor(height * (100 - M.percentOf(M.HEIGHT_BOTTOM)) / 100) - 8
+end
+
+--- Lay the left column out from what its sections reported.
+function M.reflow()
+   local available = columnHeight()
+   local line = M.lineHeight()
+   local chrome = M.HEADER_PX + 12       -- title bar, the gap under it, the body's padding
+
+   local level = {}
+   for _, spec in ipairs(M.LEFT_SECTIONS) do level[spec.key] = 1 end
+
+   local function height(key)
+      local levels = needs[key]
+      local lines = levels and (levels[level[key]] or levels[#levels]) or 1
+      return chrome + math.max(lines, 1) * line
+   end
+   local function total()
+      local sum = 0
+      for _, spec in ipairs(M.LEFT_SECTIONS) do sum = sum + height(spec.key) end
+      return sum
+   end
+
+   for _, key in ipairs(M.COMPACT_ORDER) do
+      while total() > available and needs[key] and level[key] < #needs[key] do
+         level[key] = level[key] + 1
+      end
+   end
+
+   local heights = {}
+   for _, spec in ipairs(M.LEFT_SECTIONS) do heights[spec.key] = height(spec.key) end
+   local roomNeed = heights.room
+   local others = total() - roomNeed
+   local minimum = chrome + 2 * line
+   heights.room = math.max(available - others, minimum)
+   local overflow = heights.room < roomNeed
+   if heights.room + others > available then
+      -- Nothing left to give: defences hand back what they must, so the room keeps a minimum.
+      heights.defences = math.max(chrome + line, available - heights.room - heights.afflictions)
+   end
+
+   local y = 4
+   for _, spec in ipairs(M.LEFT_SECTIONS) do
+      local key = spec.key
+      local section = M.sections[key]
+      local h = heights[key]
+      local signature = y .. ":" .. h
+      if section and placed[key] ~= signature then
+         placed[key] = signature
+         section.box:move(4, y)
+         section.box:resize("-8px", h)
+         section.body:resize("100%", h - M.HEADER_PX - 4)
+      end
+      y = y + h
+   end
+
+   local room = M.sections.room
+   if room and room.kind == "console" and scrolling ~= overflow then
+      scrolling = overflow
+      if overflow then room.body:enableScrollBar() else room.body:disableScrollBar() end
+   end
+
+   for key, chosen in pairs(level) do
+      if density[key] ~= chosen then
+         density[key] = chosen
+         local section = M.sections[key]
+         if section and section.refresh then theme.later("section." .. key, section.refresh) end
+      end
+   end
 end
 
 --- Set a section's title bar. Drawn only when it changes.
@@ -405,6 +625,13 @@ function M.reset()
    log.info("Cleared %d saved container layout(s); rebuilding from defaults.", removed)
    return M.build()
 end
+
+-- A container dragged or resized by hand moves an edge the borders were measured from.
+emunah.event.register("AdjustableContainerRepositionFinish", function(_, name)
+   if type(name) == "string" and name:sub(1, 7) == "emunah." and emunah.config.get("ui.enabled", true) then
+      M.resizeConsole()
+   end
+end, "ui.layout")
 
 -- Keep the console borders correct when the window is resized. The containers handle
 -- themselves; the borders do not.

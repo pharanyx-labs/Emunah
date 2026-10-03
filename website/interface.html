@@ -76,10 +76,18 @@ does not win. Both are asserted in the test suite.
 </div>
 
 <h2 id="panels">Panels</h2>
+<p>
+<strong>The left column is sized to its content.</strong> Each section reports how many lines
+it has and the column is divided by that, in pixels, so a crowded room or a long defence
+list is shown in full. When it all cannot fit, the defences go to three columns, then room
+items two to a line (only items whose names fit; nothing is cut short), and only then does
+the room panel scroll. The console's borders are measured from where the panels actually
+are, so a panel resized by hand never covers game text.
+</p>
 <table>
 <thead><tr><th>Panel</th><th>Shows</th></tr></thead>
 <tbody>
-<tr><td><strong>Room</strong></td><td>Name, area, number, exits and shop/bank details; then <em>people</em>, <em>denizens</em> and <em>items</em>, each under a heading with a count. People are coloured by the same policy the highlighter uses. Identical items collapse to one row with a multiplier. Each denizen is clickable: a filled dot means the hunting loop will attack it, a hollow one that it will not, and a click toggles it.</td></tr>
+<tr><td><strong>Room</strong></td><td>Name, area, number, exits and shop/bank details; then <em>PEOPLE</em>, <em>MOBILES</em> and <em>ITEMS</em>, each under its own coloured heading with a count, mobiles marked with a dot and items with a square. People are coloured by the same policy the highlighter uses. Identical items collapse to one row with a multiplier. Each denizen is clickable: a filled dot means the hunting loop will attack it, a hollow one that it will not, and a click toggles it.</td></tr>
 <tr><td><strong>Afflictions</strong></td><td>In curing order. Each row shows the affliction, what will cure it, and what is happening about it: <em>curing</em> (sent, unanswered), <em>next</em> (goes out on this prompt), a countdown (its balance is recovering), <em>&#10005; anorexia</em> (locked, and by what), or the engine's own reason for refusing it ("bloodroot is in the rift, not in hand"). Above the rows, pills for any state that holds every command (stunned, asleep, prone). Below them, one line per lock: "anorexia shuts herb, sip, purgative, moss".</td></tr>
 <tr><td><strong>Defences</strong></td><td>A two-column list: what keep-up is owed first (amber, or dim while keep-up is off), then what is up. The title bar carries the count of each.</td></tr>
 <tr><td><strong>Combat HUD</strong></td><td>Row one: the target's health bar, and pills for what is switched on (curing, keep-up, bashing, PvP and its target, rate limiting) beside the commands sent and not yet answered. Row two: health, mana, endurance and willpower, each with its percentage and its change since the last prompt. Row three: the balance strip, then XP and class stats.</td></tr>

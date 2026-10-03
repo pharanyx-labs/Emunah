@@ -55,6 +55,7 @@ function M.build()
       local spec = layout.leftSection(key)
       local section = layout.section(layout.container("left"), {
          key = key, title = spec.title, y = spec.y, height = spec.height, body = "label",
+         refresh = function() M.update() end,
       })
       if section then
          M.widgets[key] = section.body
@@ -158,13 +159,13 @@ local function lockLine()
          list[#list + 1] = VECTOR_NAME[vector]
       end
    end
-   if #order == 0 then return nil end
+   if #order == 0 then return nil, 0 end
    local lines = {}
    for index, blocker in ipairs(order) do
       lines[index] = theme.span("affliction", "&#10005; " .. theme.esc(blocker), true)
          .. theme.span("textDim", "&nbsp; shuts " .. table.concat(byBlocker[blocker], ", "))
    end
-   return table.concat(lines, "<br>")
+   return table.concat(lines, "<br>"), #order
 end
 
 local rows, html = {}, {}
@@ -230,11 +231,14 @@ local function updateAfflictions()
       html[n] = "</table>"
    end
 
-   local locks = lockLine()
+   local locks, lockLines = lockLine()
    if locks then
       n = n + 1
       html[n] = '<p style="margin:4px 0 0 0">' .. locks .. "</p>"
    end
+
+   -- Every row, the pills and the lock lines: the column is sized to show all of them.
+   layout.need("afflictions", { (pills and 1 or 0) + math.max(count, 1) + lockLines })
 
    layout.header("afflictions", M.widgets.afflictionsHeader, "Afflictions",
       count > 0 and tostring(count) or "clear", count > 0 and "affliction" or "defence")
@@ -273,6 +277,8 @@ local function updateDefences()
       cells[#cells + 1] = theme.span("defence", "&#9679; ") .. theme.span("text", theme.esc(record.name))
    end
 
+   -- Two columns, or three when the left column is short of room (layout.reflow()).
+   local columns = layout.compact("defences") >= 2 and 3 or 2
    local n = 0
    if #cells == 0 then
       n = 1
@@ -280,15 +286,19 @@ local function updateDefences()
    else
       n = 1
       html[1] = '<table width="100%" cellspacing="0" cellpadding="0">'
-      local COLUMNS = 2
-      for index = 1, #cells, COLUMNS do
+      local width = math.floor(100 / columns)
+      for index = 1, #cells, columns do
          n = n + 1
-         html[n] = string.format('<tr><td width="50%%">%s</td><td>%s</td></tr>',
-            cells[index], cells[index + 1] or "")
+         local row = {}
+         for offset = 0, columns - 1 do
+            row[#row + 1] = string.format('<td width="%d%%">%s</td>', width, cells[index + offset] or "")
+         end
+         html[n] = "<tr>" .. table.concat(row) .. "</tr>"
       end
       n = n + 1
       html[n] = "</table>"
    end
+   layout.need("defences", { math.max(1, math.ceil(#cells / 2)), math.max(1, math.ceil(#cells / 3)) })
    theme.paintLabel(body, "body.defences", table.concat(html, "", 1, n))
 end
 

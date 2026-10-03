@@ -6113,8 +6113,8 @@ eq(#mock.unknownConsFields, 0, "no unrecognised MiniConsole constructor fields",
 ok(mock.widgets["emunah.gauge.hp"] ~= nil, "health gauge built")
 ok(mock.widgets["emunah.gauge.wp"] ~= nil, "willpower gauge built")
 ok(mock.widgets["emunah.target"] ~= nil, "target gauge built")
-ok(mock.widgets["emunah.afflictions"] ~= nil, "affliction console built")
-ok(mock.widgets["emunah.defences"] ~= nil, "defences console built")
+ok(mock.widgets["emunah.panel.afflictions"] ~= nil, "affliction console built")
+ok(mock.widgets["emunah.panel.defences"] ~= nil, "defences console built")
 ok(mock.widgets["emunah.room"] ~= nil, "room console built")
 ok(mock.widgets["emunah.chat.plain"] ~= nil, "chat falls back to a plain console without EMCO")
 
@@ -6182,7 +6182,7 @@ local function parentName(widget)
    return widget and widget.parent and widget.parent.name or "?"
 end
 for _, key in ipairs({ "room", "afflictions", "defences" }) do
-   local body = mock.widgets["emunah." .. key]
+   local body = mock.widgets[key == "room" and "emunah.room" or ("emunah.panel." .. key)]
    eq(parentName(body), "emunah.section." .. key, key .. " is drawn inside its own section")
    eq(parentName(body and body.parent), "emunah.left", "...which is in the left column")
    ok(mock.widgets["emunah.header." .. key] ~= nil, "...under a title bar")
@@ -6197,21 +6197,83 @@ local function pct(value)
    return tonumber(tostring(value):match("^(%d+)%%")) or 0
 end
 
--- The sections stack without overlapping and fill the column.
-local sectionEnd = emunah.ui.layout.LEFT_SECTIONS[1].y
-ok(sectionEnd > 0, "the first section clears the container's own title")
-for _, spec in ipairs(emunah.ui.layout.LEFT_SECTIONS) do
-   local box = mock.widgets["emunah.section." .. spec.key]
-   eq(pct(box.cons.y), sectionEnd, spec.key .. " starts where the section above it ends")
-   sectionEnd = pct(box.cons.y) + pct(box.cons.height)
+-- The sections stack without overlapping, in pixels, inside the column. (Their starting
+-- shares are percentages; layout.reflow() replaces them with what the content needs.)
+emunah.ui.layout.reflow()
+do
+   local y = nil
+   for _, spec in ipairs(emunah.ui.layout.LEFT_SECTIONS) do
+      local box = mock.widgets["emunah.section." .. spec.key]
+      ok(type(box.cons.y) == "number" and type(box.cons.height) == "number",
+         spec.key .. " is placed in pixels by the reflow")
+      if y then eq(box.cons.y, y, spec.key .. " starts where the section above it ends") end
+      y = box.cons.y + box.cons.height
+   end
+   ok(y <= 1080, "...and together they stay inside the column", y)
 end
-eq(sectionEnd, 100, "...and together they fill the left column")
 
--- Target bar sits above the resource gauges inside the shared bottom strip.
-ok(tonumber(mock.widgets["emunah.target"].cons.y) < tonumber(mock.widgets["emunah.gauge.hp"].cons.y),
-   "target bar starts above the HP/MP/EP/WP row",
-   ("target y %s, hp y %s"):format(
-      tostring(mock.widgets["emunah.target"].cons.y), tostring(mock.widgets["emunah.gauge.hp"].cons.y)))
+-- THE PREVIOUS UI'S WIDGETS. Mudlet keeps them by name; echo() finds a mini-console before a
+-- label of the same name, which printed the new panels' rich text as raw HTML into the old
+-- consoles. The new panels use names no console ever had, and the old ones are hidden.
+for _, name in ipairs(emunah.ui.layout.LEGACY) do
+   ok(mock.hiddenWindows[name], "the previous UI's " .. name .. " is hidden on build")
+   ok(not (mock.widgets[name] and mock.widgets[name].kind == "label" and name:find("afflictions")),
+      "...and no new label reuses its name")
+end
+eq(mock.widgets["emunah.panel.afflictions"].kind, "label", "the afflictions panel is a label of its own name")
+
+-- EVERY ITEM IN THE ROOM IS SHOWN ("we need to see all data in every window"). The column is
+-- sized to its content: a crowded room gets the height its rows need, all of them drawn.
+do
+   local layout = emunah.ui.layout
+   local items = {}
+   for index = 1, 30 do
+      items[index] = { id = tostring(9000 + index), name = "a trinket number " .. index, attrib = "t" }
+   end
+   mock.feed("Char.Items.List", { location = "room", items = items })
+   mock.advance(0); mock.advance(0)
+   local text = tostring(mock.widgets["emunah.room"].contents)
+   ok(text:find("trinket number 1\n", 1, true) and text:find("trinket number 30", 1, true),
+      "every item in a crowded room is drawn")
+   local room = mock.widgets["emunah.section.room"]
+   local lines = select(2, text:gsub("\n", ""))
+   ok(room.cons.height >= layout.HEADER_PX + lines * layout.lineHeight(),
+      "...and the room section is tall enough to show every line of it",
+      ("%d px for %d lines"):format(room.cons.height, lines))
+   ok(not mock.widgets["emunah.room"].scrollBar, "...without needing a scrollbar")
+
+   -- Far more than fits: defences go to three columns, items two to a line, and the room
+   -- scrolls -- nothing is cut off silently.
+   for index = 31, 160 do
+      items[index] = { id = tostring(9000 + index), name = "a trinket number " .. index, attrib = "t" }
+   end
+   mock.feed("Char.Items.List", { location = "room", items = items })
+   for _ = 1, 4 do mock.advance(0) end
+   eq(layout.compact("defences"), 2, "an overflowing column puts the defences in three columns")
+   eq(layout.compact("room"), 2, "...then the room's items two to a line")
+   ok(mock.widgets["emunah.room"].scrollBar, "...and, when even that is too much, the room scrolls")
+   ok(tostring(mock.widgets["emunah.room"].contents):find("trinket number 160", 1, true),
+      "...with every item still in it")
+
+   mock.feed("Char.Items.List", { location = "room", items = {} })
+   for _ = 1, 4 do mock.advance(0) end
+   eq(layout.compact("room"), 1, "an emptied room goes back to one item per line")
+   ok(not mock.widgets["emunah.room"].scrollBar, "...and drops its scrollbar")
+end
+
+-- The HUD's rows hang from the BOTTOM edge of the strip, so the balance row is the one right
+-- above Mudlet's command line ("a large gap between where I type and the bal/eq/herb/salve"
+-- row, reported from play, when they hung from the top). Negative y is Geyser's "from the
+-- bottom": a larger offset is higher up.
+do
+   local function fromBottom(widget) return tonumber(tostring(widget.cons.y):match("^%-(%d+)px$")) end
+   local target, hp, balances = fromBottom(mock.widgets["emunah.target"]),
+      fromBottom(mock.widgets["emunah.gauge.hp"]), fromBottom(mock.widgets["emunah.balances"])
+   ok(target and hp and balances, "every HUD row is placed from the bottom edge",
+      ("target %s, hp %s, balances %s"):format(tostring(target), tostring(hp), tostring(balances)))
+   ok(target > hp and hp > balances, "target above resources above balances")
+   ok(balances <= 30, "...and the balance row sits right at the bottom, on the command line", balances)
+end
 
 -- The map: bottom-right, positioned on the Geyser ROOT rather than in a container.
 local mapWidget = mock.widgets["emunah.map"]
@@ -6313,7 +6375,7 @@ engine.clear()
 engine.add("paralysis", "gmcp")
 engine.add("anorexia", "trigger")
 ok(pcall(emunah.ui.affpanel.update), "affliction panel renders tracked afflictions")
-ok(tostring(mock.widgets["emunah.afflictions"].contents):find("paralysis"),
+ok(tostring(mock.widgets["emunah.panel.afflictions"].contents):find("paralysis"),
    "affliction panel shows the affliction")
 
 -- Blindness/deafness held on purpose (blind/deaf under keep-up) is not something to cure --
@@ -6322,9 +6384,9 @@ ok(tostring(mock.widgets["emunah.afflictions"].contents):find("paralysis"),
 emunah.curing.defkeepup.setMode("blind", "keepup")
 engine.add("blindness", "gmcp")
 ok(pcall(emunah.ui.affpanel.update), "affliction panel renders with a deliberate blindness")
-ok(not tostring(mock.widgets["emunah.afflictions"].contents):find("blindness"),
+ok(not tostring(mock.widgets["emunah.panel.afflictions"].contents):find("blindness"),
    "deliberately-held blindness is not shown as an affliction to cure")
-ok(tostring(mock.widgets["emunah.afflictions"].contents):find("paralysis"),
+ok(tostring(mock.widgets["emunah.panel.afflictions"].contents):find("paralysis"),
    "a real affliction is still shown alongside a deliberately-held one")
 emunah.curing.defkeepup.setMode("blind", nil)
 engine.remove("blindness")
@@ -6371,7 +6433,7 @@ mock.feed("Char.Items.List", {
 })
 mock.advance(0)
 local withItems = tostring(mock.widgets["emunah.room"].contents)
-ok(withItems:find("items"), "room panel has an items section")
+ok(withItems:find("ITEMS"), "room panel has an items section")
 ok(withItems:find("Vellis"), "room panel lists a creature in the room")
 ok(withItems:find("silky white fern"), "room panel lists a takeable item")
 ok(withItems:find("logosmas stocking"), "room panel lists a container")
@@ -6546,7 +6608,7 @@ do
    mock.advance(0)
    ok(drawn.draw + drawn.value > 0, "the panels paint once the packet has been handled")
    eq(painted, 1, "two afflictions in one packet paint the affliction panel once, not twice")
-   ok(tostring(mock.widgets["emunah.afflictions"].contents):find("paralysis"),
+   ok(tostring(mock.widgets["emunah.panel.afflictions"].contents):find("paralysis"),
       "...and it shows them")
 
    emunah.ui.affpanel.update = realUpdate
@@ -6568,7 +6630,7 @@ do
       { id = "8", name = "an epidermal salve", attrib = "" },
    } })
    mock.feed("IRE.Rift.List", {})
-   local function affs() mock.advance(0) return tostring(mock.widgets["emunah.afflictions"].contents) end
+   local function affs() mock.advance(0) return tostring(mock.widgets["emunah.panel.afflictions"].contents) end
    local function strip() mock.advance(0) return tostring(mock.widgets["emunah.balances"].contents) end
    local function header() return tostring(mock.widgets["emunah.header.afflictions"].contents) end
 

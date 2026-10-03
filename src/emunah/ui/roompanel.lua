@@ -30,12 +30,16 @@ local function available()
    return layout.container("left") ~= nil and type(Geyser) == "table"
 end
 
+--- Characters per line in the room console.
+M.WRAP = 44
+
 function M.build()
    if not available() then return false end
    local spec = layout.leftSection("room")
    local section = layout.section(layout.container("left"), {
       key = spec.key, title = spec.title, y = spec.y, height = spec.height,
-      body = "console", cons = { fontSize = theme.font.small, wrapAt = 44 },
+      body = "console", cons = { fontSize = theme.font.small, wrapAt = M.WRAP },
+      refresh = function() M.update() end,
    })
    if not section then return false end
    M.widgets.room, M.widgets.header = section.body, section.header
@@ -164,9 +168,23 @@ function M.forgetPainted()
    lastSignature = nil
 end
 
---- A dim heading inside the panel, with a count.
-local function heading(label, count)
-   plain(string.format("\n%s%s %s%d\n", theme.dc("textDim"), label, theme.dc("border"), count))
+--- Characters on screen, not bytes: "×" and "▪" are two and three bytes of UTF-8.
+local function displayWidth(text)
+   local n = 0
+   for _ in tostring(text):gmatch("[^\128-\191]") do n = n + 1 end
+   return n
+end
+
+--- A heading inside the panel: the label in its own colour and capitals, the count, and a
+--- rule to the edge. People, mobiles and items have to read as three different things at a
+--- glance -- reported from play that items and mobiles were not clear apart -- so each gets
+--- its own colour here and its own mark on every row below it.
+local RULE = string.rep("\226\148\128", 40)   -- "─"
+
+local function heading(label, count, colourName)
+   plain(string.format("\n%s%s %s%d %s%s\n",
+      theme.dc(colourName or "textDim"), label, theme.dc("textBright"), count,
+      theme.dc("border"), RULE:sub(1, 3 * math.max(2, 28 - #label - #tostring(count)))))
 end
 
 function M.update()
@@ -175,6 +193,7 @@ function M.update()
    if not console or not room then return end
 
    segmentCount = 0
+   local singleRows, pairedRows = 0, 0
 
    layout.header("room", M.widgets.header, "Room", room.area or "", "textDim")
 
@@ -205,7 +224,7 @@ function M.update()
    -- would have captured nil.
    local players = room.playerShortNames()
    if #players > 0 then
-      heading("people", #players)
+      heading("PEOPLE", #players, "warning")
       local names = emunah.ui.names
       local parts = {}
       for _, name in ipairs(players) do
@@ -229,10 +248,10 @@ function M.update()
          end
       end
 
-      -- Denizens one row each, never grouped: each row is its own click target, and the
+      -- Mobiles one row each, never grouped: each row is its own click target, and the
       -- wanted mark is per name.
       if #denizens > 0 then
-         heading("denizens", #denizens)
+         heading("MOBILES", #denizens, "affliction")
          for _, item in ipairs(denizens) do
             M.queueDenizen(item.name, theme.dc("affliction"))
          end
@@ -241,7 +260,7 @@ function M.update()
       -- Everything else grouped by name, in first-seen order. Colour by what the item IS:
       -- corpses and containers are what you are about to loot.
       if #loot > 0 then
-         heading("items", #loot)
+         heading("ITEMS", #loot, "experience")
          local order, groups = {}, {}
          for _, entry in ipairs(loot) do
             local name = trimArticle(entry.item.name)
@@ -253,7 +272,12 @@ function M.update()
             end
             group.count = group.count + 1
          end
-         for _, group in ipairs(order) do
+         -- Two to a line when the left column is short of room (layout.reflow()) -- but only
+         -- two that each fit in half a line. A longer name takes a line of its own: cutting
+         -- it short would hide exactly what this is for.
+         local half = math.floor(M.WRAP / 2) - 4
+         local cells, widths = {}, {}
+         for index, group in ipairs(order) do
             local attrib = group.attrib
             local colour = theme.dc("text")
             if attrib.dead then
@@ -263,11 +287,49 @@ function M.update()
             elseif attrib.takeable then
                colour = theme.dc("defence")
             end
-            local times = group.count > 1
-               and string.format("%s%d\195\151 ", theme.dc("textDim"), group.count) or ""
-            plain(string.format("  %s%s%s\n", times, colour, group.name))
+            local text = (group.count > 1 and (group.count .. "\195\151 ") or "") .. group.name
+            -- A square for a thing, where a mobile has a dot.
+            cells[index] = string.format("  %s\226\150\170 %s%s", theme.dc("border"), colour, text)
+            widths[index] = displayWidth(text)
+         end
+
+         -- Which items share a line, two-up: consecutive pairs where both fit.
+         local function rows(twoUp)
+            local out, index = {}, 1
+            while index <= #cells do
+               if twoUp and cells[index + 1] and widths[index] <= half and widths[index + 1] <= half then
+                  out[#out + 1] = { index, index + 1 }
+                  index = index + 2
+               else
+                  out[#out + 1] = { index }
+                  index = index + 1
+               end
+            end
+            return out
+         end
+
+         singleRows, pairedRows = #cells, #rows(true)
+         for _, row in ipairs(rows(layout.compact("room") >= 2)) do
+            if row[2] then
+               plain(cells[row[1]] .. string.rep(" ", half + 2 - widths[row[1]]) .. cells[row[2]] .. "\n")
+            else
+               plain(cells[row[1]] .. "\n")
+            end
          end
       end
+   end
+
+   -- Report the lines this takes, both ways, so the column can be sized to show all of it.
+   local lines = 0
+   for index = 1, segmentCount do
+      local segment = segments[index]
+      local text = type(segment) == "table" and segment.text or segment
+      for _ in text:gmatch("\n") do lines = lines + 1 end
+   end
+   if layout.compact("room") >= 2 then
+      layout.need("room", { lines - pairedRows + singleRows, lines })
+   else
+      layout.need("room", { lines, lines - singleRows + pairedRows })
    end
 
    -- Nothing on screen would change, so nothing is drawn. See the note above `segments`.
