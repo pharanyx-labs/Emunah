@@ -6140,35 +6140,38 @@ ok(table.concat(mock.echoed, " "):find("Rebuilding the chat console"),
    "a second, later console failure also self-heals instead of being silently dropped",
    table.concat(mock.echoed, " "))
 
--- Panel placement. Room/items own the top of the left column, afflictions the bottom;
--- chat owns the top of the right column, defences the bottom; vitals (and the target bar)
--- own the bottom strip. Asserting the parent container of each catches a panel built into
+-- Panel placement. Everything about you is in the left column, as three titled sections --
+-- room, afflictions, defences, top to bottom; chat owns the right column above the map; the
+-- combat HUD owns the bottom strip. Asserting the parent of each catches a panel built into
 -- the wrong region, which is invisible in a headless test but glaring on screen.
 local function parentName(widget)
    return widget and widget.parent and widget.parent.name or "?"
 end
-eq(parentName(mock.widgets["emunah.room"]), "emunah.left", "room panel is in the left column")
-eq(parentName(mock.widgets["emunah.afflictions"]), "emunah.left", "afflictions are in the left column")
-eq(parentName(mock.widgets["emunah.defences"]), "emunah.right", "defences are in the right column")
+for _, key in ipairs({ "room", "afflictions", "defences" }) do
+   local body = mock.widgets["emunah." .. key]
+   eq(parentName(body), "emunah.section." .. key, key .. " is drawn inside its own section")
+   eq(parentName(body and body.parent), "emunah.left", "...which is in the left column")
+   ok(mock.widgets["emunah.header." .. key] ~= nil, "...under a title bar")
+end
 eq(parentName(mock.widgets["emunah.gauge.hp"]), "emunah.bottom", "vitals are in the bottom strip")
 eq(parentName(mock.widgets["emunah.target"]), "emunah.bottom", "target bar is in the bottom strip")
+eq(parentName(mock.widgets["emunah.balances"]), "emunah.bottom", "the balance strip is in the bottom strip")
 
--- Chat sits above defences inside the shared right column.
 local chatWidget = mock.widgets["emunah.chat.plain"] or mock.widgets["emunah.chat"]
 eq(parentName(chatWidget), "emunah.right", "chat is in the right column")
 local function pct(value)
    return tonumber(tostring(value):match("^(%d+)%%")) or 0
 end
-ok(pct(mock.widgets["emunah.defences"].cons.y) > pct(chatWidget.cons.height),
-   "defences start below the chat console",
-   ("chat height %s, defences y %s"):format(
-      tostring(chatWidget.cons.height), tostring(mock.widgets["emunah.defences"].cons.y)))
 
--- Room panel sits above afflictions inside the shared left column.
-ok(pct(mock.widgets["emunah.afflictions"].cons.y) > pct(mock.widgets["emunah.room"].cons.height),
-   "afflictions start below the room panel",
-   ("room height %s, afflictions y %s"):format(
-      tostring(mock.widgets["emunah.room"].cons.height), tostring(mock.widgets["emunah.afflictions"].cons.y)))
+-- The sections stack without overlapping and fill the column.
+local sectionEnd = emunah.ui.layout.LEFT_SECTIONS[1].y
+ok(sectionEnd > 0, "the first section clears the container's own title")
+for _, spec in ipairs(emunah.ui.layout.LEFT_SECTIONS) do
+   local box = mock.widgets["emunah.section." .. spec.key]
+   eq(pct(box.cons.y), sectionEnd, spec.key .. " starts where the section above it ends")
+   sectionEnd = pct(box.cons.y) + pct(box.cons.height)
+end
+eq(sectionEnd, 100, "...and together they fill the left column")
 
 -- Target bar sits above the resource gauges inside the shared bottom strip.
 ok(tonumber(mock.widgets["emunah.target"].cons.y) < tonumber(mock.widgets["emunah.gauge.hp"].cons.y),
@@ -6247,10 +6250,16 @@ ok(tostring(hpGauge.value.text):find("2,500"), "health gauge formats with separa
 -- A fractional nl must not blow up string.format("%d").
 ok(mock.widgets["emunah.gauge.xp"].value ~= nil, "xp gauge handles a fractional percentage")
 
--- Abbreviated: the vitals strip is wide but only ~20px tall per row.
-eq(mock.widgets["emunah.balance"].contents, "BAL", "balance light rendered")
-eq(mock.widgets["emunah.equilibrium"].contents, "EQ", "equilibrium light rendered")
-ok(mock.widgets["emunah.stats"].contents ~= nil, "charstats block rendered")
+-- The balance strip: bal and eq, then every curing balance, one cell each.
+do
+   local strip = tostring(mock.widgets["emunah.balances"].contents)
+   ok(strip:find("BAL", 1, true) and strip:find("EQ", 1, true), "balance strip shows BAL and EQ", strip)
+   for _, label in ipairs({ "HERB", "SALVE", "SIP", "PURG", "SMOKE", "FOCUS", "MOSS", "TREE" }) do
+      ok(strip:find(label, 1, true), "...and the " .. label .. " balance")
+   end
+end
+ok(tostring(mock.widgets["emunah.stats"].contents):find("Kai", 1, true), "charstats block rendered")
+ok(tostring(mock.widgets["emunah.status"].contents):find("CURE", 1, true), "status pills rendered")
 
 -- Target gauge with a fractional health percentage.
 mock.feed("IRE.Target.Set", "1234")
@@ -6419,9 +6428,9 @@ do
    emunah.ui.theme.forgetPainted()
    local drawn = mock.countDraws()
    emunah.ui.affpanel.update()
-   eq(drawn.draw, 2, "the affliction panel draws once per console, whatever the row count",
+   eq(drawn.draw, 4, "afflictions and defences draw once each, title bars included, whatever the row count",
       drawn.draw)
-   eq(drawn.clear, 2, "...and clears once per console")
+   eq(drawn.clear, 0, "...and a rich-text label is replaced, never cleared first")
 
    drawn = mock.countDraws()
    emunah.ui.affpanel.update()
@@ -6445,15 +6454,16 @@ do
    local drawn = mock.countDraws()
    mock.feed("Char.Vitals", { hp = "2400", maxhp = "4000", bal = "1", eq = "1" })
    mock.advance(0)
-   eq(drawn.style, 0, "an unchanged balance light is not restyled on the next prompt")
-   ok(drawn.value > 0, "...while the gauges, which did change, are updated")
+   eq(drawn.style, 0, "nothing is restyled on an ordinary prompt")
+   eq(drawn.draw, 0, "...the balance strip, status and stats, unchanged, are not redrawn")
+   eq(drawn.value, 1, "...and only the gauge that changed is updated")
 
-   -- ...and a light that DOES change is restyled.
+   -- ...and a balance that DOES change redraws the strip, once.
    drawn = mock.countDraws()
    mock.feed("Char.Vitals", { hp = "2400", maxhp = "4000", bal = "0", eq = "1" })
    mock.advance(0)
-   eq(drawn.style, 1, "losing balance restyles exactly that one light")
-   eq(mock.widgets["emunah.balance"].contents, "BAL", "...and it still says BAL")
+   eq(drawn.draw, 1, "losing balance redraws the balance strip and nothing else")
+   ok(tostring(mock.widgets["emunah.balances"].contents):find("BAL", 1, true), "...and it still says BAL")
 
    -- A cure timer lapsing must refresh the vector lights and NOTHING ELSE. This used to
    -- redraw the whole strip -- four gauges, the XP gauge, both lights, the class stats --
@@ -6462,7 +6472,7 @@ do
    emunah.event.raise("timer.expired", "cure.herb")
    mock.advance(0)
    eq(drawn.value, 0, "a lapsing cure timer does not touch the resource gauges")
-   eq(drawn.style, 0, "...nor restyle the balance lights")
+   eq(drawn.style, 0, "...nor restyle anything")
 end
 
 do
@@ -6508,6 +6518,91 @@ do
    emunah.ui.affpanel.update = realUpdate
    engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
    engine.enabled = wasEnabled
+   mock.advance(0)
+end
+
+do
+   -- WHAT THE PANELS SAY. The afflictions panel answers "what is being done about it", the
+   -- balance strip "what can go out", the status line "what is switched on and in flight".
+   engine = emunah.curing.engine
+   local wasEnabled = engine.enabled
+   engine.enabled = true
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "2", name = "a bloodroot leaf", attrib = "e" },
+      { id = "8", name = "an epidermal salve", attrib = "" },
+   } })
+   mock.feed("IRE.Rift.List", {})
+   local function affs() mock.advance(0) return tostring(mock.widgets["emunah.afflictions"].contents) end
+   local function strip() mock.advance(0) return tostring(mock.widgets["emunah.balances"].contents) end
+   local function header() return tostring(mock.widgets["emunah.header.afflictions"].contents) end
+
+   ok(affs():find("clear", 1, true), "no afflictions reads as clear")
+
+   -- Anorexia: the salve goes out at once, so its row reads `curing`, and it shuts eating.
+   engine.add("anorexia", "trigger")
+   engine.add("asthma", "trigger")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   local text = affs()
+   ok(text:find("anorexia", 1, true) and text:find("epidermal", 1, true),
+      "a row names the affliction and what cures it", text)
+   ok(text:find("curing", 1, true), "...and says it is being cured once the cure is in flight", text)
+   ok(text:find("&#10005; anorexia", 1, true), "asthma's kelp reads as locked by anorexia", text)
+   ok(text:find("shuts herb", 1, true), "the lock line names what anorexia shuts", text)
+   ok(header():find("2", 1, true), "the title bar counts them", header())
+
+   local bar = strip()
+   ok(bar:find("SALVE &#8250;", 1, true), "the salve cell shows a command in flight", bar)
+   ok(bar:find("HERB &#10005;", 1, true), "the herb cell shows locked", bar)
+
+   -- The salve answered: recovering, with the seconds left.
+   emunah.queue.confirm("salve")
+   emunah.have.spend("salve")
+   bar = strip()
+   ok(bar:find("SALVE %d%.%d"), "a recovering balance shows its seconds left", bar)
+
+   -- Paralysis holds every vector but eating (queue.WHILE_PARALYSED), and the panel says so:
+   -- it used to show a salve as `next` that the queue would never send.
+   engine.add("paralysis", "trigger")
+   bar = strip()
+   ok(bar:find("SALVE &#10005;", 1, true) and bar:find("FOCUS &#10005;", 1, true),
+      "under paralysis the salve and focus cells read locked", bar)
+   ok(affs():find("paralysis</span><span", 1, true) or affs():find("shuts salve", 1, true),
+      "...and the lock line names what paralysis shuts", affs())
+
+   -- A refusal reason is shown rather than leaving the row looking hung.
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = "10" } })
+   engine.add("paralysis", "trigger")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(affs():find("in the rift", 1, true), "a refused cure says why", affs())
+
+   -- Status: what is on, and what is in flight.
+   local status = tostring(mock.widgets["emunah.status"].contents)
+   ok(status:find("CURE", 1, true), "the status line shows curing", status)
+
+   -- The clock runs while something counts down, and stops when nothing does.
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   emunah.have.spend("herb")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   mock.advance(0)
+   ok(emunah._persist.uiClock ~= nil, "a recovering balance starts the countdown clock")
+   emunah.timers.stopAll()
+   mock.advance(1)
+   eq(emunah._persist.uiClock, nil, "...which stops once nothing is counting")
+
+   -- The resource gauges carry the change since the last prompt.
+   mock.feed("Char.Vitals", { hp = "900", maxhp = "1000", bal = "1", eq = "1" })
+   mock.advance(0)
+   ok(tostring(mock.widgets["emunah.gauge.hp"].value.text):find("&#9660;100", 1, true),
+      "damage since the last prompt is shown on the health gauge",
+      mock.widgets["emunah.gauge.hp"].value.text)
+
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   engine.enabled = wasEnabled
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
    mock.advance(0)
 end
 
@@ -10055,14 +10150,16 @@ suite("ui/echo.lua: combatEcho, oecho, createLineGradient, eventLabel")
    echo.clearEventLabel("short")
    echo.clearEventLabel("long")
 
-   -- Centred on the game console (between the left afflictions panel and the right
-   -- chat/room panel, 17%/26% of the 1920px mock window), not on the window as a whole --
-   -- otherwise the banner sits visibly right of the text it is meant to be sitting over,
-   -- since the right panel is wider than the left one.
+   -- Centred on the game console (between the left and right columns of the 1920px mock
+   -- window), not on the window as a whole -- otherwise the banner sits visibly right of the
+   -- text it is meant to be sitting over, since the right column is wider than the left.
    echo.eventLabel("centred", "** PAUSED **")
    local w = mock.widgets["emunah.eventlabel.centred"]
    local labelCentre = w.cons.x + w.cons.width / 2
-   ok(math.abs(labelCentre - 873.6) < 2,
+   local layout = emunah.ui.layout
+   local consoleCentre = 1920 * (layout.percentOf(layout.WIDTH_LEFT)
+      + 100 - layout.percentOf(layout.WIDTH_RIGHT)) / 200
+   ok(math.abs(labelCentre - consoleCentre) < 2,
       "eventLabel is centred on the console gap, not the full window", labelCentre)
    ok(math.abs(labelCentre - 960) > 50,
       "...which is measurably off the window's own centre", labelCentre)

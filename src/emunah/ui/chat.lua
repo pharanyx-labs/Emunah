@@ -47,9 +47,8 @@ local function available()
    return layout.container("right") ~= nil and type(Geyser) == "table"
 end
 
---- Chat occupies the TOP of the right-hand column; ui/affpanel.lua's defences console
---- takes the bottom half below layout.CHAT_SPLIT. Both read that constant so the two
---- cannot drift into overlapping each other.
+--- Chat owns the whole right-hand container, above the map. Defences used to take its
+--- bottom half; they moved to the left column, with everything else about you.
 function M.build()
    if not available() then
       M.mode = "none"
@@ -61,7 +60,7 @@ function M.build()
    -- the console's first line sat under the container's own title bar. Reported from play
    -- (same fix as ui/roompanel.lua's room console, for the same reason).
    local TOP_MARGIN = 3
-   local height = string.format("%d%%", layout.percentOf(layout.CHAT_SPLIT) - 1 - TOP_MARGIN)
+   local height = "-4px"
 
    -- The all-tab has to be a real member of `consoles`. EMCO:setAllTabName() rejects any
    -- name that is not already in the list, and the object then ends up with an allTabName

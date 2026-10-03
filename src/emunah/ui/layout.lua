@@ -23,41 +23,68 @@ local theme = emunah.ui.theme
 ---
 --- Layout:
 ---
----   +----------+---------------------------+-------------+
----   |          |     CHYRON (console width | only)       |
----   | room/    |---------------------------+-------------+
----   | items    |                           | CHAT (top)  |
----   | -------- |      main game console    |  ---------  |
----   | affs     |                           |  defences   |
----   |          |                           |             |
----   |          |                           |  MAP        |
----   +----------+---------------------------+-------------+
----   |  target health bar (full width)                     |
----   |  HP  MP  EP  WP                                      |
----   |  BAL EQ  vectors  XP  class stats                    |
----   +-----------------------------------------------------+
+---   +------------+---------------------------+-------------+
+---   | ROOM       |  chyron (console width)   |             |
+---   |  name/area |---------------------------+   CHAT      |
+---   |  exits     |                           |   (tabs)    |
+---   |  players   |                           |             |
+---   |  denizens  |     main game console     |-------------|
+---   |  items     |                           |             |
+---   |------------|                           |   MAP       |
+---   | AFFLICTIONS|                           |             |
+---   |  cure plan |                           |             |
+---   |------------|                           |             |
+---   | DEFENCES   |                           |             |
+---   +------------+---------------------------+-------------+
+---   | TARGET ======== health ========  | status pills, in flight  |
+---   | HP ====  | MP ====  | EP ====  | WP ====                     |
+---   | BAL EQ | HERB SALVE SIP PURG SMOKE FOCUS MOSS TREE | XP | stats|
+---   +---------------------------------------------------------------+
 ---
---- The vitals strip is deliberately the full width at the very bottom, so it sits
---- directly under the last line of game text -- i.e. immediately above the prompt, where
---- you are already looking during a fight. Health you have to glance away for is health
---- you notice too late. The target's own health belongs in that same eyeline, not tucked
---- into a side column, so it lives there too as the top row of the same strip -- see
---- ui/vitals.lua.
+--- Everything about YOU is in one column: where you are, what is wrong, what is up. The
+--- other side is everyone else: chat and the map. The combat HUD is the full width at the
+--- very bottom, directly under the last line of game text -- immediately above the prompt,
+--- where you are already looking during a fight. Health you have to glance away for is
+--- health you notice too late. The target's own health belongs in that same eyeline.
 ---
---- The chyron is the opposite of the vitals strip on purpose: scoped to the console's own
---- width rather than the full window, because it sits directly above the room/chat columns
---- and running it under them would either overlap their own top edge or read as wider than
---- the announcement it is carrying warrants. See ui/chyron.lua.
-M.WIDTH_LEFT    = "17%"
+--- The chyron is scoped to the console's own width rather than the full window, because it
+--- sits directly above the side columns' own content. See ui/chyron.lua.
+M.WIDTH_LEFT    = "19%"
 M.WIDTH_RIGHT   = "26%"
---- Tall enough for three rows now: target bar, resource gauges, balance/stats. A little
---- taller than the three rows strictly need (16% vs. ~13%), so the whole strip -- and the
---- target bar sitting at its top -- clears the game console's own input line above it.
-M.HEIGHT_BOTTOM = "16%"
+--- The combat HUD's share of the window: three rows of ~22px with gaps, which is 11% of a
+--- 1080px window -- and not enough of a 768px one, where the balance row was cut off. So it
+--- is whichever is larger, 11% or what the rows need in pixels. M.fit() recomputes it from
+--- the window as it is now; every consumer reads M.HEIGHT_BOTTOM after that.
+M.HUD_PX = 98
+M.HEIGHT_BOTTOM = "11%"
+
+function M.fit()
+   local _, height = getMainWindowSize()
+   local pct = 11
+   if tonumber(height) and height > 0 then
+      pct = math.max(pct, math.ceil(M.HUD_PX * 100 / height))
+   end
+   M.HEIGHT_BOTTOM = string.format("%d%%", pct)
+   return M.HEIGHT_BOTTOM
+end
 --- One line plus padding for the scrolling chyron. Reserved like HEIGHT_BOTTOM is -- it
---- pushes the console down rather than floating over its top line of text, the same
---- reasoning the bottom strip already follows.
+--- pushes the console down rather than floating over its top line of text.
 M.HEIGHT_TOP    = "5%"
+
+--- The left column's three sections, top to bottom, as percentages OF THAT COLUMN. Room
+--- gets the most: it is the only one whose length the game decides (a crowded room, a pile
+--- of loot). Afflictions next, because it is what changes in a fight.
+---
+--- They start 3% down, under the container's own title: content right against the top edge
+--- sat beneath that title (reported from play, and the same margin ui/chat.lua keeps).
+M.LEFT_SECTIONS = {
+   { key = "room",        title = "Room",        y = 3,  height = 39 },
+   { key = "afflictions", title = "Afflictions", y = 42, height = 31 },
+   { key = "defences",    title = "Defences",    y = 73, height = 27 },
+}
+
+--- Height of a section's title bar, in pixels.
+M.HEADER_PX = 20
 
 --- Default height of the map region, as a percentage of the whole window.
 --- Overridable at runtime with `emunah ui map height <n>`.
@@ -76,10 +103,6 @@ function M.mapHeightPct()
    return math.floor(pct)
 end
 
---- Where the chat console ends inside the right-hand container, as a percentage OF THAT
---- CONTAINER. Chat above, defences below.
-M.CHAT_SPLIT = "57%"
-
 --- THE MAP IS NOT IN A CONTAINER, AND THAT IS DELIBERATE
 --- ----------------------------------------------------
 --- createMapper() draws a native widget at absolute window coordinates. It is not a Qt
@@ -92,7 +115,7 @@ M.CHAT_SPLIT = "57%"
 --- So the right-hand container stops above the map region, and ui/map.lua positions the
 --- map on the Geyser root in the gap. Nothing overlaps it, so nothing can hide it.
 ---
----   right container   0            -> rightHeight()   chat + room/items/target
+---   right container   0            -> rightHeight()   chat
 ---   map region        rightHeight()-> 100 - BOTTOM    (Geyser root, no container)
 ---   vitals strip      100 - BOTTOM -> 100
 
@@ -143,6 +166,7 @@ function M.build()
       return false
    end
 
+   M.fit()
    local removed = teardown()
    if removed > 0 then
       log.debug("Removed %d container(s) from the previous load.", removed)
@@ -212,7 +236,7 @@ function M.build()
 
    make("emunah.left", {
       x = 0, y = 0, width = M.WIDTH_LEFT, height = columnHeight,
-      titleText = "Room Data",
+      titleText = "Situation",
    })
 
    -- Stops above the map region so the container's background label cannot paint over it.
@@ -223,7 +247,7 @@ function M.build()
 
    make("emunah.bottom", {
       x = 0, y = "-" .. M.HEIGHT_BOTTOM, width = "100%", height = M.HEIGHT_BOTTOM,
-      titleText = "Vitals",
+      titleText = "Combat",
    })
 
    emunah._persist.uiContainers = M.containers
@@ -262,6 +286,65 @@ function M.clearConsoleBorders()
    setBorderRight(0)
    setBorderBottom(0)
    setBorderTop(0)
+end
+
+--- A titled section: a Geyser.Container holding a header bar and a body below it.
+---
+--- Every panel in the left column is one of these, so they share one look -- the same bar,
+--- the same rule under it, the same padding -- and a panel only decides what goes IN it.
+--- @param parent table the Adjustable.Container to build in
+--- @param spec table { key, title, y, height (percent of parent), body = "label"|"console",
+---   cons = extra MiniConsole fields }
+--- @return table|nil { box, header, body }
+function M.section(parent, spec)
+   if not parent then return nil end
+   local box = Geyser.Container:new({
+      name = "emunah.section." .. spec.key,
+      x = 4, y = string.format("%d%%", spec.y),
+      width = "-8px", height = string.format("%d%%", spec.height),
+   }, parent)
+
+   local header = Geyser.Label:new({
+      name = "emunah.header." .. spec.key,
+      x = 0, y = 2, width = "100%", height = M.HEADER_PX,
+   }, box)
+   header:setStyleSheet(theme.headerStyle())
+
+   local body
+   if spec.body == "console" then
+      local cons = {
+         name = "emunah." .. spec.key,
+         x = 0, y = M.HEADER_PX + 2, width = "100%", height = "-4px",
+      }
+      for key, value in pairs(spec.cons or {}) do cons[key] = value end
+      body = Geyser.MiniConsole:new(theme.consoleCons(cons), box)
+   else
+      body = Geyser.Label:new({
+         name = "emunah." .. spec.key,
+         x = 0, y = M.HEADER_PX + 2, width = "100%", height = "-4px",
+      }, box)
+      body:setStyleSheet(theme.bodyStyle())
+   end
+
+   -- New, empty widgets: whatever the paint caches say describes the ones they replaced.
+   theme.forgetPainted("header." .. spec.key)
+   theme.forgetPainted("body." .. spec.key)
+   M.header(spec.key, header, spec.title)
+
+   return { box = box, header = header, body = body }
+end
+
+--- Set a section's title bar. Drawn only when it changes.
+function M.header(key, header, title, summary, summaryColour)
+   return theme.paintLabel(header, "header." .. key, theme.headerHTML(title, summary, summaryColour))
+end
+
+--- The spec for one of the left column's sections, by key.
+function M.leftSection(key)
+   for _, spec in ipairs(M.LEFT_SECTIONS) do
+      if spec.key == key then return spec end
+   end
+   return nil
 end
 
 --- Fetch a container by short name ("left", "right", "bottom"). Panels use this rather

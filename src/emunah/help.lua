@@ -226,6 +226,9 @@ M.settings = {
   detail = "Detaches the map into its own window. `emset ui rebuild` after changing it." },
 { key = "ui.chatTabs", default = "Tells, City, House, Market, Says, Misc", type = "list",
   topic = "interface", shipped = true },
+{ key = "ui.refresh", default = 0.2, type = "number", unit = "s", topic = "interface",
+  shipped = true, detail = "How often balance countdowns redraw while one is running. "
+       .. "0 turns the live countdowns off." },
 
 -- curing
 { key = "curing.enabled", default = false, type = "boolean", topic = "curing", shipped = true,

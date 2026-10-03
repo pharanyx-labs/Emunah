@@ -136,7 +136,7 @@ yours so Emunah does not wake you out of it).
 <table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>curing.enabled</code></td><td>false</td><td>Off by default, deliberately. Curing is opt-in.</td></tr>
 <tr><td><code>curing.method</code></td><td>herbs</td><td>herbs or minerals. Changes which item every cure resolves to.</td></tr>
-<tr><td><code>curing.confirmWait</code></td><td>2.0 s</td><td>How long a sent cure holds its vector waiting for the game to confirm it, before the vector is re-armed.</td></tr>
+<tr><td><code>curing.confirmWait</code></td><td>2 s</td><td>How long a sent cure holds its vector waiting for the game to confirm it, before the vector is re-armed.</td></tr>
 <tr><td><code>curing.reconcileEvery</code></td><td>20 ticks</td><td>How often the tracked list is reconciled against Char.Afflictions wholesale.</td></tr>
 <tr><td><code>curing.healthThreshold</code></td><td>80 %</td><td>Sip health below this.</td></tr>
 <tr><td><code>curing.manaThreshold</code></td><td>85 %</td><td></td></tr>
@@ -146,8 +146,8 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>curing.diag</code></td><td>true</td><td>Send DIAG when the affliction list is in doubt -- which is what answers <code>loki</code>, the one affliction GMCP does not report honestly.</td></tr>
 <tr><td><code>curing.clotThreshold</code></td><td>30</td><td>Bleeding above this is clotted.</td></tr>
 <tr><td><code>curing.focusGuilt</code></td><td>false</td><td></td></tr>
-<tr><td><code>curing.elixirConfirm</code></td><td>7.0 s</td><td></td></tr>
-<tr><td><code>curing.mossConfirm</code></td><td>9.0 s</td><td></td></tr>
+<tr><td><code>curing.elixirConfirm</code></td><td>7 s</td><td></td></tr>
+<tr><td><code>curing.mossConfirm</code></td><td>9 s</td><td></td></tr>
 <tr><td><code>curing.riftConfirm</code></td><td>1.5 s</td><td></td></tr>
 <tr><td><code>curing.restock</code></td><td>true</td><td>Pull consumables out of the rift as they run low.</td></tr>
 <tr><td><code>curing.restockEvery</code></td><td>1 ticks</td><td>Every prompt by default. It used to be every tenth, which made each pull ten prompts apart for no benefit -- only one pull can be in flight anyway.</td></tr>
@@ -155,7 +155,7 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>curing.stockTarget</code></td><td>1</td><td>How many of each consumable to keep in hand.</td></tr>
 <tr><td><code>curing.recovery.&lt;vector&gt;</code></td><td>per vector s</td><td>Override the fallback recovery time for one vector, e.g. curing.recovery.herb.</td></tr>
 <tr><td><code>curing.antiIllusion</code></td><td>true</td><td>The reference system's anti-illusion for EmunahTriggers.xml: reports wait for the prompt, and a block containing an illusion is discarded whole. Off applies each report the moment its line arrives.</td></tr>
-<tr><td><code>curing.textConfirm</code></td><td>2.0 s</td><td>How long an affliction reported by text waits for the server to confirm it before it is dropped as an illusion.</td></tr>
+<tr><td><code>curing.textConfirm</code></td><td>2 s</td><td>How long an affliction reported by text waits for the server to confirm it before it is dropped as an illusion.</td></tr>
 <tr><td><code>curing.focusMinMana</code></td><td>35 % of max</td><td>FOCUS is held at or below this mana (the reference system's <code>manause</code>).</td></tr>
 <tr><td><code>priorities</code></td><td>{}</td><td>Per-affliction, per-vector rank overrides. Written by <code>emset prio</code>.</td></tr>
 </tbody></table>
@@ -266,7 +266,7 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>walker.returnToStart</code></td><td>true</td><td>Toggled in-session by <code>emset walk return</code>; not persisted.</td></tr>
 <tr><td><code>walker.stopBelowHealth</code></td><td>40 %</td><td></td></tr>
 <tr><td><code>walker.stopOnPlayer</code></td><td>false</td><td></td></tr>
-<tr><td><code>walker.transitTimeout</code></td><td>8.0 s</td><td></td></tr>
+<tr><td><code>walker.transitTimeout</code></td><td>8 s</td><td></td></tr>
 <tr><td><code>bashing.attack</code></td><td>angel sear</td><td></td></tr>
 <tr><td><code>bashing.balance</code></td><td>both</td><td>What the attack REQUIRES: eq, bal or both.</td></tr>
 <tr><td><code>bashing.consumes</code></td><td>eq</td><td>What the attack SPENDS: eq or bal. Not the same question as <code>balance</code>.</td></tr>
@@ -385,6 +385,7 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>ui.mapHeight</code></td><td>42 % of window</td><td>Clamped to 10-70.</td></tr>
 <tr><td><code>ui.mapFloat</code></td><td>false</td><td>Detaches the map into its own window. <code>emset ui rebuild</code> after changing it.</td></tr>
 <tr><td><code>ui.chatTabs</code></td><td>Tells, City, House, Market, Says, Misc</td><td></td></tr>
+<tr><td><code>ui.refresh</code></td><td>0.2 s</td><td>How often balance countdowns redraw while one is running. 0 turns the live countdowns off.</td></tr>
 <tr><td><code>keys.numpad</code></td><td>true</td><td></td></tr>
 </tbody></table>
 

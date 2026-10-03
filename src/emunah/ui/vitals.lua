@@ -1,27 +1,29 @@
---- The vitals strip: target health, own health, mana, endurance, willpower, balances and
---- class stats.
+--- The combat HUD: the full-width strip at the very bottom of the window.
 ---
---- Lives in the full-width container at the very bottom of the window, directly under the
---- last line of game text -- so it sits immediately above the prompt, where your eyes
---- already are while fighting. A vitals panel you have to look away to read is a vitals
---- panel you check too late. The target's health belongs in that same eyeline for the same
---- reason -- it used to live in a side column (ui/roompanel.lua), which meant glancing away
---- from the exact spot the rest of combat state lives in.
+--- It sits directly under the last line of game text, immediately above the prompt, where
+--- your eyes already are while fighting. A vitals panel you have to look away to read is a
+--- vitals panel you check too late.
 ---
---- Three rows:
----   row 0   target health bar, full width (what you are fighting, not what you have)
----   row 1   HP | MP | EP | WP gauges, side by side
----   row 2   BALANCE | EQUILIBRIUM lights, cure-vector availability, XP, class stats
+---   row 1   TARGET health bar                | status: what is running, what is in flight
+---   row 2   HP | MP | EP | WP, each with its change since the last prompt
+---   row 3   BAL EQ | every curing balance     | XP | class stats
 ---
---- Rows 1 and 2 are driven by the `emunah.vitals` event, which fires once per prompt --
---- fast enough to feel live and cheap enough to be free. Row 0 is driven by its own target
---- events (see the registration at the bottom of this file) since a target changes
---- independently of your own prompt.
+--- THE BALANCE STRIP is the HUD's reason to exist. Each cell is one balance, in one of five
+--- states, by colour and by mark:
 ---
---- Balance and equilibrium are shown as hard on/off lights rather than countdown bars:
---- they come from Char.Vitals and are exact, so an animation would imply a countdown we do
---- not actually have. The cure vectors beside them *are* timed estimates, and are coloured
---- to say so -- green ready, grey recovering, red blocked by an affliction.
+---   ready        green, a tick
+---   in flight    blue, an arrow: a command was sent on it and the game has not answered
+---   recovering   grey, the seconds left (the game's own figure where it states one, the
+---                fallback estimate otherwise -- see curelist.lua)
+---   locked       red, a cross: an affliction shuts it (afflist.blocks)
+---   absent       dim: there is nothing to use (no tree tattoo inked)
+---
+--- Bal and eq are exact, from Char.Vitals. The countdowns are kept live by theme's coarse
+--- clock, only while something is counting.
+---
+--- Everything here is painted after the packet (theme.later), and nothing is redrawn that
+--- has not changed: each gauge remembers what it last showed, and each label goes through
+--- theme.paintLabel.
 
 local M = {}
 
@@ -32,21 +34,31 @@ local layout = emunah.ui.layout
 M.widgets = {}
 
 local RESOURCES = {
-   { key = "hp", label = "H", colour = "health"    },
-   { key = "mp", label = "M", colour = "mana"      },
-   { key = "ep", label = "E", colour = "endurance" },
-   { key = "wp", label = "W", colour = "willpower" },
+   { key = "hp", label = "HP", colour = "health"    },
+   { key = "mp", label = "MP", colour = "mana"      },
+   { key = "ep", label = "EP", colour = "endurance" },
+   { key = "wp", label = "WP", colour = "willpower" },
 }
 
---- Cure vectors shown as availability lights.
-local VECTORS = { "herb", "salve", "elixir", "purgative", "smoke", "focus" }
+--- The curing balances, left to right, and what each cell is called.
+local VECTORS = {
+   { key = "herb",      label = "HERB"  },
+   { key = "salve",     label = "SALVE" },
+   { key = "elixir",    label = "SIP"   },
+   { key = "purgative", label = "PURG"  },
+   { key = "smoke",     label = "SMOKE" },
+   { key = "focus",     label = "FOCUS" },
+   { key = "moss",      label = "MOSS"  },
+   { key = "tree",      label = "TREE"  },
+}
 
--- A few pixels of top margin before row 0, not zero: right up against the container's
--- top edge, the target gauge was sitting on top of (and hiding) the game console's own
--- input line just above it. Reported from play.
-local ROW0_Y, ROW0_H = 8, 18
-local ROW1_Y, ROW1_H = 28, 22
-local ROW2_Y, ROW2_H = 52, 20
+-- Rows, in pixels from the top of the strip.
+-- A few pixels of top margin before row 1, not zero: right up against the container's top
+-- edge, the target bar sat on top of (and hid) the game console's own input line. Reported
+-- from play.
+local ROW1_Y, ROW1_H = 8, 22
+local ROW2_Y, ROW2_H = 34, 24
+local ROW3_Y, ROW3_H = 62, 22
 
 local function available()
    return layout.container("bottom") ~= nil and type(Geyser) == "table"
@@ -60,299 +72,335 @@ local function column(index, count, gap)
    return string.format("%.2f%%", x), string.format("%.2f%%", width)
 end
 
+local function gauge(name, x, y, width, height, colour, parent)
+   local widget = Geyser.Gauge:new({ name = name, x = x, y = y, width = width, height = height }, parent)
+   widget.front:setStyleSheet(theme.gaugeFront(colour))
+   widget.back:setStyleSheet(theme.gaugeBack(colour))
+   widget.text:setStyleSheet(theme.captionStyle())
+   return widget
+end
+
+local function label(name, x, y, width, height, parent, align)
+   local widget = Geyser.Label:new({ name = name, x = x, y = y, width = width, height = height }, parent)
+   widget:setStyleSheet(string.format([[
+      background-color: %s; border: 1px solid %s; border-radius: 3px;
+      color: %s; font-family: "%s"; font-size: %dpt;
+      qproperty-alignment: '%s'; padding-left: 4px; padding-right: 4px;
+   ]], theme.colour.base, theme.colour.border, theme.colour.text,
+       theme.font.family, theme.font.small, align or "AlignLeft | AlignVCenter"))
+   return widget
+end
+
 function M.build()
    if not available() then return false end
    local parent = layout.container("bottom")
-
    M.widgets = {}
 
-   -- Row 0: the target's health, directly above your own vitals -- what you are fighting
-   -- belongs in the same glance as what you have left to fight it with. Stops at the map's
-   -- left edge rather than running the full window width: it used to run under the
-   -- right-hand column too, which read as far longer than it needed to be for a single
-   -- number.
-   local targetWidth = string.format("%d%%", 100 - layout.percentOf(layout.WIDTH_RIGHT) - 1)
-   M.widgets.target = Geyser.Gauge:new({
-      name = "emunah.target",
-      x = 4, y = ROW0_Y, width = targetWidth, height = ROW0_H,
-   }, parent)
-   M.widgets.target.front:setStyleSheet(theme.gaugeFront("affliction"))
-   M.widgets.target.back:setStyleSheet(theme.gaugeBack())
-   M.widgets.target.text:setStyleSheet(string.format([[
-      color: %s; font-family: "%s"; font-size: %dpt;
-      qproperty-alignment: 'AlignCenter';
-   ]], theme.colour.textBright, theme.font.family, theme.font.small))
+   -- Row 1: the target, and the system's own state beside it.
+   M.widgets.target = gauge("emunah.target", "0.5%", ROW1_Y, "60%", ROW1_H, "affliction", parent)
+   M.widgets.status = label("emunah.status", "61%", ROW1_Y, "38.5%", ROW1_H, parent)
 
-   -- Row 1: the four resource gauges, side by side.
+   -- Row 2: the four resources.
    for index, resource in ipairs(RESOURCES) do
       local x, width = column(index, #RESOURCES)
-      local gauge = Geyser.Gauge:new({
-         name = "emunah.gauge." .. resource.key,
-         x = x, y = ROW1_Y, width = width, height = ROW1_H,
-      }, parent)
-
-      gauge.front:setStyleSheet(theme.gaugeFront(resource.colour))
-      gauge.back:setStyleSheet(theme.gaugeBack())
-      gauge.text:setStyleSheet(string.format([[
-         color: %s;
-         font-family: "%s";
-         font-size: %dpt;
-         qproperty-alignment: 'AlignCenter';
-      ]], theme.colour.textBright, theme.font.family, theme.font.small))
-
-      M.widgets[resource.key] = gauge
+      M.widgets[resource.key] = gauge("emunah.gauge." .. resource.key, x, ROW2_Y, width, ROW2_H,
+         resource.colour, parent)
    end
 
-   -- Row 2: balance lights, cure vectors, experience, class stats.
-   M.widgets.balance = Geyser.Label:new({
-      name = "emunah.balance",
-      x = "0.5%", y = ROW2_Y, width = "11%", height = ROW2_H,
-   }, parent)
+   -- Row 3: balances, experience, class stats.
+   M.widgets.balances = label("emunah.balances", "0.5%", ROW3_Y, "68%", ROW3_H, parent)
+   M.widgets.xp = gauge("emunah.gauge.xp", "69%", ROW3_Y, "11%", ROW3_H, "experience", parent)
+   M.widgets.stats = label("emunah.stats", "80.5%", ROW3_Y, "19%", ROW3_H, parent)
 
-   M.widgets.equilibrium = Geyser.Label:new({
-      name = "emunah.equilibrium",
-      x = "12%", y = ROW2_Y, width = "13%", height = ROW2_H,
-   }, parent)
-
-   M.widgets.vectors = Geyser.Label:new({
-      name = "emunah.vectors",
-      x = "25.5%", y = ROW2_Y, width = "31%", height = ROW2_H,
-   }, parent)
-   M.widgets.vectors:setStyleSheet(theme.panelStyle({ background = theme.colour.base, margin = 0 }))
-
-   M.widgets.xp = Geyser.Gauge:new({
-      name = "emunah.gauge.xp",
-      x = "57%", y = ROW2_Y, width = "16%", height = ROW2_H,
-   }, parent)
-   M.widgets.xp.front:setStyleSheet(theme.gaugeFront("experience"))
-   M.widgets.xp.back:setStyleSheet(theme.gaugeBack())
-   M.widgets.xp.text:setStyleSheet(string.format([[
-      color: %s; font-family: "%s"; font-size: %dpt;
-      qproperty-alignment: 'AlignCenter';
-   ]], theme.colour.textBright, theme.font.family, theme.font.small - 1))
-
-   M.widgets.stats = Geyser.Label:new({
-      name = "emunah.stats",
-      x = "73.5%", y = ROW2_Y, width = "26%", height = ROW2_H,
-   }, parent)
-   M.widgets.stats:setStyleSheet(theme.panelStyle({ background = theme.colour.base, margin = 0 }))
-
-   -- The widgets are brand new, unstyled and empty; the caches describe the ones they
-   -- replaced. Without this the first update() after a rebuild compares equal and draws
-   -- nothing, and the strip comes up blank.
    M.forgetLights()
-
    M.update()
    M.updateTarget()
+   M.updateStatus()
    return true
 end
 
---- Refresh the target health bar. Separate from M.update() because a target changes on
---- its own events (see the registration below), not on the per-prompt `emunah.vitals`
---- tick the rest of this strip is driven by.
-function M.updateTarget()
-   local gauge = M.widgets.target
-   local ire = emunah.gmcp.ire
-   if not gauge or not ire then return end
+-- ---------------------------------------------------------------------------
+-- gauges
+-- ---------------------------------------------------------------------------
 
-   if not ire.hasTarget() then
-      gauge:setValue(0, 100, "no target")
-      gauge.front:setStyleSheet(theme.gaugeFront("inactive"))
-      return
-   end
+--- What each gauge last showed. setValue is a resize and a rich-text echo under Mudlet,
+--- and on a quiet prompt nothing it shows has moved.
+local gaugeShown = {}
 
-   local health = ire.targetHealth()
-   local label = ire.target.description or ire.target.id or "target"
-
-   if health then
-      gauge.front:setStyleSheet(string.format([[
-         background-color: %s; border-radius: 3px; border: 1px solid %s;
-      ]], theme.forPercent(health), theme.colour.border))
-      -- hpperc can arrive fractional; floor before %d.
-      gauge:setValue(health, 100, string.format("%s  %d%%", label, math.floor(health)))
-   else
-      gauge.front:setStyleSheet(theme.gaugeFront("inactive"))
-      gauge:setValue(100, 100, label)
-   end
+local function setGauge(key, widget, current, max, text)
+   local signature = current .. "/" .. max .. "/" .. text
+   if gaugeShown[key] == signature then return end
+   gaugeShown[key] = signature
+   widget:setValue(current, max, text)
 end
 
---- Stylesheets for the on/off lights, built once per (colour, state) pair.
----
---- setStyleSheet() makes Qt re-parse the sheet and re-lay-out the widget, and light() used to
---- call it for BAL and for EQ on every prompt regardless of whether either had changed --
---- four Qt reparses a second for two booleans that flip maybe twice a second. The sheet text
---- depends only on the colour name and the on/off state, both of which come from a fixed
---- set, so there is nothing to recompute.
-local lightStyles = {}
-
-local function lightStyle(colourName, on)
-   local key = colourName .. (on and ":on" or ":off")
-   local sheet = lightStyles[key]
-   if sheet then return sheet end
-
-   local colour = on and theme.colour[colourName] or theme.colour.inactive
-   sheet = string.format([[
-      background-color: %s;
-      border: 1px solid %s;
-      border-radius: 3px;
-      color: %s;
-      font-family: "%s";
-      font-size: %dpt;
-      font-weight: bold;
-      qproperty-alignment: 'AlignCenter';
-   ]], on and theme.shade(colour, 0.35) or theme.colour.panel,
-       on and colour or theme.colour.border,
-       on and theme.colour.textBright or theme.colour.textDim,
-       theme.font.family, theme.font.small)
-   lightStyles[key] = sheet
-   return sheet
-end
-
---- What each light was last drawn as, so an unchanged one is left alone entirely.
-local lightState = {}
-
---- An on/off indicator label.
-local function light(widget, label, on, colourName)
-   if not widget then return end
-   on = on and true or false
-   if lightState[label] == on then return end
-   lightState[label] = on
-
-   widget:setStyleSheet(lightStyle(colourName, on))
-   widget:echo(label)
-end
-
---- Last body drawn into the vectors and stats labels. Both are redrawn far more often than
---- their contents change -- the vectors label on every timer expiry, the stats label on
---- every prompt -- and a decho of a string identical to what is displayed is a Qt rich-text
---- parse for no visible effect.
-local lastVectors, lastStats = nil, nil
-
---- The three-letter abbreviation for a vector, built once each.
---- `vector:sub(1, 3):upper()` is two string allocations, inside a loop that runs five times
---- per repaint, for a fixed set of names.
-local vectorLabels = setmetatable({}, {
-   __index = function(self, vector)
-      local label = vector:sub(1, 3):upper()
-      self[vector] = label
-      return label
-   end,
-})
-
-local function vectorLabel(vector)
-   return vectorLabels[vector]
-end
-
---- Forget the drawn state of the lights and labels, so the next update() redraws them.
----
---- Called from M.build(), which is defined ABOVE this point -- hence a field on M rather
---- than a local, since a local is only in scope for what follows it. By the time build()
---- actually runs, at the bottom of this file, the assignment here has happened.
+--- Forget what the lights, gauges and labels show, so the next update redraws them all.
+--- Called by M.build(): the widgets are brand new.
 function M.forgetLights()
-   lightState = {}
-   lastVectors, lastStats = nil, nil
+   gaugeShown = {}
+   for _, key in ipairs({ "status", "balances", "stats", "target" }) do
+      theme.forgetPainted("hud." .. key)
+   end
 end
 
-function M.update()
+--- "HP  3,200 / 4,000  80%  ▼120"
+local function resourceText(vitals, resource)
+   local key = resource.key
+   local current, max = vitals[key] or 0, vitals["max" .. key] or 0
+   local head = theme.span("textBright", resource.label, true) .. "&nbsp;&nbsp;"
+
+   -- Recklessness reports hp and mp at maximum whatever the truth (vitals.LIARS). Showing
+   -- the number would show the lie.
+   if vitals.trusted and not vitals.trusted(key) then
+      return head .. theme.span("warning", "unknown (the feed is lying)")
+   end
+
+   local pct = max > 0 and math.floor(current * 100 / max + 0.5) or 0
+   -- Bright while healthy: it sits on the gauge's own fill, and a green on orange or blue is
+   -- harder to read than the number is worth. Amber and red only when it matters.
+   local text = head .. string.format("%s / %s&nbsp;&nbsp;", util.comma(current), util.comma(max))
+      .. theme.span(pct >= 66 and "textBright" or theme.forPercent(pct), pct .. "%", true)
+
+   local before = vitals.last and vitals.last[key]
+   if before and max > 0 then
+      local delta = current - before
+      if delta < 0 then
+         text = text .. "&nbsp;&nbsp;" .. theme.span("affliction", "&#9660;" .. util.comma(-delta))
+      elseif delta > 0 then
+         text = text .. "&nbsp;&nbsp;" .. theme.span("defence", "&#9650;" .. util.comma(delta))
+      end
+   end
+   return text
+end
+
+function M.updateGauges()
    local vitals = emunah.gmcp.vitals
    if not vitals or not M.widgets.hp then return end
 
    for _, resource in ipairs(RESOURCES) do
-      local gauge = M.widgets[resource.key]
-      if gauge then
-         local current = vitals[resource.key] or 0
-         local max     = vitals["max" .. resource.key] or 0
-         -- Compact labels: the strip is wide but short, and "H 3,200/4,000" reads as
-         -- fast as the spelled-out version at a glance.
-         gauge:setValue(current, max > 0 and max or 1,
-            string.format("<b>%s</b> %s/%s", resource.label, util.comma(current), util.comma(max)))
+      local widget = M.widgets[resource.key]
+      if widget then
+         local max = vitals["max" .. resource.key] or 0
+         setGauge(resource.key, widget, vitals[resource.key] or 0, max > 0 and max or 1,
+            resourceText(vitals, resource))
       end
    end
 
    if M.widgets.xp then
-      -- nl arrives fractional ("43.7"). string.format("%d", 43.7) is a hard error on
-      -- Lua 5.3+ and silently truncates on 5.1, so floor it rather than rely on either.
+      -- nl arrives fractional ("43.7"); floor before %d.
       local nl = vitals.nl or 0
-      M.widgets.xp:setValue(nl, 100, string.format("XP %d%%", math.floor(nl)))
+      setGauge("xp", M.widgets.xp, nl, 100, string.format("XP %d%%", math.floor(nl)))
    end
-
-   light(M.widgets.balance, "BAL", vitals.bal, "balance")
-   light(M.widgets.equilibrium, "EQ", vitals.eq, "equilibrium")
-
-   M.updateVectors()
-   M.updateStats()
 end
 
---- The three-letter vector lights. Its own function because it is the ONLY part of this
---- strip that depends on the cure timers, and `emunah.timer.expired` used to redraw the
---- whole strip -- gauges, labels, class stats and all -- on every balance recovery, which in
---- a fight is several times a second on top of the per-prompt update.
-function M.updateVectors()
-   local widget = M.widgets.vectors
+-- ---------------------------------------------------------------------------
+-- the balance strip
+-- ---------------------------------------------------------------------------
+
+local CELL = '<td align="center" style="background-color:%s">&nbsp;%s&nbsp;</td>'
+
+--- One cell: a palette colour for its state, the label, and the mark or the seconds.
+---
+--- Memoised on all three: the strip is rebuilt on every prompt, a cell's markup depends on
+--- nothing else, and the set of distinct cells is small -- eight labels, five states, and a
+--- countdown that only takes tenths of a second.
+local cellCache = {}
+
+local function cell(colourName, text, filled)
+   local key = colourName .. (filled and "\1" or "\0") .. text
+   local hit = cellCache[key]
+   if hit then return hit end
+   local colour = theme.hex(colourName)
+   local background = filled and theme.shade(colour, 0.26) or theme.colour.panel
+   hit = string.format(CELL, background, theme.span(colourName, text, filled))
+   cellCache[key] = hit
+   return hit
+end
+
+local TICK, ARROW, CROSS, DASH = "&#10003;", "&#8250;", "&#10005;", "&#8211;"
+
+--- A bal/eq cell. Exact from Char.Vitals; the seconds come from the timer the command that
+--- spent it armed ("Balance used: 3.2s."), when there is one.
+local function physical(labelText, up, timer, colourName)
+   if up then return cell(colourName, labelText .. " " .. TICK, true), false end
+   local left = emunah.timers.remaining(timer)
+   if left > 0 then return cell("textDim", string.format("%s %.1f", labelText, left), false), true end
+   return cell("textDim", labelText .. " " .. DASH, false), false
+end
+
+local function curing(vector)
+   local have, queue = emunah.have, emunah.queue
+   if vector.key == "tree" and not have.def("tree") then
+      return cell("inactive", vector.label .. " " .. DASH, false), false
+   end
+   if queue.heldBy(vector.key) then return cell("affliction", vector.label .. " " .. CROSS, true), false end
+   if queue.awaiting(vector.key) then return cell("accent", vector.label .. " " .. ARROW, true), false end
+   local left = emunah.timers.remaining("cure." .. vector.key)
+   if left > 0 then return cell("textDim", string.format("%s %.1f", vector.label, left), false), true end
+   return cell("defence", vector.label .. " " .. TICK, true), false
+end
+
+local cells = {}
+
+--- Repaint the balance strip. Returns whether anything on it is counting down.
+function M.updateBalances()
+   local widget = M.widgets.balances
+   local vitals = emunah.gmcp.vitals
+   if not widget or not vitals then return false end
+
+   local live, counting = false, false
+   local n = 1
+   cells[1] = '<table cellspacing="2" cellpadding="0"><tr>'
+   n = n + 1
+   cells[n], counting = physical("BAL", vitals.bal, "attack.balance", "balance")
+   live = live or counting
+   n = n + 1
+   cells[n], counting = physical("EQ", vitals.eq, "cure.equilibrium", "equilibrium")
+   live = live or counting
+   n = n + 1
+   cells[n] = '<td>&nbsp;</td>'
+   for _, vector in ipairs(VECTORS) do
+      n = n + 1
+      cells[n], counting = curing(vector)
+      live = live or counting
+   end
+   n = n + 1
+   cells[n] = "</tr></table>"
+
+   theme.paintLabel(widget, "hud.balances", table.concat(cells, "", 1, n))
+   return live
+end
+
+--- Kept for anything that called the old name: the vector lights are the balance strip.
+M.updateVectors = M.updateBalances
+
+-- ---------------------------------------------------------------------------
+-- status, stats, target
+-- ---------------------------------------------------------------------------
+
+--- What is switched on, and what has been sent and not yet answered.
+function M.updateStatus()
+   local widget = M.widgets.status
    if not widget then return end
 
-   -- Cure vectors: green ready, grey recovering, red blocked by an affliction.
-   local parts = {}
-   for index, vector in ipairs(VECTORS) do
-      local colour
-      if emunah.have.blockedBy(vector) then
-         colour = theme.dc("affliction")
-      elseif emunah.have.balance(vector) then
-         colour = theme.dc("defence")
-      else
-         colour = theme.dc("inactive")
-      end
-      -- Abbreviated to three letters so five vectors fit one line.
-      parts[index] = colour .. vectorLabel(vector)
+   local function mode(on, text)
+      return theme.pill(on and "defence" or "inactive", text)
    end
 
-   local body = table.concat(parts, theme.dc("border") .. " ")
-   if body == lastVectors then return end
-   lastVectors = body
-   widget:decho(body)
+   local engine = emunah.curing and emunah.curing.engine
+   local keepup = emunah.curing and emunah.curing.defkeepup
+   local parts = {
+      mode(engine and engine.enabled, "CURE"),
+      mode(keepup and keepup.enabled, "DEFS"),
+      mode(emunah.bashing and emunah.bashing.enabled, "BASH"),
+   }
+   local pvp = emunah.pvp
+   if pvp and pvp.enabled then
+      parts[#parts + 1] = theme.pill("affliction", "PVP " .. theme.esc(tostring(pvp.target or "?"):upper()))
+   end
+
+   local act = emunah.act
+   if act and act.backoffUntil and util.now() < act.backoffUntil then
+      parts[#parts + 1] = theme.pill("warning", "RATE LIMITED")
+   end
+   local vitals = emunah.gmcp.vitals
+   if vitals and vitals.dead then parts[#parts + 1] = theme.pill("affliction", "DEAD") end
+
+   -- In flight: the commands the game has not answered yet, newest balance first.
+   local flying = {}
+   for vector, entry in pairs(emunah.queue.snapshot()) do
+      if entry.inFlight and vector ~= "free" then flying[#flying + 1] = theme.esc(entry.inFlight) end
+   end
+   table.sort(flying)
+   local html = table.concat(parts, "&nbsp;")
+   if #flying > 0 then
+      html = html .. "&nbsp;&nbsp;" .. theme.span("accent", "&#8250; " .. table.concat(flying, ", "))
+   end
+
+   theme.paintLabel(widget, "hud.status", html)
 end
 
---- Class stats from charstats. Priest shows Devotion; Monk shows Kai and Stance.
---- One line, so only the values that fit are shown.
+--- Class stats from charstats: Devotion for a Priest, Kai and Stance for a Monk.
 function M.updateStats()
    local widget = M.widgets.stats
    local vitals = emunah.gmcp.vitals
    if not widget or not vitals then return end
 
-   local body
    local keys = util.keys(vitals.stats)
+   table.sort(keys)
+   local html
    if #keys == 0 then
-      body = theme.dc("textDim") .. "no class stats"
+      html = theme.span("textDim", "no class stats")
    else
       local parts = {}
       for index, key in ipairs(keys) do
          local value = vitals.stats[key]
          if type(value) == "boolean" then value = value and "yes" or "no" end
-         parts[index] = string.format("%s%s %s%s",
-            theme.dc("textDim"), key, theme.dc("textBright"), tostring(value))
+         parts[index] = theme.span("textDim", theme.esc(key)) .. "&nbsp;"
+            .. theme.span("textBright", theme.esc(tostring(value)), true)
       end
-      body = table.concat(parts, theme.dc("border") .. " ")
+      html = table.concat(parts, "&nbsp;&nbsp;")
    end
-
-   if body == lastStats then return end
-   lastStats = body
-   widget:decho(body)
+   theme.paintLabel(widget, "hud.stats", html)
 end
 
--- Painted after the packet, not on the event: `emunah.vitals` is raised AHEAD of the tick, so
--- painting here put five gauges and two labels in front of every cure. See theme.later().
+--- The target's health bar. Its own events, not the per-prompt one: a target changes
+--- independently of your own prompt.
+function M.updateTarget()
+   local widget = M.widgets.target
+   local ire = emunah.gmcp.ire
+   if not widget or not ire then return end
+
+   if not ire.hasTarget() then
+      setGauge("target", widget, 0, 100, theme.span("textDim", "no target"))
+      return
+   end
+
+   local health = ire.targetHealth()
+   local name = theme.esc(ire.target.description or ire.target.id or "target")
+   local id = ire.target.id and theme.span("textDim", "&nbsp;#" .. theme.esc(ire.target.id)) or ""
+   if health then
+      -- hpperc can arrive fractional; floor before %d.
+      local pct = math.floor(health)
+      setGauge("target", widget, health, 100,
+         theme.span("textBright", name, true) .. id .. "&nbsp;&nbsp;"
+            .. theme.span(theme.forPercent(pct), pct .. "%", true))
+   else
+      setGauge("target", widget, 100, 100, theme.span("textBright", name, true) .. id)
+   end
+end
+
+--- Everything driven by a prompt.
+function M.update()
+   M.updateGauges()
+   if M.updateBalances() then theme.wakeClock() end
+   M.updateStatus()
+   M.updateStats()
+end
+
+theme.ticking("hud", function() return M.updateBalances() end)
+
 emunah.event.register("emunah.vitals", function() theme.later("vitals", M.update) end, "ui.vitals")
 emunah.event.register("emunah.ui.built", function() M.build() end, "ui.vitals")
 
--- Vector lights depend on timers, which have no vitals event of their own.
---
--- ONLY the vector lights. This used to call M.update(), redrawing the entire strip -- four
--- resource gauges, the XP gauge, both balance lights and the class stats -- on every cure
--- timer lapsing, which in a fight is several times a second on top of the per-prompt
--- update. Nothing else on the strip reads a timer.
-emunah.event.register("emunah.timer.expired", function()
-   theme.later("vitals.vectors", M.updateVectors)
+-- A balance spent or recovered on its own timer has no prompt behind it, and a lock comes and
+-- goes with an affliction. Only the strip: nothing else on the HUD reads either.
+emunah.event.registerAll({
+   "emunah.timer.started", "emunah.timer.expired",
+   "emunah.affliction.tracked", "emunah.affliction.cured", "emunah.afflictions.list",
+}, function()
+   theme.later("vitals.balances", function()
+      if M.updateBalances() then theme.wakeClock() end
+   end)
 end, "ui.vitals")
+
+emunah.event.registerAll({
+   "emunah.curing.enabled", "emunah.curing.disabled",
+   "emunah.defkeepup.enabled", "emunah.defkeepup.disabled",
+   "emunah.bashing.started", "emunah.bashing.stopped",
+   "emunah.pvp.started", "emunah.pvp.stopped", "emunah.pvp.target",
+   "emunah.rateLimited", "emunah.character.died", "emunah.character.revived",
+}, function() theme.later("vitals.status", M.updateStatus) end, "ui.vitals")
 
 emunah.event.registerAll({
    "emunah.target",

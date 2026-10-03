@@ -139,6 +139,19 @@ local function paralysed()
    return afflictions and afflictions.has("paralysis") or false
 end
 
+--- Why nothing can go out on this vector right now, beyond its own balance: an affliction
+--- that shuts it (have.vectorBlocked) or paralysis (M.WHILE_PARALYSED). The same rules
+--- dispatch() and flush() apply, asked once, so the UI shows exactly what the queue does --
+--- it used to show a salve as "next" under paralysis, which the queue would never send.
+--- @return string|nil the reason
+function M.heldBy(vector)
+   local have = emunah.have
+   local why = have and have.vectorBlocked and have.vectorBlocked(vector)
+   if why then return why end
+   if not M.WHILE_PARALYSED[vector] and paralysed() then return "paralysis" end
+   return nil
+end
+
 --- Send what is pending on one vector, if it can go. The body of flush(), for one slot.
 --- @return boolean sent
 local function dispatch(vector)
