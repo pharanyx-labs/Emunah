@@ -247,6 +247,23 @@ detect.balance("rift", {
 })
 
 -- ---------------------------------------------------------------------------
+-- The quit prayer: store the pack in the rift. See engine.onQuitPrayer().
+-- ---------------------------------------------------------------------------
+
+do
+   local id = tempRegexTrigger(
+      [[^You grow still and begin to silently pray for preservation of your soul while you are out of the land\.$]],
+      function()
+         local engine = emunah.curing and emunah.curing.engine
+         if engine and engine.onQuitPrayer then engine.onQuitPrayer() end
+      end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
+
+-- ---------------------------------------------------------------------------
 -- A drink with nothing to drink.
 --
 -- "What is it that you wish to drink?" is Achaea failing to resolve the noun in `drink

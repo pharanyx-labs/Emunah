@@ -38,6 +38,14 @@ You store 10 green ink, bringing the total in the rift to 10.
 Measured turnaround for `OUTR`: **0.23s** (sent 11:48:26.14, confirmed 11:48:26.37). Neither
 costs a balance.
 
+### Quitting
+
+`You grow still and begin to silently pray for preservation of your soul while you are out of
+the land.` (one line in the game) is the quit prayer: the character is leaving the game.
+Emunah answers it with `INR ALL`, which stores everything carried in the rift. The line, the
+command and what the prayer means are the user's (2026-10-03). Restocking then stops until
+the disconnect, or the next prompt would pull the herbs straight back out.
+
 ## Containers
 
 Gold is stowed with `PUT <item> IN <container>` and the container is worn with

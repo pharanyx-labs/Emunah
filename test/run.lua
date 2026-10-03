@@ -3569,6 +3569,40 @@ engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 mock.feed("Char.Afflictions.List", {})
 
 -- ===========================================================================
+suite("the quit prayer stores the pack")
+
+do
+   -- The quit prayer means the character is leaving the game: INR ALL, and restocking stops
+   -- until the disconnect, or the next prompt pulls the herbs straight back out of the rift.
+   local engine = emunah.curing.engine
+   local wasEnabled, wasRestock = engine.enabled, emunah.config.get("curing.restock", true)
+   engine.enabled = true
+   emunah.config.set("curing.restock", true)
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = "50" }, { name = "kelp", amount = "50" } })
+   ok(table.concat(mock.sent, " | "):find("outr", 1, true), "(fixture: restocking is live)",
+      table.concat(mock.sent, " | "))
+   emunah.queue.reset(); emunah.timers.stopAll()
+   mock.sent = {}
+   mock.line("You grow still and begin to silently pray for preservation of your soul while you are out of the land.")
+   eq(mock.sent[1], "inr all", "the quit prayer sends INR ALL")
+   mock.line("You store 3 bloodroot, bringing the total in the rift to 53.")
+   mock.advance(5)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("outr", 1, true),
+      "...and restocking does not pull it all back out", table.concat(mock.sent, " | "))
+   raiseEvent("sysDisconnectionEvent")
+   eq(engine.leaving, false, "the disconnect ends it, so the next login restocks as usual")
+   -- Back in the game for the suites after this one: the disconnect ended the session.
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   engine.enabled = wasEnabled
+   emunah.config.set("curing.restock", wasRestock)
+end
+
 suite("restocking")
 
 -- Curatives live in the rift, and OUTR has a round trip -- pulling one at the moment the
