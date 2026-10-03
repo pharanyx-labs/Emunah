@@ -110,7 +110,7 @@ end
 
 --- Does the server currently report this affliction?
 function M.has(name)
-   return M.active[tostring(name):lower()] ~= nil
+   return M.active[util.lower(name)] ~= nil
 end
 
 --- Sorted array of affliction names.
@@ -131,21 +131,21 @@ end
 
 --- Seconds since an affliction was first seen.
 function M.age(name)
-   local entry = M.active[tostring(name):lower()]
+   local entry = M.active[util.lower(name)]
    if not entry then return 0 end
    return emunah.util.now() - entry.since
 end
 
 --- The cure the server suggests for an affliction, when it has told us one.
 function M.cureFor(name)
-   local entry = M.active[tostring(name):lower()]
+   local entry = M.active[util.lower(name)]
    return entry and entry.cure
 end
 
 --- Current stack count, for the handful of afflictions that carry one. 1 for anything
 --- else that's simply present, 0 when not tracked at all.
 function M.stacks(name)
-   local entry = M.active[tostring(name):lower()]
+   local entry = M.active[util.lower(name)]
    return entry and entry.stacks or 0
 end
 

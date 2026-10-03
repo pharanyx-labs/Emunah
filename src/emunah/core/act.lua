@@ -85,8 +85,13 @@ end
 --- @param needs table|nil { standing = bool, bal = bool, eq = bool, unbound = bool,
 ---                          alive = bool, whileAsleep = bool }
 --- @return string|nil reason
+--- What a command with no stated requirements needs. Shared and never written: blocked() is
+--- asked once per vector per tick (queue.flushVector) and per send, and `needs or {}` made a
+--- fresh table every one of those times.
+local NONE = {}
+
 function M.blocked(needs)
-   needs = needs or {}
+   needs = needs or NONE
 
    if M.backoffUntil then
       if emunah.util.now() < M.backoffUntil then return "rate limited" end
@@ -181,10 +186,13 @@ function M.send(command, needs)
    end
    M.lastHeld = nil
 
-   emunah.log.debug("-> %s", command)
    -- `quiet`: don't echo the command locally. For housekeeping whose output is gagged too
    -- (pipes.lua), where a lone echoed "light pipe367581" is the noise left behind.
    if needs and needs.quiet then send(command, false) else send(command) end
+   -- Logged AFTER the send. With `emset debug` on this is a console print -- Qt work on the
+   -- thread that has not yet handed the command to the socket -- so before the send it
+   -- delayed every command by exactly the cost of describing it.
+   emunah.log.debug("-> %s", command)
    return true
 end
 

@@ -270,7 +270,7 @@ emunah.event.registerAll({
    "emunah.items.added",
    "emunah.items.removed",
    "emunah.items.updated",
-}, function() M.update() end, "ui.roompanel")
+}, function() theme.later("roompanel", M.update) end, "ui.roompanel")   -- after the packet: theme.later()
 
 emunah.event.register("emunah.ui.built", function() M.build() end, "ui.roompanel")
 

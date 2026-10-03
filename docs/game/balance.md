@@ -39,6 +39,36 @@ not independently confirmed from a transcript — no herb was eaten in any captu
 smoke, focus and elixir each have their own too, evidenced by each having a distinct
 rejection message.
 
+**Salve, focus and tree announce their return too** [svof], verbatim from svof's `svo got
+salve balance`, `svo got focus balance` and `svo got tree balance` triggers:
+
+```
+You may apply another salve to yourself.
+Your mind is able to focus once again.
+You may utilise the tree tattoo again.
+```
+
+Nothing matched these until 2026-10-03, so all three ran on their fallback estimate alone.
+`test/latency.lua` scripts a server that returns the balance at a chosen moment. With the
+estimate longer than the balance, a salve went out 0.6s late and a focus 1.5s late. With it
+shorter, the early send was refused and the refusal re-armed the whole estimate: a focus 4.1s
+late, and a salve that had not gone at all 6s later. With the lines, 0ms in every case.
+
+**The affliction-healing elixirs have their own balance** [svof]: immunity, frost, venom,
+speed and levitation run on `bals.purgative`, which svof gates (`check_purgative`)
+independently of the health/mana sip (`check_sip`). HELP curing-balances lists four balances
+and does not mention these elixirs at all. Its return, from svof's `svo got purgative
+balance`:
+
+```
+You may drink another affliction-healing elixir.
+Your system is able to absorb antidotes once again.
+```
+
+**[open]** Whether a purgative drunk off its balance draws `You may not drink another elixir
+yet.` (the sip's rejection) or a line of its own is not established. Emunah applies that line
+to a purgative only when a purgative is the one drink in flight.
+
 **Smoke balance announces its return:** `Your lungs have recovered enough to smoke another
 mineral or plant.` Seen at 14:18:47.21 and 14:18:52.50 (2026-09-28), 1.5–1.7s after each
 smoke. SMOKE is a "puff cure": per Anzerloi (2026-09-28), "you can do it if on puff balance
@@ -52,7 +82,7 @@ Exact wording — these are trigger patterns, so they matter verbatim.
 |---|---|
 | `You must regain balance first.` | No balance. **Generic** — see below. Also what a herb eaten too soon gets. |
 | `You have not yet regained balance for applying salves.` | Salve balance |
-| `You may not drink another elixir yet.` | Elixir/sip balance |
+| `You may not drink another elixir yet.` | Elixir/sip balance. Possibly the purgative's too — see above |
 | `You have not yet recovered balance for smoking.` | Smoke balance |
 | `You have not yet regained your mental balance.` | Focus balance |
 | `You must be standing first.` | Prone |

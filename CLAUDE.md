@@ -40,7 +40,8 @@ declared. Answer these from `docs/game/`, not from memory, for every new or chan
 
 1. **Which vector does it spend?** One slot per balance (`core/queue.lua`). HELP names four
    curing balances: salve, herb (plants *and* minerals), elixir (health/mana elixirs *and*
-   tonics), moss (irid *and* potash). Play adds smoke, focus and tree. The combat balances
+   tonics), moss (irid *and* potash). Play adds smoke, focus and tree; svof adds purgative
+   (the affliction-healing elixirs: immunity, frost, venom, speed, levitation). The combat balances
    are bal and eq.
 2. **What else must be up, even though it isn't spent?** Declare it in `needs`
    (`core/act.lua`). HELP's default for bal/eq abilities: "not having balance prevents you

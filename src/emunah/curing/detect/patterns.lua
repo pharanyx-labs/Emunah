@@ -96,13 +96,53 @@ detect.define("paralysis", {
 -- ---------------------------------------------------------------------------
 
 detect.balance("elixir", {
-   spend = {
-      [[^You take a drink from ]],
-   },
    gain = {
       [[^You may drink another health or mana elixir\.$]],
    },
 })
+
+-- ---------------------------------------------------------------------------
+-- The affliction-healing elixirs: a balance of their own.
+--
+-- Immunity, frost, venom, speed and levitation run on the PURGATIVE balance, independent of
+-- the health/mana sip [svof: bals.purgative and check_purgative, beside bals.sip and
+-- check_sip; `svo got purgative balance` for both lines below]. They shared the elixir slot
+-- here, and two things followed. Healing outranks everything on that slot, so a voyria cure
+-- waited for health to be topped up. And the spend line below put EVERY drink on the sip
+-- balance -- whose only release is "You may drink another health or mana elixir.", which a
+-- purgative never prints -- so keep-up drinking speed locked health sipping out for the whole
+-- 6s fallback.
+-- ---------------------------------------------------------------------------
+
+detect.balance("purgative", {
+   gain = {
+      [[^You may drink another affliction-healing elixir\.$]],
+      [[^Your system is able to absorb antidotes once again\.$]],
+   },
+})
+
+--- Which drink of ours a drink line belongs to: the vector with one in flight, when exactly
+--- one has. The lines name the vial, never the fluid, so with both in flight there is
+--- nothing to go on; with neither, the drink was typed by hand.
+--- @return string|nil vector, table|nil action
+local function drinkInFlight()
+   local sip, purgative = emunah.queue.awaiting("elixir"), emunah.queue.awaiting("purgative")
+   if sip and not purgative then return "elixir", sip end
+   if purgative and not sip then return "purgative", purgative end
+   return nil, nil
+end
+
+do
+   -- The spend, for a drink of ours or one typed by hand. Ours already spent their vector on
+   -- send; a hand-typed one is assumed to be a health or mana sip, as it always was.
+   local id = tempRegexTrigger([[^You take a drink from ]], function()
+      emunah.have.spend(drinkInFlight() or "elixir")
+   end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
 
 -- ---------------------------------------------------------------------------
 -- Herb balance, announced by the game.
@@ -150,6 +190,37 @@ detect.balance("herb", {
 detect.balance("smoke", {
    gain = {
       [[^Your lungs have recovered enough to smoke another mineral or plant\.$]],
+   },
+})
+
+-- ---------------------------------------------------------------------------
+-- Salve, focus and tree balance, announced by the game. Verbatim from svof's `svo got salve
+-- balance`, `svo got focus balance` and `svo got tree balance` triggers [svof].
+--
+-- Nothing was listening to any of the three, so each ran ENTIRELY on its fallback estimate
+-- (curelist.lua: salve 1.8s, focus 4.5s, tree 15s), and an estimate is wrong in both
+-- directions. Longer than the real balance, the cure simply waits: test/latency.lua's
+-- scripted server measured 0.6s per salve and 1.5s per focus. Shorter, the cure goes out
+-- early, is refused, and the refusal re-arms the WHOLE estimate: the next focus went 4.1s
+-- after the game allowed it, and the next salve had not gone at all 6s later. Listening to
+-- the line takes every case to zero.
+-- ---------------------------------------------------------------------------
+
+detect.balance("salve", {
+   gain = {
+      [[^You may apply another salve to yourself\.$]],
+   },
+})
+
+detect.balance("focus", {
+   gain = {
+      [[^Your mind is able to focus once again\.$]],
+   },
+})
+
+detect.balance("tree", {
+   gain = {
+      [[^You may utilise the tree tattoo again\.$]],
    },
 })
 
@@ -203,10 +274,13 @@ detect.balance("rift", {
 do
    local id = tempRegexTrigger([[^What is it that you wish to drink\?$]], function()
       -- Read the in-flight action before confirming it away -- it is the only record of
-      -- which fluid was asked for. The game's reply does not name it.
-      local action = emunah.queue.awaiting("elixir")
-      emunah.queue.confirm("elixir")
-      emunah.have.recover("elixir")
+      -- which fluid was asked for. The game's reply does not name it. With a sip AND a
+      -- purgative in flight it cannot be told which failed, and marking the wrong fluid
+      -- missing would stop it for two minutes; the confirm timeout frees the slot instead.
+      local vector, action = drinkInFlight()
+      if not vector then return end
+      emunah.queue.confirm(vector)
+      emunah.have.recover(vector)
 
       local engine = emunah.curing and emunah.curing.engine
       local fluid = action and action.command and action.command:match("^drink%s+(%S+)$")
@@ -313,9 +387,26 @@ end
 -- and the honest response is to re-arm it rather than keep firing into a closed vector.
 -- ---------------------------------------------------------------------------
 
+--- The game refused the command in flight on `vector`: nothing was applied, eaten or drunk.
+---
+--- That is an ANSWER, and two things were still waiting for one. The queue slot held until its
+--- confirm timeout (7s for an elixir); and engine.CURE_GUARD held every cure for the same
+--- affliction for 1.5s from the send, on the reasoning that "the first has not been answered
+--- yet". It has. Kept, the guard outlived the balance: refused at 0.1s, the salve announced
+--- back at 0.4s, and the same epidermal for the same anorexia waited until 1.5s. The balance
+--- itself stays spent -- that is the one thing a refusal does tell us.
+local function refused(vector)
+   local action = emunah.queue.confirm(vector)
+   local engine = emunah.curing and emunah.curing.engine
+   if action and action.tag and engine and engine.cureRefused then
+      engine.cureRefused(action.tag)
+   end
+end
+
 local function rearm(vector)
    return function()
       emunah.have.spend(vector)
+      refused(vector)
       emunah.log.debug("Rejected on %s balance -- re-arming the recovery timer.", vector)
    end
 end
@@ -339,9 +430,15 @@ local function onBalanceRefused()
    local vitals = emunah.gmcp and emunah.gmcp.vitals
    if vitals and vitals.spend then vitals.spend("bal") end
 
+   -- Anything of ours that needs the physical balance is a candidate owner of this line, and
+   -- at 12:01:19.03 it was `perform hands`, not the eat beside it. So the eat is only treated
+   -- as refused when nothing else could have drawn the line.
+   local contested = emunah.queue.awaiting("balance") or emunah.queue.awaiting("equilibrium")
+
    for _, vector in ipairs({ "herb", "moss" }) do
       if emunah.queue.awaiting(vector) then
          emunah.have.spend(vector)
+         if not contested then refused(vector) end
          emunah.log.debug("Rejected on %s balance -- re-arming the recovery timer.", vector)
          return
       end
@@ -354,7 +451,10 @@ end
 local REJECTIONS = {
    { handler = onBalanceRefused, pattern = [[^You must regain balance first\.$]] },
    { vector = "salve",  pattern = [[^You have not yet regained balance for applying salves\.$]] },
-   { vector = "elixir", pattern = [[^You may not drink another elixir yet\.$]] },
+   -- Health and mana sips are evidenced; whether a purgative off its balance draws the same
+   -- line is not, so it is applied to a purgative only when that is the one drink in flight.
+   { handler = function() rearm(drinkInFlight() or "elixir")() end,
+     pattern = [[^You may not drink another elixir yet\.$]] },
    { vector = "smoke",  pattern = [[^You have not yet recovered balance for smoking\.$]] },
    { vector = "focus",  pattern = [[^You have not yet regained your mental balance\.$]] },
 }
@@ -710,12 +810,15 @@ end
 
 do
    local id = tempRegexTrigger([[^The elixir flows down your throat without effect\.$]], function()
-      local flight = emunah.queue.awaiting("elixir")
+      -- Keep-up's elixirs are purgatives (speed, venom, levitation, frost), but a raise
+      -- configured on the sip vector is still honoured.
+      local vector, flight = "purgative", emunah.queue.awaiting("purgative")
+      if not flight then vector, flight = "elixir", emunah.queue.awaiting("elixir") end
       local tag = flight and flight.tag
       local defence = tag and tostring(tag):match("^def:(.+)$")
       if not defence then return end
 
-      emunah.queue.confirm("elixir")
+      emunah.queue.confirm(vector)
       emunah.curing.defkeepup.abandon(defence,
          "the sip had no effect, so it is already up under a different Char.Defences name")
    end)
@@ -1046,6 +1149,22 @@ do
    persist(tempRegexTrigger([[^The heavenly visions fade as the bliss leaves you\.$]], function()
       emunah.curing.deflist.setBliss(false)
    end))
+
+   -- MACE. trackmace has no Char.Defences entry, and while blind without mindseye
+   -- Char.Items.Add does not fire either, so these lines are the whole of the state.
+   -- Wordings from svof's trigger set, matched against the 12:49 login: the summon
+   -- success, then "you have a mace in the land, which you should call for" on the
+   -- summon that followed because the success was never seen. The wield line is the
+   -- user's, left hand, 12:49:24.41.
+   persist(tempRegexTrigger(
+      [[^White strands of light weave themselves together before your eyes, and within seconds you hold a spiritual mace within your grasp\.$]],
+      function() emunah.curing.deflist.noteMaceInHand() end))
+   persist(tempRegexTrigger(
+      [[^You have a mace in the land, which you should call for\.$]],
+      function() emunah.curing.deflist.noteMaceInLand() end))
+   persist(tempRegexTrigger(
+      [[^You start to wield a spiritual mace in your left hand\.$]],
+      function() emunah.curing.deflist.noteMaceWielded() end))
 end
 
 return true

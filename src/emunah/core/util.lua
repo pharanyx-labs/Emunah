@@ -65,6 +65,23 @@ function M.trim(s)
    return s:match("^%s*(.-)%s*$")
 end
 
+--- A name as a lookup key: lowercased, memoised.
+---
+--- Affliction and defence lookups (engine.has(), afflictions.has(), act.afflicted()) are
+--- asked dozens of times per prompt, almost always with a literal that is already lowercase,
+--- and each ran `tostring(name):lower()` -- a new string built and hashed to find the one it
+--- was handed. The set of names asked about is the affliction and defence tables plus what
+--- the server reports, so the memo is bounded by the game, not by the session.
+local lowered = {}
+
+function M.lower(name)
+   local key = lowered[name]
+   if key then return key end
+   key = tostring(name or ""):lower()
+   if type(name) == "string" then lowered[name] = key end
+   return key
+end
+
 --- Split on a Lua pattern.
 --- @return table
 function M.split(s, sep)
@@ -170,10 +187,15 @@ end
 ---
 --- Mudlet's getEpoch() is the wall clock with sub-second precision; os.time() is the
 --- portable fallback but only whole seconds, so it is a last resort rather than a peer.
+---
+--- No pcall and no tonumber on the way: this is asked dozens of times per prompt (every
+--- timers.ready(), every guard), getEpoch() returns a number and has no failure mode to
+--- protect against, and the type test still covers an environment without it.
 function M.now()
-   if type(getEpoch) == "function" then
-      local ok, value = pcall(getEpoch)
-      if ok and tonumber(value) then return tonumber(value) end
+   local epoch = getEpoch
+   if epoch then
+      local value = epoch()
+      if type(value) == "number" then return value end
    end
    return os.time()
 end

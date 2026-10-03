@@ -194,10 +194,14 @@ M.sawVitals = false
 --- no Char.Vitals ahead of it (a dropped GMCP packet, a subscription lost at death, see
 --- gmcp/init.lua) would otherwise be a prompt on which nothing is cured. Then the prompt
 --- itself runs the heartbeat, on the state we already have.
-function M.onPrompt()
+---
+--- @param linesAfter boolean|nil lines arrived between this block's Char.Vitals and the
+---   prompt, so the heartbeat that ran on Char.Vitals did not see them. Run it again. See
+---   curing/detect's M.textPrompt().
+function M.onPrompt(linesAfter)
    if M.sawVitals then
       M.sawVitals = false
-      return false
+      if not linesAfter then return false end
    end
    M.ticks = M.ticks + 1
    event.raise("vitals", M)

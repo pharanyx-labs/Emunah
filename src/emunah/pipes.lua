@@ -50,12 +50,22 @@ local event = emunah.event
 --- different ones in different places and both are verified: `light pipe367581` and
 --- `put skullcap in 367581`. Neither spelling has been observed working in the other's
 --- slot, so neither is assumed to.
-M.pipes = {}
+---
+--- CARRIED ACROSS A RELOAD, on _persist. Reloading Emunah does not change a pipe, and
+--- starting empty made the first prompt after `emreload` send a quiet PIPELIST -- whose
+--- six lines are painted out and deleted just after they are drawn. Reported in play:
+--- "when i emreload and then send 'look' ... i see it very briefly and it looks messy".
+--- A disconnect still forgets them (M.forget), because a session boundary is what can
+--- change them.
+emunah._persist = emunah._persist or {}
+emunah._persist.pipes = emunah._persist.pipes or {}
+M.pipes = emunah._persist.pipes
 
 --- herb -> true: SMOKE of it was refused with "That pipe isn't lit." and no light has
 --- landed since. have.pipe() reads it, so smoking that herb waits for the relight even
---- while the pipes themselves are not yet known.
-M.unlit = {}
+--- while the pipes themselves are not yet known. Carried for the same reason as M.pipes.
+emunah._persist.pipesUnlit = emunah._persist.pipesUnlit or {}
+M.unlit = emunah._persist.pipesUnlit
 
 M.enabled = false
 
@@ -107,9 +117,12 @@ M.ATTEMPTS = 3
 --- OFF BY DEFAULT (0), as the reference system has it: it never sends PIPELIST on its own,
 --- only when asked, and tracks pipes from the lines above. The five-minute poll was the
 --- "sometimes I see the output from pipelist, which disappears a second later" of
---- 2026-09-28: its reply is gagged after the packet (see M.gag), so it shows until then.
---- A poll still goes out when the pipes are not known at all -- after login, a reload, or
---- an unlit refusal with nothing on record -- since then there is nothing to track from.
+--- 2026-09-28. The reply is blanked in the trigger that reads it (see M.gag), but it is
+--- still drawn as blank rows that collapse a moment later -- "i see it very briefly and it
+--- looks messy" -- so the fewer quiet polls the better.
+--- A poll still goes out when the pipes are not known at all -- after login, or an unlit
+--- refusal with nothing on record -- since then there is nothing to track from. A reload
+--- is not one of those: M.pipes is carried across it.
 M.POLL = 0
 
 --- Puffs in a freshly filled pipe.
@@ -221,6 +234,8 @@ end
 function M.forget()
    M.pipes, attempts = {}, {}
    M.unlit = {}
+   -- Re-pointed, not cleared in place: the next load must not inherit what this dropped.
+   emunah._persist.pipes, emunah._persist.pipesUnlit = M.pipes, M.unlit
    warnedHerb, warnedStock, warnedStuck = {}, {}, {}
    M.lastAction = nil
    emunah.timers.stop("pipes.chain")
@@ -257,17 +272,30 @@ end
 -- ---------------------------------------------------------------------------
 -- gagging our own housekeeping
 --
--- PIPELIST, LIGHT and PUT that Emunah sends for itself are noise: a poll prints six lines,
--- every relight two more (the tinderbox, then "You carefully light your treasured pipe until
--- it is smoking nicely."). So those commands go out unechoed and their replies are hidden.
--- A command you typed yourself, or `emunah pipes now`, is never gagged.
+-- PIPELIST and PUT that Emunah sends for itself go out unechoed and their replies are
+-- hidden: a poll prints six lines. A command you typed yourself, or `emunah pipes now`, is
+-- never gagged.
 --
--- NEVER deleteLine() INSIDE A TRIGGER HERE. That is what broke this module once (see the
--- note above the triggers): deleting while Mudlet was still working through the lines of
--- the same packet shifted the buffer, and every PIPELIST row after the first was never
--- parsed. So a trigger only RECORDS the line number, and the lines are removed afterwards by
--- a zero-delay timer -- which Mudlet runs once the packet has been processed -- from the
--- bottom up, so removing one never moves another.
+-- LIGHT IS NOT HIDDEN, and neither is "Your pipe, containing a skullcap flower, has gone
+-- cold and dark." that comes before it. The hiding below still draws the lines as blank
+-- rows that collapse a moment later, and a relight is the one that happens through play,
+-- so it was the flash seen most: "we're still gagging lines when we relight pipes,
+-- though. fix this". LIGHT is echoed and its two lines (the tinderbox, then "You
+-- carefully light your treasured pipe until it is smoking nicely.") are shown as they are.
+--
+-- NEVER deleteLine() OR replace() INSIDE A TRIGGER HERE. Deleting while Mudlet was still
+-- working through the lines of the same packet shifted the buffer, and every PIPELIST row
+-- after the first was never parsed (play: "it's also only lighting the skullcap pipe").
+-- Replacing the line with "" is the same trap: Mudlet drops a blank line and the rows
+-- after it shift too.
+--
+-- A zero-width stand-in was the trap after that one. The slot stays, and the characters
+-- have no width, so the window shows an empty row. That row is still there when you go
+-- to copy the text, and the copy lays the window out again -- which is when the empty
+-- rows vanish. The trigger therefore does not touch the characters. It paints them in
+-- the line's own background, the way Mudlet itself draws a line you are not meant to
+-- read, and a zero-delay timer -- run once the packet has been processed -- deletes by
+-- the original sentence, from the bottom up, so removing one never moves another.
 -- ---------------------------------------------------------------------------
 
 --- How long after sending a quiet command its reply is still treated as ours.
@@ -282,6 +310,26 @@ M.QUIET_WINDOW = 3.0
 --- showed. Each kind now counts its own outstanding commands.
 local quiet = {}
 local gagged = {}
+
+--- Paint the line being processed in its own background. The sentence stays, so the
+--- timer can find it; only the colour changes, and that happens before the packet paints.
+--- No colour API, or no real line under the cursor, leaves it readable until the delete
+--- rather than inventing a stand-in for the search to miss.
+local function concealCurrent()
+   if type(selectCurrentLine) ~= "function" or type(setFgColor) ~= "function"
+      or type(getBgColor) ~= "function" then
+      return
+   end
+   -- false means the cursor is not on a real line. Colouring anyway would restyle
+   -- whatever the cursor last touched, which may be a line we were told to leave alone.
+   if selectCurrentLine() == false then return end
+   local r, g, b = getBgColor()
+   r, g, b = tonumber(r), tonumber(g), tonumber(b)
+   if r and g and b then setFgColor(r, g, b) end
+   -- The colour is on the characters now. A selection left behind is a highlight, and
+   -- it is what a copy would grab.
+   if type(deselect) == "function" then deselect() end
+end
 
 --- Lines since the last prompt, and how many of them were gagged. See M.onLine.
 local block = { lines = 0, gagged = 0 }
@@ -316,6 +364,17 @@ end
 --- How far from its recorded number a gagged line is looked for before giving up on it.
 M.GAG_SEARCH = 200
 
+--- Does this buffer line still hold what we recorded?
+---
+--- A prompt matches with its trailing space stripped: Mudlet finishes the line, which had
+--- no newline of its own, a moment after we read it, and that space is not a command. A
+--- command you typed is echoed onto the prompt as real text, and that line is left alone.
+local function lineMatches(current, wanted, prompt)
+   if current == wanted then return true end
+   if not prompt or type(current) ~= "string" or type(wanted) ~= "string" then return false end
+   return current:gsub("%s+$", "") == wanted:gsub("%s+$", "")
+end
+
 --- Where the line reading `text` is now, looking outward from where it was recorded.
 ---
 --- DELETE BY TEXT, NOT BY NUMBER. A line's number is recorded when its trigger fires and
@@ -325,13 +384,19 @@ M.GAG_SEARCH = 200
 --- right one: "overgagging on some lines and not gagging others" (2026-09-28), both at
 --- once. So the recorded number is only where the search starts, and a line whose text is
 --- not found is left alone rather than something else being deleted in its place.
-local function locate(line, text)
+---
+--- `removed` is the set of indexes already deleted in this flush. Deleting one line shifts
+--- everything below it, so an index already used is not a second copy -- but the copy can
+--- be the next index the search would have stopped on. Skip those and keep looking.
+local function locate(entry, removed)
+   local line, text = entry.line, entry.text
+   if not text then return nil end
    local count = type(getLineCount) == "function" and getLineCount("main") or line
    for offset = 0, M.GAG_SEARCH do
       for _, at in ipairs(offset == 0 and { line } or { line - offset, line + offset }) do
-         if at >= 1 and at <= count then
+         if at >= 1 and at <= count and not removed[at] then
             moveCursor("main", 0, at)
-            if getCurrentLine() == text then return at end
+            if lineMatches(getCurrentLine(), text, entry.prompt) then return at end
          end
       end
    end
@@ -345,8 +410,8 @@ local function flushGags()
       -- An old prompt is only removed while it still reads as it did: if you have typed a
       -- command since, Mudlet echoed it onto that prompt, and the line is yours -- the text
       -- no longer matches, so locate() does not find it.
-      local at = entry.text and locate(entry.line, entry.text)
-      if at and not removed[at] then
+      local at = locate(entry, removed)
+      if at then
          moveCursor("main", 0, at)
          deleteLine("main")
          removed[at] = true
@@ -361,6 +426,11 @@ end
 --- Record the line being processed for deletion. Returns false if it was already recorded:
 --- two triggers gagging one line must count it once, or the block's gag count outruns its
 --- lines and M.onLine collapses a prompt that still has a visible line above it.
+---
+--- The colour changes HERE, before this trigger returns, so the packet is not painted
+--- with the words still readable. The characters stay: the timer deletes by them, and
+--- replacing them is what left the empty rows. Doing the deleteLine now would shift
+--- the rest of the packet.
 local function gagCurrent()
    if type(getLineNumber) ~= "function" then return false end
    local line = getLineNumber("main")
@@ -368,8 +438,12 @@ local function gagCurrent()
    for _, entry in ipairs(gagged) do
       if entry.line == line then return false end
    end
+   -- The sentence the timer searches for is the one that arrived. Concealing does not
+   -- change it; reading it first means a later call cannot either.
+   local text = getCurrentLine()
+   concealCurrent()
    if #gagged == 0 then tempTimer(0, flushGags) end
-   gagged[#gagged + 1] = { line = line, text = getCurrentLine() }
+   gagged[#gagged + 1] = { line = line, text = text }
    return true
 end
 
@@ -391,7 +465,7 @@ function M.onLine()
    if type(isPrompt) == "function" and isPrompt() then
       if block.gagged > 0 and block.lines == block.gagged and lastPrompt then
          if #gagged == 0 then tempTimer(0, flushGags) end
-         gagged[#gagged + 1] = { line = lastPrompt.line, text = lastPrompt.text }
+         gagged[#gagged + 1] = { line = lastPrompt.line, text = lastPrompt.text, prompt = true }
       end
       local line = type(getLineNumber) == "function" and getLineNumber("main") or nil
       lastPrompt = line and { line = line, text = getCurrentLine() } or nil
@@ -549,9 +623,11 @@ function M.keep()
          end
 
       elseif pipe.status ~= "lit" then
-         if emunah.act.send("light " .. pipe.token, { quiet = true }) then
+         -- Echoed, and its replies shown: hiding them drew blank rows that collapsed a
+         -- moment later ("we're still gagging lines when we relight pipes, though. fix
+         -- this"). The same as every other keep-up command, `wield mace` or `perform bliss`.
+         if emunah.act.send("light " .. pipe.token, {}) then
             M.acted(pipe, "light")
-            M.quietly("light")
             return true
          end
       end
@@ -651,12 +727,6 @@ do
       end
    end))
 
-   -- The tinderbox, ahead of every LIGHT: "You use a soot-blackened tinderbox to make fire."
-   -- (13:05:25.08). The tinderbox's description is left open.
-   keep(tempRegexTrigger([[^You use .+ to make fire\.$]], function()
-      if ours("light") then M.gag() end
-   end))
-
    -- A pipe going out. The fast path: this arrives the moment it happens, where the poll
    -- could be a minute away. It names the CONTENTS rather than the pipe, which is enough --
    -- the contents are what PIPELIST keys each pipe by anyway.
@@ -701,7 +771,6 @@ do
             attempts[pipe.id] = 0
             emunah.timers.stop("pipes.pipe." .. pipe.id)
          end
-         if ours("light") then M.gag() answered("light") end
          M.chain()
       end))
    end
@@ -715,7 +784,6 @@ do
          attempts[pipe.id] = 0
          emunah.timers.stop("pipes.pipe." .. pipe.id)
       end
-      if ours("light") then M.gag() answered("light") end
       M.chain()
    end))
 

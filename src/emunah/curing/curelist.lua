@@ -40,6 +40,12 @@ M.vectors = {
    -- for a missed message. An under-estimate here re-sends `drink health` mid-sip and
    -- wastes the vial; an over-estimate costs at most one late sip.
    elixir  = { recovery = 6.0, command = "drink %s",        needsItem = true  },
+   -- The AFFLICTION-HEALING elixirs -- immunity, frost, venom, speed, levitation -- run on
+   -- a balance of their own, not the health/mana sip balance [svof: bals.purgative, gated
+   -- by check_purgative independently of check_sip]. Announced like the sip ("You may drink
+   -- another affliction-healing elixir."), so this is a net for a missed line, sized like
+   -- the elixir's for the same reason.
+   purgative = { recovery = 6.0, command = "drink %s",      needsItem = true  },
    smoke   = { recovery = 3.5, command = "smoke %s",        needsItem = true  },
    -- Irid moss. Its own balance, with herb balance untouched. MEASURED at 5.94s: eaten
    -- 12:41:01.61, "You may eat another bit of irid moss or potash." at 12:41:07.55. The

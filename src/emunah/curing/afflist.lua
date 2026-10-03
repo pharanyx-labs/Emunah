@@ -48,7 +48,7 @@ M.blocks = {
    -- `elixir` too: The reference system's sip gate (the reference system's skeleton module check_sip) refuses to sip while
    -- anorexic, as does its purgative gate. Anorexia is loss of the desire for food OR
    -- drink (HELP VENOM, slike: "lose all desire for food or drink").
-   anorexia  = { "herb", "moss", "elixir" },
+   anorexia  = { "herb", "moss", "elixir", "purgative" },
    slickness = { "salve" },
    asthma    = { "smoke" },
    -- The reference system's check_smoke refuses on `mucous` as well as asthma. The refusal line it matches
@@ -409,8 +409,8 @@ M.afflictions = {
       priority = { herb = 64 },
    },
    frost = {
-      cures = { { vector = "elixir", item = "frost", alt = "endothermia" } },
-      priority = { elixir = 2 },
+      cures = { { vector = "purgative", item = "frost", alt = "endothermia" } },
+      priority = { purgative = 2 },
    },
    frozen = {
       cures = { { vector = "salve", item = "caloric", alt = "exothermic", location = "body" } },
@@ -486,8 +486,8 @@ M.afflictions = {
       priority = { herb = 47 },
    },
    levitation = {
-      cures = { { vector = "elixir", item = "levitation", alt = "hovering" } },
-      priority = { elixir = 5 },
+      cures = { { vector = "purgative", item = "levitation", alt = "hovering" } },
+      priority = { purgative = 5 },
    },
    loneliness = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" }, { vector = "focus" } },
@@ -719,8 +719,8 @@ M.afflictions = {
       priority = { herb = 5, smoke = 3 },
    },
    speed = {
-      cures = { { vector = "elixir", item = "speed", alt = "haste" } },
-      priority = { elixir = 3 },
+      cures = { { vector = "purgative", item = "speed", alt = "haste" } },
+      priority = { purgative = 3 },
    },
    -- ADDED from the tk cross-check; see the comment above flushings.
    spiritburn = {
@@ -775,16 +775,16 @@ M.afflictions = {
       priority = { focus = 19 },
    },
    venom = {
-      cures = { { vector = "elixir", item = "venom", alt = "toxin" } },
-      priority = { elixir = 4 },
+      cures = { { vector = "purgative", item = "venom", alt = "toxin" } },
+      priority = { purgative = 4 },
    },
    vertigo = {
       cures = { { vector = "herb", item = "lobelia", alt = "argentum" }, { vector = "focus" } },
       priority = { herb = 45, focus = 4 },
    },
    voyria = {
-      cures = { { vector = "elixir", item = "immunity", alt = "antigen" } },
-      priority = { elixir = 1 },
+      cures = { { vector = "purgative", item = "immunity", alt = "antigen" } },
+      priority = { purgative = 1 },
    },
    waterbubble = {
       cures = { { vector = "herb", item = "pear", alt = "calcite" } },
@@ -1025,7 +1025,13 @@ end
 
 --- Rank of an affliction within one vector's priority list; nil when the affliction
 --- cannot be cured by that vector at all.
-function M.priority(name, vector)
+---
+--- @param overrides table|nil the `priorities` setting, when the caller has already read it.
+---   The engine asks this once per tracked affliction per vector -- 56 times a prompt with
+---   eight afflictions up -- and re-reading the same setting each time was an eighth of the
+---   tick. It reads it once per tick and passes it here instead; nothing is cached, so a
+---   changed setting is seen on the very next tick.
+function M.priority(name, vector, overrides)
    local definition = M.afflictions[name]
    if definition == nil then
       name = tostring(name or ""):lower()
@@ -1036,7 +1042,7 @@ function M.priority(name, vector)
    -- The fallback is the shared EMPTY rather than a literal `{}`: Lua builds the default
    -- table on every call whether or not it is used, and this is one of the hottest calls
    -- in the engine -- once per tracked affliction per vector per prompt.
-   local overrides = emunah.config.get("priorities", EMPTY)
+   overrides = overrides or emunah.config.get("priorities", EMPTY)
    -- `next()` rather than a length test: `priorities` is a map, and it is empty for
    -- essentially every user. Skipping the lookup entirely in that case is what makes the
    -- common path a single table read.
@@ -1045,6 +1051,18 @@ function M.priority(name, vector)
       if type(override) == "table" and override[vector] then return override[vector] end
    end
    return (definition.priority or EMPTY)[vector]
+end
+
+--- An affliction's whole rank table -- vector -> rank -- for a caller that asks about every
+--- vector in turn and has already checked there are no user overrides (afflist.priority()
+--- is the one to use otherwise). Shared and read-only.
+function M.ranks(name)
+   local definition = M.afflictions[name]
+   if definition == nil then
+      definition = M.afflictions[tostring(name or ""):lower()]
+      if not definition then return EMPTY end
+   end
+   return definition.priority or EMPTY
 end
 
 --- affliction -> ordered vector list, built on first use. Same argument as viaCache above:

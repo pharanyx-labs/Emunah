@@ -182,6 +182,15 @@ failed eats may have landed inside herb balance (`The plant has no effect.`, see
 
 Substantive corrections to the data, most recent first.
 
+**The affliction-healing elixirs moved to their own balance (2026-10-03).** `voyria`
+(immunity), `frost`, `venom`, `speed` and `levitation` cure on `purgative`, not `elixir`.
+svof gates them with `check_purgative` on `bals.purgative`, independently of the health/mana
+sip [svof]. Sharing the sip's slot, a voyria cure lost to health sipping (rank 0) for as long
+as health stayed low, which was never in 20 s in `test/latency.lua`. The keep-up raises for the
+same elixirs (`deflist.lua`) moved with them. One cure per affliction per tick now applies
+across vectors too, as svof's `doingaction` does: one stupidity no longer draws both
+goldenseal and focus.
+
 **svof's per-cure conditions.** `CONDITIONS` carries the extra clauses of svof's
 `isadvisable` for each cure (madness, hypochondria, focus-in-flight, limb order, and the
 pairs listed in `docs/game/curing.md`). Fear lost its focus option: svof's is switched off.

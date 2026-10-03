@@ -27,6 +27,88 @@ was wrong is worth keeping:
 Literally true, and it missed the point. **A `tempRegexTrigger` whose pattern matches every
 line is a per-line Lua handler with extra steps.** There were five of them.
 
+## Time to send: the 2026-10-03 pass
+
+Everything below this section measures what a function costs. This pass measured what a
+fight is decided on, **the gap between the game allowing a command and Emunah sending it**,
+with `test/latency.lua`. It found that the expensive delays were not CPU at all.
+
+### Logic: a command held back by the system's own rules
+
+Simulated seconds against a scripted server (RTT 0.1s) that returns a balance at a chosen
+moment, announces it with the game's line, and refuses anything sent before then.
+
+| Scenario | Before | After |
+|---|---|---|
+| salve, game faster than the 1.8s estimate | 600 ms late | **0 ms** |
+| salve, game slower than the estimate | not sent within 6 s | **0 ms** |
+| focus, game faster than the 4.5s estimate | 1510 ms late | **0 ms** |
+| focus, game slower than the estimate | 4100 ms late | **0 ms** |
+| voyria at 50% health | cure never sent in 20 s | **sent at once, beside the health sip** |
+| herb (already announced, control) | 0 ms | 0 ms |
+
+What caused each:
+
+1. **Salve, focus and tree had no balance-return trigger.** They ran on their fallback
+   estimate alone, which is wrong in both directions. svof's verbatim lines are now matched
+   (`docs/game/balance.md`).
+2. **A refused cure kept its same-affliction guard** (`engine.CURE_GUARD`, 1.5 s) and its
+   queue slot until timeout, although the refusal is the game answering it. A refusal now
+   frees both (`refused()` in `detect/patterns.lua`).
+3. **A confirm timeout freed its vector without ticking.** Neither did `writhe.busy`, the
+   stun/sleep/unconscious/arm guards, or the STAND and WAKE in-flight guards. Each now
+   acts the moment it lapses (`engine.TICK_ON_EXPIRY`, `queue.timeout`, detect's
+   `RETRY_ON_EXPIRY`).
+4. **Affliction-healing elixirs shared the health sip's slot.** svof gives them their own
+   balance (`purgative`). Healing at rank 0 starved a voyria cure for as long as health was
+   low, and every drink put the sip balance out until a line that a purgative never prints.
+5. **Lines after `Char.Vitals` waited for the next prompt.** The heartbeat runs on
+   `Char.Vitals`. A balance announced after it in the same block was committed at the prompt
+   with no tick behind it. The prompt now ticks again when lines followed `Char.Vitals`,
+   and costs nothing when none did. Whether Achaea orders a block that way is not established.
+
+### Processing: work done inside the packet, ahead of `send()`
+
+Mudlet handles a packet start to finish on one thread before the socket write is flushed
+and before anything is drawn, so every handler that runs ahead of `send()` is latency.
+Measured as real Lua time with the mock's own trigger matching subtracted, plus **Qt draw
+calls made before the send**, which are counted because the mock can't time them.
+
+| Packet | Before | After |
+|---|---|---|
+| affliction lands (Add, Add, Vitals, prompt) | 158 µs, **10 draws** before send | **85 µs, 0 draws** |
+| herb balance announced, then `Char.Vitals` | 96 µs, 5 draws | **52 µs, 0 draws** |
+| herb balance announced after `Char.Vitals` | not sent this packet | **117 µs, 0 draws** |
+| Draws per affliction packet | 10 | 8 (two affliction events now paint once) |
+| Total Lua per packet | 83–187 µs | within ±6 µs of before: the work moved, it didn't disappear |
+
+| `bench.lua` | Before | After |
+|---|---|---|
+| `engine.tick()` | 79.0 µs, 2056 B | **67.5 µs, 2000 B** |
+| `engine.has()` | 0.17 µs | **0.10 µs** |
+
+What changed:
+
+- **Panels paint after the packet** (`theme.later()`): one zero-delay timer, coalesced per
+  panel. The vitals strip used to paint on `emunah.vitals`, which runs before the tick (and
+  the UI loads before the engine, so it ran first). The affliction panel painted inside
+  `Char.Afflictions.Add`.
+- **The engine sends each vector's cure as soon as it resolves it** (`queue.flushVector`).
+  This was a wasted balance rather than a timing issue: the same-affliction guard is armed on
+  send, so two vectors could choose one affliction in one tick. `apply epidermal` and `focus`
+  both went out for one anorexia. svof forbids that (`doingaction`).
+- **Restocking runs after the cures**, not before. It was a fifth of the tick and nothing in
+  the cure loop reads it.
+- **Debug output follows the send** (`act.send`, the engine loop). With `emset debug` on,
+  it was a console print ahead of every command.
+- `afflist.priority()` re-read the `priorities` setting 56 times a tick. It is now read once,
+  per tick, with nothing cached across ticks. Rank tables are looked up once per affliction.
+- `util.now()` dropped a `pcall` and a `tonumber`. `act.blocked()` stopped allocating `{}`.
+  Name lookups use a memoised lowercase (`util.lower`).
+
+The mock now dispatches events in registration order, as Mudlet does. `pairs()` order had
+hidden which handler ran first.
+
 ## What it costs now
 
 Measured with `test/bench.lua` under a realistic lock: eight afflictions tracked across
@@ -170,10 +252,14 @@ person does not have to re-derive it.
 ## Measuring
 
 ```sh
-lua test/bench.lua [iterations]     # wall time and bytes per call
-lua test/profile.lua [iterations]   # sampling profiler, hottest lines
-lua test/run.lua                    # includes the draw-call budget assertions
+lua5.1 test/latency.lua [iterations] # time from the game allowing a command to sending it
+lua5.1 test/bench.lua [iterations]   # wall time and bytes per call
+lua5.1 test/profile.lua [iterations] # sampling profiler, hottest lines
+lua5.1 test/run.lua                  # includes the draw-call budget assertions
 ```
+
+Mudlet runs Lua 5.1. Measure with `lua5.1`; the default `lua` on many systems is 5.4, which
+has a different allocator and VM.
 
 Four traps, all of which produced confidently wrong numbers before they were noticed:
 
@@ -200,6 +286,15 @@ Before/after here means running the same `bench.lua` against the same checkout b
 after a change.
 
 ## Rules for changes
+
+- **Nothing draws before the cure is sent.** A panel asks `theme.later()` to paint it.
+  `test/run.lua` asserts zero draws ahead of the send.
+- **Anything that frees a gate must tick.** A balance line, a timer lapsing, a confirm
+  timing out or a refusal is the moment a command becomes possible. If nothing ticks, it
+  waits for an unrelated prompt, and when idle none arrives.
+- **Every balance that announces its return is matched.** A fallback estimate is only a
+  net for a missed line.
+- **Log after the send, never before it.**
 
 - **A trigger pattern that matches most lines is a per-line Lua handler.** Before adding a
   `tempRegexTrigger`, ask what fraction of real output it matches. If the answer is "most",

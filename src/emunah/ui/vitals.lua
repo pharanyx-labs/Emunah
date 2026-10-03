@@ -39,7 +39,7 @@ local RESOURCES = {
 }
 
 --- Cure vectors shown as availability lights.
-local VECTORS = { "herb", "salve", "elixir", "smoke", "focus" }
+local VECTORS = { "herb", "salve", "elixir", "purgative", "smoke", "focus" }
 
 -- A few pixels of top margin before row 0, not zero: right up against the container's
 -- top edge, the target gauge was sitting on top of (and hiding) the game console's own
@@ -339,7 +339,9 @@ function M.updateStats()
    widget:decho(body)
 end
 
-emunah.event.register("emunah.vitals", function() M.update() end, "ui.vitals")
+-- Painted after the packet, not on the event: `emunah.vitals` is raised AHEAD of the tick, so
+-- painting here put five gauges and two labels in front of every cure. See theme.later().
+emunah.event.register("emunah.vitals", function() theme.later("vitals", M.update) end, "ui.vitals")
 emunah.event.register("emunah.ui.built", function() M.build() end, "ui.vitals")
 
 -- Vector lights depend on timers, which have no vitals event of their own.
@@ -348,12 +350,14 @@ emunah.event.register("emunah.ui.built", function() M.build() end, "ui.vitals")
 -- resource gauges, the XP gauge, both balance lights and the class stats -- on every cure
 -- timer lapsing, which in a fight is several times a second on top of the per-prompt
 -- update. Nothing else on the strip reads a timer.
-emunah.event.register("emunah.timer.expired", function() M.updateVectors() end, "ui.vitals")
+emunah.event.register("emunah.timer.expired", function()
+   theme.later("vitals.vectors", M.updateVectors)
+end, "ui.vitals")
 
 emunah.event.registerAll({
    "emunah.target",
    "emunah.target.info",
-}, function() M.updateTarget() end, "ui.vitals")
+}, function() theme.later("vitals.target", M.updateTarget) end, "ui.vitals")
 
 M.build()
 

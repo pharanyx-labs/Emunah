@@ -118,6 +118,11 @@ function mock.install(homeDir)
    mock.buffer = {}
    mock.cursor = nil
    mock.deletedText = {}
+   -- Whole-line foreground set by selectCurrentLine + setFgColor, keyed by buffer index.
+   -- Pipes conceals a gag by painting the line in its own background; the text stays so
+   -- the timer can still find it. deselect() must not forget that colour.
+   mock.lineFg = {}
+   mock.bgColor = { 0, 0, 0 }
    function _G.getLineNumber() return mock.cursor or #mock.buffer end
    function _G.getLineCount() return #mock.buffer end
    function _G.moveCursor(window, x, y)
@@ -129,8 +134,16 @@ function mock.install(homeDir)
    function _G.deleteLine()
       mock.deletedLines = mock.deletedLines + 1
       local line = mock.cursor or #mock.buffer
-      if mock.buffer[line] then
+      -- ~= nil, not a truthiness check: an empty string is a real buffer row, and the
+      -- gag's bug was exactly a row that looked empty and never went away.
+      if mock.buffer[line] ~= nil then
          mock.deletedText[#mock.deletedText + 1] = table.remove(mock.buffer, line)
+         local shifted = {}
+         for index, colour in pairs(mock.lineFg) do
+            if index < line then shifted[index] = colour
+            elseif index > line then shifted[index - 1] = colour end
+         end
+         mock.lineFg = shifted
       end
    end
 
@@ -170,6 +183,32 @@ function mock.install(homeDir)
       end
    end
 
+   --- selectCurrentLine selects the whole buffer row. Pipes uses it with setFgColor to
+   --- hide a line without replace() or deleteLine(); both of those move the rows Mudlet
+   --- has not finished processing. replace() is still here for anything that rewrites.
+   function _G.selectCurrentLine()
+      local lineNo = getLineNumber()
+      if not lineNo or lineNo < 1 then return false end
+      selection = { text = getCurrentLine(), at = 1, whole = true, line = lineNo }
+      return true
+   end
+
+   function _G.replace(with)
+      if not selection then return false end
+      local newText = tostring(with or "")
+      local lineNo = selection.line or getLineNumber()
+      if selection.whole then
+         if mock.buffer and lineNo and mock.buffer[lineNo] ~= nil then
+            mock.buffer[lineNo] = newText
+         end
+         if not mock.cursor or mock.cursor == lineNo or lineNo == #mock.buffer then
+            mock.currentLine = newText
+         end
+      end
+      selection = nil
+      return true
+   end
+
    --- Real Mudlet returns the 0-based start index, or -1 when the occurrence is not there.
    function _G.selectString(text, occurrence)
       occurrence = tonumber(occurrence) or 1
@@ -187,13 +226,26 @@ function mock.install(homeDir)
 
    function _G.deselect() selection = nil end
 
+   --- Background of the current selection, as Mudlet returns it: three components.
+   function _G.getBgColor()
+      local bg = mock.bgColor or { 0, 0, 0 }
+      return bg[1], bg[2], bg[3]
+   end
+
    local function styler(field)
       return function(...)
          if not selection then return end
          local args = { ... }
          if field == "colour" then
-            selection.colour = string.format("#%02x%02x%02x",
-               tonumber(args[1]) or 0, tonumber(args[2]) or 0, tonumber(args[3]) or 0)
+            local r = tonumber(args[1]) or 0
+            local g = tonumber(args[2]) or 0
+            local b = tonumber(args[3]) or 0
+            selection.colour = string.format("#%02x%02x%02x", r, g, b)
+            -- A whole-line colour has to outlive deselect(), which the gag calls so the
+            -- selection itself is not what a copy grabs.
+            if selection.whole and selection.line then
+               mock.lineFg[selection.line] = { r, g, b }
+            end
          else
             selection[field] = args[1] ~= false
          end
@@ -328,8 +380,14 @@ function mock.install(homeDir)
       local handlers = mock.handlers[event]
       if not handlers then return end
       -- Snapshot: a handler may register or kill handlers while we iterate.
+      --
+      -- IN REGISTRATION ORDER, as Mudlet calls them -- ids only ever increase, so sorting by id
+      -- is that order. `pairs()` order is the hash's, and it hid what actually runs first: the
+      -- UI loads before curing/engine.lua, so in Mudlet the vitals strip painted ahead of the
+      -- tick on every prompt, while the mock happened to run them the other way round.
       local snapshot = {}
       for id, fn in pairs(handlers) do snapshot[#snapshot + 1] = { id = id, fn = fn } end
+      table.sort(snapshot, function(a, b) return a.id < b.id end)
       for _, entry in ipairs(snapshot) do
          if mock.handlers[event] and mock.handlers[event][entry.id] then
             local ok, err = pcall(entry.fn, event, ...)
@@ -1079,8 +1137,18 @@ function mock.prompt(text)
    return fired
 end
 
+--- Real seconds mock.line() has spent MATCHING, as opposed to running trigger callbacks.
+---
+--- Matching here is string.find over translated Lua patterns, standing in for Mudlet's C++
+--- PCRE -- a cost of the harness, not of Emunah. test/latency.lua subtracts it so what it
+--- reports is the Lua our code actually runs. Accumulated as it goes, not per line, so a
+--- reading taken from inside a callback (the moment of a send) is already correct.
+mock.matchTime = 0
+
 function mock.line(text)
    local fired = 0
+   local clock = mock.realClock or os.clock
+   local segment = clock()
    -- Real Mudlet exposes the line being processed to getCurrentLine(); a trigger that
    -- re-reads its own line (the highlighter, the capture ring buffer) needs that to be the
    -- line it is firing on rather than whatever was set last.
@@ -1097,12 +1165,15 @@ function mock.line(text)
             local m = { text }
             for index = 3, #captures do m[#m + 1] = captures[index] end
             _G.matches = m
+            mock.matchTime = mock.matchTime + (clock() - segment)
             trigger.fn()
+            segment = clock()
             fired = fired + 1
             break
          end
       end
    end
+   mock.matchTime = mock.matchTime + (clock() - segment)
    return fired
 end
 
