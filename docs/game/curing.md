@@ -82,7 +82,12 @@ balances of the same kind:
 | Smoke | distinct rejection `You have not yet recovered balance for smoking.` **[play, balance.md]**; `CURING TREE SCENARIO NOBAL ... SMOKE` **[HELP curingsystem]** |
 | Focus | `You have not yet regained your mental balance.` **[play]**; `NOBAL ... FOCUS` **[HELP curingsystem]** |
 | Tree | own timer, no bal/eq **[play, defences.md]** |
+| Purgative | the **affliction-healing** elixirs: immunity, frost, venom, speed, levitation. Gated by `check_purgative` beside `check_sip`, on `bals.purgative` **[svof]**. Emunah vector `purgative` |
 | Writhe | not a balance: a duration, see below |
+
+Every balance but writhe's announces its own return, and Emunah frees each vector on that
+line rather than on its fallback estimate (verbatim in `balance.md`). Salve, focus, tree and
+purgative were added from svof on 2026-10-03; until then they ran on the estimate alone.
 
 **[HELP heal]** / **[HELP combatprinciples]**: health and mana elixirs "both use the same
 balance, [so] you must choose which to heal". One elixir slot, and health and mana compete for it.
@@ -124,6 +129,7 @@ block can land while a cure waits for its balance.
 | eat herb / mineral | anorexia; paralysis does **not** block | `afflist.blocks` | [svof check_herb], [play] |
 | eat moss / potash | anorexia | `afflist.blocks` | [svof check_moss] |
 | sip elixir | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_sip]; [play] for paralysis |
+| drink purgative | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_purgative]; paralysis by analogy with the sip |
 | apply salve | slickness; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_salve]; [play] for paralysis |
 | smoke | asthma, mucous; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_smoke] |
 | `outr` (rift) | webbed, bound, transfixed, roped, impaled; both arms crippled. **Not** paralysis, equilibrium, balance, prone, or blindness | `afflist.blocks`, `have.vectorBlocked` | [svof canoutr]; [play] 14:26:06–14:27:20 on 2026-09-28, where holding it for paralysis deadlocked the bloodroot pull. 17:31:34.08–17:31:37.10: the first pull waited out mindseye's equilibrium because the rift list was still behind the login refresh |

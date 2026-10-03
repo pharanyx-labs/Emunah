@@ -288,7 +288,13 @@ function M.commitText()
    for index = 1, #pending do apply(pending[index]) end
 end
 
-event.register("emunah.vitals", function() M.commitText() end, "curing.detect")
+--- Lines since the last Char.Vitals. See M.textPrompt().
+M.linesSinceVitals = 0
+
+event.register("emunah.vitals", function()
+   M.linesSinceVitals = 0
+   M.commitText()
+end, "curing.detect")
 
 --- Lines since the last prompt: The reference system's `paragraph_length`, kept by the same trigger.
 M.paragraphLength = 0
@@ -297,16 +303,27 @@ M.paragraphLength = 0
 --- prompt, exactly as the reference system's `Prompt` trigger counts them.
 function M.textLine()
    M.paragraphLength = M.paragraphLength + 1
+   M.linesSinceVitals = M.linesSinceVitals + 1
 end
 
 --- The prompt. Closes the block: its reports are applied (or discarded, on an illusion)
 --- whether or not a Char.Vitals came with it, and if none did, the prompt runs the
 --- heartbeat instead (gmcp.vitals.onPrompt).
+---
+--- So does a block whose Char.Vitals came BEFORE some of its lines. The heartbeat ran on
+--- Char.Vitals, and whatever those later lines did -- a balance announced, an affliction
+--- committed here -- was then sat on until the NEXT prompt: in test/latency.lua, a herb
+--- balance announced after Char.Vitals sent nothing at all that block. svof runs everything
+--- off the prompt line for exactly this reason: it is the one thing guaranteed to come last.
+--- Whether Achaea ever orders a block that way is not established; when it does not, this
+--- costs nothing, because no line has arrived since Char.Vitals.
 function M.textPrompt()
    M.commitText()
    M.paragraphLength = 0
+   local after = M.linesSinceVitals > 0
+   M.linesSinceVitals = 0
    local vitals = emunah.gmcp and emunah.gmcp.vitals
-   if vitals and vitals.onPrompt then vitals.onPrompt() end
+   if vitals and vitals.onPrompt then vitals.onPrompt(after) end
 end
 
 --- Arm balance. The reference system holds every balance-taking action until BOTH arms have it
@@ -1031,11 +1048,25 @@ end, "curing.detect")
 -- the exact line that produced three refused STANDs in the 06:03 capture. act.blocked()
 -- would hold them anyway, but the two flags coinciding is the normal case rather than an
 -- edge, and it is worth reading here that we know it.
-event.register("emunah.tick", function()
+local function retryStandAndWake()
    if M.prone and not M.stunned and not M.asleep then M.standUp() end
    -- Retried per tick rather than sent once: WAKE "will attempt" to wake you, and it costs
    -- nothing, so the guard rather than the send is what paces it.
    if M.asleep then M.wakeUp() end
+end
+
+event.register("emunah.tick", retryStandAndWake, "curing.detect")
+
+-- ...and the moment a guard that was pacing them lapses, not at whichever prompt follows.
+-- A refused STAND left the character flat until the next unrelated event; the guard exists
+-- to space retries a round trip apart, not to wait for the room to say something.
+local RETRY_ON_EXPIRY = {
+   ["stand.inflight"] = true, ["wake.inflight"] = true,
+   ["stun.guard"] = true, ["unconscious.guard"] = true,
+}
+
+event.register("emunah.timer.expired", function(_, name)
+   if RETRY_ON_EXPIRY[name] then retryStandAndWake() end
 end, "curing.detect")
 
 return M

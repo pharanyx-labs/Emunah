@@ -150,10 +150,7 @@ end
 ---     events of which at most one changes what the room panel shows. The other four now
 ---     cost a string build and a compare, and Qt never hears about them.
 ---
---- Deliberately NOT a timer-coalesced repaint. Deferring to the next tick would mean a panel
---- could sit stale whenever events arrive without a prompt behind them, and it would make
---- every assertion about panel contents depend on advancing a clock. Comparing the rendered
---- result gets the same saving with neither problem.
+--- WHEN a panel paints is M.later()'s business, below: after the packet, not inside it.
 ---
 --- @param console table a Geyser.MiniConsole
 --- @param key string stable identity for this console
@@ -176,6 +173,58 @@ end
 function M.forgetPainted(key)
    local cache = painted()
    if key then cache[key] = nil else emunah._persist.paintedBodies = {} end
+end
+
+-- ---------------------------------------------------------------------------
+-- painting AFTER the packet
+-- ---------------------------------------------------------------------------
+--
+-- Mudlet runs everything on one thread, and a packet is handled start to finish before the
+-- event loop gets control back: every GMCP message, every line, every trigger, every send().
+-- A panel that repaints inside that is a panel that repaints BEFORE THE CURE GOES OUT. The
+-- vitals strip painted on `emunah.vitals`, which is raised ahead of the tick; the affliction
+-- panel painted inside Char.Afflictions.Add, ahead of Char.Vitals altogether. Measured with
+-- test/latency.lua: ten Qt draw calls -- each a rich-text parse or a stylesheet relayout under
+-- Mudlet -- and ~80us of our own Lua, all spent before `eat bloodroot` was handed to the
+-- socket.
+--
+-- So panels ask to be painted, and paint when the read is done: a zero-delay tempTimer fires
+-- once Mudlet's event loop has control again, which is after the whole packet. Two requests
+-- for one panel in one packet are one paint, which is the second saving -- an affliction
+-- added and another cured in the same block used to draw the panel twice.
+--
+-- An earlier note here rejected deferring because "a panel could sit stale whenever events
+-- arrive without a prompt behind them". That was about deferring to the next TICK. This
+-- defers to the end of the current read, which every event has behind it.
+
+local later, laterOrder = {}, {}
+
+--- Paint `fn` once this packet has been handled. Keyed, so a panel asked for twice in one
+--- packet paints once.
+function M.later(key, fn)
+   if later[key] == nil then laterOrder[#laterOrder + 1] = key end
+   later[key] = fn
+   emunah._persist = emunah._persist or {}
+   if emunah._persist.paintTimer then return end
+   emunah._persist.paintTimer = tempTimer(0, M.paintNow)
+end
+
+--- Run every deferred paint now. What the timer calls; also safe to call directly.
+function M.paintNow()
+   if emunah._persist then emunah._persist.paintTimer = nil end
+   local fns, order = later, laterOrder
+   later, laterOrder = {}, {}
+   for _, key in ipairs(order) do
+      local ok, err = pcall(fns[key])
+      if not ok then emunah.log.error("Repainting %s failed: %s", key, tostring(err)) end
+   end
+end
+
+-- A reload replaces this module; a timer the previous generation armed would run the old
+-- painters against widgets the new one is about to rebuild. The new build paints anyway.
+if emunah._persist and emunah._persist.paintTimer then
+   killTimer(emunah._persist.paintTimer)
+   emunah._persist.paintTimer = nil
 end
 
 -- ---------------------------------------------------------------------------

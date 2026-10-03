@@ -81,6 +81,12 @@ function M.forgetIneffective()
    curing = {}
 end
 
+--- The game refused the cure sent for this affliction, so nothing is on its way any more and
+--- the next one is not a duplicate. See refused() in detect/patterns.lua.
+function M.cureRefused(name)
+   if type(name) == "string" then curing[name] = nil end
+end
+
 --- Is a cure for this affliction already on its way?
 local function cureInFlight(name)
    local until_ = curing[name]
@@ -103,7 +109,7 @@ local diagSent = false
 --- vector gets first refusal on a shared resource; they are otherwise independent.
 -- `special` carries the cures that cost no curing balance: COMPOSE for fear, CONCENTRATE
 -- for disrupted equilibrium (the reference system's misc actions). CLOT uses the same slot.
-M.VECTORS = { "salve", "herb", "smoke", "elixir", "focus", "tree", "special" }
+M.VECTORS = { "salve", "herb", "smoke", "elixir", "purgative", "focus", "tree", "special" }
 
 M.enabled = false
 
@@ -197,7 +203,7 @@ function M.remove(name)
 end
 
 function M.has(name)
-   return M.tracked[tostring(name or ""):lower()] ~= nil
+   return M.tracked[util.lower(name)] ~= nil
 end
 
 function M.clear()
@@ -341,10 +347,22 @@ end
 local curable, curableCount = {}, 0
 local unknown, unknownCount = {}, 0
 
+--- curable[i]'s rank table, or false when a user override means afflist.priority() has to
+--- answer. Looked up once here instead of once per vector: resolve() runs for seven vectors
+--- and asked afflist.priority() about every curable affliction in each, 56 calls a prompt
+--- that found the same eight definitions seven times over.
+local curableRanks = {}
+
+--- The `priorities` setting, read once per tick by classify() for every resolve() after it.
+--- See afflist.priority().
+local NO_OVERRIDES = {}
+local overrides = NO_OVERRIDES
+
 --- Split M.tracked into those two sets. Call once per tick, after anything that can change
 --- what is tracked and before the vector loop reads them.
 local function classify()
    curableCount, unknownCount = 0, 0
+   overrides = emunah.config.get("priorities", NO_OVERRIDES)
 
    for name in pairs(M.tracked) do
       -- NEVER CURE A DEFENCE THE CHARACTER IS HOLDING ON PURPOSE.
@@ -365,6 +383,7 @@ local function classify()
          if afflist.known(name) then
             curableCount = curableCount + 1
             curable[curableCount] = name
+            curableRanks[curableCount] = next(overrides) == nil and afflist.ranks(name)
          -- afflist.isState() excludes `prone`, `stunned`, `sleeping`: those already have a
          -- dedicated response in curing/detect (STAND, wait, WAKE), driven off the same GMCP
          -- flag through emunah.affliction.added, not off this loop at all. Without this
@@ -388,7 +407,9 @@ local function resolve(vector)
 
    for index = 1, curableCount do
       local name = curable[index]
-      local rank = afflist.priority(name, vector)
+      local ranks = curableRanks[index]
+      local rank
+      if ranks then rank = ranks[vector] else rank = afflist.priority(name, vector, overrides) end
       if rank and (not bestRank or rank < bestRank) then
          for _, option in ipairs(afflist.curesVia(name, vector)) do
             local usable, reason = have.cure(option)
@@ -444,7 +465,9 @@ M.CURE_VERBS = {
    EAT   = "herb",
    SMOKE = "smoke",
    APPLY = "salve",
-   DRINK = "elixir",
+   -- A drink the server suggests for an AFFLICTION is an affliction-healing elixir, never
+   -- health or mana: the purgative balance, not the sip (see curelist.lua).
+   DRINK = "purgative",
    FOCUS = "focus",
    TOUCH = "tree",
 }
@@ -1138,16 +1161,6 @@ function M.tick()
    queueDiag()
    queueBlackoutConcentrate()
 
-   -- Every tick by default. It was every tenth, which meant one item pulled per ten
-   -- prompts: `outr 3 valerian` at 11:47:32 and `outr 3 irid` at 11:48:26, nearly a minute
-   -- apart, while most of the cure list was still not carried. Only one pull can be in
-   -- flight regardless, so the tick interval was pure delay on top of the round trip.
-   local restockEvery = tonumber(emunah.config.get("curing.restockEvery", 1)) or 1
-   if vitals and restockEvery > 0 and (vitals.ticks % restockEvery) == 0 then
-      queueRestock()
-      queueSalveRestock()
-   end
-
    -- One pass over what is tracked, feeding both loops below. See classify().
    classify()
 
@@ -1183,6 +1196,7 @@ function M.tick()
                      valid    = function() return M.tracked[name] ~= nil end,
                      onSent   = function() have.spend(vector) end,
                   })
+                  queue.flushVector(vector)   -- before the console line; see act.send()
                   log.info("No cure defined for %s -- using the server's own suggestion: %s.",
                      name, suggestedCommand)
                   break
@@ -1200,8 +1214,12 @@ function M.tick()
                confirm  = emunah.config.get("curing.confirmWait", 2.0),
                -- Another vector may have cured it while this one waited: anorexia goes to
                -- salve or focus, and whichever lands first makes the other a wasted
-               -- balance at the moment the next affliction needs it.
-               valid    = function() return M.tracked[affliction] ~= nil end,
+               -- balance at the moment the next affliction needs it. Or be curing it right
+               -- now: a salve left pending on an earlier tick must not follow a focus sent
+               -- for the same anorexia since (svof: `not doingaction "anorexia"`).
+               valid    = function()
+                  return M.tracked[affliction] ~= nil and not cureInFlight(affliction)
+               end,
                onSent   = function()
                   -- Start the fallback recovery timer. A confirmation trigger or the
                   -- GMCP removal will normally cut this short.
@@ -1214,13 +1232,39 @@ function M.tick()
                   log.debug("Cure for %s via %s went unconfirmed.", affliction, vector)
                end,
             })
+            -- SEND IT NOW, before the next vector is resolved. Two reasons, and the first
+            -- is a wasted balance rather than a matter of microseconds: the same-affliction
+            -- guard is armed on send, so a cure only queued here left the next vector free
+            -- to choose the same affliction -- one anorexia drew both an epidermal and a
+            -- focus. And the first cure of the tick no longer waits for six more vectors to
+            -- be resolved behind it. (Before the debug line, too: see act.send().)
+            queue.flushVector(vector)
             log.debug("Resolved %s -> %s (%s, p%s)", affliction, command, item or "-", tostring(rank))
          end
       end
+
+      -- The server-suggested fallback above, or a cure pushed on an earlier tick that is
+      -- still the best this vector has.
+      queue.flushVector(vector)
    end
 
    -- After the vector loop: this pass's refusals are what it reads.
    queueTree()
+
+   -- Every tick by default. It was every tenth, which meant one item pulled per ten
+   -- prompts: `outr 3 valerian` at 11:47:32 and `outr 3 irid` at 11:48:26, nearly a minute
+   -- apart, while most of the cure list was still not carried. Only one pull can be in
+   -- flight regardless, so the tick interval was pure delay on top of the round trip.
+   --
+   -- AFTER the cures, not before. It walks every restockable item's count, which made it a
+   -- fifth of the tick, and nothing in the vector loop reads what it decides: it pushes onto
+   -- the rift alone, and the flush below sends that in this same tick. Ahead of the loop it
+   -- was simply standing between the prompt and the first cure.
+   local restockEvery = tonumber(emunah.config.get("curing.restockEvery", 1)) or 1
+   if vitals and restockEvery > 0 and (vitals.ticks % restockEvery) == 0 then
+      queueRestock()
+      queueSalveRestock()
+   end
 
    queue.flush()
 end
@@ -1365,9 +1409,27 @@ end, "curing.engine")
 -- running out) produces none: the cure it frees waits for whatever unrelated line brings the
 -- next one. bashing.lua found the same stall for its own timers on 2026-08-04; curing had it
 -- too. Only `cure.*` timers: they are the ones M.tick() reads.
+--
+-- `cure.*` are not the only timers M.tick() reads. These hold sends too, and lapsing is how
+-- each lets go when the line that should have freed it was missed -- which is exactly when
+-- no prompt is coming to say so: writhe.busy (have.balance("writhe")), and the guards that
+-- bound a stun, a sleep, unconsciousness or a lost arm balance (act.blocked()).
+M.TICK_ON_EXPIRY = {
+   ["writhe.busy"] = true,
+   ["stun.guard"] = true, ["sleep.guard"] = true, ["unconscious.guard"] = true,
+   ["arm.guard.left"] = true, ["arm.guard.right"] = true,
+}
+
 event.register("emunah.timer.expired", function(_, name)
    if not M.enabled then return end
-   if type(name) == "string" and name:sub(1, 5) == "cure." then M.tick() end
+   if type(name) ~= "string" then return end
+   if name:sub(1, 5) == "cure." or M.TICK_ON_EXPIRY[name] then M.tick() end
+end, "curing.engine")
+
+-- A confirmation that timed out freed its vector without a prompt behind it. See
+-- core/queue.lua.
+event.register("emunah.queue.timeout", function()
+   if M.enabled then M.tick() end
 end, "curing.engine")
 
 event.register("emunah.balance.recovered", function(_, vector)

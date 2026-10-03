@@ -331,8 +331,8 @@ ok(afflist.priority("anorexia", "salve") == 1, "anorexia is top salve priority")
 ok(afflist.priority("anorexia", "focus") ~= nil, "anorexia is also focusable (the lock escape)")
 
 -- Anorexia shuts BOTH eating vectors: herbs and irid moss, which is on its own balance.
-eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss,elixir",
-   "anorexia blocks eating, and sipping (svof check_sip)")
+eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss,elixir,purgative",
+   "anorexia blocks eating, and sipping, and purgatives (svof check_sip, check_purgative)")
 eq(table.concat(afflist.blockedVectors("mucous"), ","), "smoke", "mucous blocks smoking (svof)")
 eq(table.concat(afflist.blockedVectors("inquisition"), ","), "focus",
    "inquisition blocks focusing (svof)")
@@ -1054,8 +1054,28 @@ engine.tick(); queue.flush()
 ok(table.concat(mock.sent, " | "):find("eat goldenseal", 1, true),
    "goldenseal in hand is eaten for stupidity (HELP, svof)",
    table.concat(mock.sent, " | "))
-ok(table.concat(mock.sent, " | "):find("focus"),
-   "...and focus goes too, on its own balance", table.concat(mock.sent, " | "))
+-- ONE CURE PER AFFLICTION. This used to assert that focus went out too, for the same single
+-- stupidity: a focus balance spent on an affliction the goldenseal was already curing, and
+-- unavailable for the next mental affliction for its whole length. svof refuses both of
+-- stupidity's cures while either is in progress (`not doingaction("stupidity")`).
+ok(not table.concat(mock.sent, " | "):find("focus"),
+   "...and focus is NOT spent on the same stupidity (svof doingaction)",
+   table.concat(mock.sent, " | "))
+
+-- The balance saved goes to the next affliction in the same tick, not to nothing.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "8", name = "an epidermal salve", attrib = "" },
+} })
+engine.add("anorexia", "trigger")
+engine.add("stupidity", "trigger")
+mock.sent = {}
+engine.tick(); queue.flush()
+ok(table.concat(mock.sent, " | "):find("apply epidermal", 1, true),
+   "anorexia takes the salve", table.concat(mock.sent, " | "))
+eq(queue.awaiting("focus") and queue.awaiting("focus").tag, "stupidity",
+   "...and focus goes to stupidity, not to the anorexia the salve is already curing")
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
 
 mock.feed("Char.Items.List", { location = "inv", items = {} })
 
@@ -1689,6 +1709,159 @@ engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 engine.forgetIneffective()
 
 -- ===========================================================================
+suite("a cure goes out the moment the game allows it")
+do
+
+-- Salve, focus and tree had no balance-return trigger at all and ran on their fallback
+-- estimates; test/latency.lua measured the cost at 0.6-4.1s per cure. Each is now freed by
+-- the game's own line [svof], with the clock not moving at all.
+local function fight(items)
+   engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   engine.enabled = true
+   mock.feed("Char.Items.List", { location = "inv", items = items or {} })
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "1000",
+                              bal = "1", eq = "1" })
+end
+local function sentText() return table.concat(mock.sent, " | ") end
+
+for _, case in ipairs({
+   { vector = "salve", line = "You may apply another salve to yourself." },
+   { vector = "focus", line = "Your mind is able to focus once again." },
+   { vector = "tree",  line = "You may utilise the tree tattoo again." },
+}) do
+   fight()
+   emunah.have.spend(case.vector)
+   ok(not emunah.have.balance(case.vector), case.vector .. " balance spent")
+   mock.line(case.line)
+   ok(emunah.have.balance(case.vector), case.vector .. " balance back on the game's line, not the estimate")
+end
+
+fight({ { id = "8", name = "an epidermal salve", attrib = "" } })
+engine.add("anorexia", "trigger")
+emunah.have.spend("salve")
+mock.sent = {}
+mock.line("You may apply another salve to yourself.")
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sentText():find("apply epidermal"), "the announced salve balance is spent on the cure at once",
+   sentText())
+
+-- A REFUSED CURE IS AN ANSWERED ONE. The same-affliction guard held the retry for 1.5s from the
+-- send even after the game had refused it, so the salve announced back at +0.3s sat idle.
+fight({ { id = "8", name = "an epidermal salve", attrib = "" } })
+engine.add("anorexia", "trigger")
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sentText():find("apply epidermal"), "the first epidermal goes out", sentText())
+mock.line("You have not yet regained balance for applying salves.")
+eq(queue.awaiting("salve"), nil, "the refusal answers the slot instead of leaving it to time out")
+mock.advance(0.3)
+mock.sent = {}
+mock.line("You may apply another salve to yourself.")
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sentText():find("apply epidermal"),
+   "...and the retry goes out with the balance, not when the 1.5s guard lapses", sentText())
+
+-- "You must regain balance first." is only the eat's when nothing else of ours needed balance
+-- (12:01:19.03: it was `perform hands`, and the eat beside it worked).
+-- Asthma rather than paralysis: paralysis would rightly hold `perform hands` itself.
+fight({ { id = "2", name = "a piece of kelp", attrib = "e" } })
+engine.add("asthma", "trigger")
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sentText():find("eat kelp"), "the kelp goes out", sentText())
+queue.push("equilibrium", "perform hands", { confirm = 4 })
+queue.flush()
+ok(queue.awaiting("equilibrium") ~= nil, "perform hands in flight beside it")
+mock.line("You must regain balance first.")
+ok(queue.awaiting("herb") ~= nil, "an ambiguous refusal does not answer the eat")
+queue.reset()
+
+-- CHAR.VITALS AHEAD OF A LINE. The heartbeat runs on Char.Vitals; a balance announced after
+-- it in the same block used to wait for the NEXT prompt, because the prompt saw a Char.Vitals
+-- had come and did nothing.
+fight({ { id = "2", name = "a bloodroot leaf", attrib = "e" } })
+engine.add("paralysis", "trigger")
+emunah.have.spend("herb")
+detect.textPrompt()
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+detect.textLine()
+mock.line("You may eat another plant or mineral.")
+ok(not sentText():find("eat bloodroot"), "(nothing yet: the line came after Char.Vitals)")
+detect.textPrompt()
+ok(sentText():find("eat bloodroot"), "the prompt runs the cure the line made possible", sentText())
+
+-- A GATE LIFTING ON ITS OWN TIMER produces no prompt. A writhe that never announced its end
+-- held the vector for WRITHE_WAIT, and the next writhe then waited for whatever event came next.
+fight()
+engine.add("webbed", "trigger")
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sentText():find("writhe"), "writhe goes out", sentText())
+engine.onWritheStart()
+mock.sent = {}
+mock.advance(engine.WRITHE_WAIT + 0.01)
+ok(sentText():find("writhe"), "...and again the moment the writhe wait lapses, with no prompt",
+   sentText())
+
+-- A USER PRIORITY still decides, read fresh every tick. The engine now reads `priorities`
+-- once per tick rather than once per affliction per vector; nothing is cached across ticks.
+fight({ { id = "1", name = "some bloodroot", attrib = "" }, { id = "2", name = "some kelp", attrib = "" } })
+engine.add("paralysis", "trigger")   -- herb rank 6
+engine.add("asthma", "trigger")      -- herb rank 4
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sentText():find("eat kelp"), "asthma outranks paralysis by default", sentText())
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+emunah.config.set("priorities", { paralysis = { herb = 1 } })
+engine.add("paralysis", "trigger")
+engine.add("asthma", "trigger")
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sentText():find("eat bloodroot"), "...and a user priority overrides that on the next tick",
+   sentText())
+emunah.config.set("priorities", {})
+
+-- AFFLICTION-HEALING ELIXIRS ARE NOT THE SIP [svof: bals.purgative]. They shared one slot, so
+-- healing (rank 0) sat ahead of a voyria cure, and any drink at all put the sip balance out
+-- until a line a purgative never prints -- 6s of no health sipping per `drink speed`.
+fight({ { id = "5", name = "an elixir of immunity", attrib = "" } })
+engine.add("voyria", "trigger")
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "300", maxhp = "1000", bal = "1", eq = "1" })
+ok(sentText():find("drink immunity", 1, true), "voyria's cure goes out while hurt", sentText())
+ok(sentText():find("drink health", 1, true), "...and so does the health sip, beside it", sentText())
+
+fight()
+queue.push("purgative", "drink speed", { confirm = 2 })
+queue.flush()
+mock.line("You take a drink from an oaken vial.")
+ok(emunah.have.balance("elixir"), "a purgative's drink line does not spend the health sip")
+ok(not emunah.have.balance("purgative"), "...it spends the purgative balance")
+mock.line("You may drink another affliction-healing elixir.")
+ok(emunah.have.balance("purgative"), "...which comes back on the game's own line [svof]")
+eq(queue.awaiting("purgative"), nil, "...freeing the slot")
+mock.line("You take a drink from an oaken vial.")
+ok(not emunah.have.balance("elixir"), "a drink with nothing of ours in flight is a sip, as before")
+queue.reset(); emunah.timers.stopAll()
+
+-- A CONFIRMATION THAT NEVER CAME frees its vector on a timer, and nothing else will say so.
+fight({ { id = "2", name = "a piece of kelp", attrib = "e" } })
+engine.add("asthma", "trigger")
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(sentText():find("eat kelp"), "kelp goes out, and its confirmation is lost", sentText())
+emunah.have.recover("herb")   -- the balance is back; only the unconfirmed slot holds the herb
+mock.sent = {}
+mock.advance(emunah.config.get("curing.confirmWait", 2.0) + 0.01)
+ok(sentText():find("eat kelp"), "the cure goes again when the confirm wait lapses, no prompt",
+   sentText())
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+engine.forgetIneffective()
+end
+
+-- ===========================================================================
 suite("curing an affliction is not the balance coming back")
 
 -- The cause of every "The plant has no effect." in a night of arena logs. A GMCP affliction
@@ -1863,12 +2036,12 @@ end
 eq(stands, 1, "one knockdown sends exactly one STAND",
    table.concat(mock.sent, " | "))
 
--- And a genuine second knockdown, later, still stands.
-mock.advance(detect.STAND_GUARD + 0.01)
+-- And still prone once the guard lapses, it stands again -- at the lapse, not at whatever
+-- prompt next happens to arrive.
 mock.sent = {}
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+mock.advance(detect.STAND_GUARD + 0.01)
 ok(table.concat(mock.sent, " | "):find("stand"),
-   "...and a retry is allowed once the round trip has passed",
+   "...and a retry goes out the moment the round trip has passed, with no prompt",
    table.concat(mock.sent, " | "))
 
 detect.prone = false
@@ -3843,8 +4016,9 @@ ok(not table.concat(mock.sent, " | "):find("stand"),
    table.concat(mock.sent, " | "))
 
 -- And the tick does not resurrect it. This is the line that actually fired in the capture.
-mock.advance(detect.WAKE_GUARD + 0.01)
+-- WAKE's retry goes out when its guard lapses, with no prompt needed.
 mock.sent = {}
+mock.advance(detect.WAKE_GUARD + 0.01)
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 ok(not table.concat(mock.sent, " | "):find("stand"),
    "...and the tick does not send one either", table.concat(mock.sent, " | "))
@@ -5345,7 +5519,7 @@ defkeepup.resetBudget()
 mock.feed("Char.Defences.List", { { name = "poisonresist" } })
 defkeepup.setMode("frost", "keepup")
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
-ok(queue.awaiting("elixir") ~= nil, "a defence elixir is in flight")
+ok(queue.awaiting("purgative") ~= nil, "a defence elixir is in flight, on the purgative balance")
 mock.line("The elixir flows down your throat without effect.")
 eq(defkeepup.withinBudget("frost"), false,
    "a sip with no effect abandons the defence instead of spending the rest of the budget")
@@ -6062,6 +6236,8 @@ mock.feed("Char.Vitals", {
    nl = "43.7", bal = "1", eq = "0",
    charstats = { "Bleed: 120", "Kai: 35%", "Stance: Horse" },
 })
+-- Panels paint once the packet has been handled (theme.later()): the event loop's turn.
+mock.advance(0)
 local hpGauge = mock.widgets["emunah.gauge.hp"]
 ok(hpGauge.value ~= nil, "health gauge received a value")
 eq(hpGauge.value.current, 2500, "health gauge shows current hp")
@@ -6079,6 +6255,7 @@ ok(mock.widgets["emunah.stats"].contents ~= nil, "charstats block rendered")
 -- Target gauge with a fractional health percentage.
 mock.feed("IRE.Target.Set", "1234")
 mock.feed("IRE.Target.Info", { id = "1234", short_desc = "a rat", hpperc = "66.5" })
+mock.advance(0)
 ok(mock.widgets["emunah.target"].value ~= nil, "target gauge handles fractional hp%",
    mock.widgets["emunah.target"].value and mock.widgets["emunah.target"].value.text)
 
@@ -6116,6 +6293,7 @@ mock.feed("Room.Info", {
    num = 777, name = "A quiet glade", area = "Forest",
    exits = { n = 778, e = 779 }, details = { "shop" },
 })
+mock.advance(0)
 local roomText = tostring(mock.widgets["emunah.room"].contents)
 ok(roomText:find("quiet glade"), "room panel shows the room name")
 ok(roomText:find("shop"), "room panel shows room details")
@@ -6127,6 +6305,7 @@ emunah.namedb.iff("Anzerloi", "ally")
 mock.feed("Room.Players", {
    { name = "Anzerloi", fullname = "Anzerloi, the Grand Something" },
 })
+mock.advance(0)
 ok(tostring(mock.widgets["emunah.room"].contents):find("Anzerloi"),
    "room panel shows the player's short name")
 ok(not tostring(mock.widgets["emunah.room"].contents):find("Grand Something"),
@@ -6147,6 +6326,7 @@ mock.feed("Char.Items.List", {
       { id = "630491", name = "a logosmas stocking", attrib = "c" },
    },
 })
+mock.advance(0)
 local withItems = tostring(mock.widgets["emunah.room"].contents)
 ok(withItems:find("items"), "room panel has an items section")
 ok(withItems:find("Vellis"), "room panel lists a creature in the room")
@@ -6160,11 +6340,13 @@ mock.feed("Char.Items.Add", {
    location = "room",
    item = { id = "999", name = "a gleaming sovereign", attrib = "t" },
 })
+mock.advance(0)
 ok(tostring(mock.widgets["emunah.room"].contents):find("gleaming sovereign"),
    "an item dropped in the room appears immediately")
 
 -- ...and removal must clear it.
 mock.feed("Char.Items.Remove", { location = "room", item = { id = "999" } })
+mock.advance(0)
 ok(not tostring(mock.widgets["emunah.room"].contents):find("gleaming sovereign"),
    "a removed item disappears from the panel")
 
@@ -6203,6 +6385,7 @@ do
          item = { id = "80" .. herb, name = "some bloodroot", attrib = "" },
       })
    end
+   mock.advance(0)
    eq(drawn.draw, 0, "five inventory events do not repaint the room panel at all")
 
    -- ...but a real change still lands immediately. The saving must never cost freshness.
@@ -6211,10 +6394,12 @@ do
       location = "room",
       item = { id = "998", name = "a jewelled goblet", attrib = "t" },
    })
+   mock.advance(0)
    ok(drawn.draw > 0, "an item that really appears in the room does repaint it")
    ok(tostring(mock.widgets["emunah.room"].contents):find("jewelled goblet"),
       "...and is shown")
    mock.feed("Char.Items.Remove", { location = "room", item = { id = "998" } })
+   mock.advance(0)
 end
 
 do
@@ -6247,6 +6432,7 @@ do
    drawn = mock.countDraws()
    -- An ARRAY OF NAMES, which is the shape Achaea actually sends (gmcp/defences.lua:6).
    mock.feed("Char.Defences.Remove", { "rebounding" })
+   mock.advance(0)
    ok(drawn.draw > 0, "losing a defence repaints the panel")
    engine.clear()
 end
@@ -6255,14 +6441,17 @@ do
    -- THE VITALS STRIP. The two balance lights each ran a setStyleSheet on every prompt --
    -- a Qt stylesheet reparse for a boolean that had not changed. Four a second, for nothing.
    mock.feed("Char.Vitals", { hp = "2500", maxhp = "4000", bal = "1", eq = "1" })
+   mock.advance(0)
    local drawn = mock.countDraws()
    mock.feed("Char.Vitals", { hp = "2400", maxhp = "4000", bal = "1", eq = "1" })
+   mock.advance(0)
    eq(drawn.style, 0, "an unchanged balance light is not restyled on the next prompt")
    ok(drawn.value > 0, "...while the gauges, which did change, are updated")
 
    -- ...and a light that DOES change is restyled.
    drawn = mock.countDraws()
    mock.feed("Char.Vitals", { hp = "2400", maxhp = "4000", bal = "0", eq = "1" })
+   mock.advance(0)
    eq(drawn.style, 1, "losing balance restyles exactly that one light")
    eq(mock.widgets["emunah.balance"].contents, "BAL", "...and it still says BAL")
 
@@ -6271,8 +6460,55 @@ do
    -- several times a second in a fight.
    drawn = mock.countDraws()
    emunah.event.raise("timer.expired", "cure.herb")
+   mock.advance(0)
    eq(drawn.value, 0, "a lapsing cure timer does not touch the resource gauges")
    eq(drawn.style, 0, "...nor restyle the balance lights")
+end
+
+do
+   -- NOTHING IS DRAWN BEFORE THE CURE GOES OUT. Mudlet handles a packet start to finish on
+   -- one thread, so a panel painted inside it is Qt work done ahead of send(). The vitals
+   -- strip painted on `emunah.vitals` (raised before the tick) and the affliction panel
+   -- inside Char.Afflictions.Add: ten draws in test/latency.lua before `eat bloodroot`.
+   engine = emunah.curing.engine
+   local wasEnabled = engine.enabled
+   engine.enabled = true
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "2", name = "a bloodroot leaf", attrib = "e" },
+   } })
+   mock.advance(0)
+
+   local painted = 0
+   local realUpdate = emunah.ui.affpanel.update
+   emunah.ui.affpanel.update = function(...) painted = painted + 1 return realUpdate(...) end
+
+   local drawn = mock.countDraws()
+   local drawsAtSend
+   local realSend = _G.send
+   _G.send = function(...)
+      drawsAtSend = drawsAtSend or (drawn.draw + drawn.clear + drawn.style + drawn.value)
+      return realSend(...)
+   end
+   mock.sent = {}
+   mock.feed("Char.Afflictions.Add", { name = "paralysis", cure = "EAT BLOODROOT" })
+   mock.feed("Char.Afflictions.Add", { name = "asthma", cure = "EAT KELP" })
+   mock.feed("Char.Vitals", { hp = "2000", maxhp = "4000", bal = "1", eq = "1" })
+   _G.send = realSend
+   ok(table.concat(mock.sent, " | "):find("eat bloodroot"), "the cure went out",
+      table.concat(mock.sent, " | "))
+   eq(drawsAtSend, 0, "...with no Qt draw call ahead of it")
+
+   mock.advance(0)
+   ok(drawn.draw + drawn.value > 0, "the panels paint once the packet has been handled")
+   eq(painted, 1, "two afflictions in one packet paint the affliction panel once, not twice")
+   ok(tostring(mock.widgets["emunah.afflictions"].contents):find("paralysis"),
+      "...and it shows them")
+
+   emunah.ui.affpanel.update = realUpdate
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   engine.enabled = wasEnabled
+   mock.advance(0)
 end
 
 -- Rebuilding must hide the previous generation rather than stacking dead panels.
@@ -10859,12 +11095,17 @@ detect.textGain("paralysis")
 detect.textLine(); detect.textLine()
 eq(detect.paragraphLength, 2, "every non-prompt line is counted, as svof's paragraph_length")
 local ticks = emunah.gmcp.vitals.ticks
-detect.textPrompt()   -- reset() sent a Char.Vitals, so this prompt already had one
+detect.textPrompt()   -- reset() sent a Char.Vitals, but these two lines came after it
 ok(engine.has("paralysis"), "the prompt applies the block")
 eq(detect.paragraphLength, 0, "...and resets the count")
-eq(emunah.gmcp.vitals.ticks, ticks, "a prompt that came with Char.Vitals does not tick again")
+eq(emunah.gmcp.vitals.ticks, ticks + 1,
+   "lines after this block's Char.Vitals: the prompt runs the heartbeat again, on what they did")
+ticks = emunah.gmcp.vitals.ticks
+prompt()
 detect.textPrompt()
-eq(emunah.gmcp.vitals.ticks, ticks + 1, "no Char.Vitals since the last prompt: the prompt runs the heartbeat")
+eq(emunah.gmcp.vitals.ticks, ticks + 1, "a prompt straight after its Char.Vitals does not tick again")
+detect.textPrompt()
+eq(emunah.gmcp.vitals.ticks, ticks + 2, "no Char.Vitals since the last prompt: the prompt runs the heartbeat")
 prompt()
 ticks = emunah.gmcp.vitals.ticks
 detect.textPrompt()

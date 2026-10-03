@@ -380,8 +380,14 @@ function mock.install(homeDir)
       local handlers = mock.handlers[event]
       if not handlers then return end
       -- Snapshot: a handler may register or kill handlers while we iterate.
+      --
+      -- IN REGISTRATION ORDER, as Mudlet calls them -- ids only ever increase, so sorting by id
+      -- is that order. `pairs()` order is the hash's, and it hid what actually runs first: the
+      -- UI loads before curing/engine.lua, so in Mudlet the vitals strip painted ahead of the
+      -- tick on every prompt, while the mock happened to run them the other way round.
       local snapshot = {}
       for id, fn in pairs(handlers) do snapshot[#snapshot + 1] = { id = id, fn = fn } end
+      table.sort(snapshot, function(a, b) return a.id < b.id end)
       for _, entry in ipairs(snapshot) do
          if mock.handlers[event] and mock.handlers[event][entry.id] then
             local ok, err = pcall(entry.fn, event, ...)
@@ -1128,8 +1134,18 @@ function mock.prompt(text)
    return fired
 end
 
+--- Real seconds mock.line() has spent MATCHING, as opposed to running trigger callbacks.
+---
+--- Matching here is string.find over translated Lua patterns, standing in for Mudlet's C++
+--- PCRE -- a cost of the harness, not of Emunah. test/latency.lua subtracts it so what it
+--- reports is the Lua our code actually runs. Accumulated as it goes, not per line, so a
+--- reading taken from inside a callback (the moment of a send) is already correct.
+mock.matchTime = 0
+
 function mock.line(text)
    local fired = 0
+   local clock = mock.realClock or os.clock
+   local segment = clock()
    -- Real Mudlet exposes the line being processed to getCurrentLine(); a trigger that
    -- re-reads its own line (the highlighter, the capture ring buffer) needs that to be the
    -- line it is firing on rather than whatever was set last.
@@ -1146,12 +1162,15 @@ function mock.line(text)
             local m = { text }
             for index = 3, #captures do m[#m + 1] = captures[index] end
             _G.matches = m
+            mock.matchTime = mock.matchTime + (clock() - segment)
             trigger.fn()
+            segment = clock()
             fired = fired + 1
             break
          end
       end
    end
+   mock.matchTime = mock.matchTime + (clock() - segment)
    return fired
 end
 

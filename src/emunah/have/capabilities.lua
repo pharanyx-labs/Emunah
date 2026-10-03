@@ -528,7 +528,7 @@ function M.report()
       balances      = {},
       blocked       = {},
    }
-   for _, vector in ipairs({ "balance", "equilibrium", "herb", "salve", "elixir", "smoke", "focus", "tree" }) do
+   for _, vector in ipairs({ "balance", "equilibrium", "herb", "salve", "elixir", "purgative", "smoke", "focus", "tree" }) do
       out.balances[vector] = M.balance(vector)
       local blocker = M.blockedBy(vector)
       if blocker then out.blocked[vector] = blocker end

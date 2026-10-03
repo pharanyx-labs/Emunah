@@ -21,7 +21,7 @@ local log = emunah.log
 --- without a slot to hold, every tick in that window pulls another one.
 M.VECTORS = {
    "free", "balance", "equilibrium",
-   "herb", "salve", "elixir", "smoke", "focus", "tree", "writhe", "special",
+   "herb", "salve", "elixir", "purgative", "smoke", "focus", "tree", "writhe", "special",
    "moss", "rift",
 }
 
@@ -139,6 +139,79 @@ local function paralysed()
    return afflictions and afflictions.has("paralysis") or false
 end
 
+--- Send what is pending on one vector, if it can go. The body of flush(), for one slot.
+--- @return boolean sent
+local function dispatch(vector)
+   local action = slots[vector]
+
+   -- STILL WANTED? A queued action waits for its vector, and a contested vector can
+   -- take seconds -- `perform hands` needs equilibrium, which attacking and penitence
+   -- also spend. In that gap the reason for the action can simply stop being true:
+   -- health recovers, the affliction is cured by another vector, the defence comes back.
+   -- Sending it anyway spends a real balance on a condition that no longer exists, and
+   -- the observed case was `perform hands` going out at full health because it had been
+   -- queued at 30%.
+   if action and action.valid and not action.valid() then
+      log.debug("Dropping [%s] %s -- no longer needed.", vector, action.command)
+      slots[vector] = nil
+      action = nil
+   end
+
+   -- BLOCKED SINCE IT WAS QUEUED? Held, not dropped: the block usually clears (an
+   -- epidermal cures anorexia) and the cure is still wanted when it does. See
+   -- have.vectorBlocked() for why this is re-asked here rather than trusted from push.
+   local have = emunah.have
+   if action and have and have.vectorBlocked then
+      local why = have.vectorBlocked(vector)
+      if why then
+         if action.heldFor ~= why then
+            action.heldFor = why
+            log.debug("Holding [%s] %s -- %s.", vector, action.command, why)
+         end
+         action = nil
+      end
+   end
+
+   -- act.send() returning false means the game would refuse it for a reason unrelated to
+   -- this vector (see act). The action stays queued rather than being dropped, so the
+   -- next tick tries again -- which is why this is one condition and not an early exit.
+   if action and vectorReady(vector) and emunah.act.send(action.command, action.needs) then
+      slots[vector] = nil
+      action.sentAt = emunah.util.now()
+
+      log.debug("Sent [%s] %s%s", vector, action.command,
+         action.tag and (" (" .. action.tag .. ")") or "")
+
+      if action.confirm and action.confirm > 0 then
+         inFlight[vector] = action
+         -- Re-arm if the game never confirms. A cure that was swallowed by a
+         -- rejection message would otherwise wedge the vector forever.
+         action.timeoutId = tempTimer(action.confirm, function()
+            if inFlight[vector] ~= action then return end
+            inFlight[vector] = nil
+            log.debug("No confirmation for [%s] %s -- re-arming.", vector, action.command)
+            if action.onTimeout then
+               local ok, err = pcall(action.onTimeout, action)
+               if not ok then log.error("Queue timeout callback failed: %s", tostring(err)) end
+            end
+            -- The vector is free again, and nothing else is going to say so: a confirmation
+            -- that never came is a quiet moment by definition. Without this the next cure on
+            -- it waited for whatever unrelated prompt arrived next -- in test/latency.lua's
+            -- scripted fight, a salve the game would have taken at 2.2s had not gone out by
+            -- 8.2s.
+            emunah.event.raise("queue.timeout", vector)
+         end)
+      end
+
+      if action.onSent then
+         local ok, err = pcall(action.onSent, action)
+         if not ok then log.error("Queue onSent callback failed: %s", tostring(err)) end
+      end
+      return true
+   end
+   return false
+end
+
 function M.flush()
    -- Cheap early out: stun refuses everything, so there is no point walking the vectors.
    if not emunah.act.can() then return 0 end
@@ -147,74 +220,35 @@ function M.flush()
 
    local sent = 0
    for _, vector in ipairs(M.VECTORS) do
-      if locked and not M.WHILE_PARALYSED[vector] then
-         -- Skip: the game will refuse it, and the refusal costs a round trip in a fight
-         -- where the eat that fixes this is waiting behind it.
-      else
-      local action = slots[vector]
-
-      -- STILL WANTED? A queued action waits for its vector, and a contested vector can
-      -- take seconds -- `perform hands` needs equilibrium, which attacking and penitence
-      -- also spend. In that gap the reason for the action can simply stop being true:
-      -- health recovers, the affliction is cured by another vector, the defence comes back.
-      -- Sending it anyway spends a real balance on a condition that no longer exists, and
-      -- the observed case was `perform hands` going out at full health because it had been
-      -- queued at 30%.
-      if action and action.valid and not action.valid() then
-         log.debug("Dropping [%s] %s -- no longer needed.", vector, action.command)
-         slots[vector] = nil
-         action = nil
-      end
-
-      -- BLOCKED SINCE IT WAS QUEUED? Held, not dropped: the block usually clears (an
-      -- epidermal cures anorexia) and the cure is still wanted when it does. See
-      -- have.vectorBlocked() for why this is re-asked here rather than trusted from push.
-      local have = emunah.have
-      if action and have and have.vectorBlocked then
-         local why = have.vectorBlocked(vector)
-         if why then
-            if action.heldFor ~= why then
-               action.heldFor = why
-               log.debug("Holding [%s] %s -- %s.", vector, action.command, why)
-            end
-            action = nil
-         end
-      end
-
-      -- act.send() returning false means the game would refuse it for a reason unrelated to
-      -- this vector (see act). The action stays queued rather than being dropped, so the
-      -- next tick tries again -- which is why this is one condition and not an early exit.
-      if action and vectorReady(vector) and emunah.act.send(action.command, action.needs) then
-         slots[vector] = nil
-         action.sentAt = emunah.util.now()
-         sent = sent + 1
-
-         log.debug("Sent [%s] %s%s", vector, action.command,
-            action.tag and (" (" .. action.tag .. ")") or "")
-
-         if action.confirm and action.confirm > 0 then
-            inFlight[vector] = action
-            -- Re-arm if the game never confirms. A cure that was swallowed by a
-            -- rejection message would otherwise wedge the vector forever.
-            action.timeoutId = tempTimer(action.confirm, function()
-               if inFlight[vector] ~= action then return end
-               inFlight[vector] = nil
-               log.debug("No confirmation for [%s] %s -- re-arming.", vector, action.command)
-               if action.onTimeout then
-                  local ok, err = pcall(action.onTimeout, action)
-                  if not ok then log.error("Queue timeout callback failed: %s", tostring(err)) end
-               end
-            end)
-         end
-
-         if action.onSent then
-            local ok, err = pcall(action.onSent, action)
-            if not ok then log.error("Queue onSent callback failed: %s", tostring(err)) end
-         end
-      end
+      -- Paralysed: skip what the game will refuse. The refusal costs a round trip in a fight
+      -- where the eat that fixes this is waiting behind it.
+      if slots[vector] and not (locked and not M.WHILE_PARALYSED[vector]) then
+         if dispatch(vector) then sent = sent + 1 end
       end
    end
    return sent
+end
+
+--- Send what is pending on ONE vector, now, under the same rules as flush().
+---
+--- For the curing engine, which resolves vector by vector and sends each cure the moment it
+--- is chosen. Pushing every vector and flushing once at the end let two vectors choose the
+--- SAME affliction in one tick -- `apply epidermal to body` and `focus` both went out for one
+--- anorexia, spending a focus balance on something the salve was already curing. The guard
+--- that stops that (engine's CURE_GUARD) is armed on send, so the send has to come before
+--- the next vector is resolved. svof gets the same effect from `doingaction`.
+--- @return number actions sent (0 or 1)
+---
+--- Cheapest test first. The engine calls this for every cure vector on every tick, and in a
+--- lock most of them are waiting on their balance -- so "is this vector even ready" settles
+--- most calls before act.can() walks stun, sleep, death and the rest. A slot skipped here
+--- is re-examined, valid() and all, by the next flush.
+function M.flushVector(vector)
+   if not slots[vector] then return 0 end
+   if not vectorReady(vector) then return 0 end
+   if not M.WHILE_PARALYSED[vector] and paralysed() then return 0 end
+   if not emunah.act.can() then return 0 end
+   return dispatch(vector) and 1 or 0
 end
 
 --- Mark the in-flight action on a vector as confirmed by the game.

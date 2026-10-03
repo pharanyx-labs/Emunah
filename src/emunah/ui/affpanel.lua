@@ -213,7 +213,7 @@ emunah.event.registerAll({
    "emunah.defences.list",
    "emunah.defence.added",
    "emunah.defence.lost",
-}, function() M.update() end, "ui.affpanel")
+}, function() theme.later("affpanel", M.update) end, "ui.affpanel")   -- after the packet: theme.later()
 
 emunah.event.register("emunah.ui.built", function() M.build() end, "ui.affpanel")
 

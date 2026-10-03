@@ -89,7 +89,7 @@ end
 -- ---------------------------------------------------------------------------
 
 function M.has(name)
-   return M.active[tostring(name):lower()] ~= nil
+   return M.active[emunah.util.lower(name)] ~= nil
 end
 
 function M.names()

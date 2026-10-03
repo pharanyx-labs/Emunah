@@ -28,7 +28,7 @@ M.commands = {
    -- the defence by the same word has not been confirmed, and the rest of this family shows
    -- it often does not. `emunah defs names` lists what the game actually reports, and the
    -- attempt budget names the mismatch when there is one.
-   speed        = { vector = "elixir",      command = "drink speed" },
+   speed        = { vector = "purgative",   command = "drink speed" },
    -- The DEFENCE is `poisonresist`; the ELIXIR is venom. Confirmed by the payload:
    --   Char.Defences.Add { name = "poisonresist",
    --                       desc = "Granted by the venom elixir or toxin tonic, this allows
@@ -37,7 +37,7 @@ M.commands = {
    -- this table is matched against it. Filed here rather than under `venom` after keep-up
    -- spent three elixirs raising a defence that had been up since the first one -- see
    -- M.ALIASES for how the elixir's name still resolves.
-   poisonresist = { vector = "elixir",      command = "drink venom" },
+   poisonresist = { vector = "purgative",   command = "drink venom" },
    -- `immunity` IS THIS SAME DEFENCE, NOT A SEPARATE ONE. Not a naming mismatch -- a
    -- duplicate: drinking it produces the exact DEF line "Your resistance to damage by
    -- poison has been increased.", word for word what poisonresist already shows. Confirmed
@@ -60,7 +60,7 @@ M.commands = {
    -- -- with "You are walking on a small cushion of air." sitting in DEF's own sixteen-
    -- defence readout the whole time. Keyed on `levitating` for the same reason as
    -- `poisonresist`; see M.ALIASES for how the elixir's name still resolves.
-   levitating   = { vector = "elixir",      command = "drink levitation" },
+   levitating   = { vector = "purgative",   command = "drink levitation" },
    -- The DEFENCE is `temperance`; the ELIXIR is frost. Same family of bug, confirmed live
    -- 18:39:57.43-18:39:57.62: a sip came back "The elixir flows down your throat without
    -- effect", and the attempt budget's own diagnostic named the mismatch outright --
@@ -70,7 +70,7 @@ M.commands = {
    --              temperance, ...
    -- Keyed on `temperance` for the same reason as `levitating`; see M.ALIASES for how the
    -- elixir's name still resolves.
-   temperance   = { vector = "elixir",      command = "drink frost" },
+   temperance   = { vector = "purgative",   command = "drink frost" },
    -- Equilibrium-cost defences. Skills, not items, so they are gated on have.skill().
    -- VERIFIED IN PLAY, 16:07:10.56 on 2026-09-28: "touch cloak" -> "You caress the tattoo and
    -- immediately you feel a cloak of protection surround you. Equilibrium used: 1.00s.", and
