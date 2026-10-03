@@ -138,7 +138,26 @@ qualifier, so two kinds of moss cannot overwrite each other.
 
 The rift survives death and inventory does not, which is why the restocker has a ceiling.
 
+## Negotiation has to follow Mudlet's own
+
+Mudlet raises `sysConnectionEvent` on the TCP connect, before the server offers GMCP. When
+the offer arrives, Mudlet sends `Core.Supports.Set` with its own list (`Char`, `Char.Skills`,
+`Char.Items`, `Room`, `IRE.Rift`, `IRE.Composer`, `Client.Media`, `Char.Login`; no
+`Comm.Channel`) and then raises `sysProtocolEnabled` with `"GMCP"` [Mudlet source,
+`ctelnet.cpp`]. A Set replaces the list. An Add sent on connect was therefore lost, and a
+fresh login had no channel text until something re-sent it.
+
+The EMCO chat logs (`<profile>/log/emunah.chat/`) show it. On 2026-09-28 Mudlet restarted
+at 16:03:19 mid-conversation (tells at 16:03:08 and 16:03:17) and nothing was captured until
+16:15:28. On 2026-10-03 the logins at 13:49, 14:18 and 18:31 captured nothing until
+19:01:39. `emreload` re-sends the Add while GMCP is up, which is why it brought chat back.
+
+`gmcp/init.lua` negotiates on `sysProtocolEnabled "GMCP"` and again on `Char.Name`.
+
 ## Death
+
+The re-negotiation below may have been masking the login bug above. Death was the first
+thing after a login to send `Core.Supports.Add`. It stays, because it costs one packet.
 
 Reported from play: **channel capture stops after dying and does not resume on its own.**
 Nothing client-side explains it — Mudlet's anonymous event handlers survive anything short

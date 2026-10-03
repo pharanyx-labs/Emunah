@@ -349,6 +349,20 @@ local function defencesGrid()
       column = (column + 1) % COLUMNS
    end
 
+   -- Pipe keep-up is its own module (`emset pipes`), not a defence, but relighting is what
+   -- keeps rebounding and the other smoked defences raisable, and this grid is where the
+   -- player looked for it: "i don't see the pipe relight toggle when i type emset defs".
+   -- Two states, on or off -- the same switch as `emset pipes on|off`.
+   local pipesOn = emunah.config.get("pipes.enabled", true) ~= false
+   decho("\n\n  ")
+   dechoLink(string.format("%s[%s] %s%-20s", pipesOn and theme().dc("defence") or theme().dc("textDim"),
+         pipesOn and "x" or " ", theme().dc(pipesOn and "defence" or "textDim"), "pipe relight"),
+      "emunah.pipes.toggle() emunah.config.save() emunah.commands.handlers.defs()",
+      pipesOn and "Stop refilling and relighting your pipes"
+         or "Keep your pipes filled and lit",
+      true)
+   decho(faint("  keeps pipes filled and lit  --  emset pipes for each pipe"))
+
    decho("\n\n  " .. faint("click cycles:  [ ] off  ->  [o] defup (raise once)  ->  "
       .. "[x] keepup  ->  off"))
    decho("\n  " .. faint("[-] no command known.  Name: green up now, red wanted but down, "

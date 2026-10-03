@@ -25,6 +25,16 @@ local deflist = emunah.curing.deflist
 --- claim a vector no cure wanted this tick.
 M.PRIORITY = 900
 
+--- Still behind a cure (healing and DIAG are 0), but ahead of every other keep-up.
+---
+--- mindseye shares equilibrium with bliss, cloak and inspiration. Same priority, and
+--- missing() is alphabetical, so the first one pushed keeps the slot: bliss, then cloak,
+--- then inspiration, and mindseye waits. Watched at login 12:49:17-34. While it waited the
+--- character was blind without mindseye, items.sighted() was false, and queueRestock()
+--- therefore pulled nothing -- prerift started on the prompt after the user touched the
+--- tattoo by hand. LOOK only reprints the darkness line. It does not restore sight.
+M.SIGHT_PRIORITY = 850
+
 M.enabled = false
 
 --- Ask the game for a fresh prompt.
@@ -249,9 +259,10 @@ local attempts, warned = {}, {}
 --- computed below.
 local blockedOn = {}
 
---- Defences we have already explained are waiting on their item to be restocked into hand.
---- Only for saying it once -- recomputed fresh from have.item() below, same as blockedOn.
-local waitingOn = {}
+--- The darkness line has been seen and mindseye is not up yet. Kept until the touch lands
+--- or the attempt budget stops it, so a skill index that was not ready on that prompt
+--- still gets the raise, and so later ticks do not let bliss take equilibrium back.
+local pendingSight = false
 
 --- A RAISE IN FLIGHT IS NOT A MISSING DEFENCE. Some land well after the command: hawthorn's
 --- deafness took 2.3s both times it was timed (eaten 14:18:55.28, "The aural world fades to
@@ -347,6 +358,14 @@ function M.withinBudget(name)
    if (attempts[name] or 0) < M.ATTEMPTS then return true end
    if not warned[name] then
       warned[name] = true
+      -- trackmace, trackangel and bliss never appear in Char.Defences. Saying they
+      -- failed to, and listing boartattoo/mosstattoo as the likely real name, sent the
+      -- player to pair a tattoo to a defence that GMCP does not report at all.
+      if deflist.SYNTHETIC and deflist.SYNTHETIC[name] then
+         log.warn("Raised %s %d times and it still is not up -- stopping.",
+            name, attempts[name])
+         return false
+      end
       log.warn("Raised %s %d times and it never appeared in Char.Defences -- stopping.",
          name, attempts[name])
       -- Narrow it down instead of sending them to go and look. A raise that worked leaves
@@ -429,6 +448,56 @@ event.register("emunah.defences.list", function()
    end
 end, "curing.defkeepup")
 
+--- Queue `touch mindseye` ahead of other equilibrium keep-up.
+---
+--- Called from the darkness line (detect commits it on the prompt, before this tick) and
+--- again from M.tick while that raise is still outstanding. Cures stay ahead of it: this
+--- priority loses to perform hands and DIAG, and wins against bliss.
+function M.queueMindseye()
+   if deflist.isUp("mindseye") then
+      pendingSight = false
+      return false
+   end
+   local vector, command, needs = deflist.resolve("mindseye")
+   if not vector or not command then
+      -- The skill index has answered and this character has no mindseye. Stop asking.
+      -- While the index is still loading, resolve() allows the command; that is the
+      -- login window this retry exists for.
+      local skills = emunah.gmcp.skills
+      if skills and skills.complete then pendingSight = false end
+      return false
+   end
+   if not M.withinBudget("mindseye") then
+      pendingSight = false
+      return false
+   end
+   -- One touch at a time. The prompt that saw the darkness line queues it, and this
+   -- tick runs after that send: queueing another while the first is still in flight
+   -- would spend a second 3s of equilibrium the moment the first one returned.
+   local inflight = queue.awaiting(vector)
+   if inflight and inflight.command == command then return false end
+   return queue.push(vector, command, {
+      priority = M.SIGHT_PRIORITY,
+      tag      = "def:mindseye",
+      needs    = needs,
+      valid    = function() return not deflist.isUp("mindseye") end,
+      confirm  = emunah.config.get("curing.confirmWait", 2.0),
+      onSent   = function()
+         attempts.mindseye = (attempts.mindseye or 0) + 1
+         if emunah.gmcp.vitals and emunah.gmcp.vitals.spend then
+            emunah.gmcp.vitals.spend("eq")
+         end
+      end,
+   })
+end
+
+--- "You are blind and can see nothing but darkness." Mindseye is what makes that
+--- survivable, and prerift will not run until it is up.
+function M.noteTrueBlind()
+   pendingSight = true
+   return M.queueMindseye()
+end
+
 --- One pass. Queues at most one defence per vector, at a priority no cure will lose to.
 function M.tick()
    if not M.enabled then return end
@@ -444,7 +513,18 @@ function M.tick()
    -- up, and gating on the raw count here would mean keep-up -- including mindseye, which
    -- blind/deaf require -- never runs again for the rest of the session.
    local engine = emunah.curing.engine
-   if engine and engine.enabled and engine.curableCount() > 0 then return end
+   if engine and engine.enabled and engine.curableCount() > 0 then
+      -- Still queue the touch. This tick's flush already happened in the curing engine,
+      -- but the slot has to be mindseye's before the next prompt, not bliss's: the
+      -- darkness line is tracked as an affliction for a couple of seconds and that used
+      -- to make this function return before mindseye was ever considered.
+      if pendingSight then M.queueMindseye() end
+      return
+   end
+
+   local items = emunah.gmcp.items
+   local blindWithoutSight = items and not items.sighted() and not deflist.isUp("mindseye")
+   if pendingSight or blindWithoutSight then M.queueMindseye() end
 
    for _, name in ipairs(M.missing()) do
       local vector, command, needs, item, unconfirmable = deflist.resolve(name)
@@ -467,16 +547,17 @@ function M.tick()
          blockedOn[name] = nil
       end
 
-      -- NOT IN HAND IS NOT THE SAME AS NEVER COMING. curelist.restockables() pulls this
-      -- same item from the rift on its own vector, usually within a tick or two -- but
-      -- sending the raise anyway does not wait for that: it burns the whole attempt budget
-      -- against "What do you want to eat?" before restocking gets a turn. Watched at login,
-      -- 17:03:45-48: `eat skullcap` refused three times in under three seconds while the
-      -- rift still held 96 -- deathsight retired for the rest of the session, and the very
-      -- restock that would have fed it went out only seconds later. Held, not abandoned, the
-      -- same as a blocked prerequisite: the item arriving is the ordinary way this resolves.
-      -- have/capabilities.lua's own M.cure() already treats "in the rift, not in hand" this
-      -- way for curing; this is the same fact reaching keep-up's item-based raises too.
+      -- NO HERB IN HAND, NO RAISE. Sending the eat anyway burns an attempt against
+      -- "What do you want to eat?" before anything is cured. Watched at login, 17:03:45-48:
+      -- `eat skullcap` refused three times in under three seconds while the rift still held
+      -- 96 -- deathsight retired for the rest of the session. Held, not abandoned: the herb
+      -- arriving in the pack is the ordinary way this resolves, and deathsight, insomnia
+      -- and thirdeye are not raised until then.
+      --
+      -- Not announced. "Restocking should catch up" was a promise restock could not keep
+      -- while blind without mindseye (queueRestock requires inventoryKnown, which requires
+      -- sight), and it was the whole of what the player saw at 12:49:20. Silence here; the
+      -- eat goes out on the tick the herb is actually in hand.
       --
       -- SMOKE NEEDS A LIT PIPE, NOT THE HERB IN HAND -- have.cure() draws the same
       -- distinction. Checking possession instead here would hold `rebounding` forever on a
@@ -501,20 +582,20 @@ function M.tick()
       if vector and command and item then
          local held = (vector == "smoke") and have.pipe(item) or (have.item(item) > 0)
          if not held then
-            if not waitingOn[name] then
-               waitingOn[name] = true
-               log.info("Not raising %s yet -- no %s in hand; restocking should catch up.",
-                  name, item)
-            end
             vector, command = nil, nil
-         else
-            waitingOn[name] = nil
          end
       end
 
       if vector and command and M.withinBudget(name) then
+         -- mindseye, while the character cannot see, must beat the alphabetical
+         -- neighbours on this same vector. queueMindseye() may already hold the slot.
+         local priority = M.PRIORITY
+         if name == "mindseye" and (pendingSight or blindWithoutSight) then
+            priority = M.SIGHT_PRIORITY
+         end
+         local sentCommand = command
          queue.push(vector, command, {
-            priority = M.PRIORITY,
+            priority = priority,
             tag      = "def:" .. name,
             -- Held rather than dropped when these are not met, so the raise goes out the
             -- moment they are -- and, critically, does NOT burn an attempt meanwhile.
@@ -522,7 +603,17 @@ function M.tick()
             -- The defence may come back on its own while this waits for a balance, and
             -- raising one that is already up costs the balance for nothing -- a full four
             -- seconds for a tattoo.
-            valid    = function() return not deflist.isUp(name) end,
+            -- A dynamic defence (trackmace) can change its mind while this sits in the
+            -- slot: SUMMON queued, then "you have a mace in the land" means the send has
+            -- to be CALL. isUp() alone would still let the summon go.
+            valid    = function()
+               if deflist.isUp(name) then return false end
+               if deflist.DYNAMIC and deflist.DYNAMIC[name] then
+                  local _, commandNow = deflist.resolve(name)
+                  return commandNow == sentCommand
+               end
+               return true
+            end,
             confirm  = emunah.config.get("curing.confirmWait", 2.0),
             onSent   = function()
                attempts[name] = (attempts[name] or 0) + 1

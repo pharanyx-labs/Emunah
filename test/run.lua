@@ -1121,6 +1121,101 @@ emunah._testRestockWas = nil
 emunah.config.set("curing.stockTarget", nil)
 
 -- ===========================================================================
+suite("outr is not gated on equilibrium")
+
+-- svof canoutr is false only while webbed, bound, transfixed, roped, impaled, or both
+-- arms are crippled. Equilibrium is not in that list. Login 17:31:34.08 restored sight
+-- and spent 3.00s on mindseye; the first `outr 1 ash` went out at 17:31:37.10, on the
+-- prompt that brought equilibrium back. The pull has to go while equilibrium is down,
+-- the moment the lists are known and the character can see.
+do
+   local defkeepupWas = emunah.curing.defkeepup.enabled
+   emunah.curing.defkeepup.enabled = false
+   engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   engine.enabled = true
+   local restockWas = emunah.config.get("curing.restock", true)
+   emunah.config.set("curing.restock", true)
+   emunah.config.set("curing.stockTarget", 1)
+   mock.feed("Char.Defences.List", {})
+   mock.feed("IRE.Rift.List", { { name = "ash", amount = 65 } })
+   queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   mock.sent = {}
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   ok(table.concat(mock.sent, " | "):find("outr 1 ash", 1, true),
+      "the first pull goes out as soon as the lists are known",
+      table.concat(mock.sent, " | "))
+
+   -- Same shortage, equilibrium and balance both down. Not a reason to hold outr.
+   queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   mock.sent = {}
+   mock.feed("Char.Vitals", {
+      hp = "5000", maxhp = "5000", mp = "4800", maxmp = "5000",
+      bal = "0", eq = "0",
+   })
+   ok(table.concat(mock.sent, " | "):find("outr 1 ash", 1, true),
+      "outr goes out with no equilibrium and no balance",
+      table.concat(mock.sent, " | "))
+
+   -- Paralysis is the other thing that looks like it should block a physical command
+   -- and must not: the bloodroot that cures it is often only in the rift.
+   queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   engine.add("paralysis", "gmcp")
+   mock.sent = {}
+   mock.feed("Char.Vitals", {
+      hp = "5000", maxhp = "5000", mp = "4800", maxmp = "5000",
+      bal = "0", eq = "0",
+   })
+   ok(table.concat(mock.sent, " | "):find("outr 1 ash", 1, true),
+      "paralysis does not hold outr either", table.concat(mock.sent, " | "))
+   engine.remove("paralysis")
+
+   -- Webbed still does. canoutr, not a general "act freely" gate.
+   queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   engine.add("webbed", "gmcp")
+   mock.sent = {}
+   mock.feed("Char.Vitals", {
+      hp = "5000", maxhp = "5000", mp = "4800", maxmp = "5000",
+      bal = "1", eq = "1",
+   })
+   ok(not table.concat(mock.sent, " | "):find("outr", 1, true),
+      "webbed still holds outr", table.concat(mock.sent, " | "))
+   engine.remove("webbed")
+
+   -- Unsighted: the list is in, and it is still the wrong moment to pull. Char.Items.Add
+   -- goes silent, so the count never moves and the attempt budget gives up.
+   mock.feed("Char.Defences.Remove", { "mindseye" })
+   mock.feed("Char.Defences.Add", { name = "blindness" })
+   queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   mock.sent = {}
+   mock.feed("Char.Vitals", {
+      hp = "5000", maxhp = "5000", mp = "4800", maxmp = "5000",
+      bal = "1", eq = "1",
+   })
+   ok(not table.concat(mock.sent, " | "):find("outr", 1, true),
+      "outr does not run while blind without mindseye", table.concat(mock.sent, " | "))
+
+   -- Sight returning is itself the moment. No further prompt, and equilibrium still down
+   -- from the touch that restored it.
+   mock.feed("Char.Vitals", {
+      hp = "5000", maxhp = "5000", mp = "4800", maxmp = "5000",
+      bal = "1", eq = "0",
+   })
+   queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   mock.sent = {}
+   mock.feed("Char.Defences.Add", { name = "mindseye" })
+   ok(table.concat(mock.sent, " | "):find("outr 1 ash", 1, true),
+      "sight restored pulls immediately, without waiting for equilibrium",
+      table.concat(mock.sent, " | "))
+
+   engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+   engine.enabled = false
+   emunah.curing.defkeepup.enabled = defkeepupWas
+   emunah.config.set("curing.restock", restockWas)
+   emunah.config.set("curing.stockTarget", nil)
+   mock.feed("Char.Defences.List", {})
+end
+
+-- ===========================================================================
 suite("restocking does not oscillate on a stale count")
 
 -- Observed after a death dropped everything: `outr 3 ash` went out, the count still read 0
@@ -1412,7 +1507,7 @@ emunah.pipes.forget(); emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { hp = "2800", maxhp = "2800", bal = "1", eq = "1" })
 ok(table.concat(mock.sent, " | "):find("pipelist", 1, true),
-   "pipes not known (login, reload): one PIPELIST to learn them", table.concat(mock.sent, " | "))
+   "pipes not known (login): one PIPELIST to learn them", table.concat(mock.sent, " | "))
 emunah.pipes.forget(); emunah.timers.stopAll()
 
 -- A BALANCE BACK ON ITS TIMER wakes the engine; it does not wait for the next prompt.
@@ -2918,6 +3013,44 @@ emunah.timers.stopAll()
 emunah.gmcp.clearRequests()
 mock.gmcpSent = {}
 
+-- Inventory and the rift are asked the moment the character is identified. The two-second
+-- pause is for skill groups, which login spam drops; parking prerift behind it held the
+-- first outr until mindseye's equilibrium happened to return (17:31:34.08 to 17:31:37.10).
+do
+   local savedCharacter = emunah.gmcp.character
+   local armed = {}
+   for id in pairs(mock.timers) do armed[id] = true end
+   emunah.timers.stopAll()
+   emunah.gmcp.clearRequests()
+   mock.gmcpSent = {}
+   -- Requests only. Char.Name also re-sends Core.Supports.Add, which bypasses the pacer
+   -- and whose module list names "Char.Skills 1".
+   local function requests()
+      local out = {}
+      for _, payload in ipairs(mock.gmcpSent) do
+         if not payload:find("^Core%.Supports") then out[#out + 1] = payload end
+      end
+      return out
+   end
+   mock.feed("Char.Name", { name = "Saemora", fullname = "Saemora" })
+   ok(table.concat(requests(), " | "):find("Char.Items.Inv", 1, true),
+      "inventory is requested immediately on identification",
+      table.concat(requests(), " | "))
+   eq(#requests(), 1, "the rift waits one interval, it is not burst with the inventory")
+   mock.advance(emunah.gmcp.REQUEST_INTERVAL + 0.01)
+   ok(table.concat(requests(), " | "):find("IRE.Rift.Request", 1, true),
+      "...and the rift follows, without the two-second skill delay",
+      table.concat(requests(), " | "))
+   ok(not table.concat(requests(), " | "):find("Char.Skills", 1, true),
+      "skill groups are not part of that early pair")
+   for id in pairs(mock.timers) do
+      if not armed[id] then killTimer(id) end
+   end
+   emunah.timers.stopAll()
+   emunah.gmcp.clearRequests()
+   emunah.gmcp.character = savedCharacter
+end
+
 -- ===========================================================================
 suite("why a cure did not happen")
 
@@ -3020,6 +3153,49 @@ ok(table.concat(mock.gmcpSent, " | "):find("Core.Supports.Add"),
    "revival re-negotiates too -- whichever edge the drop happens on, one of them covers it")
 
 emunah.event.kill("test.death")
+
+-- REGRESSION: a fresh login had no channel text until `emreload`. sysConnectionEvent is the
+-- TCP connect; Mudlet's own Core.Supports.Set (no Comm.Channel) goes out later, when GMCP
+-- is offered, and replaces the list. EMCO's logs: Mudlet restarted 16:03:19 on 2026-09-28
+-- mid-conversation and nothing was captured until 16:15:28; on 2026-10-03, logins at 13:49,
+-- 14:18 and 18:31 captured nothing until 19:01:39.
+do
+   local function lastIndexOf(list, needle)
+      local found
+      for index, payload in ipairs(list) do
+         if payload:find(needle, 1, true) then found = index end
+      end
+      return found
+   end
+
+   mock.gmcpSent = {}
+   raiseEvent("sysConnectionEvent")
+   ok(not lastIndexOf(mock.gmcpSent, "Core.Supports.Add"),
+      "nothing is negotiated on the TCP connect, where Mudlet's Set would wipe it",
+      table.concat(mock.gmcpSent, " | "))
+
+   -- What Mudlet sends from ctelnet.cpp when the server offers GMCP, before raising the event.
+   mock.gmcpSent[#mock.gmcpSent + 1] = 'Core.Supports.Set [ "Char 1", "Char.Skills 1", '
+      .. '"Char.Items 1", "Room 1", "IRE.Rift 1", "IRE.Composer 1", "Client.Media 1", "Char.Login 2"]'
+   raiseEvent("sysProtocolEnabled", "MSDP")
+   ok(not lastIndexOf(mock.gmcpSent, "Core.Supports.Add"), "another protocol does not negotiate")
+   raiseEvent("sysProtocolEnabled", "GMCP")
+   local setAt, addAt = lastIndexOf(mock.gmcpSent, "Core.Supports.Set"),
+      lastIndexOf(mock.gmcpSent, "Comm.Channel 1")
+   ok(addAt and setAt and addAt > setAt,
+      "Comm.Channel is added once GMCP is up, after Mudlet's Set", table.concat(mock.gmcpSent, " | "))
+   ok(mock.gmcpSent[addAt or 0] and mock.gmcpSent[addAt]:find("^Core%.Supports%.Add"),
+      "...as an Add, so Mudlet's own modules stay")
+
+   -- Char.Name re-sends it, in case the protocol event was missed.
+   mock.gmcpSent = {}
+   mock.feed("Char.Name", { name = "Saemora", fullname = "Saemora" })
+   ok(lastIndexOf(mock.gmcpSent, "Comm.Channel 1"), "Char.Name negotiates again",
+      table.concat(mock.gmcpSent, " | "))
+   mock.advance(2.1)
+   for _ = 1, 30 do mock.advance(emunah.gmcp.REQUEST_INTERVAL + 0.01) end
+   mock.gmcpSent = {}
+end
 
 -- CAPTURE AND RENDERING FAIL INDEPENDENTLY, which is the whole reason they are separate
 -- modules. A console that has gone away must not take the GMCP handler with it, and must
@@ -4189,6 +4365,83 @@ do
 end
 
 -- ===========================================================================
+suite("a tracked blind is not cured with epidermal while held on purpose")
+
+-- The darkness trigger reports textGain("blind"). afflist aliases that onto the epidermal
+-- cure for blindness, and DELIBERATE used to know only the GMCP word. classify() therefore
+-- kept it, have.cure() refused the salve, and the log said exactly this (17:31:33.81):
+-- "Cannot cure blind: epidermal would also cure blind/deaf, which are held on purpose."
+-- Epidermal is in hand here, so the old bug would have APPLIED it, not merely warned.
+do
+   local defkeepup = emunah.curing.defkeepup
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   engine.enabled = true
+   defkeepup.setMode("blind", "keepup")
+   defkeepup.setMode("deaf", "keepup")
+   mock.feed("Char.Defences.List", { { name = "blindness" }, { name = "deafness" } })
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "1", name = "some epidermal salve", attrib = "e" },
+   } })
+   mock.echoed = {}; mock.sent = {}
+   engine.add("blind", "text")
+   engine.add("deaf", "text")
+   eq(engine.curableCount(), 0, "blind and deaf held on purpose are not curable")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   local sent = table.concat(mock.sent, " | ")
+   local echoed = table.concat(mock.echoed, " ")
+   ok(not sent:find("epidermal", 1, true),
+      "epidermal is not applied for a tracked blind/deaf while the defence is held", sent)
+   ok(not echoed:find("Cannot cure blind", 1, true),
+      "...and it does not warn that it cannot cure blind", echoed)
+   ok(not echoed:find("Cannot cure deaf", 1, true),
+      "...nor deaf", echoed)
+
+   -- Keep-up's intent is enough on its own, before Char.Defences has the name. The
+   -- darkness line prints before that list arrives.
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Defences.List", {})
+   eq(emunah.curing.deflist.deliberate("blind"), true,
+      "the text name is deliberate while keep-up wants the defence")
+   eq(emunah.curing.deflist.deliberate("deaf"), true, "...and the same for deaf")
+   mock.echoed = {}; mock.sent = {}
+   engine.add("blind", "text")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("epidermal", 1, true),
+      "no epidermal before Char.Defences confirms a keep-up blind",
+      table.concat(mock.sent, " | "))
+   ok(not table.concat(mock.echoed, " "):find("Cannot cure blind", 1, true),
+      "...and still no warning")
+
+   -- A REAL blinding. Defence down, keep-up not intending it: epidermal, no warning.
+   defkeepup.setMode("blind", nil)
+   defkeepup.setMode("deaf", nil)
+   mock.feed("Char.Defences.List", {})
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   mock.echoed = {}; mock.sent = {}
+   engine.add("blind", "text")
+   eq(emunah.curing.deflist.deliberate("blind"), false,
+      "a tracked blind is not deliberate once the defence is down")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("apply epidermal", 1, true),
+      "a real blinding is still cured with epidermal", table.concat(mock.sent, " | "))
+   ok(not table.concat(mock.echoed, " "):find("Cannot cure blind", 1, true),
+      "...without the held-on-purpose warning")
+
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   mock.echoed = {}; mock.sent = {}
+   engine.add("deaf", "text")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("apply epidermal", 1, true),
+      "a real deafness is still cured with epidermal", table.concat(mock.sent, " | "))
+
+   defkeepup.setMode("blind", nil)
+   defkeepup.setMode("deaf", nil)
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   engine.enabled = false
+   mock.feed("Char.Defences.List", {})
+end
+
+-- ===========================================================================
 suite("mindseye is touched, not just named")
 
 do
@@ -4296,6 +4549,46 @@ do
    engine.clear(); queue.reset(); emunah.timers.stopAll()
    engine.enabled = false
    emunah.gmcp.skills.complete = wasComplete
+   mock.feed("Char.Defences.List", {})
+end
+
+-- The darkness line is the login signal that mindseye has to go out before bliss.
+-- Prerift cannot run until sight returns; LOOK only reprints the line.
+suite("the darkness line touches mindseye ahead of other equilibrium defences")
+
+do
+   local defkeepup = emunah.curing.defkeepup
+   local keep = emunah.config.get("defences.keepup")
+   local wasComplete = emunah.gmcp.skills.complete
+   emunah.gmcp.skills.complete = false
+   engine.enabled = true
+   defkeepup.enabled = true
+   defkeepup.resetBudget("mindseye")
+   queue.reset(); emunah.timers.stopAll()
+   emunah.curing.deflist.setBliss(false)
+   mock.feed("Char.Defences.List", {})
+   emunah.config.set("defences.keepup", { mindseye = "keepup", bliss = "keepup" })
+
+   emunah.curing.detect.textGain("blind")
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   local sent = table.concat(mock.sent, " | ")
+   ok(sent:find("touch mindseye", 1, true),
+      "the darkness line queues touch mindseye", sent)
+   ok(not sent:find("perform bliss", 1, true),
+      "...and bliss does not take that equilibrium", sent)
+
+   -- The touch was sent but not confirmed. Land it, or the next keep-up tick still
+   -- owes a mindseye from this line.
+   mock.feed("Char.Defences.Add", { name = "mindseye" })
+   defkeepup.queueMindseye()
+   emunah.config.set("defences.keepup", keep)
+   emunah.gmcp.skills.complete = wasComplete
+   engine.clear()
+   engine.enabled = false
+   defkeepup.enabled = false
+   defkeepup.resetBudget("mindseye")
+   queue.reset(); emunah.timers.stopAll()
    mock.feed("Char.Defences.List", {})
 end
 
@@ -4958,7 +5251,90 @@ do
 
    mock.feed("Char.Items.Remove", { location = "inv", item = { id = "616546" } })
    emunah._persist.maceSummoned = nil
+   emunah._persist.macePlace = nil
    engine.clear()
+   queue.reset(); emunah.timers.stopAll()
+end
+
+-- A mace already in the world is called, not summoned again. Watched at login 12:49:20.11,
+-- after a summon whose success Char.Items never reported (blind, no mindseye).
+do
+   local deflist = emunah.curing.deflist
+   local keep = emunah.config.get("defences.keepup")
+   queue.reset(); emunah.timers.stopAll()
+   defkeepup.resetBudget()
+   defkeepup.enabled = true
+   emunah._persist.maceSummoned = nil
+   emunah._persist.macePlace = nil
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   mock.feed("Char.Defences.List", {})
+   emunah.config.set("defences.keepup", { trackmace = "keepup" })
+
+   mock.line("You have a mace in the land, which you should call for.")
+   eq(select(2, deflist.resolve("trackmace")), "call mace",
+      "the server said to call the mace, so summon is the wrong verb")
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   local called = table.concat(mock.sent, " | ")
+   ok(called:find("call mace", 1, true), "keep-up calls it", called)
+   ok(not called:find("summon mace", 1, true), "...and does not summon another", called)
+
+   queue.reset(); emunah.timers.stopAll()
+   emunah._persist.maceSummoned = nil
+   emunah._persist.macePlace = nil
+   mock.line("White strands of light weave themselves together before your eyes, and within seconds you hold a spiritual mace within your grasp.")
+   eq(select(2, deflist.resolve("trackmace")), "wield mace",
+      "summon succeeded -- wield it, even though Char.Items has not caught up")
+
+   mock.feed("Char.Defences.List", { { name = "blindness" } })
+   mock.line("You start to wield a spiritual mace in your left hand.")
+   eq(deflist.isUp("trackmace"), true,
+      "the wield line marks it up while blind, when Char.Items will not")
+
+   emunah.config.set("defences.keepup", keep)
+   emunah._persist.maceSummoned = nil
+   emunah._persist.macePlace = nil
+   mock.feed("Char.Defences.List", {})
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   queue.reset(); emunah.timers.stopAll()
+end
+
+-- Herb defences are raised only when the herb is already in hand. No announcement that
+-- restocking will get there: at 12:49:20 that line fired while restock could not run.
+do
+   local keep = emunah.config.get("defences.keepup")
+   queue.reset(); emunah.timers.stopAll()
+   defkeepup.resetBudget()
+   defkeepup.enabled = true
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   mock.feed("Char.Defences.List", {})
+   emunah.config.set("defences.keepup", {
+      deathsight = "keepup", insomnia = "keepup", thirdeye = "keepup",
+   })
+   mock.echoed = {}
+   mock.sent = {}
+   defkeepup.tick()
+   local heldBack = table.concat(mock.sent, " | ")
+   ok(not heldBack:find("eat skullcap", 1, true),
+      "deathsight is not eaten with no skullcap in hand", heldBack)
+   ok(not heldBack:find("eat cohosh", 1, true),
+      "insomnia is not eaten with no cohosh in hand", heldBack)
+   ok(not heldBack:find("eat echinacea", 1, true),
+      "thirdeye is not eaten with no echinacea in hand", heldBack)
+   ok(not table.concat(mock.echoed, " "):find("restocking should catch up", 1, true),
+      "a missing herb is not announced as waiting on restock",
+      table.concat(mock.echoed, " "))
+
+   mock.feed("Char.Items.Add", { location = "inv",
+      item = { id = "1", name = "a skullcap flower", attrib = "" } })
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("eat skullcap", 1, true),
+      "deathsight is raised once the skullcap is in hand",
+      table.concat(mock.sent, " | "))
+
+   emunah.config.set("defences.keepup", keep)
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
    queue.reset(); emunah.timers.stopAll()
 end
 
@@ -5075,6 +5451,33 @@ mock.click(shieldLink)
 eq(defkeepup.mode("shield"), "keepup", "clicking again selects keepup")
 mock.click(shieldLink)
 eq(defkeepup.mode("shield"), nil, "and a third click switches it off")
+
+-- "i don't see the pipe relight toggle when i type emset defs". Pipe keep-up is its own
+-- module, but the grid is where it was looked for, so it carries the same switch.
+do
+   local saved = emunah.config.get("pipes.enabled", true)
+   local savedPoll = emunah.pipes.poll
+   emunah.pipes.poll = function() return false end   -- switching on polls; not under test
+   emunah.config.set("pipes.enabled", true)
+   local function pipeLink()
+      mock.links = {}
+      emunah.commands.handlers.defs()
+      for index, link in ipairs(mock.links) do
+         if link.text:find("pipe relight", 1, true) then return index, link end
+      end
+   end
+   local index, link = pipeLink()
+   ok(index ~= nil, "the defence grid has a pipe relight toggle")
+   ok(link and link.text:find("[x]", 1, true), "...ticked while pipe keep-up is on")
+   mock.click(index)
+   eq(emunah.config.get("pipes.enabled", true), false, "clicking it switches pipe keep-up off")
+   index, link = pipeLink()
+   ok(link and link.text:find("[ ]", 1, true), "...and the redrawn grid shows it off")
+   mock.click(index)
+   eq(emunah.config.get("pipes.enabled", true), true, "clicking again switches it back on")
+   emunah.pipes.poll = savedPoll
+   emunah.config.set("pipes.enabled", saved)
+end
 
 -- With keep-up off the grid says so and offers the fix, rather than showing a page of
 -- toggles that do nothing.
@@ -9099,8 +9502,12 @@ eq(mock.sent[#mock.sent], "look", "numpad 5 sends look")
 mock.press(KEYPAD, mudlet.key["1"])
 eq(mock.sent[#mock.sent], "sw", "numpad 1 sends southwest")
 
+-- Swapped from play: "we need to swap the up and down keybindings as they are back to front".
+mock.press(KEYPAD, mudlet.key.Minus)
+eq(mock.sent[#mock.sent], "up", "numpad - sends up")
+
 mock.press(KEYPAD, mudlet.key.Plus)
-eq(mock.sent[#mock.sent], "up", "numpad + sends up")
+eq(mock.sent[#mock.sent], "down", "numpad + sends down")
 
 mock.press(KEYPAD, mudlet.key.Period)
 eq(mock.sent[#mock.sent], "out", "numpad . sends out")
@@ -10056,7 +10463,11 @@ engine.tick(); queue.flush()
 ok(not sent():find("concentrate"), "...but not while confused", sent())
 
 -- THE SERVER'S NAMES (svof gamename): `blind` is the affliction, cured like blindness.
+-- Not the defence. A leftover keep-up mode or Char.Defences entry would now correctly
+-- refuse this, so the case says which one it is.
 reset()
+emunah.curing.defkeepup.setMode("blind", nil)
+mock.feed("Char.Defences.List", {})
 mock.feed("Char.Items.List", { location = "inv", items = {
    { id = "31", name = "an epidermal salve", attrib = "e" },
 } })
@@ -10126,6 +10537,33 @@ local function inBuffer(text)
    for index = start + 1, #mock.buffer do if mock.buffer[index] == text then return true end end
    return false
 end
+local function matchesBg(index)
+   local fg = mock.lineFg[index]
+   local bg = mock.bgColor or { 0, 0, 0 }
+   return fg and fg[1] == bg[1] and fg[2] == bg[2] and fg[3] == bg[3]
+end
+-- Hidden means painted in the line's own background. The sentence has to still be the
+-- buffer row: a zero-width stand-in looks like an empty line and is what a copy collapses.
+local function concealed(text)
+   for index = start + 1, #mock.buffer do
+      if mock.buffer[index] == text and matchesBg(index) then return true end
+   end
+   return false
+end
+local function concealedCount(text)
+   local n = 0
+   for index = start + 1, #mock.buffer do
+      if mock.buffer[index] == text and matchesBg(index) then n = n + 1 end
+   end
+   return n
+end
+local function noGhosts()
+   for index = start + 1, #mock.buffer do
+      local line = mock.buffer[index]
+      if line == "" or line:match("^[\226\128\139\226\128\140]+$") then return false end
+   end
+   return true
+end
 
 -- The transcript that asked for this, 13:04:56-13:05:27: a poll, then three lights.
 mock.sent, mock.echoed_sends = {}, {}
@@ -10145,49 +10583,82 @@ mock.line("The celestial flowers of the aurora bloom and fade slowly, their rhyt
 for _, row in ipairs(rows) do mock.line(row) end
 -- THE REGRESSION THAT BANNED GAGGING HERE: every row must be parsed, not just the first.
 eq(#pipes.list(), 3, "all three rows parsed while being gagged")
+-- Hidden as the line arrives: the words are painted out, and the sentence is still the
+-- row. Replacing it left an empty line that vanished only when the text was copied.
+for _, row in ipairs(rows) do
+   ok(inBuffer(row), "still the original row, so the delete can find it: " .. row)
+   ok(concealed(row), "hidden as it arrives: " .. row)
+end
+ok(noGhosts(), "nothing is replaced with an empty or zero-width row")
 mock.advance(0)
 for _, row in ipairs(rows) do
    ok(not inBuffer(row), "gagged: " .. row)
 end
+ok(noGhosts(), "removing the listing leaves no empty row")
 ok(inBuffer("The celestial flowers of the aurora bloom and fade slowly, their rhythm steady and soothing."),
    "...and the unrelated line around them is left alone")
 
--- A LIGHT of ours: the tinderbox and the success line go.
+-- A LIGHT of ours is SHOWN. Hiding it still drew blank rows that collapsed a moment later:
+-- "we're still gagging lines when we relight pipes, though. fix this".
 mock.sent, mock.echoed_sends = {}, {}
 pipes.keep()
 eq(mock.sent[1], "light pipe367581", "the first cold pipe is lit")
-eq(mock.echoed_sends[1], false, "...quietly")
+eq(mock.echoed_sends[1], true, "...echoed, like every other keep-up command")
 mock.line("You use a soot-blackened tinderbox to make fire.")
 mock.line("You carefully light your treasured pipe until it is smoking nicely.")
 eq(pipes.pipes["367581"].status, "lit", "the light is still recorded")
+ok(not concealed("You use a soot-blackened tinderbox to make fire.")
+   and not concealed("You carefully light your treasured pipe until it is smoking nicely."),
+   "a relight's lines are not painted out")
 mock.advance(0)
-ok(not inBuffer("You use a soot-blackened tinderbox to make fire."), "tinderbox line gagged")
-ok(not inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
-   "lit line gagged")
+ok(inBuffer("You use a soot-blackened tinderbox to make fire."), "the tinderbox line stays")
+ok(inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
+   "...and so does the lit line")
+
+-- The gag itself still serves PIPELIST and PUT. A quiet fill's one-line reply is the
+-- example below.
+local fillReply = "You fill your pipe with a skullcap flower."
+local function quietFill()
+   pipes.quietly("fill")
+   mock.line(fillReply)
+end
 
 -- THE BUFFER MOVES BETWEEN THE GAG AND THE DELETE (2026-09-28: "overgagging on some lines
 -- and not gagging others"). Mudlet trimming full scrollback removes lines from the top, so
 -- every recorded number is now one too high: by number, the gag deleted the line BELOW
 -- each reply and left the reply. By text, it finds the reply and nothing else goes.
 do
-   emunah.timers.stop("pipes.action")
-   emunah.timers.stop("pipes.pipe.408402")
-   pipes.pipes["408402"].status = "out"
-   pipes.keep()
    local before = "Anzerloi continues to circle you, slipping in and out of your blindspot."
    local after = "A lost visitor enters from the east."
    mock.line(before)
-   mock.line("You use a soot-blackened tinderbox to make fire.")
-   mock.line("You carefully light your treasured pipe until it is smoking nicely.")
+   quietFill()
    mock.line(after)
+   ok(concealed(fillReply), "a quiet fill's reply is hidden before the timer, text intact")
    table.remove(mock.buffer, 1)                   -- the scrollback trims one line
    start = start - 1
    mock.advance(0)
-   ok(not inBuffer("You use a soot-blackened tinderbox to make fire."),
-      "after a trim, the tinderbox line is still the one gagged")
-   ok(not inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
-      "...and the lit line")
-   ok(inBuffer(before) and inBuffer(after), "...and the lines around them are untouched")
+   ok(not inBuffer(fillReply), "after a trim, the fill reply is still the one gagged")
+   ok(inBuffer(before) and inBuffer(after), "...and the lines around it are untouched")
+   ok(noGhosts(), "a gag leaves no empty row")
+end
+
+-- TWO OF THE SAME REPLY, THEN A TRIM. Searching by that text settled both copies on the
+-- first one and left the second on screen. The search skips a line it has already removed
+-- and keeps looking, so a shift still removes both and nothing next to them.
+do
+   local before = "Anzerloi continues to circle you, slipping in and out of your blindspot."
+   local after = "A lost visitor enters from the east."
+   mock.line(before)
+   quietFill()
+   quietFill()
+   mock.line(after)
+   eq(concealedCount(fillReply), 2, "both replies are hidden before the delete, text intact")
+   ok(noGhosts(), "two replies do not leave an empty or zero-width row")
+   table.remove(mock.buffer, 1)
+   start = start - 1
+   mock.advance(0)
+   ok(not inBuffer(fillReply), "after a trim, both copies are gone")
+   ok(inBuffer(before) and inBuffer(after), "...and the lines around the pair are untouched")
 end
 
 -- ONE LINE, GAGGED TWICE, COUNTS ONCE. Otherwise a block of one gagged line and one of
@@ -10197,8 +10668,7 @@ do
    local pb = "H:100% M:100% E:100% W:100%  ex-  T:  15:30:01.00-"
    local mine = "Maajida arrives from the north."
    mock.prompt(pa)
-   pipes.quietly("light")
-   mock.line("You use a soot-blackened tinderbox to make fire.")
+   quietFill()
    pipes.gag()                                    -- a second trigger on the same line
    mock.line(mine)
    mock.prompt(pb)
@@ -10208,63 +10678,61 @@ do
 end
 
 -- THE LAST LINE IS ALWAYS A CURRENT PROMPT. Reported 13:23:14.92-13:23:17.41: five bare
--- prompts in a row, one per relight, because only the replies were gagged. Now a run of
--- our housekeeping collapses into one prompt -- the newest -- at the bottom of the window.
+-- prompts in a row, one per piece of housekeeping, because only the replies were gagged.
+-- Now a run of it collapses into one prompt -- the newest -- at the bottom of the window.
 local p1 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:14.92-"
 local p2 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:15.13-"
 local p3 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:15.90-"
 local visitor = "Glancing around for the Iron Carnival, a lost visitor enters from the southwest."
-local function relight(id)
-   emunah.timers.stop("pipes.action")
-   emunah.timers.stop("pipes.pipe." .. id)
-   pipes.pipes[id].status = "out"
-   pipes.keep()
-   mock.line("You use a soot-blackened tinderbox to make fire.")
-   mock.line("You carefully light your treasured pipe until it is smoking nicely.")
-end
 mock.prompt(p1)
-relight("408402")
+quietFill()
 mock.prompt(p2)
 mock.advance(0)
-relight("422328")
+quietFill()
 mock.prompt(p3)
 mock.advance(0)
-ok(not inBuffer(p1) and not inBuffer(p2), "the prompts our relights stranded are removed")
+ok(not inBuffer(p1) and not inBuffer(p2), "the prompts our housekeeping stranded are removed")
 eq(mock.buffer[#mock.buffer], p3, "...and the newest prompt is the last line in the window")
 
--- TWO RELIGHTS IN FLIGHT AT ONCE. The first reply used to clear the single "ours" slot, so
--- the second pipe's tinderbox and success lines were shown. Each kind now counts its own.
-pipes.pipes["408402"].status = "out"
-pipes.pipes["422328"].status = "out"
-emunah.timers.stop("pipes.action")
-emunah.timers.stop("pipes.pipe.408402")
-emunah.timers.stop("pipes.pipe.422328")
-pipes.keep()
-emunah.timers.stop("pipes.action")
-pipes.keep()
-local both = {
-   "You use a soot-blackened tinderbox to make fire.",
-   "You carefully light your treasured pipe until it is smoking nicely.",
-   "You use a soot-blackened tinderbox to make fire.",
-   "You carefully light your treasured pipe until it is smoking nicely.",
-}
-local before = #mock.buffer
-for _, line in ipairs(both) do mock.line(line) end
+-- Mudlet finishes a prompt -- which arrived without its own newline -- with a trailing
+-- space before the delete runs. That space is not a typed command; the prompt still goes.
+local pSpace = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:16.00-"
+local pNext = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:16.40-"
+mock.prompt(pSpace)
+local spaceAt = #mock.buffer
+quietFill()
+mock.buffer[spaceAt] = pSpace .. " "
+mock.prompt(pNext)
 mock.advance(0)
-eq(#mock.buffer, before, "both relights' lines are gagged, not just the first one's")
+ok(not inBuffer(pSpace .. " "), "a prompt finished with a trailing space is still removed")
+eq(mock.buffer[#mock.buffer], pNext, "...and the prompt after that reply is the last line")
 
--- A relight sent in the middle of our PIPELIST does not un-gag the rest of the listing.
+-- TWO IN FLIGHT AT ONCE. The first reply used to clear the single "ours" slot, so the
+-- second was shown. Each kind counts its own outstanding commands.
+do
+   pipes.quietly("fill")
+   pipes.quietly("fill")
+   local before = #mock.buffer
+   mock.line(fillReply)
+   mock.line(fillReply)
+   mock.advance(0)
+   eq(#mock.buffer, before, "both replies are gagged, not just the first one's")
+end
+
+-- Another kind sent in the middle of our PIPELIST does not un-gag the rest of the listing.
 emunah.timers.stop("pipes.poll")
 pipes.poll(true)
-before = #mock.buffer
+local before = #mock.buffer
 mock.line("Status  Pipe         Contents                       Puffs Months ")
 mock.line("-------------------------------------------------------------------------------")
 mock.line("out     pipe367581   a skullcap flower              8     195")
-pipes.quietly("light")
+pipes.quietly("fill")
 mock.line("lit     pipe408402   slippery elm                   9     195")
 mock.line("-------------------------------------------------------------------------------")
 mock.advance(0)
-eq(#mock.buffer, before, "a relight mid-listing leaves the whole listing gagged")
+eq(#mock.buffer, before, "a fill sent mid-listing leaves the whole listing gagged")
+mock.line(fillReply)                              -- that fill's own reply, so it is answered
+mock.advance(0)
 
 -- A block with anything else in it keeps its prompt.
 mock.line(visitor)
@@ -10276,7 +10744,7 @@ eq(mock.buffer[#mock.buffer], p4, "...and ends on its own prompt")
 
 -- A prompt you typed a command onto is yours, and stays.
 mock.typedEcho("score")
-relight("367581")
+quietFill()
 local p5 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:18.20-"
 mock.prompt(p5)
 mock.advance(0)
@@ -10285,7 +10753,7 @@ eq(mock.buffer[#mock.buffer], p5, "...and the newest prompt is still last")
 
 -- YOURS ARE NOT: a PIPELIST you typed, or `emunah pipes now`, is shown in full.
 mock.advance(pipes.QUIET_WINDOW + 0.1)
-local before = #mock.buffer
+before = #mock.buffer
 for _, row in ipairs(rows) do mock.line(row) end
 mock.advance(0)
 eq(#mock.buffer, before + #rows, "a PIPELIST we did not send is not gagged")
@@ -10293,6 +10761,32 @@ mock.sent, mock.echoed_sends = {}, {}
 emunah.timers.stop("pipes.poll")
 pipes.poll(true, true)
 eq(mock.echoed_sends[#mock.echoed_sends], true, "`emunah pipes now` echoes, as asked for")
+
+-- THE LINE THAT SHOWS UP ON ITS OWN. It names the contents and arrives the moment the pipe
+-- goes out. It is shown, keep-up or not: the relight that follows it is shown too, and
+-- hiding the one ahead of it was the same flash.
+for _, keepup in ipairs({ true, false }) do
+   emunah.config.set("pipes.enabled", keepup)
+   emunah.timers.stop("pipes.action")
+   emunah.timers.stop("pipes.pipe.367581")
+   pipes.pipes["367581"].status = "lit"
+   mock.sent = {}
+   local gone = "Your pipe, containing a skullcap flower, has gone cold and dark."
+   local at = #mock.buffer + 1
+   local previous = mock.lineFg[at]
+   local label = keepup and " (keep-up on)" or " (keep-up off)"
+   mock.line(gone)
+   eq(pipes.pipes["367581"].status, "out", "the announcement still marks the pipe out" .. label)
+   if keepup then
+      ok(tostring(table.concat(mock.sent, " | ")):find("light pipe367581", 1, true),
+         "...and it is relit straight away", table.concat(mock.sent, " | "))
+   end
+   mock.advance(0)
+   eq(mock.buffer[at], gone, "the announcement stays on screen" .. label)
+   ok(mock.lineFg[at] == previous, "...and it is not painted out" .. label)
+end
+emunah.config.set("pipes.enabled", true)
+
 emunah.timers.stopAll()
 end)()
 
@@ -10563,6 +11057,34 @@ table.sort(staleOnWeb)
 eq(#staleOnWeb, 0, "website/commands.html documents no command form that help.lua does not",
    table.concat(staleOnWeb, " | "))
 end)()
+
+-- ===========================================================================
+suite("pipes survive a reload")
+
+-- "when i emreload and then send 'look' to the game, something is still being gagged as i
+-- see it very briefly and it looks messy." The reload emptied M.pipes, so LOOK's prompt
+-- sent a quiet PIPELIST whose lines were painted out and deleted just after being drawn.
+-- Last in the file: a reload replaces every module, and the locals the suites above hold
+-- would point at the previous generation.
+do
+   emunah.timers.stopAll(); emunah.pipes.forget()
+   emunah.config.set("pipes.enabled", true)
+   emunah.pipes.record("lit", "pipe101", "slippery elm", 10, 1)
+   emunahReload()
+   emunah.timers.stopAll()
+   eq(emunah.pipes.pipes["101"] and emunah.pipes.pipes["101"].status, "lit",
+      "a reload keeps the pipes that were known")
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "2800", maxhp = "2800", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("pipelist", 1, true),
+      "...so the first prompt after it sends no PIPELIST", table.concat(mock.sent, " | "))
+
+   -- A disconnect is a session boundary, and the next load must not inherit across it.
+   raiseEvent("sysDisconnectionEvent")
+   emunahReload()
+   eq(next(emunah.pipes.pipes), nil, "a disconnect still forgets them, reload or not")
+   emunah.config.set("pipes.enabled", false)
+end
 
 -- ===========================================================================
 

@@ -18,6 +18,10 @@ local log    = emunah.log
 M.console = nil
 M.mode    = "none"   -- "emco" | "plain" | "none"
 
+--- Declared here, above build(), which clears it. Declared further down, build() wrote a
+--- global of the same name and the warning in M.append() never re-armed.
+local warnedNoConsole = false
+
 --- Set once the console has refused output, so a broken widget reports itself exactly once
 --- rather than either spamming the log or -- worse -- saying nothing at all. Cleared by a
 --- successful build: a fresh console is working until proven otherwise.
@@ -176,7 +180,6 @@ end
 --- a chat window that never built looks exactly like one that stopped working. Counted so
 --- `emunah chat` can say so, and warned about once.
 M.dropped = 0
-local warnedNoConsole = false
 
 --- Render one message.
 function M.append(message)

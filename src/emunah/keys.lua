@@ -3,7 +3,7 @@
 ---   7 nw    8 n     9 ne
 ---   4 w     5 look  6 e
 ---   1 sw    2 s     3 se
----   0 in    . out   + up    - down
+---   0 in    . out   - up    + down
 ---
 --- NUM LOCK IS THE WHOLE PROBLEM
 --- ----------------------------
@@ -41,8 +41,10 @@ M.LAYOUT = {
    { command = "se",   on = "3", off = "PageDown" },
    { command = "in",   on = "0", off = "Insert"   },
    { command = "out",  on = "Period", off = "Delete" },
-   { command = "up",   on = "Plus"  },
-   { command = "down", on = "Minus" },
+   -- Minus is up and Plus is down: on the keypad, - sits above + (reported in play as
+   -- "back to front" with them the other way round).
+   { command = "up",   on = "Minus" },
+   { command = "down", on = "Plus"  },
 }
 
 --- Directions that move you. `look` does not, so it must not interrupt a walk.

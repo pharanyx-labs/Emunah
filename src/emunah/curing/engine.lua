@@ -350,15 +350,17 @@ local function classify()
       -- NEVER CURE A DEFENCE THE CHARACTER IS HOLDING ON PURPOSE.
       --
       -- `blind` and `deaf` are defences, and the game reports the resulting state as an
-      -- affliction too -- so this loop sees `blindness` and reaches for epidermal while the
-      -- user is deliberately blind. Watched at 13:55:02: "Cannot cure blindness: epidermal
-      -- is in the rift, not in hand", with DEF listing "You are blind." among twelve
-      -- defences at that moment. Only the salve being out of reach stopped it undoing a
-      -- defence that had been put up on purpose, and it would have kept undoing it for as
-      -- long as keep-up kept restoring it.
+      -- affliction too. Char.Defences says `blindness`; the darkness trigger and svof's
+      -- gamename say `blind`. Watched at 13:55:02: "Cannot cure blindness: epidermal is in
+      -- the rift, not in hand". Watched again at 17:31:33.81, once the text name was what
+      -- got tracked: "Cannot cure blind: epidermal would also cure blind/deaf, which are
+      -- held on purpose." Either name, while the defence is up or keep-up intends it, is
+      -- skipped here so the salve is never applied for it.
       --
-      -- Gated on Char.Defences reporting the defence, so it lapses the instant the defence
-      -- does: a real blinding, with no `blind` defence up, cures normally.
+      -- It lapses the instant the defence does, and the instant keep-up stops intending it:
+      -- a real blinding, with no `blind` defence up, cures normally. The epidermal refusal
+      -- in have.cure() stays for a DIFFERENT affliction (anorexia) that would strip the
+      -- defence as a side effect. This skip is what stops the warning for blind itself.
       if not deflist.deliberate(name) then
          if afflist.known(name) then
             curableCount = curableCount + 1

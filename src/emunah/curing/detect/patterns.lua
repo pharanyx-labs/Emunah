@@ -1046,6 +1046,22 @@ do
    persist(tempRegexTrigger([[^The heavenly visions fade as the bliss leaves you\.$]], function()
       emunah.curing.deflist.setBliss(false)
    end))
+
+   -- MACE. trackmace has no Char.Defences entry, and while blind without mindseye
+   -- Char.Items.Add does not fire either, so these lines are the whole of the state.
+   -- Wordings from svof's trigger set, matched against the 12:49 login: the summon
+   -- success, then "you have a mace in the land, which you should call for" on the
+   -- summon that followed because the success was never seen. The wield line is the
+   -- user's, left hand, 12:49:24.41.
+   persist(tempRegexTrigger(
+      [[^White strands of light weave themselves together before your eyes, and within seconds you hold a spiritual mace within your grasp\.$]],
+      function() emunah.curing.deflist.noteMaceInHand() end))
+   persist(tempRegexTrigger(
+      [[^You have a mace in the land, which you should call for\.$]],
+      function() emunah.curing.deflist.noteMaceInLand() end))
+   persist(tempRegexTrigger(
+      [[^You start to wield a spiritual mace in your left hand\.$]],
+      function() emunah.curing.deflist.noteMaceWielded() end))
 end
 
 return true

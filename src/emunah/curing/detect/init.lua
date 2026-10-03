@@ -223,6 +223,13 @@ local function apply(report)
    if kind == "gain" then
       local engine = emunah.curing.engine
       if engine then engine.addText(name) end
+      -- The login/LOOK line for real blindness. Committed here, with the rest of the
+      -- paragraph, so an illusion that spoils the block never spends the equilibrium.
+      -- Mindseye is what lets prerift and the room be read while blind is held on purpose.
+      if name == "blind" or name == "blindness" then
+         local defkeepup = emunah.curing.defkeepup
+         if defkeepup and defkeepup.noteTrueBlind then defkeepup.noteTrueBlind() end
+      end
    elseif kind == "cure" then
       local believable, why = cureBelievable(name, report[3])
       if believable then

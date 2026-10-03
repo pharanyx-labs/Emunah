@@ -192,8 +192,14 @@ M.commands = {
 ---
 --- affliction name -> the Char.Defences name that means it was wanted.
 ---
---- Both map to themselves now: Char.Defences and Char.Afflictions use the same word for
---- each state, confirmed live for both (see M.commands.blindness / .deafness).
+--- Char.Defences and Char.Afflictions use `blindness`/`deafness` for each state, confirmed
+--- live for both (see M.commands.blindness / .deafness). The affliction's other name is
+--- `blind`/`deaf`: svof's gamename (blindaff -> "blind"), the darkness trigger
+--- (`textGain("blind")`), and DIAG's bare word. Those share the epidermal cure through
+--- afflist.ALIASES. Without a key here, classify() treats a tracked `blind` as a real
+--- affliction and have.cure() then refuses the salve, which is the warning at 17:31:33.81:
+--- "Cannot cure blind: epidermal would also cure blind/deaf, which are held on purpose."
+--- The alias points at the defence. It does not make `blind` a second defence to raise.
 ---
 --- `insomnia` is the same shape, confirmed live 17:59:54-18:00:04: `eat cohosh` raised
 --- BOTH Char.Afflictions.Add and Char.Defences.Add for "insomnia" in the same GMCP burst,
@@ -206,6 +212,9 @@ M.commands = {
 M.DELIBERATE = {
    blindness = "blindness",
    deafness  = "deafness",
+   -- The text/svof name of the same state. Value is the Char.Defences name.
+   blind     = "blindness",
+   deaf      = "deafness",
    insomnia  = "insomnia",
 }
 
@@ -226,7 +235,7 @@ M.DIAG_STATES = {
 --- The bare-key lookup first, then the normalised one, for the reason spelled out over
 --- afflist.get(): this was the single hottest line in the profile, asked 53 times per
 --- prompt, and all but a handful of those were the engine handing back a name it had
---- already lowercased itself when it stored it. M.DELIBERATE has three entries, so the
+--- already lowercased itself when it stored it. M.DELIBERATE is a handful of entries, so the
 --- overwhelmingly common answer is "no" from one hash lookup that allocates nothing.
 function M.deliberate(affliction)
    local defence = M.DELIBERATE[affliction]
@@ -389,15 +398,22 @@ M.SYNTHETIC = {
       local detect = emunah.curing.detect
       return detect ~= nil and detect.angel == true
    end,
-   -- Nothing to trigger on -- the truth is already sitting in Char.Items. Read live rather
-   -- than cached, so a mace stripped in combat (or re-wielded) is seen the same tick.
+   -- Char.Items when we can see it. While blind without mindseye that feed goes silent
+   -- (gmcp/items.lua), so a wield the game just confirmed in text is the only truth until
+   -- sight returns. Once sighted, GMCP wins: a text flag must not keep reading "up" over
+   -- an inventory that no longer holds the mace.
    trackmace = function()
       local items = emunah.gmcp.items
-      if not items then return false end
-      local mace = items.first("spiritual mace", "inv")
-      if not mace then return false end
-      local attrib = items.attrib(mace)
-      return attrib.wielded_left or attrib.wielded_right
+      if items then
+         local mace = items.first("spiritual mace", "inv")
+         if mace then
+            local attrib = items.attrib(mace)
+            return attrib.wielded_left or attrib.wielded_right
+         end
+      end
+      local place = emunah._persist and emunah._persist.macePlace
+      if place ~= "wielded" then return false end
+      return items ~= nil and not items.sighted()
    end,
    -- Invisible to Char.Defences and to DEF alike (confirmed 22 minutes into the buff; the reference system
    -- marks it `invisibledef` too), so up comes from its own lines -- patterns.lua, "Bliss" --
@@ -471,16 +487,67 @@ local function markMaceSeen(_, location, item)
    if not (item and item.search and item.search:find("spiritual mace", 1, true)) then return end
    emunah._persist = emunah._persist or {}
    emunah._persist.maceSummoned = true
+   -- The recall landed. "Call for it" is no longer the server's latest word.
+   if emunah._persist.macePlace == "land" then emunah._persist.macePlace = nil end
 end
 event.register("emunah.items.added",   markMaceSeen, "curing.deflist")
 event.register("emunah.items.updated", markMaceSeen, "curing.deflist")
 
+-- A full inventory list, once we can see, is allowed to retire a text flag. Not while
+-- blind: that list is the one taken before the summon, and Char.Items.Add never arrives
+-- to correct it (gmcp/items.lua).
+event.register("emunah.items.list", function(_, key)
+   if key ~= "inv" then return end
+   local items = emunah.gmcp.items
+   local persist = emunah._persist
+   if not (items and persist) then return end
+   if not items.sighted() then return end
+   if items.first("spiritual mace", "inv") then return end
+   if persist.macePlace == "hand" or persist.macePlace == "wielded" then
+      persist.macePlace = nil
+   end
+end, "curing.deflist")
+
 event.register("sysDisconnectionEvent", function()
    if emunah._persist then
       emunah._persist.maceSummoned = nil
+      emunah._persist.macePlace = nil
       emunah._persist.blissUp = nil
    end
 end, "curing.deflist")
+
+--- Where the mace is, from the game's own lines, when Char.Items cannot say.
+---
+--- "hand"    -- summon succeeded: "you hold a spiritual mace within your grasp."
+--- "land"    -- "You have a mace in the land, which you should call for."
+--- "wielded" -- "You start to wield a spiritual mace in your left hand."
+--- nil       -- trust GMCP and maceSummoned alone.
+local function rememberMace(place)
+   emunah._persist = emunah._persist or {}
+   emunah._persist.maceSummoned = true
+   emunah._persist.macePlace = place
+   -- The summons that provoked the line were the wrong verb, not evidence the defence
+   -- cannot be raised. trackmace never appears in Char.Defences, so those attempts would
+   -- otherwise retire it ("Raised trackmace 3 times...") with the mace still unwielded.
+   local defkeepup = emunah.curing.defkeepup
+   if defkeepup and defkeepup.resetBudget then defkeepup.resetBudget("trackmace") end
+end
+
+function M.noteMaceInHand()
+   rememberMace("hand")
+   if emunah.queue then emunah.queue.confirm("balance") end
+end
+
+function M.noteMaceInLand()
+   rememberMace("land")
+   if emunah.queue then emunah.queue.confirm("balance") end
+end
+
+function M.noteMaceWielded()
+   rememberMace("wielded")
+   if emunah.queue then emunah.queue.confirm("free") end
+   event.raise("defence.added", "trackmace")
+end
 
 --- Which command raises `trackmace` depends on which of three states the mace is actually
 --- in, and that can only be read live -- no other entry in this file needs three different
@@ -496,7 +563,11 @@ end, "curing.deflist")
 ---   summoned before, not in inventory -> CALL MACE. Confirmed live 07:49:40.91-07:49:44.93:
 ---      "Equilibrium used: 4.00s.", and the GMCP payload is a Char.Items.UPDATE carrying the
 ---      SAME item id (616546) seen wielded earlier -- it recalls the existing mace, it does
----      not create a new one.
+---      not create a new one. The game also says this outright when SUMMON is the wrong
+---      verb: "You have a mace in the land, which you should call for." (12:49:20.11).
+---      While blind without mindseye that line is the only signal -- Char.Items.Add does
+---      not fire, so a summon that already worked never set maceSummoned, and the next
+---      tick summoned again.
 ---   never summoned this login -> SUMMON MACE. Costs 2.9s of balance, confirmed by the user
 ---      directly rather than GMCP -- the only capture taken was chained (`summon
 ---      mace;;wield mace`), which is also why that chain is not what this sends: the wield
@@ -521,17 +592,25 @@ end, "curing.deflist")
 --- untracked-satisfaction defence -- cosmetic, and not what was asked for.
 local function resolveTrackmace()
    local items = emunah.gmcp.items
-   if items then
-      local mace = items.first("spiritual mace", "inv")
-      if mace then
-         if have.bothArmsBroken and have.bothArmsBroken() then
-            return nil, nil, nil, nil, nil
-         end
-         return "free", "wield mace", { bal = true, eq = true }, nil, nil
-      end
+   local persist = emunah._persist
+   local place = persist and persist.macePlace
+   local mace = items and items.first("spiritual mace", "inv")
+   -- A sighted inventory entry is live. An unsighted one can be the snapshot from before
+   -- the mace left the pack, which is exactly when the server says to call for it.
+   local liveMace = mace and (not items or items.sighted())
+
+   if place == "land" and not liveMace then
+      return "equilibrium", "call mace", nil, nil, nil
    end
 
-   if emunah._persist and emunah._persist.maceSummoned then
+   if mace or place == "hand" or place == "wielded" then
+      if have.bothArmsBroken and have.bothArmsBroken() then
+         return nil, nil, nil, nil, nil
+      end
+      return "free", "wield mace", { bal = true, eq = true }, nil, nil
+   end
+
+   if persist and persist.maceSummoned then
       return "equilibrium", "call mace", nil, nil, nil
    end
 

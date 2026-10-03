@@ -526,6 +526,16 @@ local function checkSight()
    if isSighted and not wasSighted then
       log.info("Sight restored -- resyncing inventory against whatever Char.Items missed.")
       resync("inv")
+      -- THE LIST MAY ALREADY BE IN. Char.Items.Inv answers while blind; what goes silent
+      -- is the incremental stream. inventoryKnown() flips true on this edge, and svof's
+      -- canoutr does not wait on equilibrium, balance, or the next prompt. Waiting for the
+      -- next Char.Vitals left the first outr idle until mindseye's 3.00s came back
+      -- (17:31:34.08 sight restored, 17:31:37.10 `outr 1 ash` on the same prompt as
+      -- `perform bliss`). The resync still goes out for anything the blind window missed.
+      -- It is not what the first pull waits on. restockNow() itself no-ops until the rift
+      -- list has been seen, and it still will not pull while unsighted.
+      local engine = emunah.curing and emunah.curing.engine
+      if engine and engine.restockNow then engine.restockNow() end
    end
    wasSighted = isSighted
 end

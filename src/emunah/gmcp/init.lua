@@ -194,10 +194,27 @@ end
 -- lifecycle
 -- ---------------------------------------------------------------------------
 
+-- NEGOTIATE ONCE GMCP IS UP, NOT ON CONNECT. sysConnectionEvent fires on the TCP connect
+-- (Mudlet ctelnet.cpp, slot_socketConnected), before the server has offered GMCP. Mudlet
+-- answers that offer later with its own Core.Supports.Set -- Char, Char.Skills, Char.Items,
+-- Room, IRE.Rift, IRE.Composer, Client.Media, Char.Login, and no Comm.Channel -- and a Set
+-- replaces the list. So an Add sent on connect was gone before the first prompt, and every
+-- fresh login came up with no channel text. The chat window's own logs show it: Mudlet
+-- restarted at 16:03:19 on 2026-09-28 in the middle of a conversation (tells at 16:03:08
+-- and 16:03:17) and nothing was captured until 16:15:28; on 2026-10-03 the logins at
+-- 13:49, 14:18 and 18:31 captured nothing until 19:01:39. A reload sends the Add while
+-- GMCP is already up, which is why `emreload` brought chat back.
+--
+-- sysProtocolEnabled "GMCP" is raised straight after Mudlet sends its Set, so the Add lands
+-- on top of it.
 event.register("sysConnectionEvent", function()
    M.ready = false
-   M.negotiate()
    M.startKeepAlive(60)
+end, "gmcp")
+
+event.register("sysProtocolEnabled", function(_, protocol)
+   if protocol ~= "GMCP" then return end
+   M.negotiate()
 end, "gmcp")
 
 event.register("sysDisconnectionEvent", function()
@@ -213,6 +230,23 @@ event.gmcp("Char.Name", function()
    M.fullname  = gmcp.Char.Name and gmcp.Char.Name.fullname
    M.ready = true
    log.info("Tracking %s.", M.character or "character")
+   -- Again, now that the server is answering under Mudlet's Set. Add is idempotent, and
+   -- this holds even if sysProtocolEnabled was missed or raced the Set.
+   M.negotiate()
+   -- OUTR DOES NOT WAIT ON THE SKILL INDEX. The two-second pause below is there because
+   -- skill-group requests issued into login spam are frequently dropped. Inventory and
+   -- the rift are not skill groups, and prerift cannot start until both lists have been
+   -- seen. svof's canoutr is false only while webbed, bound, transfixed, roped, impaled,
+   -- or both arms are crippled -- never for equilibrium. Asking now, and asking again
+   -- inside the delayed refresh, means a dropped early reply is retried and a delivered
+   -- one lets the pull chain start the moment sight is back (17:31:34.08) instead of
+   -- when mindseye's equilibrium happens to return (17:31:37.10).
+   if emunah.gmcp.items and emunah.gmcp.items.refreshInventory then
+      emunah.gmcp.items.refreshInventory()
+   end
+   if emunah.gmcp.ire and emunah.gmcp.ire.requestRift then
+      emunah.gmcp.ire.requestRift()
+   end
    -- Small delay: the game is still pushing login spam, and skill group requests issued
    -- inside that window are frequently dropped.
    tempTimer(2, function() M.refresh() end)

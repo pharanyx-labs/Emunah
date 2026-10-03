@@ -95,7 +95,7 @@ M.modules = {
       .. "curing needs it.",
   commands = {
    { syntax = "emset defs", handler = "defs",
-     summary = "the defence grid: click to cycle off / defup / keepup" },
+     summary = "the defence grid: click to cycle off / defup / keepup, and pipe relight on / off" },
    { syntax = "emset defs on|off",
      summary = "switch defence keep-up on or off" },
    { syntax = "emset defs add <name> [command]",
@@ -110,7 +110,8 @@ M.modules = {
   state = function() return config("pipes.enabled", true) end,
   does = "Keeps your pipes filled and lit so smoking cures are always ready: refills an "
       .. "empty pipe with the herb it holds, relights one that has gone out, and reads "
-      .. "PIPELIST now and then to stay honest. Its own commands and their output are hidden.",
+      .. "PIPELIST now and then to stay honest. PIPELIST and refills are hidden; a relight is "
+      .. "shown. Also toggled from the `emset defs` grid.",
   commands = {
    { syntax = "emset pipes", handler = "pipes",
      summary = "each pipe: lit or out, what it holds, puffs left" },

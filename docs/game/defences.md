@@ -120,11 +120,54 @@ a bare `blind.` at 13:55:02. Only the salve being out of reach stopped the curin
 stripping a defence that had been put up on purpose — and it would have kept stripping it
 for as long as keep-up kept restoring it.
 
-`deflist.DELIBERATE` maps the affliction to the defence that means it was wanted
-(`blindness` → `blind`, `deafness` → `deaf`), and the cure loop skips any affliction whose
-paired defence is currently in `Char.Defences`. Gated on the defence being *reported*, so it
-lapses the instant the defence does: a real blinding with no `blind` defence up cures
-normally.
+`deflist.DELIBERATE` maps each affliction name onto the defence that means it was wanted.
+Char.Defences and Char.Afflictions say `blindness` / `deafness`. The darkness trigger and
+svof's gamename say `blind` / `deaf` (`textGain("blind")`, [svof] `blindaff` → `"blind"`).
+Both names are skipped while that defence is in `Char.Defences` or keep-up intends it, so
+epidermal is never applied for either. Watched at 17:31:33.81, with only the GMCP name
+mapped: `Cannot cure blind: epidermal would also cure blind/deaf, which are held on purpose.`
+It lapses the instant the defence does and the instant keep-up stops intending it: a real
+blinding, with no `blind` defence up, is still cured with epidermal. Anorexia's own
+epidermal is still refused while either defence is held, because the salve would strip it.
+
+**The darkness line means mindseye is down, and it has to be touched before anything else
+on equilibrium.** `You are blind and can see nothing but darkness.` (and the package's
+other form, `You are blind and see nothing but darkness.`) is what LOOK prints in that
+state. Watched at login, 12:49:17.30–12:49:35.07: keep-up had already queued `perform
+bliss`, then `touch cloak`, then `perform inspiration`, all on equilibrium at the same
+priority, and `missing()` is alphabetical so mindseye waited. `items.sighted()` is false
+while the blindness defence is up and mindseye is not, and `queueRestock()` will not pull
+unless `inventoryKnown()` (listed **and** sighted). Prerift (`outr`) started on the prompt
+after the user typed `touch mindseye` by hand (`Sight restored -- resyncing inventory` at
+12:49:34.74, `outr 1 ash` at 12:49:35.07). LOOK did not unblock it. The line queues
+`touch mindseye` ahead of other equilibrium keep-up. Sight returning calls `restockNow()`
+on lists already in hand; `outr` does not wait for the equilibrium that mindseye just
+spent (17:31:34.08 sight restored and `Equilibrium used: 3.00s.`, first `outr` previously
+held until 17:31:37.10). [svof canoutr] does not consult equilibrium.
+
+Herb defences (`deathsight`, `insomnia`, `thirdeye`) are eaten only when that herb is
+already in the pack. They are not announced as waiting on restock: at 12:49:20 that
+announcement fired while restock could not run, because sight was still down.
+
+## The spiritual mace
+
+`trackmace` is not a `Char.Defences` entry. Which command raises it depends on where the
+mace is:
+
+| State | Command | Evidence |
+|---|---|---|
+| Never summoned this login | `summon mace` | Balance, 2.9s, user-confirmed |
+| Already exists, not in inventory | `call mace` | 07:49:40.91, equilibrium 4.00s, same item id recalled |
+| In inventory, unwielded | `wield mace` | No cost line; needs balance and equilibrium |
+
+`You have a mace in the land, which you should call for.` (12:49:20.11) is the summon
+refusal for the middle row. [svof] names that line `Mace somewhere`. While blind without
+mindseye, `Char.Items.Add` does not fire, so a summon that **did** work (`White strands of
+light weave themselves together before your eyes, and within seconds you hold a spiritual
+mace within your grasp.`) never marked the mace as seen, and keep-up summoned again until
+the attempt budget stopped it for never appearing in `Char.Defences` — which this defence
+never does. The wield confirmation in that same login was `You start to wield a spiritual
+mace in your left hand.` (12:49:24.41).
 
 ## A defence's name is not always what grants it
 

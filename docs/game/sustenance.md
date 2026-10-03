@@ -161,12 +161,25 @@ Other replies, all observed:
 | `Your pipe, containing a skullcap flower, has gone cold and dark.` | It went out. Names the **contents**, not the pipe |
 | `Your lungs have recovered enough to smoke another mineral or plant.` | Smoke balance back |
 
-### PIPELIST output must not be gagged
+### PIPELIST output must not be deleted inside the trigger
 
 Deleting a line while Mudlet is still working through the lines that arrived in the same
 packet shifts the buffer under it, and the rows after the deleted one never reach the trigger.
 Reported in play as *"it's also only lighting the skullcap pipe"* — the first row. Only pipe
-one was ever recorded, so only pipe one was ever lit.
+one was ever recorded, so only pipe one was ever lit. Replacing the line with nothing does
+the same thing: Mudlet drops a blank line. Replacing it with a zero-width stand-in leaves
+an empty row that stays until a copy lays the window out again and the row collapses.
+Emunah's own listing keeps the original text, painted in the line's own background, and
+that text is removed once the packet has been processed. Only PIPELIST and PUT are hidden.
+A relight (`light pipeNNN`, the tinderbox line, the lit line) and the gone-cold announcement
+before it are shown as they arrive: hiding them drew blank rows that collapsed a moment later
+(*"we're still gagging lines when we relight pipes, though. fix this"*).
+
+The hidden listing is still drawn for a moment, as blank rows that then collapse. Reported in
+play after `emreload` and LOOK: *"i see it very briefly and it looks messy"*. The reload had
+emptied the pipe table, so LOOK's prompt sent a quiet `PIPELIST`. The table is now carried
+across a reload and only a disconnect clears it, so a poll goes out after login and not after
+`emreload`.
 
 ### Every state change has its own message, so `PIPELIST` is a backstop
 
