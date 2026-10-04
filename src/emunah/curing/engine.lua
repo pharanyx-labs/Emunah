@@ -1088,11 +1088,22 @@ end
 -- AND RESTOCKING STOPS until the session ends, or it undoes this on the next prompt: the pack
 -- reads empty, every curative is under target, and `outr` pulls them straight back out. The
 -- disconnect that follows clears it, so the next login restocks as usual.
+--
+-- QUIT OR QQ TYPED IS THE SAME MOMENT, and the stronger signal: it means the client is
+-- closing, and once INR ALL has gone out the whole system stops (the user, 2026-10-04) --
+-- see act.halt(). The prayer line on its own is believed only after one of them
+-- (anti-illusion: it only ever follows a QUIT, the user, 2026-10-04), because a faked
+-- copy would empty the pack into the rift and stop restocking for the session.
 
 --- True from the quit prayer until the disconnect.
 M.leaving = false
 
+--- How long INR ALL gets to go out before the system stops anyway. A blocked rift slot
+--- (dead, stunned) must not leave everything else running while the client closes.
+M.QUIT_HALT_AFTER = 3.0
+
 function M.onQuitPrayer()
+   if M.leaving then return end
    M.leaving = true
    -- Ahead of any pull waiting on the rift slot: priority 0 pre-empts a restock's 50.
    queue.push("rift", "inr all", {
@@ -1100,11 +1111,41 @@ function M.onQuitPrayer()
       tag      = "quit",
       needs    = { alive = true },
       confirm  = emunah.config.get("curing.riftConfirm", 1.5),
-      onSent   = function() have.spend("rift") end,
+      onSent   = function()
+         have.spend("rift")
+         if M.quitTyped then
+            emunah.timers.stop("quit.halt")
+            emunah.act.halt("you typed QUIT")
+         end
+      end,
    })
    queue.flushVector("rift")
    log.info("Leaving the game -- storing everything in the rift. No restocking until you log back in.")
 end
+
+--- The prayer line, from patterns.lua. See the note above.
+M.QUIT_PRAYER_WINDOW = 10.0
+
+function M.onQuitPrayerLine()
+   local outgoing = emunah.outgoing
+   local quitAt = outgoing and outgoing.quitAt
+   if not M.quitTyped
+      and not (quitAt and emunah.util.now() - quitAt <= M.QUIT_PRAYER_WINDOW) then
+      log.info("Illusion ignored -- the quit prayer, but you have not typed QUIT.")
+      return
+   end
+   M.onQuitPrayer()
+end
+
+event.register("emunah.quitting", function()
+   M.quitTyped = true
+   -- Armed BEFORE the push: when the rift slot is free INR ALL goes out inside it, and
+   -- its onSent halts and stops this timer -- armed after, it would outlive the halt.
+   emunah.timers.start("quit.halt", M.QUIT_HALT_AFTER, function()
+      emunah.act.halt("you typed QUIT")
+   end)
+   M.onQuitPrayer()
+end, "curing.engine")
 
 --- Check stock and act on it now, without waiting for a prompt.
 ---
@@ -1480,6 +1521,7 @@ event.register("sysDisconnectionEvent", function()
    queue.reset()
    -- The quit prayer's hold on restocking ends with the session it was for.
    M.leaving = false
+   M.quitTyped = false
    -- Inventory and rift counts are both re-listed on connect, and a death may have emptied
    -- the pack in between, so the restocking ledger from the last session means nothing.
    M.forgetStock()

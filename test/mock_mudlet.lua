@@ -358,9 +358,12 @@ function mock.install(homeDir)
    function _G.printCmdLine(text) mock.cmdLine = tostring(text) end
 
    mock.echoed_sends = {}
+   -- Real Mudlet raises sysDataSendRequest for every command bound for the game, sent or
+   -- typed; core/outgoing.lua is built on it.
    function _G.send(command, echo)
       mock.sent[#mock.sent + 1] = tostring(command)
       mock.echoed_sends[#mock.echoed_sends + 1] = echo ~= false
+      if _G.raiseEvent then _G.raiseEvent("sysDataSendRequest", tostring(command)) end
    end
    function _G.sendGMCP(payload) mock.gmcpSent[#mock.gmcpSent + 1] = tostring(payload) end
    function _G.ansi2decho(text) return tostring(text) end
@@ -1123,6 +1126,9 @@ function mock.command(text)
          return true
       end
    end
+   -- Not an alias: it goes to the game, which Mudlet announces like any other send. Not
+   -- added to mock.sent, which records what EMUNAH sent.
+   raiseEvent("sysDataSendRequest", text)
    return false
 end
 

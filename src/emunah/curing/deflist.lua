@@ -328,6 +328,12 @@ M.IMPORTED = {
    clinging       = { vector = "balance", command = "cling" },
    curseward      = { vector = "balance", command = "curseward" },
    hypersight     = { vector = "balance", command = "hypersight on" },
+   -- Antitheft: a pickpocket fails against it, and stripping it is the thief's opening
+   -- move (HELP THIEVERY: "setup selfishness as a defence"). Command and lines are svof's
+   -- (raw-svo.defs.lua: on "You rub your hands together greedily.", off "A feeling of
+   -- generosity spreads throughout you."); svof marks it balanceful, which balance is
+   -- unrecorded, hence BOTH below. The DEF line maps to it in M.DEF_LINES.
+   selfishness    = { vector = "balance", command = "selfishness" },
 
    -- Priest.
    heresy         = { vector = "balance", command = "hunt heresy",

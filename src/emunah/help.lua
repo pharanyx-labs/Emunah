@@ -80,7 +80,7 @@ M.modules = {
    { syntax = "emset curing on|off",
      summary = "switch curing on or off" },
    { syntax = "emset pause", handler = "pause",
-     summary = "pause or resume curing and defences together" },
+     summary = "pause or resume curing and defences together; after QUIT, resume everything" },
    { syntax = "emset prio <affliction> <balance> <rank>", handler = "prio",
      summary = "cure an affliction sooner or later on one balance; lower is sooner" },
    { syntax = "sleep", alias = "sleep",
@@ -178,6 +178,23 @@ M.modules = {
      summary = "switch gold pickup on or off" },
    { syntax = "emset loot now",
      summary = "sweep the room now" },
+   { syntax = "buy [qty] <number>", alias = "buy",
+     summary = "buy by the number from WARES, e.g. buy 50 476321; gold comes from the pack" },
+  } },
+
+{ id = "antitheft", title = "Antitheft", summary = "selfishness up, valuables packed, alarms on loss",
+  state = function() return config("antitheft.enabled", true) end,
+  does = "Keeps selfishness up (it is on the defences grid, `emset defs`), cures generosity "
+      .. "early, puts named valuables in the pack, and raises an alert when an item leaves "
+      .. "your inventory or pack with nothing you sent to explain it, or when selfishness is "
+      .. "stripped. An enemy entering the room puts everything away at once.",
+  commands = {
+   { syntax = "emset antitheft", handler = "antitheft",
+     summary = "status: selfishness, the pack and what is kept in it" },
+   { syntax = "emset antitheft on|off",
+     summary = "switch it on (selfishness joins keep-up) or off (it leaves)" },
+   { syntax = "emset antitheft now",
+     summary = "put loose gold and valuables in the pack now" },
   } },
 
 { id = "people", title = "People", summary = "who everyone is, and ally/enemy highlighting",
@@ -221,7 +238,7 @@ M.settings = {
 { key = "system.update", default = true, type = "boolean", topic = "system", shipped = true,
   detail = "Pull main (fast-forward only) before every reload. Off, a reload loads what is "
      .. "on disk." },
-{ key = "schema", default = 9, type = "number", topic = "system", shipped = true,
+{ key = "schema", default = 10, type = "number", topic = "system", shipped = true,
   detail = "Config format version. Managed by the migrations; do not set this by hand." },
 
 -- interface
@@ -286,9 +303,10 @@ M.settings = {
   topic = "curing", shipped = false,
   detail = "Override the fallback recovery time for one vector, e.g. curing.recovery.herb." },
 { key = "curing.antiIllusion", default = true, type = "boolean", topic = "curing",
-  shipped = false, detail = "The reference system's anti-illusion for EmunahTriggers.xml: reports wait for the "
-       .. "prompt, and a block containing an illusion is discarded whole. Off applies each "
-       .. "report the moment its line arrives." },
+  shipped = false, detail = "The reference system's anti-illusion: EmunahTriggers.xml reports wait for the "
+       .. "prompt and a block containing an illusion is discarded whole; a refusal is believed "
+       .. "only after a command it could answer; a herb balance back within 1.1s of eating is "
+       .. "ignored. Ignored lines are marked (i). Off believes every line as it arrives." },
 { key = "curing.textConfirm", default = 2.0, type = "number", unit = "s", topic = "curing",
   shipped = false, detail = "How long an affliction reported by text waits for the server to "
        .. "confirm it before it is dropped as an illusion." },
@@ -381,13 +399,22 @@ M.settings = {
   shipped = false },
 { key = "loot.noDenizens", default = true, type = "boolean", topic = "loot",
   shipped = false, detail = "Do not stop to loot while something is still alive." },
-{ key = "loot.stowIn", default = "backpack452292", type = "string", topic = "loot",
-  shipped = false, detail = "Where gold goes. This default is one character's backpack id "
-       .. "and will not be yours." },
-{ key = "shop.stowIn", default = "(caller's choice)", type = "string", topic = "loot",
-  shipped = false },
+{ key = "pack.id", default = "backpack452292", type = "string", topic = "loot",
+  shipped = true, detail = "The one pack, by replica number: gold is stowed in it, purchases "
+       .. "are paid from it, and antitheft keeps it worn and closed." },
+{ key = "pack.capacity", default = 50, type = "number", unit = "items", topic = "loot",
+  shipped = true, detail = "How many items the pack holds. A pack inside it counts as one." },
 { key = "shop.confirmAbove", default = "(unset)", type = "number", unit = "gp",
   topic = "loot", shipped = false, detail = "Purchases above this price ask for confirmation." },
+{ key = "antitheft.enabled", default = true, type = "boolean", topic = "antitheft",
+  shipped = false },
+{ key = "antitheft.alarm", default = true, type = "boolean", topic = "antitheft",
+  shipped = false, detail = "Alert when an item leaves inventory or the pack unexplained." },
+{ key = "antitheft.sweep", default = "(none)", type = "string", topic = "antitheft",
+  shipped = false, detail = "Comma-separated words from item names to keep in the pack, e.g. "
+       .. "\"sigil, key\". Never curatives: those must stay loose to be eaten." },
+{ key = "antitheft.goldGrace", default = 5, type = "number", unit = "s", topic = "antitheft",
+  shipped = false, detail = "Loose gold older than this is reported and put away. 0 is off." },
 { key = "pipes.enabled", default = true, type = "boolean", topic = "pipes", shipped = false },
 { key = "pipes.assign", default = "(unset)", type = "table", topic = "pipes",
   shipped = false, detail = "Which herb goes in which pipe." },

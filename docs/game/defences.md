@@ -471,3 +471,23 @@ Char.Defences.Remove = { "inspiration" }
 Nothing strips it; it simply lapses after about ten minutes. That is exactly the shape
 keep-up exists for, so it is in `defkeepup.M.commands` and needs only
 `emset defs add inspiration`.
+
+## Selfishness (antitheft)
+
+`SELFISHNESS` raises it and `GENEROSITY` drops it [svof: `defs_data.selfishness`]. Lines:
+
+| | |
+|---|---|
+| raised | `You rub your hands together greedily.` [svof] |
+| already up | `You already are a selfish bastard.` *(the user, 2026-10-04; also svof)* |
+| dropped | `A feeling of generosity spreads throughout you.` [svof] |
+| DEF | `You are feeling quite selfish.` |
+
+HELP THIEVERY: "Turn on your curing and setup selfishness as a defence." It is the one
+defence a thief may strip, and a pickpocket checks it when the attempt completes, so the
+race is the gap between losing it and raising it again.
+
+**[open]** Which balance it spends. svof marks it balanceful without saying which, so it
+needs both (`deflist.IMPORTED`). **[open]** svof refuses `EMPTY` (pipes) and `BOIL` while
+selfish. Emunah sends neither. Whether it also refuses `PUT` into your own pack has not been
+seen. If it does, gold stowing hits `loot.STOW_ATTEMPTS` and says so.

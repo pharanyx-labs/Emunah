@@ -227,6 +227,12 @@ end
 --- way one call always lands on a clean, fully-on or fully-off state, regardless of how
 --- `! cure` or `! defs` may have left them individually.
 M.handlers.pause = function()
+   -- Stopped by QUIT (act.halt): the client did not close after all. Picking up again is
+   -- what is wanted, not pausing curing on top of a system that is already sending nothing.
+   if emunah.act.resume() then
+      log.info("<ansi_light_green>Resumed<ansi_yellow> after QUIT.")
+      return
+   end
    local engine = emunah.curing.engine
    local keepup = emunah.curing.defkeepup
    -- Both modules log their own "X on."/"X off." when called directly (see engine.start()
@@ -837,6 +843,32 @@ M.handlers.loot = function(arg)
    end
 end
 
+M.handlers.antitheft = function(arg)
+   local antitheft = emunah.antitheft
+   if arg == "on" then antitheft.setEnabled(true)
+   elseif arg == "off" then antitheft.setEnabled(false)
+   elseif arg == "now" then
+      local n = antitheft.sweep()
+      emunah.loot.stowGold()
+      log.info("Put away: %d valuable(s), and any loose gold.", n)
+   else
+      local on = antitheft.enabled()
+      header("Antitheft")
+      row("status", on and "on" or "off", on and "ansi_light_green" or "ansi_light_red")
+      local defences = emunah.gmcp.defences
+      local selfish = defences and defences.has("selfishness")
+      row("selfishness", (selfish and "up" or "down") .. ", keep-up "
+         .. tostring(emunah.curing.defkeepup.mode("selfishness") or "off"),
+         selfish and "ansi_light_green" or "ansi_light_red")
+      local count = antitheft.packCount()
+      row("pack", string.format("%s -- %s of %d items", tostring(emunah.loot.pack()),
+         count and tostring(count) or "?", tonumber(emunah.config.get("pack.capacity", 50)) or 50))
+      local sweep = antitheft.sweepList()
+      row("kept in the pack", #sweep > 0 and table.concat(sweep, ", ") or "gold only")
+      decho("\n  " .. faint("emset antitheft on|off|now  --  emhelp antitheft for its settings"))
+   end
+end
+
 M.handlers.pipes = function(arg)
    local pipes = emunah.pipes
    if arg == "on" then pipes.start()
@@ -971,6 +1003,18 @@ table.insert(registry(), tempAlias([[^\s*sleep\s*$]], function()
    local detect = emunah.curing and emunah.curing.detect
    if detect then detect.intendSleep() end
    send("sleep")
+end))
+
+-- BUY by bare number: `buy 50 476321`, or `buy 476321` for one. Asked for by the user
+-- (2026-10-04), and the third exception to one prefix. It cannot shadow a real BUY: HELP
+-- SHOPS needs the full name ("tun115258", never "115258"), so a digits-only item is one the
+-- game refuses anyway. shop.buyByNumber() fills in the name from the WARES listing.
+table.insert(registry(), tempAlias([[^\s*buy\s+(\d+)\s+(\d+)\s*$]], function()
+   emunah.shop.buyByNumber(matches[2], matches[3])
+end))
+
+table.insert(registry(), tempAlias([[^\s*buy\s+(\d+)\s*$]], function()
+   emunah.shop.buyByNumber(1, matches[2])
 end))
 
 -- Reflect whatever curing/keep-up state a fresh load (or a reload mid-session) actually

@@ -416,9 +416,12 @@ M.afflictions = {
       cures = { { vector = "salve", item = "caloric", alt = "exothermic", location = "body" } },
       priority = { salve = 12 },
    },
+   -- Raised from herb 30 / focus 6 for antitheft (the user, 2026-10-04): generosity strips
+   -- selfishness, and a pickpocket lands in the gap before it is back (HELP THIEVERY;
+   -- "Hide > mesmerize > generosity > pickpocket"). Still behind the locks and paralysis.
    generosity = {
       cures = { { vector = "herb", item = "bellwort", alt = "cuprum" }, { vector = "focus" } },
-      priority = { herb = 30, focus = 6 },
+      priority = { herb = 7, focus = 2 },
    },
    -- ADDED from the tk cross-check; see the comment above flushings.
    guilt = {

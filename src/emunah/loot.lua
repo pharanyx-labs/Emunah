@@ -201,6 +201,7 @@ end
 
 --- The container gold is stowed in. Its replica number, not its name -- `put gold in
 --- backpack` is ambiguous the moment a second pack is involved, exactly as `get gold` is.
+--- The fallback for `pack.id`, which is what every caller reads (see M.pack()).
 M.STOW_IN = "backpack452292"
 
 --- How many times to send the PUT with the gold still loose before stopping.
@@ -219,10 +220,14 @@ M.STOW_GUARD = 1.5
 M.stowAttempts = 0
 local stowWarned = false
 
-local function stowContainer()
-   local container = tostring(emunah.config.get("loot.stowIn", M.STOW_IN) or "")
+--- The one pack: gold goes in, purchases come out, antitheft keeps it closed. nil only if
+--- someone has set `pack.id` to nothing on purpose.
+function M.pack()
+   local container = tostring(emunah.config.get("pack.id", M.STOW_IN) or "")
    return container ~= "" and container or nil
 end
+
+local stowContainer = M.pack
 
 --- How many loose piles of gold we are carrying, or nil if inventory is not known yet.
 ---
@@ -243,6 +248,15 @@ function M.stowGold()
    if not enabled() then return false end
    local container = stowContainer()
    if not container then return false end
+
+   -- GOLD TAKEN OUT TO PAY WITH IS NOT LOOSE GOLD. A purchase GETs exactly its price
+   -- from the pack and BUYs straight after; the GET landing raised Char.Items.Add, this
+   -- answered it with a PUT, and the gold went back in the pack -- reported from play as
+   -- "gets the correct amount of gold, then tries to put gold in pack". The shop holds
+   -- the gold until the purchase has had time to land, then hands back to this, so a
+   -- refused BUY still ends with its gold in the pack.
+   local shop = emunah.shop
+   if shop and shop.paying and shop.paying() then return false end
 
    local loose = looseGold()
    if loose == nil then return false end

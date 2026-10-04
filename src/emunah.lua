@@ -56,6 +56,8 @@ local MANIFEST = {
    { path = "emunah.core.timers",        as = "timers"        },
    { path = "emunah.core.queue",         as = "queue"         },
    { path = "emunah.core.act",           as = "act"           },
+   -- what was recently sent, typed or automated: anti-illusion, antitheft and QUIT ask it
+   { path = "emunah.core.outgoing",      as = "outgoing"      },
 
    -- gmcp: the tracking layer. NOTE the namespace `emunah.gmcp` is *ours*; the bare
    -- global `gmcp` is Mudlet's raw feed. Never alias one to the other.
@@ -115,9 +117,14 @@ local MANIFEST = {
    -- gold pickup; reads gmcp.items
    { path = "emunah.loot",               as = "loot"          },
 
-   -- shop listings and buying by replica number; reads loot.STOW_IN for where gold lives
+   -- shop listings and buying by replica number; reads loot.pack() for where gold lives
    -- and gmcp.status for the gold-spent verification, so it follows both
    { path = "emunah.shop",               as = "shop"          },
+
+   -- antitheft: keeps selfishness up and valuables in the pack, and raises the alarm on an
+   -- unexplained loss. Reads loot (the pack), shop (the pay window), outgoing and items;
+   -- uses ui.alert, and curing.defkeepup for selfishness, both loaded above.
+   { path = "emunah.antitheft",          as = "antitheft"     },
 
    -- the manna rite as one command; needs act, timers and have.balance
    { path = "emunah.manna",              as = "manna"         },

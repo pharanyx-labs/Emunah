@@ -48,6 +48,12 @@ the disconnect, or the next prompt would pull the herbs straight back out.
 
 ## Containers
 
+**One pack: `backpack452292`** (`pack.id`), the user's default. Gold is stowed in it,
+purchases are paid from it, and antitheft keeps valuables in it. A pack holds **50 items**,
+and a full pack put inside another counts as one item *(the user, 2026-10-04)*. The
+character has **two other packs that are never to be used** *(the same)*, so nothing names a
+container except `pack.id`.
+
 Gold is stowed with `PUT <item> IN <container>` and the container is worn with
 `WEAR <container>`, both by replica number *(command forms stated by the user)*:
 
@@ -94,6 +100,16 @@ example, but nothing about the mechanic is ink-specific).
   *vial* from the rift; this one fills the *rift itself* from a shop).
 - Retrieving gold to pay with must name the container by replica number, the same rule as
   `PUT`/`WEAR` above: `get <n> gold from backpack452292`, not `get gold from pack`.
+
+**The purchase's gold must not be stowed.** Reported from play (2026-10-04): a click got
+the right gold from the pack, then loot saw it arrive in inventory and sent `put gold in` the
+pack before the `BUY`. `shop.lua` now holds gold for `shop.PAY_WINDOW` (3s) from the `GET`;
+`loot.stowGold()` waits it out, then puts back anything a refused `BUY` left loose.
+
+**Buying by number:** `buy 50 476321` (or `buy 476321` for one) is Emunah's, at the user's
+request. The game refuses a bare number, so it is looked up in this session's `WARES`
+listings and bought by its full name, gold first. A number no listing showed is refused,
+not guessed. Tuns still fill one at a time.
 
 **Not established, and `shop.lua` deliberately does not guess:**
 

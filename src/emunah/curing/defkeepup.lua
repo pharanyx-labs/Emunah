@@ -46,7 +46,7 @@ M.enabled = false
 ---
 --- A blank line costs nothing and produces one immediately.
 function M.nudge()
-   if not M.enabled then return false end
+   if not M.enabled or emunah.act.halted then return false end
    send("")
    return true
 end

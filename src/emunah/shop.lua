@@ -110,6 +110,22 @@ function M.find(repnum)
    return M.items[tostring(repnum or "")]
 end
 
+--- An item by the number alone -- `476321` for `goldink476321` -- as typed in
+--- `buy 50 476321`. The game itself wants the whole name (HELP SHOPS: "Use the full name,
+--- with number"), which is exactly what this recovers from the WARES listing.
+function M.findByNumber(number)
+   number = tostring(number or "")
+   if number == "" then return nil end
+   local found = M.items[number]
+   if found then return found end
+   for id, item in pairs(M.items) do
+      if id:match("(%d+)$") == number and id:sub(-#number - 1, -#number - 1):match("%a") then
+         return item
+      end
+   end
+   return nil
+end
+
 --- Every item belonging to a shop (default: the most recently seen one), sorted by
 --- category then replica number so a redraw is stable.
 function M.list(shopName)
@@ -209,11 +225,26 @@ end
 -- Buying
 -- ---------------------------------------------------------------------------
 
+--- The pack gold is paid out of: `pack.id`, the same one loot stows it in.
 local function stowContainer()
-   local fallback = (emunah.loot and emunah.loot.STOW_IN) or "backpack452292"
-   local configured = emunah.config.get("shop.stowIn", fallback)
-   configured = tostring(configured or "")
-   return configured ~= "" and configured or fallback
+   return (emunah.loot and emunah.loot.pack and emunah.loot.pack()) or "backpack452292"
+end
+
+--- How long gold taken out to pay with is ours to spend, before loot may put any of it
+--- back. Covers the GET, the BUY and both round trips with room to spare; a refused BUY
+--- leaves its gold loose, and when this lapses loot.stowGold() returns it to the pack.
+M.PAY_WINDOW = 3.0
+
+--- Is a purchase holding gold out of the pack right now? loot.stowGold() asks.
+function M.paying()
+   return emunah.timers.active("shop.paying")
+end
+
+local function holdGold()
+   emunah.timers.start("shop.paying", M.PAY_WINDOW, function()
+      local loot = emunah.loot
+      if loot and loot.stowGold then loot.stowGold() end
+   end)
 end
 
 --- Refuse any single click whose cost exceeds this, rather than send it. nil = no cap.
@@ -298,8 +329,12 @@ function M.purchase(repnum, qty, mode)
    -- GET's cost here matches the one already confirmed for floor pickups (loot.take()):
    -- balance, equilibrium, standing. Whether a container GET costs the same has not been
    -- separately observed -- see docs/game/sustenance.md.
+   -- Held BEFORE the GET goes out: its Char.Items.Add arrives with the reply, and loot
+   -- answers that with a PUT unless the gold is already spoken for.
+   holdGold()
    if not emunah.act.send(string.format("get %d gold from %s", cost, container),
          { standing = true, bal = true, eq = true }) then
+      emunah.timers.stop("shop.paying")
       return false
    end
 
@@ -315,6 +350,29 @@ function M.purchase(repnum, qty, mode)
    M.record(item, qty, cost)
    verify(before, cost, item.desc)
    return true
+end
+
+--- `buy 50 476321`: a quantity and the bare number of something WARES listed.
+---
+--- The game would refuse that as typed -- HELP SHOPS wants the full name with its number
+--- -- so this recovers the name from the listing and buys through M.purchase(), gold and
+--- all. Only a number from a listing seen this session can be bought this way; anything
+--- else is refused here rather than guessed at.
+function M.buyByNumber(qty, number)
+   qty = tonumber(qty) or 1
+   local item = M.findByNumber(number)
+   if not item then
+      log.warn("Shop: nothing numbered %s in a WARES listing this session -- WARES first.",
+         tostring(number))
+      return false
+   end
+   if item.tun and qty > 1 then
+      log.warn("Shop: %s is a tun, and tuns fill the rift one at a time -- filling once.",
+         item.id)
+   elseif item.stock and item.stock > 0 and qty > item.stock then
+      log.warn("Shop: only %d of %s in stock -- buying %d.", item.stock, item.id, item.stock)
+   end
+   return M.purchase(item.id, qty)
 end
 
 -- ---------------------------------------------------------------------------
