@@ -287,9 +287,45 @@ function M.blockedBy(vector)
    for index = 1, #candidates do
       local affliction = candidates[index]
       local present = (has and has(affliction)) or M.affliction(affliction)
-      if present then return affliction end
+      if present and not (affliction == "asthma" and vector == "smoke" and M.puffThrough()) then
+         return affliction
+      end
    end
    return nil
+end
+
+--- The herbs that cure asthma: afflist's own cure for it, so a change there follows here.
+local function asthmaHerbs()
+   local herbs = {}
+   local entry = emunah.curing.afflist.afflictions and emunah.curing.afflist.afflictions.asthma
+   for _, option in ipairs(entry and entry.cures or {}) do
+      if option.vector == "herb" then
+         if option.item then herbs[option.item] = true end
+         if option.alt then herbs[option.alt] = true end
+      end
+   end
+   return herbs
+end
+
+--- PUFF BEHIND THE KELP. Asthma shuts smoking, but while an eat of its cure is in flight the
+--- puff can go out right behind it: the eat lands first and the smoke finds clear lungs.
+--- From the Bard on the other end (2026-10-04): "unless you're asthmatic, and then you could
+--- in a pinch eat kelp/puff ... And if asthmatic gate it on anorexia too ... At worst the
+--- kelp/aurum cures something else like weariness and the puff fails for no penalty." Kelp
+--- cures one of several afflictions, so that "at worst" is real: the asthma refusal in
+--- detect/patterns.lua hands the smoke balance back and marks that eat `noPuff`, so one eat
+--- buys one puff. Not in [svof], which holds smoking for asthma outright.
+---
+--- Not while anorexic (the eat is refused, so the lungs stay shut), and only for asthma:
+--- mucous is not something kelp cures.
+function M.puffThrough()
+   local flight = emunah.queue and emunah.queue.awaiting("herb")
+   if not flight or flight.noPuff then return false end
+   local herb = tostring(flight.command or ""):match("^eat%s+(%S+)$")
+   if not (herb and asthmaHerbs()[herb]) then return false end
+   local engine = emunah.curing.engine
+   local anorexic = (engine and engine.has and engine.has("anorexia")) or M.affliction("anorexia")
+   return not anorexic
 end
 
 --- FOCUS is refused below this much willpower. The reference system's check_focus holds focus at

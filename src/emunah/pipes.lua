@@ -403,6 +403,8 @@ M.CHAIN = 0.6
 --- Achaea's confirmations name neither the pipe nor, for LIGHT, anything identifying at all
 --- ("You carefully light your treasured pipe until it is smoking nicely."), so the command we
 --- just sent is the only thing that can say which pipe it is about.
+---
+--- `{ all = { id, ... }, kind = "light" }` after LIGHT PIPES, which answers for every pipe.
 M.lastAction = nil
 
 --- Is there a command we could actually send about this pipe right now?
@@ -448,10 +450,43 @@ function M.acted(pipe, kind)
    M.chain()
 end
 
---- The pipe our last command was about, if it is still known.
+--- Record one LIGHT PIPES sent for every cold pipe in `cold`.
+function M.actedAll(cold)
+   local ids = {}
+   for index, pipe in ipairs(cold) do
+      attempts[pipe.id] = (attempts[pipe.id] or 0) + 1
+      emunah.timers.start("pipes.pipe." .. pipe.id, M.ACTION_GUARD)
+      ids[index] = pipe.id
+   end
+   M.lastAction = { all = ids, kind = "light" }
+   emunah.timers.start("pipes.action", M.WIRE_GUARD)
+   M.chain()
+end
+
+--- The pipe our last command was about, if it is still known. After LIGHT PIPES, only when
+--- one pipe was cold: "There is nothing in the pipe to light." names none, so with two or
+--- more it cannot be pinned on either. Success is about all of them: see litAll().
 local function acted()
    local last = M.lastAction
-   return last and M.pipes[last.id] or nil
+   if not last then return nil end
+   local id = last.id or (last.all and #last.all == 1 and last.all[1])
+   return id and M.pipes[id] or nil
+end
+
+--- A pipe is lit: its herb can be smoked again, and its budget and guard are spent.
+local function lit(pipe)
+   pipe.status = "lit"
+   if pipe.herb then M.unlit[pipe.herb] = nil end
+   attempts[pipe.id] = 0
+   emunah.timers.stop("pipes.pipe." .. pipe.id)
+end
+
+--- LIGHT PIPES answered: every loaded pipe is burning. [svof] `lightpipes` marks all three
+--- lit on its completion the same way, from either answer (`litallpipes`).
+local function litAll()
+   for _, pipe in ipairs(M.list()) do
+      if not needsFilling(pipe) then lit(pipe) end
+   end
 end
 
 --- Fix at most one thing. Called from the tick and from the chain timer; one command per
@@ -460,10 +495,17 @@ end
 --- Pipes are considered in id order, and the order barely matters because each carries its
 --- own guard -- whichever is skipped this pass is dealt with on the next. What the ordering
 --- must NOT do is let one pipe monopolise the wire, which is what the per-pipe guard fixes.
+---
+--- EVERY COLD PIPE IS LIT WITH ONE `LIGHT PIPES`. One `light pipeNNN` each meant two relights
+--- two seconds apart (19:02:27.05 skullcap, 19:02:28.92 valerian, 2026-10-04), and the Bard
+--- watching asked "Why not at the same time?" -- the user: "we can simply 'light pipes' it
+--- seems to light them all". [svof] `lightpipes` is the same: whenever any loaded pipe is out.
+--- A fill still goes first, one pipe at a time, and the pass after it lights.
 function M.keep()
    if not enabled() then return false end
    if not emunah.timers.ready("pipes.action") then return false end
 
+   local cold = {}
    for _, pipe in ipairs(M.list()) do
       local guard = "pipes.pipe." .. pipe.id
       local spent = attempts[pipe.id] or 0
@@ -514,14 +556,16 @@ function M.keep()
          end
 
       elseif pipe.status ~= "lit" then
-         -- Echoed, and its replies shown: hiding them drew blank rows that collapsed a
-         -- moment later ("we're still gagging lines when we relight pipes, though. fix
-         -- this"). The same as every other keep-up command, `wield mace` or `perform bliss`.
-         if emunah.act.send("light " .. pipe.token, {}) then
-            M.acted(pipe, "light")
-            return true
-         end
+         cold[#cold + 1] = pipe
       end
+   end
+
+   -- Echoed, and its replies shown: hiding them drew blank rows that collapsed a moment later
+   -- ("we're still gagging lines when we relight pipes, though. fix this"). The same as every
+   -- other keep-up command, `wield mace` or `perform bliss`.
+   if #cold > 0 and emunah.act.send("light pipes", {}) then
+      M.actedAll(cold)
+      return true
    end
 
    M.chain()
@@ -649,18 +693,26 @@ do
    --
    -- Marked lit HERE rather than waiting for a poll, for the same reason. The next PIPELIST
    -- corrects it if this is ever wrong, and being wrong costs one command.
+   --
+   -- After LIGHT PIPES every answer is about all of them, including "You have no pipes that
+   -- require lighting." (from the game, 2026-10-04): nothing was cold, so everything is lit.
+   -- [svof] reads that line and `^You light (.+)\.$` alike, as all pipes lit (`litallpipes`).
+   -- The general `You light ...` is only believed straight after LIGHT PIPES.
    for _, pattern in ipairs({
       [[^You carefully light your treasured pipe until it is smoking nicely\.$]],
-      [[^You light a white stone pipe\.$]],
+      [[^You light (.+)\.$]],
       [[^That pipe is already lit and burning nicely\.$]],
+      [[^You have no pipes that require lighting\.$]],
    }) do
       keep(tempRegexTrigger(pattern, function()
-         local pipe = acted()
-         if pipe then
-            pipe.status = "lit"
-            if pipe.herb then M.unlit[pipe.herb] = nil end
-            attempts[pipe.id] = 0
-            emunah.timers.stop("pipes.pipe." .. pipe.id)
+         local last = M.lastAction
+         if last and last.kind == "light" then
+            if last.all then
+               litAll()
+            else
+               local pipe = acted()
+               if pipe then lit(pipe) end
+            end
          end
          M.chain()
       end))

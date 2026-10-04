@@ -412,10 +412,13 @@ local function resolve(vector)
       if ranks then rank = ranks[vector] else rank = afflist.priority(name, vector, overrides) end
       if rank and (not bestRank or rank < bestRank) then
          for _, option in ipairs(afflist.curesVia(name, vector)) do
-            local usable, reason = have.cure(option)
-            if usable and cureInFlight(name) then
-               usable, reason = false, nil   -- not a refusal: a cure is already on its way
-            end
+            -- A cure already on its way is not a refusal, and nothing have.cure() would say
+            -- about the next one is news. Asked first, it printed "Cannot cure crescendo: ash
+            -- is in the rift, not in hand." with the `eat ash` for it in flight: the eat
+            -- had taken the one ash carried, and the restock behind it had not landed
+            -- (19:13:36.66 eat, 36.78 warning, 37.41 "You remove 1 ash", 2026-10-04).
+            local usable, reason = false, nil
+            if not cureInFlight(name) then usable, reason = have.cure(option) end
             if usable then
                bestOption, bestAffliction, bestRank = option, name, rank
                M.refusals[name] = nil
@@ -771,6 +774,91 @@ end
 
 M.STOCK_TARGET = 1
 
+--- Herbs kept at a number of their own, over M.STOCK_TARGET. Ash is 2 because crescendo
+--- takes two in a row ("The building crescendo about you is greatly diminished." then
+--- "...abruptly falls silent."), and with one carried the second eat waited on the restock's
+--- round trip (19:13:36.66 eat, 37.41 "You remove 1 ash", 38.57 the second eat, 2026-10-04).
+--- "ash only, keep 2 in hand" (the user). Floors under curing.stockTarget; `curing.keep`
+--- overrides both.
+M.STOCK_DEFAULTS = { ash = 2 }
+
+--- `curing.keep`: item -> how many to keep in hand, 0 for none. Set from `emset keep` and
+--- the toggles under IR (riftlist.lua). Absent means the default.
+local function keepTable()
+   local keep = emunah.config.get("curing.keep", nil)
+   return type(keep) == "table" and keep or nil
+end
+
+--- How many of `item` to keep in hand. 0: not kept at all -- which is every herb no cure
+--- calls for, until it is added by hand.
+function M.stockTarget(item)
+   local keep = keepTable()
+   if keep and keep[item] ~= nil then return math.max(0, math.floor(tonumber(keep[item]) or 0)) end
+   if not (M.isCureItem(item) or M.STOCK_DEFAULTS[item]) then return 0 end
+   local global = tonumber(emunah.config.get("curing.stockTarget", M.STOCK_TARGET)) or M.STOCK_TARGET
+   -- A floor, not a cap: raising the target for everything does not lower ash.
+   return math.max(M.STOCK_DEFAULTS[item] or 0, global)
+end
+
+--- Is `item` one the cure tables call for? Those are kept unless taken off by hand.
+--- A set over curelist's memoised list, rebuilt when that list is (a change of method).
+local cureItems = { list = nil, set = nil }
+
+function M.isCureItem(item)
+   local list = curelist.restockablesWithIrid()
+   if cureItems.list ~= list then cureItems = { list = list, set = util.set(list) } end
+   return cureItems.set[item] == true
+end
+
+--- Everything kept in hand: what the cure tables call for, plus anything added by hand,
+--- less anything taken off -- and item -> how many. Memoised on what decides it: the
+--- restock pass asks on every prompt, and asking stockTarget() per herb there cost 20us a
+--- tick (test/bench.lua, 67.7 -> 88.8us) for an answer that only moves with a setting.
+local stockedCache = { list = nil }
+
+function M.stocked()
+   local keep = keepTable()
+   local base = curelist.restockablesWithIrid()
+   local target = emunah.config.get("curing.stockTarget", M.STOCK_TARGET)
+   local stamp = stockedCache
+   if stamp.list and stamp.keep == keep and stamp.base == base and stamp.target == target
+      and stamp.version == M.stockVersion then
+      return stamp.list, stamp.targets
+   end
+   local seen, out, targets = {}, {}, {}
+   local function consider(item)
+      if seen[item] then return end
+      seen[item] = true
+      local count = M.stockTarget(item)
+      if count > 0 then
+         out[#out + 1] = item
+         targets[item] = count
+      end
+   end
+   for _, item in ipairs(base) do consider(item) end
+   for item in pairs(keep or {}) do consider(item) end
+   table.sort(out)
+   stockedCache = { list = out, targets = targets, keep = keep, base = base, target = target,
+                    version = M.stockVersion }
+   return out, targets
+end
+
+--- Bumped by M.setStock(): config.set() may write into the same table it handed out.
+M.stockVersion = 0
+
+--- Keep `count` of `item` in hand; 0 keeps none, nil goes back to the default.
+function M.setStock(item, count)
+   item = tostring(item or ""):lower()
+   if item == "" then return false end
+   local keep = {}
+   for key, value in pairs(keepTable() or {}) do keep[key] = value end
+   keep[item] = count
+   emunah.config.set("curing.keep", keep)
+   emunah.config.save()
+   M.stockVersion = M.stockVersion + 1
+   return true
+end
+
 --- How many pulls of one item are allowed without the held count moving, before we stop.
 ---
 --- The guard against a counting mistake becoming an unbounded pull: if a stack arrives in
@@ -848,16 +936,12 @@ local function queueRestock()
    local items = emunah.gmcp.items
    if not (items and items.inventoryKnown()) then return end
 
-   local target = tonumber(emunah.config.get("curing.stockTarget", M.STOCK_TARGET))
-      or M.STOCK_TARGET
-
-   -- Shared and read-only. This used to be copied here per tick, because appending "irid"
-   -- to curelist.restockables() grew the memoised list itself; curelist now memoises the
-   -- combined answer, so the copy is neither needed nor paid for. See
-   -- curelist.restockablesWithIrid() for the whole story -- nothing below may mutate it.
-   local wanted = curelist.restockablesWithIrid()
+   -- Shared and read-only (M.stocked() memoises it, over curelist.restockablesWithIrid(),
+   -- whose story says why nothing below may mutate it). Each item has its own target.
+   local wanted, targets = M.stocked()
 
    for _, item in ipairs(wanted) do
+      local target = targets[item]
       local held = have.quantity(item)
       -- Any increase means the count is moving, so the previous pulls worked and the
       -- attempt budget resets. Consumption lowers `seen` too, which is what lets a

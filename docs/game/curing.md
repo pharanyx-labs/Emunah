@@ -111,7 +111,7 @@ What *does* block cures is the character's state rather than a balance:
 |---|---|---|
 | Stunned | everything | [play, incapacitation.md] |
 | Asleep | everything except `WAKE` | [play, incapacitation.md] |
-| Paralysed | everything except eating (herb, moss). `touch tree` included | [play, balance.md] |
+| Paralysed | everything except eating (herb, moss) and smoking. `touch tree` included | [play, balance.md]; [svof check_smoke] for smoking |
 | Prone | only what needs you upright. Eating and drinking still work | [play, incapacitation.md] |
 | Both arms broken | `touch tree` | [play, afflist.lua] |
 | Anorexia | eating: the `herb` and `moss` vectors, but not `OUTR` | [play, `afflist.blocks`] |
@@ -131,7 +131,7 @@ block can land while a cure waits for its balance.
 | sip elixir | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_sip]; [play] for paralysis |
 | drink purgative | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_purgative]; paralysis by analogy with the sip |
 | apply salve | slickness; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_salve]; [play] for paralysis |
-| smoke | asthma, mucous; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_smoke] |
+| smoke | asthma (except right behind an `eat kelp`/`eat aurum` in flight, not anorexic: *Puff behind the kelp* below), mucous. **Not** paralysis | `afflist.blocks` | [svof check_smoke]; no play evidence of a refusal. Held for paralysis until 2026-10-04, which put the earworm puff behind the bloodroot (18:48:38.91, 19:02:01.68) |
 | `outr` (rift) | webbed, bound, transfixed, roped, impaled; both arms crippled. **Not** paralysis, equilibrium, balance, prone, or blindness | `afflist.blocks`, `have.vectorBlocked` | [svof canoutr]; [play] 14:26:06–14:27:20 on 2026-09-28, where holding it for paralysis deadlocked the bloodroot pull. 17:31:34.08–17:31:37.10: the first pull waited out mindseye's equilibrium because the rift list was still behind the login refresh |
 | focus | impatience, inquisition, willpower ≤ 75, mana ≤ 35% (svof `manause`, `curing.focusMinMana`); paralysis | `afflist.blocks`, `have.vectorBlocked` | [svof check_focus] |
 | touch tree | paralysis, webbed, bound, transfixed, roped, impaled, either arm numb, both arms disabled | `afflist.blocks`, `have.vectorBlocked` | [svof touchtree], [play] |
@@ -159,9 +159,29 @@ as you pass out from extreme hunger.` (also prone). Clears with `You regain cons
 with a start.`, or after 7s (svof's `customwait = 7`). Both lines are from [svof]. Other
 onsets are per attacker and its GMCP name is unconfirmed. Add them from a transcript.
 
-**Differences from svof, kept on purpose.** svof does not hold sips, salves or smoking for
+**Differences from svof, kept on purpose.** svof does not hold sips or salves for
 paralysis. Emunah does, because play showed each refused while paralysed (`balance.md`,
-*Paralysis blocks almost everything*). 
+*Paralysis blocks almost everything*). Smoking is not held: nothing showed it refused, and a
+Bard on the receiving end of the delay said "nothing should be gating your puffs by your
+eats, unless you're asthmatic" (2026-10-04). 
+## Puff behind the kelp
+
+Asthma shuts smoking, and kelp (or aurum) cures it. While an eat of either is in flight, a
+smoke cure goes out right behind it on the same prompt: the engine resolves herb before smoke
+and sends each as it is chosen, so the eat reaches the game first. From the Bard on the other
+end of the fight (2026-10-04): "unless you're asthmatic, and then you could in a pinch eat
+kelp/puff ... And if asthmatic gate it on anorexia too ... At worst the kelp/aurum cures
+something else like weariness and the puff fails for no penalty." Not in [svof], which
+holds smoking for asthma outright.
+
+- **Gated on anorexia**: an anorexic eat is refused, so the lungs stay shut.
+- **Asthma only**: mucous still shuts smoking; kelp does not cure it.
+- **One puff per eat**: kelp cures one of several afflictions, so it may not take the asthma.
+  The refusal (`Your lungs are too constricted to smoke.` / `You are having difficulty
+  breathing and cannot smoke.`) frees the smoke slot and hands the balance back ("no
+  penalty", not yet seen in a transcript), and that eat buys no second puff
+  (`have.puffThrough()`, detect/patterns.lua).
+
 ## Cures that must be sent once and then left alone
 
 Two HELP files say plainly that **repeating the command makes it slower**. This is

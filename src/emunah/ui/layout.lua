@@ -48,7 +48,8 @@ local scrolling = nil
 ---   |------------|                           |             |
 ---   | DEFENCES   |                           |             |
 ---   +------------+---------------------------+-------------+
----   | Combat [TARGET 42%] | pvp, warnings, in flight              |
+---   | Combat                                                        |
+---   | [HUNT][PAUSE] [TARGET 42%] | pvp, warnings, in flight         |
 ---   | HP ====  | MP ====  | EP ====  | WP ====                     |
 ---   | BAL EQ HERB .. TREE | CURE DEFS BASH        | XP  | stats    |
 ---   +---------------------------------------------------------------+
@@ -63,12 +64,14 @@ local scrolling = nil
 --- sits directly above the side columns' own content. See ui/chyron.lua.
 M.WIDTH_LEFT    = "19%"
 M.WIDTH_RIGHT   = "26%"
---- The combat HUD's share of the window: just what its three rows need (ui/vitals.lua), in
---- whole percent of the window as it is now. A fixed 11% was too little at 768px, where the
+--- The combat HUD's share of the window: just what its three rows need (ui/vitals.lua), and
+--- the container's "Combat" title above the first of them, in whole percent of the window as
+--- it is now. The title has a line of its own because the hunt and pause buttons sit under
+--- it, at the start of row 1 (the user's request, 2026-10-04). A fixed 11% was too little at 768px, where the
 --- balance row was cut off, and too much at 1080px, where the slack became a gap between
 --- the HUD and the command line. M.fit() recomputes it; every consumer reads
 --- M.HEIGHT_BOTTOM after that.
-M.HUD_PX = 92
+M.HUD_PX = 104
 M.HEIGHT_BOTTOM = "9%"
 
 function M.fit()
@@ -98,6 +101,11 @@ M.LEFT_SECTIONS = {
 
 --- Height of a section's title bar, in pixels.
 M.HEADER_PX = 20
+--- Where a title bar sits from the top of its column: the left column's sections start 4px
+--- down (M.reflow()) and draw their bar 2px into the section. The chat's bar matches it.
+M.TITLE_Y = 6
+--- Where a titled panel's content starts: under its bar, with the same 2px gap.
+M.TITLED_TOP = M.TITLE_Y + M.HEADER_PX + 2
 
 --- Default height of the map region, as a percentage of the whole window.
 --- Overridable at runtime with `emunah ui map height <n>`.
@@ -164,7 +172,9 @@ end
 --- saved size and position, so a layout change is otherwise invisible to anyone who has run
 --- the old one -- and worse than invisible: the old bottom strip (16% of the window) came back
 --- over a console bordered for the new one (11%), and hid the last lines of game text.
-M.LAYOUT_VERSION = 2
+---
+--- 3: the HUD grew a line for its title, so the buttons under it clear the word.
+M.LAYOUT_VERSION = 3
 
 local function discardStaleGeometry()
    if emunah.config.get("ui.layoutVersion", 1) == M.LAYOUT_VERSION then return end
@@ -288,10 +298,16 @@ function M.build()
    })
 
    -- Stops above the map region so the container's background label cannot paint over it.
+   -- Untitled for the same reason as the left column: the chat carries a title bar like the
+   -- left column's sections, so the two sides read alike (the user's request).
    make("emunah.right", {
       x = "-" .. M.WIDTH_RIGHT, y = 0, width = M.WIDTH_RIGHT, height = M.rightHeight(),
-      titleText = "Chat",
+      titleText = "",
    })
+   if M.container("right") then
+      M.titleBar(M.container("right"), "chat", "Chat",
+         { x = 4, y = M.TITLE_Y, width = "-8px" })
+   end
 
    make("emunah.bottom", {
       x = 0, y = "-" .. M.HEIGHT_BOTTOM, width = "100%", height = M.HEIGHT_BOTTOM,
@@ -384,11 +400,7 @@ function M.section(parent, spec)
       width = "-8px", height = string.format("%d%%", spec.height),
    }, parent)
 
-   local header = Geyser.Label:new({
-      name = "emunah.header." .. spec.key,
-      x = 0, y = 2, width = "100%", height = M.HEADER_PX,
-   }, box)
-   header:setStyleSheet(theme.headerStyle())
+   local header = M.titleBar(box, spec.key, nil, { x = 0, y = 2, width = "100%" })
 
    local body
    if spec.body == "console" then
@@ -412,7 +424,6 @@ function M.section(parent, spec)
    end
 
    -- New, empty widgets: whatever the paint caches say describes the ones they replaced.
-   theme.forgetPainted("header." .. spec.key)
    theme.forgetPainted("body." .. spec.key)
    M.header(spec.key, header, spec.title)
 
@@ -421,6 +432,24 @@ function M.section(parent, spec)
    M.sections[spec.key] = section
    placed[spec.key] = nil
    return section
+end
+
+--- A title bar: the accent square, the title, and room for a summary beside it. Every panel
+--- has one -- the left column's sections, the chat, the map -- so the two sides read alike.
+--- @param parent table|nil the container to build in; nil puts it on the window itself
+--- @param key string names the label ("emunah.header.<key>") and its paint cache
+--- @param title string|nil drawn now if given; M.header() redraws it with a summary
+--- @param geometry table x, y and width; the height is always HEADER_PX
+function M.titleBar(parent, key, title, geometry)
+   local header = Geyser.Label:new({
+      name = "emunah.header." .. key,
+      x = geometry.x, y = geometry.y, width = geometry.width, height = M.HEADER_PX,
+   }, parent)
+   header:setStyleSheet(theme.headerStyle())
+   -- A new, empty widget: whatever the paint cache says describes the one it replaced.
+   theme.forgetPainted("header." .. key)
+   if title then M.header(key, header, title) end
+   return header
 end
 
 -- ---------------------------------------------------------------------------
