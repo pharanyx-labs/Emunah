@@ -27,7 +27,8 @@ M.commands = {
    -- free vector. svof's isadvisable also wants mana above `manause` and no hypersomnia;
    -- those are M.HOLDS.insomnia, with the voluntary sleep the user asked for. Lines [svof]:
    -- "You clench your fists, grit your teeth, and banish all possibility of sleep." and
-   -- "You are already an insomniac."
+   -- "You are already an insomniac." Confirmed in play 10:38:23.09: Char.Defences.Add
+   -- insomnia, about 3% mana, no balance or equilibrium spent.
    insomnia     = { vector = "free",        command = "insomnia" },
    deathsight   = { vector = "herb",        command = "eat skullcap" },
    thirdeye     = { vector = "herb",        command = "eat echinacea" },
