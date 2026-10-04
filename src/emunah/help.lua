@@ -238,7 +238,7 @@ M.settings = {
 { key = "system.update", default = true, type = "boolean", topic = "system", shipped = true,
   detail = "Pull main (fast-forward only) before every reload. Off, a reload loads what is "
      .. "on disk." },
-{ key = "schema", default = 10, type = "number", topic = "system", shipped = true,
+{ key = "schema", default = 11, type = "number", topic = "system", shipped = true,
   detail = "Config format version. Managed by the migrations; do not set this by hand." },
 
 -- interface

@@ -142,14 +142,19 @@ M.armAfflictions = {
 --- Defences maintained with the same machinery as cures. Kept here so
 --- curing/defkeepup.lua can restore them with the right command, rather than duplicating
 --- the herb knowledge.
+---
+--- KEYED BY THE SERVER'S NAME, which is not always the item's. svof's gamename table:
+--- sileris grants `fangbarrier`, myrrh `scholasticism`. Keyed by the item, keep-up waited
+--- for a defence the game never names and applied berry after berry (2026-10-04). The item
+--- names still work, through deflist.ALIASES.
 M.defenceCures = {
    insomnia   = { vector = "herb",  item = "cohosh",    alt = "gypsum"    },
    kola       = { vector = "herb",  item = "kola",      alt = "quartz"    },
-   myrrh      = { vector = "herb",  item = "myrrh",     alt = "bisemutum" },
+   scholasticism = { vector = "herb", item = "myrrh",   alt = "bisemutum" },
    thirdeye   = { vector = "herb",  item = "echinacea", alt = "dolomite"  },
    deathsight = { vector = "herb",  item = "skullcap",  alt = "azurite"   },
    rebounding = { vector = "smoke", item = "skullcap",  alt = "malachite" },
-   sileris    = { vector = "salve", item = "sileris",   alt = "quicksilver", location = "body" },
+   fangbarrier = { vector = "salve", item = "sileris",  alt = "quicksilver", location = "body" },
 }
 
 --- The afflictions themselves.

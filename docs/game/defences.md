@@ -505,3 +505,34 @@ so both are required, per HELP's default for bal/eq abilities. It competes with
 
 **`GET` and `PUT` of gold with your own pack work while selfish** *(the user, 2026-10-04)*.
 svof refuses `EMPTY` (pipes) and `BOIL` while selfish, and Emunah sends neither.
+
+## Sileris and myrrh: named after what they do
+
+The game names these defences after their effect, not the item [svof: `gamename` in
+`raw-svo.dict.lua`]:
+
+| item | `Char.Defences` name | DEF line |
+|---|---|---|
+| sileris / quicksilver (apply) | `fangbarrier` | `You are protected from the fangs of serpents.` |
+| myrrh / bisemutum (eat) | `scholasticism` | `Your mind is racing with enhanced speed.` |
+
+Keep-up keyed them by the item name, so it waited for a name the game never sends. That's
+the same bug as venom/poisonresist, and the same fix: `afflist.defenceCures` is keyed by
+the server's name, `deflist.ALIASES` maps the item names onto it, and config migration 11
+moves a saved mode across. The `emset defs` grid still shows them as `sileris` and `myrrh`.
+
+Sileris hardens a few seconds after it's applied [svof: `waitingforsileris`,
+`customwait = 8`]:
+
+```
+You apply a sileris berry to yourself.                         <- applied, not yet up
+The sileris berry juice hardens into a supple purple shell.    <- up (seen in play, 2026-10-04)
+```
+
+and for quicksilver, `You apply a quicksilver droplet to yourself.` /
+`The quicksilver hardens into a supple metallic shell.` [svof]. Keep-up won't apply again
+for 8s after the apply line. The hardening line only counts after an `APPLY` of ours
+(anti-illusion).
+
+`fangbarrier` used to have its own entry as a skill command (`fangbarrier`) that was never
+seen working. It's gone; the salve raises it.

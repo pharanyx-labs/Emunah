@@ -135,7 +135,9 @@ M.commands = {
                     requires = "mindseye" },
    blindness    = { vector = "herb", command = "eat bayberry", item = "bayberry",
                     requires = "mindseye" },
-   fangbarrier  = { vector = "balance",     command = "fangbarrier",  skill = "fangbarrier" },
+   -- `fangbarrier` was here as a skill command of its own, never seen working. It is what
+   -- sileris grants [svof: sileris.gamename], so it is raised by the salve now --
+   -- afflist.defenceCures.fangbarrier.
 
    -- Priest (Devotion). `perform inspiration`, equilibrium 3.50s -- both verified, see
    -- docs/game/defences.md. Reported by GMCP as:
@@ -278,6 +280,18 @@ M.ALIASES = {
    -- `blindness`/`deafness`. Keeps typing and config under the old, natural names working.
    blind = "blindness",
    deaf  = "deafness",
+   -- The item, not the defence [svof: gamename]. See afflist.defenceCures.
+   sileris     = "fangbarrier",
+   quicksilver = "fangbarrier",
+   myrrh       = "scholasticism",
+   bisemutum   = "scholasticism",
+}
+
+--- What the grid calls a defence whose server name nobody would recognise: you apply
+--- sileris and eat myrrh, whatever Char.Defences says.
+M.LABELS = {
+   fangbarrier   = "sileris",
+   scholasticism = "myrrh",
 }
 
 --- The Char.Defences name for whatever the user typed.

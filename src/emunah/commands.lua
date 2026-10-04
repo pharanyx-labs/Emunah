@@ -278,6 +278,10 @@ local function defencesGrid()
    -- up" read as red on a defence just clicked into keep-up, and grey on a raised-once one
    -- already done, like bliss). Whether a wanted defence is actually down shows in its
    -- NAME: red down, amber waiting on another defence.
+   -- Sileris, not `fangbarrier`: what you apply, not what the server calls it.
+   local labels = emunah.curing.deflist.LABELS or {}
+   local function label(name) return labels[name] or name end
+
    local sections = { keepup = {}, defup = {}, off = {} }
    local up, down = 0, 0
    for _, name in ipairs(names) do
@@ -322,6 +326,7 @@ local function defencesGrid()
       if not state.raisable then
          return name .. ": no command known. `emset defs add " .. name .. " <command>`"
       end
+      if labels[name] then name = labels[name] .. " (the game calls it " .. name .. ")" end
       return ({ [""] = "Raise " .. name .. " once",
                 defup  = "Keep " .. name .. " up",
                 keepup = "Stop raising " .. name })[state.mode or ""]
@@ -349,13 +354,16 @@ local function defencesGrid()
    local function defence(state)
       local dot, paint = mark(state)
       dechoLink(string.format("%s %s", dot, paint(string.format("%-" .. WIDTH .. "s",
-            state.name:sub(1, WIDTH)))),
+            label(state.name):sub(1, WIDTH)))),
          string.format("emunah.curing.defkeepup.cycle(%q) "
             .. "emunah.curing.defkeepup.nudge() "
             .. "emunah.commands.handlers.defs()", state.name),
          hint(state), true)
    end
 
+   for _, list in pairs(sections) do
+      table.sort(list, function(a, b) return label(a.name) < label(b.name) end)
+   end
    cells("kept up", sections.keepup, defence)
    cells("raised once", sections.defup, defence)
    cells("not raised", sections.off, defence)

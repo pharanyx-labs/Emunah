@@ -20,7 +20,7 @@ local PATH = getMudletHomeDir() .. "/emunah-config.lua"
 --- reload does not even get that far -- M.data is restored wholesale from
 --- emunah._persist. So a bad default, once written or once carried across a reload, is
 --- permanent until something rewrites it. That is what MIGRATIONS is for.
-local SCHEMA = 10
+local SCHEMA = 11
 
 local MIGRATIONS = {
    -- bashing.balance shipped as "bal" long after smite was confirmed to need balance AND
@@ -160,6 +160,26 @@ local MIGRATIONS = {
       data.pack = data.pack or {}
       data.pack.id = data.pack.id or chosen
       return "loot.stowIn / shop.stowIn -> pack.id (" .. tostring(chosen) .. ")"
+   end,
+
+   -- Same family as [4]-[9]: sileris grants `fangbarrier` and myrrh `scholasticism`
+   -- [svof: gamename]. A mode saved under the item's name never matched, so keep-up applied
+   -- sileris until its attempt budget ran out (2026-10-04). See afflist.defenceCures.
+   [11] = function(data)
+      local modes = data.defences and data.defences.keepup
+      if type(modes) ~= "table" then return end
+      local moved = {}
+      for item, defence in pairs({ sileris = "fangbarrier", myrrh = "scholasticism" }) do
+         if modes[item] ~= nil then
+            modes[defence] = modes[defence] or modes[item]
+            modes[item] = nil
+            moved[#moved + 1] = item .. " -> " .. defence
+         end
+      end
+      if #moved > 0 then
+         table.sort(moved)
+         return "defences.keepup: " .. table.concat(moved, ", ") .. " (the names Char.Defences uses)"
+      end
    end,
 
    -- NOTE: bashing.attack moving from "smite" to "angel sear" is NOT a migration here, on

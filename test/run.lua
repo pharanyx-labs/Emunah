@@ -5174,8 +5174,8 @@ defkeepup.enabled = true
 -- "the things one particular table happens to hold".
 local known = defkeepup.known()
 ok(emunah.util.contains(known, "cloak"), "a plain-command defence is on the grid")
-ok(emunah.util.contains(known, "sileris"),
-   "...as is an item-based one from afflist.defenceCures")
+ok(emunah.util.contains(known, "fangbarrier"),
+   "...as is an item-based one from afflist.defenceCures (sileris, as the game names it)")
 ok(emunah.util.contains(known, "inspiration"), "...and inspiration")
 ok(emunah.util.contains(known, "magicresist"), "...and one of the unverified ones")
 
@@ -11717,6 +11717,67 @@ suite("anti-illusion: Emunah's own lines")
    emunah.config.set("curing.antiIllusion", true)
    engine.clear(); emunah.queue.reset(); emunah.timers.stopAll()
    mock.feed("Char.Afflictions.List", {})
+end)()
+
+-- ===========================================================================
+suite("sileris is fangbarrier, myrrh is scholasticism")
+
+-- svof's gamename table: the server names these defences after what they do. Keyed by the
+-- item, keep-up waited for a name the game never sends, applying berry after berry
+-- (2026-10-04). Sileris also takes up to 8s to harden after the apply [svof].
+;(function()
+   local deflist, keepup = emunah.curing.deflist, emunah.curing.defkeepup
+   eq(deflist.canonical("sileris"), "fangbarrier", "sileris is the fangbarrier defence")
+   eq(deflist.canonical("myrrh"), "scholasticism", "myrrh is the scholasticism defence")
+   local vector, command = deflist.resolve("fangbarrier")
+   eq(vector, "salve", "fangbarrier is raised by the salve...")
+   ok(tostring(command):find("sileris", 1, true), "...applying sileris", command)
+
+   local saved = { defences = { keepup = { sileris = "keepup", myrrh = "defup" } }, schema = 10 }
+   emunah.config.migrate(saved)
+   eq(saved.defences.keepup.fangbarrier, "keepup", "a saved sileris keep-up moves to fangbarrier")
+   eq(saved.defences.keepup.scholasticism, "defup", "...and myrrh to scholasticism")
+   eq(saved.defences.keepup.sileris, nil, "...leaving nothing under the item's name")
+
+   -- Applied is not up: no second berry while it hardens.
+   local detect = emunah.curing.detect
+   detect.onUnstunned(); detect.onStood(); detect.onWake(); detect.onConscious()
+   emunah.queue.reset(); emunah.timers.stopAll()
+   local wasEnabled = keepup.enabled
+   keepup.enabled = true
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Defences.List", {})
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "9101", name = "a sileris berry", attrib = "e" },
+      { id = "9102", name = "a sileris berry", attrib = "e" },
+   } })
+   keepup.setMode("sileris", "keepup")
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("apply sileris", 1, true), "keep-up applies sileris",
+      table.concat(mock.sent, " | "))
+   mock.line("You apply a sileris berry to yourself.")
+   mock.line("You may apply another salve to yourself.")
+   mock.advance(3)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("apply sileris", 1, true),
+      "...and not again while it hardens", table.concat(mock.sent, " | "))
+   mock.line("The sileris berry juice hardens into a supple purple shell.")
+   mock.feed("Char.Defences.Add", { name = "fangbarrier", desc = "" })
+   ok(keepup.state("sileris").up, "hardened, it is up -- as fangbarrier")
+
+   -- The hardening line with no apply behind it is an illusion.
+   mock.forgetSends()
+   mock.links = {}
+   mock.line("The sileris berry juice hardens into a supple purple shell.")
+   ok(mock.links[1] and mock.links[1].hint:find("sileris", 1, true),
+      "a hardening line with nothing applied is marked as an illusion")
+
+   keepup.setMode("fangbarrier", nil)
+   keepup.enabled = wasEnabled
+   emunah.queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Defences.List", {})
 end)()
 
 -- ===========================================================================
