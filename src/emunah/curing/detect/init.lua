@@ -495,6 +495,53 @@ function M.intendSleep()
    M.sleepIntent = emunah.util.now() + M.SLEEP_INTENT
 end
 
+--- Deadline for RELAX INSOMNIA's answer before SLEEP goes anyway, or nil. See goToSleep().
+M.relaxing = nil
+
+--- How long to wait for "You relax your mind..." before sending SLEEP regardless. A round
+--- trip and then some, as REPLY_WINDOW; if the relax was lost, SLEEP is refused for nothing
+--- ("You have insomnia, and cannot easily go to sleep.") and the intent window lapses.
+M.RELAX_WAIT = 3.0
+
+--- Is a sleep of the character's own choosing coming or under way? From the SLEEP alias,
+--- through RELAX INSOMNIA, to waking. deflist.HOLDS.insomnia reads it: raising insomnia in
+--- that window would undo the relax, or wake-proof a sleep the user asked for.
+function M.sleepWanted()
+   if M.relaxing then return true end
+   if M.sleepIntent and emunah.util.now() < M.sleepIntent then return true end
+   return M.asleep and M.voluntary
+end
+
+local function sleepNow()
+   M.relaxing = nil
+   emunah.timers.stop("sleep.relax")
+   M.intendSleep()
+   emunah.act.send("sleep", {})
+end
+
+--- SLEEP, typed. With insomnia up it cannot work (the DEF line: "You have insomnia, and
+--- cannot easily go to sleep."), so RELAX INSOMNIA goes first and SLEEP follows its answer
+--- (the user, 2026-10-04). The answers are svof's ("svo relaxed insomnia"): "You relax your
+--- mind and feel as if you could sleep." or "You are not an insomniac." -- see M.onRelaxed().
+--- Its cost has not been seen; it goes with the ordinary blocks, as WAKE does.
+function M.goToSleep()
+   local defences = emunah.gmcp.defences
+   if not (defences and defences.has("insomnia")) then return sleepNow() end
+   M.relaxing = emunah.util.now() + M.RELAX_WAIT
+   emunah.act.send("relax insomnia", {})
+   emunah.timers.start("sleep.relax", M.RELAX_WAIT, function()
+      if M.relaxing then
+         log.debug("No answer to RELAX INSOMNIA after %.1fs -- sleeping anyway.", M.RELAX_WAIT)
+         sleepNow()
+      end
+   end)
+end
+
+--- Insomnia relaxed (or was never up). If a SLEEP is waiting on it, it goes now.
+function M.onRelaxed()
+   if M.relaxing then sleepNow() end
+end
+
 --- Get up.
 ---
 --- STAND COSTS BALANCE. Confirmed live: knocked down at 08:12:57.54 with the prompt reading

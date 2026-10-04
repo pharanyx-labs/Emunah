@@ -81,10 +81,13 @@ M.modules = {
      summary = "switch curing on or off" },
    { syntax = "emset pause", handler = "pause",
      summary = "pause or resume curing and defences together; after QUIT, resume everything" },
+   { syntax = "pp", alias = "pp",
+     summary = "the same as `emset pause`: one toggle for curing and defence keep-up" },
    { syntax = "emset prio <affliction> <balance> <rank>", handler = "prio",
      summary = "cure an affliction sooner or later on one balance; lower is sooner" },
    { syntax = "sleep", alias = "sleep",
-     summary = "SLEEP, marked as yours so Emunah does not wake you out of it" },
+     summary = "RELAX INSOMNIA if it is up, then SLEEP, marked as yours: Emunah neither "
+        .. "wakes you nor raises insomnia until you are up" },
   } },
 
 { id = "defences", title = "Defences", summary = "raises the defences you choose and keeps them up",

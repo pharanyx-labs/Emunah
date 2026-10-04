@@ -530,8 +530,9 @@ eq(curelist.command(guiltCure), "eat lobelia", "it resolves to the right herb co
 -- afflist.afflictions.
 do
    local restockables = emunah.util.set(curelist.restockables())
-   ok(restockables.cohosh, "insomnia's herb (afflist.defenceCures) is restocked")
-   ok(restockables.echinacea, "...as is thirdeye's")
+   -- Not cohosh: insomnia is the INSOMNIA skill (the user, 2026-10-04).
+   ok(not restockables.cohosh, "cohosh is not restocked: insomnia is raised by the skill")
+   ok(restockables.echinacea, "thirdeye's herb (afflist.defenceCures) is restocked")
    ok(restockables.skullcap, "...and deathsight/rebounding's")
    ok(restockables.myrrh, "...and myrrh's")
    -- bayberry/deaf (blind, deaf) come from deflist.lua's bare-command table, not afflist at
@@ -10732,7 +10733,8 @@ emunah.commands.dispatch = function(input) dispatched[#dispatched + 1] = tostrin
 
 -- ONE PREFIX. `emunah` was the long form of emset; it is gone like `!` before it, and the
 -- old bare shortcuts with it. All of them now go to the game untouched.
-for _, word in ipairs({ "emunah", "emunah status", "pp", "emdefs", "ndb", "pipes", "manna",
+-- `pp` came back at the user's request (2026-10-04); see the "pp, insomnia" suite.
+for _, word in ipairs({ "emunah", "emunah status", "emdefs", "ndb", "pipes", "manna",
                         "affpop" }) do
    ok(not mock.command(word), ("'%s' is no longer claimed"):format(word))
 end
@@ -12595,6 +12597,113 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
    raiseEvent("sysDisconnectionEvent")
    queue.reset(); emunah.timers.stopAll()
    engine.enabled = wasEngine
+end)()
+
+-- ===========================================================================
+suite("pp, insomnia by the skill, and relaxing it for a chosen sleep")
+
+;(function()
+   local engine, keepup = emunah.curing.engine, emunah.curing.defkeepup
+   local deflist, detect, queue = emunah.curing.deflist, emunah.curing.detect, emunah.queue
+   local wasEngine, wasKeepup = engine.enabled, keepup.enabled
+   queue.reset(); emunah.timers.stopAll()
+
+   -- PP: the same handler as `emset pause` (the user, 2026-10-04).
+   engine.start(true); keepup.start(true)
+   ok(mock.command("pp"), "'pp' is claimed, not sent to the game")
+   ok(not engine.enabled and not keepup.enabled, "pp pauses curing and defence keep-up together")
+   mock.command("pp")
+   ok(engine.enabled and keepup.enabled, "pp again resumes both")
+
+   -- INSOMNIA IS THE SKILL: the bare command [svof misc], on the free vector.
+   local vector, command = deflist.resolve("insomnia")
+   eq(command, "insomnia", "insomnia is raised with INSOMNIA, not cohosh")
+   eq(vector, "free", "on the free vector: svof's misc actions need no balance")
+
+   engine.enabled = false
+   mock.feed("Char.Vitals", { hp = "2850", maxhp = "2850", mp = "2000", maxmp = "2000",
+      bal = "1", eq = "1" })
+   mock.feed("Char.Defences.List", {})
+   keepup.setMode("insomnia", "keepup")
+   queue.reset()
+   mock.sent = {}
+   keepup.tick()
+   ok(table.concat(mock.sent, " | "):find("insomnia", 1, true),
+      "keep-up sends INSOMNIA when it is down", table.concat(mock.sent, " | "))
+   ok(not table.concat(mock.sent, " | "):find("cohosh", 1, true), "and never eats cohosh")
+
+   -- Low mana holds it [svof can_usemana].
+   mock.feed("Char.Defences.List", {})
+   queue.reset(); keepup.resetBudget("insomnia")
+   mock.feed("Char.Vitals", { mp = "500", maxmp = "2000" })
+   eq(deflist.held("insomnia"), "mana below 35%", "held below the mana floor, like FOCUS")
+   mock.feed("Char.Vitals", { mp = "2000", maxmp = "2000" })
+
+   -- SLEEP WITH INSOMNIA UP: relax first, then sleep, and no insomnia in between.
+   mock.feed("Char.Defences.List", { { name = "insomnia", desc = "" } })
+   queue.reset(); emunah.timers.stopAll()
+   mock.sent = {}
+   ok(mock.command("sleep"), "'sleep' is claimed")
+   eq(mock.sent[1], "relax insomnia", "insomnia up: RELAX INSOMNIA goes first")
+   eq(#mock.sent, 1, "and SLEEP waits for its answer")
+   ok(detect.sleepWanted(), "from here on, a chosen sleep is coming")
+
+   -- svof's "svo relaxed insomnia" line, and the server dropping the defence.
+   mock.line("You relax your mind and feel as if you could sleep.")
+   mock.feed("Char.Defences.Remove", { "insomnia" })
+   eq(mock.sent[2], "sleep", "the relax answered, SLEEP goes")
+
+   mock.sent = {}
+   queue.reset()
+   keepup.tick()
+   ok(not table.concat(mock.sent, " | "):find("insomnia", 1, true),
+      "insomnia is not raised between the relax and falling asleep",
+      table.concat(mock.sent, " | "))
+   eq(deflist.held("insomnia"), "you are going to sleep", "held, and says why")
+
+   -- Asleep by choice: still held (act.blocked would refuse it anyway while asleep).
+   mock.line("You close your eyes, curl up in a ball, and fall asleep.")
+   ok(detect.asleep and detect.voluntary, "the sleep is ours")
+   ok(detect.sleepWanted(), "insomnia stays held for the whole sleep")
+
+   -- Awake: keep-up may raise it again.
+   detect.onWake()
+   detect.sleepIntent = nil
+   ok(not detect.sleepWanted(), "awake, the hold lifts")
+   queue.reset(); keepup.resetBudget("insomnia")
+   mock.sent = {}
+   keepup.tick()
+   ok(table.concat(mock.sent, " | "):find("insomnia", 1, true),
+      "and insomnia goes back up", table.concat(mock.sent, " | "))
+
+   -- A relax with no answer: SLEEP goes anyway after the wait.
+   mock.feed("Char.Defences.List", { { name = "insomnia", desc = "" } })
+   queue.reset(); emunah.timers.stopAll()
+   mock.sent = {}
+   mock.command("sleep")
+   mock.advance(detect.RELAX_WAIT + 0.1)
+   eq(mock.sent[#mock.sent], "sleep", "an unanswered relax still ends in SLEEP")
+
+   -- No insomnia up: straight to SLEEP.
+   detect.relaxing, detect.sleepIntent = nil, nil
+   mock.feed("Char.Defences.List", {})
+   mock.sent = {}
+   mock.command("sleep")
+   eq(mock.sent[1], "sleep", "no insomnia: SLEEP straight away, no relax")
+
+   -- A relaxed line nobody asked for does not send SLEEP.
+   detect.sleepIntent = nil
+   emunah.outgoing.recent = {}
+   detect.relaxing = emunah.util.now() + 5
+   mock.sent = {}
+   mock.line("You relax your mind and feel as if you could sleep.")
+   eq(#mock.sent, 0, "an unasked-for relax line is an illusion")
+
+   detect.relaxing, detect.sleepIntent = nil, nil
+   keepup.setMode("insomnia", nil)
+   queue.reset(); emunah.timers.stopAll()
+   if wasEngine then engine.start(true) else engine.stop(true) end
+   if wasKeepup then keepup.start(true) else keepup.stop(true) end
 end)()
 
 io.write("\n", string.rep("-", 60), "\n")

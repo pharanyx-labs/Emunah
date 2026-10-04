@@ -609,6 +609,12 @@ function M.tick()
       -- character who smokes from a pipe but does not also carry loose skullcap.
       -- Item raises only: the item is what vanishes before the defence lands. A tattoo or a
       -- skill is paced by its own balance and confirm wait.
+      -- HELD FOR NOW (deflist.HOLDS): insomnia while going to sleep, say. Quiet, and no
+      -- attempt spent -- the hold lifting is the ordinary way it resolves.
+      if vector and command and deflist.held(name) then
+         vector, command = nil, nil
+      end
+
       if vector and command and item and raisePending(name) then
          vector, command = nil, nil
       end
@@ -653,6 +659,7 @@ function M.tick()
             -- to be CALL. isUp() alone would still let the summon go.
             valid    = function()
                if deflist.isUp(name) then return false end
+               if deflist.held(name) then return false end
                if deflist.DYNAMIC and deflist.DYNAMIC[name] then
                   local _, commandNow = deflist.resolve(name)
                   return commandNow == sentCommand
