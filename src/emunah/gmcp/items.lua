@@ -303,19 +303,54 @@ function M.at(location)
    return M.locations[locationKey(location)] or NOTHING
 end
 
---- Does this item's name contain `needle`? `needle` must already be lowercased.
+--- Is the byte at `at` part of a word? Lowercase letters and digits only: the haystack is
+--- already lowercased, and anything else (space, apostrophe, hyphen, end of string) is a
+--- boundary.
+local function wordByte(haystack, at)
+   local b = haystack:byte(at)
+   return b ~= nil and ((b >= 97 and b <= 122) or (b >= 48 and b <= 57))
+end
+
+--- Does this item's name contain `needle` as a WHOLE WORD? `needle` must already be
+--- lowercased.
+---
+--- Whole words, not substrings, because the needles are herb names short enough to hide
+--- inside ordinary words. Live, 09:42:10 and 09:42:25: buying "Hashani duck confit on an
+--- electrum plate" made three ash read as four, and "a gingerbread cookie" made three
+--- ginger read as four, and the restocker put a real herb back in the rift each time --
+--- `inr 1 ash`, `inr 1 ginger` -- leaving the pack one short. "elm" in "helmet" and "pear"
+--- in "spear" are the same bug waiting.
+---
+--- A trailing "s" or "es" still counts as the word: a grouped stack may pluralise the herb
+--- itself, and failing to find a herb you hold is the expensive direction to be wrong in.
 ---
 --- Reads the `search` field copyItem() built rather than lowercasing again. The fallback
 --- is for an item that predates that field -- it should not happen, since copyItem() is the
 --- only way into M.locations, but a nil here would silently stop matching an item the
---- character really is carrying, and failing to find a herb you hold is the expensive
---- direction to be wrong in.
+--- character really is carrying.
 local function matches(item, needle)
    local haystack = item.search or (item.name and item.name:lower())
-   return haystack ~= nil and haystack:find(needle, 1, true) ~= nil
+   if haystack == nil then return false end
+   local init = 1
+   while true do
+      local s, e = haystack:find(needle, init, true)
+      if not s then return false end
+      if not wordByte(haystack, s - 1) then
+         local tail = e + 1
+         if not wordByte(haystack, tail) then return true end
+         if haystack:byte(tail) == 115 and not wordByte(haystack, tail + 1) then   -- "s"
+            return true
+         end
+         if haystack:sub(tail, tail + 1) == "es" and not wordByte(haystack, tail + 2) then
+            return true
+         end
+      end
+      init = s + 1
+   end
 end
 
---- Find items whose name contains `pattern` (plain substring, case-insensitive).
+--- Find items whose name contains `pattern` as a whole word (case-insensitive); see
+--- matches().
 --- @param location string|nil defaults to "inv"
 --- @return table array of matching items
 function M.find(pattern, location)

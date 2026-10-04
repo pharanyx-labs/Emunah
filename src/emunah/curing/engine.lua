@@ -923,7 +923,7 @@ end
 --- presence, not a target count, and shares the rift vector -- one pull or one fill in
 --- flight at a time, same as herbs. The bounded-attempts guard is the same shape as
 --- queueRestock()'s, for the same reason: a FILL that silently resolves the wrong tin, or
---- produces an item name have.item()'s substring match does not recognise, must stop asking
+--- produces an item name have.item()'s word match does not recognise, must stop asking
 --- rather than retry forever.
 local salvePulls, salveWarned = {}, {}
 
