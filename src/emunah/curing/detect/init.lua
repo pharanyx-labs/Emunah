@@ -408,6 +408,10 @@ function M.textPrompt()
    M.linesSinceVitals = 0
    local vitals = emunah.gmcp and emunah.gmcp.vitals
    if vitals and vitals.onPrompt then vitals.onPrompt(after) end
+   -- Raised on the prompt LINE, so a handler's echo lands on the end of the prompt itself
+   -- (riding.lua's warning) -- the place svof puts its own tags. Char.Vitals arrives before
+   -- the prompt is drawn, so `tick` cannot do this.
+   emunah.event.raise("prompt")
 end
 
 --- Arm balance. The reference system holds every balance-taking action until BOTH arms have it

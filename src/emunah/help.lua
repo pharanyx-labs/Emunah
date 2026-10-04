@@ -122,6 +122,22 @@ M.modules = {
      summary = "send PIPELIST now, and show it" },
   } },
 
+{ id = "riding", title = "Riding", summary = "keeps your mount with you, and you on it",
+  state = function() return emunah.config.get("riding.keepup", false) == true end,
+  does = "Keeps your mount with you: whenever it is in the room and you are not riding it, "
+      .. "it is ordered to follow you (free). With keep-up on, you vault back onto it "
+      .. "whenever you are off it -- but only when the balance is idle: never while "
+      .. "anything needs curing, never while bashing or PvP is running, never while it is "
+      .. "not in the room, and never when Emunah does not know whether you are already "
+      .. "riding. While it is not with you, the end of your prompt says so. Also toggled "
+      .. "from the `emset defs` grid.",
+  commands = {
+   { syntax = "emset riding", handler = "riding",
+     summary = "the mount: here or not, ridden or following, keep-up on or off" },
+   { syntax = "emset riding on|off",
+     summary = "switch riding keep-up (vaulting back on) on or off" },
+  } },
+
 { id = "manna", title = "Manna", summary = "performs the manna rite",
   does = "Performs the manna rite: the three commands, with the waits between them, done "
       .. "for you once each is possible.",
@@ -427,6 +443,14 @@ M.settings = {
 { key = "pipes.poll", default = 0, type = "number", unit = "s", topic = "pipes",
   shipped = false, detail = "Re-check every pipe this often with PIPELIST. 0 (the default) "
      .. "asks only when the pipes are not known, e.g. after login or a reload." },
+{ key = "riding.keepup", default = false, type = "boolean", topic = "riding", shipped = false,
+  detail = "Vault back onto the mount whenever you are off it and the balance is idle." },
+{ key = "riding.mount", default = "horse368644", type = "string", topic = "riding",
+  shipped = false, detail = "The mount, as VAULT takes it. Its number is how the room list "
+       .. "and ORDER name it." },
+{ key = "riding.follow", default = true, type = "boolean", topic = "riding", shipped = false,
+  detail = "Order the mount to follow you whenever it is here and not ridden, and warn on "
+       .. "the prompt while it is not with you." },
 { key = "namedb.capture", default = true, type = "boolean", topic = "people", shipped = true },
 { key = "namedb.autoFetch", default = true, type = "boolean", topic = "people",
   shipped = true, detail = "Look names up against the Achaea web API automatically." },

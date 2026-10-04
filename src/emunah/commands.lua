@@ -375,13 +375,27 @@ local function defencesGrid()
    -- keeps rebounding and the other smoked defences raisable, and this grid is where the
    -- player looked for it: "i don't see the pipe relight toggle when i type emset defs".
    -- Two states, on or off -- the same switch as `emset pipes on|off`.
-   local pipesOn = emunah.config.get("pipes.enabled", true) ~= false
-   cells("pipes", { pipesOn }, function(on)
+   --
+   -- Riding keep-up sits beside it at the user's request (2026-10-04): the other upkeep that
+   -- is not a defence. The same switch as `emset riding on|off`.
+   local function toggle(on, name, command, offHint, onHint)
       dechoLink(string.format("%s %s", on and (theme().dc("defence") .. DOT) or faint(NONE),
-            (on and theme().dc("text") or theme().dc("textDim")) .. "pipe relight"),
-         "emunah.pipes.toggle() emunah.config.save() emunah.commands.handlers.defs()",
-         on and "Stop refilling and relighting your pipes" or "Keep your pipes filled and lit",
-         true)
+            (on and theme().dc("text") or theme().dc("textDim"))
+            .. string.format("%-" .. WIDTH .. "s", name)),
+         command .. " emunah.config.save() emunah.commands.handlers.defs()",
+         on and offHint or onHint, true)
+   end
+   local upkeep = {
+      { on = emunah.config.get("pipes.enabled", true) ~= false, name = "pipe relight",
+        command = "emunah.pipes.toggle()",
+        off = "Stop refilling and relighting your pipes", onHint = "Keep your pipes filled and lit" },
+      { on = emunah.riding and emunah.riding.keepupOn() or false, name = "riding",
+        command = "emunah.riding.toggle()",
+        off = "Stop vaulting back onto your mount",
+        onHint = "Vault back onto your mount whenever you are off it and the balance is idle" },
+   }
+   cells("pipes & riding", upkeep, function(entry)
+      toggle(entry.on, entry.name, entry.command, entry.off, entry.onHint)
    end)
 
    decho("\n")
@@ -899,6 +913,32 @@ M.handlers.pipes = function(arg)
             pipe.status == "lit" and "ansi_light_green" or "ansi_yellow")
       end
       decho("\n  " .. faint("emset pipes on|off|now  --  emhelp pipes for its settings"))
+   end
+end
+
+M.handlers.riding = function(arg)
+   local riding = emunah.riding
+   if arg == "on" then riding.start(); emunah.config.save()
+   elseif arg == "off" then riding.stop(); emunah.config.save()
+   else
+      local function yesNo(value, yes, no)
+         if value == nil then return "not known" end
+         return value and yes or no
+      end
+      local token = riding.mount()
+      local here = riding.present()
+      header("Riding")
+      row("keep-up", riding.keepupOn() and "on" or "off",
+         riding.keepupOn() and "ansi_light_green" or "ansi_light_red")
+      row("mount", token or "none set")
+      row("here", yesNo(here, "yes", "no"), here == false and "ansi_yellow" or nil)
+      row("riding", yesNo(riding.riding(), "yes", "no"))
+      if riding.riding() ~= true then
+         row("following", yesNo(riding.following(), "yes", "no"))
+      end
+      local held = riding.keepupOn() and riding.vaultHeld()
+      if held and riding.riding() ~= true then row("vault held", held) end
+      decho("\n  " .. faint("emset riding on|off  --  emhelp riding for its settings"))
    end
 end
 

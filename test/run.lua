@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 60, "all 60 manifest modules loaded")
+eq(loadedModules, 61, "all 61 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -12416,6 +12416,177 @@ do
    ok(sentWielded(), "WIELDED goes out after it", table.concat(mock.sent, " | "))
    emunah.timers.stopAll()
 end
+
+-- ===========================================================================
+suite("riding: the mount kept with you, vaulted onto only with an idle balance")
+
+-- A function, not a `do` block: the main chunk is at Lua 5.1's 200-local limit.
+;(function()
+   local riding, queue = emunah.riding, emunah.queue
+   local engine = emunah.curing.engine
+   local wasEngine = engine.enabled
+   engine.enabled = false
+   queue.reset(); emunah.timers.stopAll()
+   raiseEvent("sysDisconnectionEvent")
+   emunah.config.set("riding.mount", "horse368644")
+   emunah.config.set("riding.follow", true)
+   emunah.config.set("riding.keepup", false)
+
+   -- Verbatim room contents from the user's trace, 10:09:48.
+   local pegasus = { attrib = "mx", icon = "magical", id = "510623", name = "an alabaster pegasus" }
+   local horse   = { attrib = "mx", icon = "animal", id = "368644", name = "a heavy horse" }
+   local angel   = { attrib = "m", id = "318870", name = "a guardian angel" }
+   local function room(...) mock.feed("Char.Items.List", { location = "room", items = { ... } }) end
+   local function vitals() mock.feed("Char.Vitals", { hp = "2850", maxhp = "2850", bal = "1", eq = "1" }) end
+   local function sent(pattern)
+      return table.concat(mock.sent, " | "):find(pattern, 1, true) ~= nil
+   end
+
+   vitals()
+   mock.sent = {}
+   room(pegasus, horse, angel)
+   eq(riding.present(), true, "the horse is found in the room by its number")
+   eq(mock.sent[1], "order 368644 follow me",
+      "here and not known to be following: ordered to follow, in the user's syntax")
+   eq(riding.riding(), nil, "whether we are riding is not known yet")
+
+   mock.sent = {}
+   mock.advance(riding.GUARD + 0.1); vitals()
+   ok(not sent("order"), "riding not known: one order only, not three",
+      table.concat(mock.sent, " | "))
+
+   -- 10:10:08: obeyed -- straight after an order, as every reply is (detect layer 5).
+   mock.command("order 368644 follow me")
+   mock.line("Your order is obeyed.")
+   mock.line("A heavy horse obediently falls into line behind you.")
+   eq(riding.following(), true, "the obey line marks it following")
+
+   -- Keep-up on, but riding is not known: the vault costs a balance, so it waits.
+   riding.start()
+   mock.sent = {}
+   vitals()
+   ok(not sent("vault"), "an unknown riding state never spends the balance on a vault",
+      table.concat(mock.sent, " | "))
+   eq(riding.vaultHeld(), "not known whether riding", "and says why")
+
+   -- 10:09:54: a dismount settles it.
+   mock.command("dismount")
+   mock.sent = {}
+   mock.line("You step down off of a heavy horse.")
+   eq(riding.riding(), false, "the dismount line says we are off")
+   ok(sent("vault horse368644"), "keep-up vaults straight back on", table.concat(mock.sent, " | "))
+   eq(emunah.gmcp.vitals.bal, false, "the balance is marked spent until the game says")
+
+   -- 10:09:42: it lands.
+   mock.line("You easily vault onto the back of a heavy horse.")
+   eq(riding.riding(), true, "the vault line says we are on")
+   eq(queue.awaiting("balance"), nil, "and frees the balance slot")
+   ok(not riding.warning(), "no warning while riding it")
+
+   -- A vault line nobody asked for is an illusion.
+   riding.setRiding(false)
+   queue.reset()
+   emunah.outgoing.recent = {}
+   mock.line("You easily vault onto the back of a heavy horse.")
+   eq(riding.riding(), false, "a vault line with no VAULT sent is ignored")
+   riding.setRiding(true)
+
+   -- NEVER WITH A BUSY BALANCE.
+   riding.setRiding(false)
+   queue.reset()
+   emunah.bashing.enabled = true
+   mock.sent = {}
+   vitals()
+   ok(not sent("vault"), "never while bashing owns the balance", table.concat(mock.sent, " | "))
+   emunah.bashing.enabled = false
+
+   engine.enabled = true
+   emunah.gmcp.afflictions.active = emunah.gmcp.afflictions.active or {}
+   engine.add("clumsiness", "test")
+   mock.sent = {}
+   ok(riding.vaultHeld() == "curing first", "never while something needs curing",
+      tostring(riding.vaultHeld()))
+   engine.remove("clumsiness")
+   engine.enabled = false
+
+   -- Not in the room: nothing to vault onto, and the prompt says so.
+   mock.sent = {}
+   room(pegasus, angel)
+   eq(riding.present(), false, "lost: the room list no longer has it")
+   eq(riding.following(), false, "so it is not following")
+   ok(not sent("vault") and not sent("order"), "and nothing is sent for a mount that is not here",
+      table.concat(mock.sent, " | "))
+   eq(riding.warning(), "no horse", "the prompt warning names it")
+   mock.echoed = {}
+   emunah.curing.detect.textPrompt()
+   ok(table.concat(mock.echoed, ""):find("no horse", 1, true),
+      "and it is put on the end of the prompt", table.concat(mock.echoed, ""))
+
+   -- Back again: followed, and vaulted onto.
+   mock.sent = {}
+   room(pegasus, horse, angel)
+   ok(sent("vault horse368644"), "found again, keep-up vaults on", table.concat(mock.sent, " | "))
+   ok(sent("order 368644 follow me"), "and orders it to follow meanwhile (free)",
+      table.concat(mock.sent, " | "))
+   mock.echoed = {}
+   emunah.curing.detect.textPrompt()
+   ok(not table.concat(mock.echoed, ""):find("no horse", 1, true), "the warning goes")
+
+   -- A vault that never lands is retried a bounded number of times.
+   for _ = 1, riding.ATTEMPTS + 2 do
+      mock.advance(riding.GUARD + 0.1)
+      vitals()
+   end
+   local vaultsSent = 0
+   for _, command in ipairs(mock.sent) do
+      if command == "vault horse368644" then vaultsSent = vaultsSent + 1 end
+   end
+   eq(vaultsSent, riding.ATTEMPTS, "a vault that never lands stops after its attempts")
+
+   -- 10:10:27: losing it on purpose.
+   riding.setRiding(false)
+   riding.stop()
+   riding.setFollowing(true)
+   mock.command("lose horse")
+   mock.line("You move about quickly and lose a heavy horse.")
+   eq(riding.following(), false, "the lose line marks it not following")
+
+   -- Keep-up off: never vaults.
+   queue.reset()
+   mock.sent = {}
+   mock.advance(riding.GUARD + 0.1); vitals()
+   ok(not sent("vault"), "keep-up off never vaults", table.concat(mock.sent, " | "))
+   ok(sent("order 368644 follow me"), "but still keeps it following", table.concat(mock.sent, " | "))
+
+   -- DEFENCES settles riding either way.
+   mock.line("You have the following defences:")
+   mock.line("You are riding a heavy horse.")
+   mock.line("You are protected by 12 defences.")
+   eq(riding.riding(), true, "a DEFENCES listing with the riding line: riding")
+   mock.line("You have the following defences:")
+   mock.line("You are protected by 11 defences.")
+   eq(riding.riding(), false, "one without it: not riding")
+
+   -- Thrown off: believed as it comes, as svof does.
+   riding.setRiding(true)
+   mock.line("A series of shockwaves jolts through you, toppling you off your mount onto your feet.")
+   eq(riding.riding(), false, "an involuntary dismount line takes us off")
+
+   -- The emset defs grid has the toggle beside pipe relight.
+   mock.links = {}
+   emunah.commands.handlers.defs()
+   local found = false
+   for _, link in ipairs(mock.links or {}) do
+      if link.text and link.text:find("riding", 1, true) then found = true end
+   end
+   ok(found, "the defence grid has a riding toggle")
+
+   riding.stop()
+   emunah.config.set("riding.keepup", false)
+   raiseEvent("sysDisconnectionEvent")
+   queue.reset(); emunah.timers.stopAll()
+   engine.enabled = wasEngine
+end)()
 
 io.write("\n", string.rep("-", 60), "\n")
 io.write(string.format("%d passed, %d failed\n", passed, failed))

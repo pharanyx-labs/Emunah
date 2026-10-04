@@ -142,6 +142,10 @@ local MANIFEST = {
    -- have.item for what is carried, so it loads after both
    { path = "emunah.pipes",              as = "pipes"         },
 
+   -- keeps the mount with you, and you on it if asked; reads gmcp.items for the room and
+   -- curing.detect for its reply guard, and pushes the vault onto the queue
+   { path = "emunah.riding",             as = "riding"        },
+
    -- numpad movement bindings; loaded after the walker because a movement key stops it
    { path = "emunah.keys",               as = "keys"          },
 
