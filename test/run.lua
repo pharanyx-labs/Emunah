@@ -8484,16 +8484,14 @@ eq(minia[2].killed, 1, "...and the next")
 -- is the credit -- see loot.lua.
 mock.feed("Room.Players", {})
 mock.sent = {}
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.line("You have slain a juvenile wildcat, retrieving the corpse.")
 mock.feed("Char.Items.Add", {
    location = "room",
    item = { id = "778899", name = "a few golden sovereigns", attrib = "t" },
 })
 local looted = table.concat(mock.sent, " | ")
-ok(looted:find("get 778899"), "gold appearing in the room is picked up", looted)
-ok(not looted:find("get gold"),
-   "taken by replica number, not the ambiguous word (several piles can be down)")
+eq(looted, "get gold", "gold appearing in the room is picked up, with the user's GET GOLD")
 
 -- Not retried endlessly if the take fails.
 mock.sent = {}
@@ -8512,8 +8510,9 @@ mock.feed("Char.Items.Add", {
 eq(#mock.sent, 0, "corpses and scenery are not picked up")
 
 -- Walking into a room where something already died sweeps the floor.
+mock.feed("Char.Items.List", { location = "room", items = {} })
 mock.sent = {}
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.line("You have slain a sheep, retrieving the corpse.")
 mock.feed("Char.Items.List", {
    location = "room",
@@ -8523,14 +8522,14 @@ mock.feed("Char.Items.List", {
    },
 })
 local swept = table.concat(mock.sent, " | ")
-ok(swept:find("get 881"), "gold already on the floor is swept up", swept)
-ok(not swept:find("get 882"), "...and only the gold")
+eq(swept, "get gold", "gold already on the floor is swept up, and only the gold")
 
 -- Regression: GET needs standing just like everything else -- gold appearing while knocked
 -- down must not be sent into the same rejection bashing already avoids, but it must also
 -- not be silently lost: "emunah.recovered" (raised once prone actually clears) re-sweeps
 -- the room for anything skipped rather than marking it attempted and giving up on it.
 mock.sent = {}
+emunah.timers.stop("loot.get")
 mock.line("You have slain a thing, retrieving the corpse.")
 emunah.curing.detect.prone = true
 mock.feed("Char.Items.Add", {
@@ -8542,12 +8541,12 @@ eq(#mock.sent, 0, "gold appearing while knocked down is not grabbed", table.conc
 mock.sent = {}
 mock.line("You have slain a thing, retrieving the corpse.")
 mock.line("You stand up.")
-ok(table.concat(mock.sent, " | "):find("get 884"),
+ok(table.concat(mock.sent, " | "):find("get gold"),
    "...but is picked up once standing again", table.concat(mock.sent, " | "))
 
 -- GET COSTS BALANCE AND EQUILIBRIUM, so it competes with attacking -- which is exactly when
 -- gold appears, since the pile comes from a kill that just spent both.
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.feed("Char.Vitals", { bal = "0", eq = "1" })
 mock.sent = {}
 mock.line("You have slain a thing, retrieving the corpse.")
@@ -8560,11 +8559,11 @@ eq(#mock.sent, 0, "no pickup is attempted without balance", table.concat(mock.se
 -- ...and it is retried when balance returns, not left for an unrelated room event.
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-ok(table.concat(mock.sent, " | "):find("get 894"),
+ok(table.concat(mock.sent, " | "):find("get gold"),
    "...and is picked up the moment balance is back", table.concat(mock.sent, " | "))
 
 -- Equilibrium is required too.
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.feed("Char.Vitals", { bal = "1", eq = "0" })
 mock.sent = {}
 mock.line("You have slain a thing, retrieving the corpse.")
@@ -8577,20 +8576,20 @@ mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 
 -- ANY GOLD, PROVIDED THE ROOM IS EMPTY. The kill-credit rule is off by default now: an
 -- empty room is the whole condition, so a pile nobody killed for is still taken.
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 emunah.loot.creditUntil = nil
 mock.sent = {}
 mock.feed("Char.Items.Add", {
    location = "room",
    item = { id = "890", name = "a pile of gold sovereigns", attrib = "t" },
 })
-ok(table.concat(mock.sent, " | "):find("get 890"),
+ok(table.concat(mock.sent, " | "):find("get gold"),
    "gold with no kill of ours behind it is taken in an empty room",
    table.concat(mock.sent, " | "))
 
 -- The narrower rule is still there for anyone who wants it back.
 emunah.config.set("loot.ownKillsOnly", true)
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 emunah.loot.creditUntil = nil
 mock.sent = {}
 mock.feed("Char.Items.Add", {
@@ -8603,7 +8602,7 @@ eq(#mock.sent, 0, "loot.ownKillsOnly restores the own-kills-only rule",
 -- ...and under that rule the credit expires, so a pile appearing much later is not ours.
 mock.line("You have slain a thing, retrieving the corpse.")
 mock.advance(emunah.loot.CREDIT_WINDOW + 1)
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.sent = {}
 mock.feed("Char.Items.Add", {
    location = "room",
@@ -8614,7 +8613,7 @@ emunah.config.set("loot.ownKillsOnly", false)
 
 -- NOT IN FRONT OF ANYONE. Room.Players excludes ourselves (see gmcp/room.lua), so this is
 -- genuinely "someone else is here".
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.feed("Room.Players", { { name = "Sarapis", fullname = "Sarapis" } })
 mock.sent = {}
 mock.line("You have slain a thing, retrieving the corpse.")
@@ -8627,20 +8626,20 @@ eq(#mock.sent, 0, "nothing is picked up with another player in the room",
 
 -- ...and resumes once they leave.
 mock.feed("Room.Players", {})
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.sent = {}
 mock.line("You have slain a thing, retrieving the corpse.")
 mock.feed("Char.Items.Add", {
    location = "room",
    item = { id = "893", name = "a pile of gold sovereigns", attrib = "t" },
 })
-ok(table.concat(mock.sent, " | "):find("get 893"), "...and resumes once they leave",
+ok(table.concat(mock.sent, " | "):find("get gold"), "...and resumes once they leave",
    table.concat(mock.sent, " | "))
 
 -- Off means off.
 emunah.config.set("loot.gold", false)
 mock.sent = {}
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.feed("Char.Items.Add", {
    location = "room",
    item = { id = "883", name = "a few golden sovereigns", attrib = "t" },
@@ -8655,7 +8654,7 @@ emunah.config.set("loot.gold", true)
 -- the exact moment a kill has just spent both. Stopping to loot while something else is
 -- still swinging trades an attack for a pile that is not going anywhere.
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.sent = {}
 mock.feed("Char.Items.List", {
    location = "room",
@@ -8670,7 +8669,7 @@ eq(#mock.sent, 0, "no pickup with a live denizen in the room",
 -- A CORPSE IS NOT A DENIZEN. This is the case that matters: the corpse the gold spilled
 -- out of is in the room by definition, so counting it would mean gold from a kill could
 -- never be picked up at all. denizens.here() excludes `d`.
-emunah.loot.attempted = {}
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.sent = {}
 mock.feed("Char.Items.List", {
    location = "room",
@@ -8679,8 +8678,52 @@ mock.feed("Char.Items.List", {
       { id = "873", name = "the corpse of a pixie",     attrib = "md" },
    },
 })
-ok(table.concat(mock.sent, " | "):find("get 872"),
+ok(table.concat(mock.sent, " | "):find("get gold"),
    "...but a corpse does not count as alive", table.concat(mock.sent, " | "))
+
+-- OUR COMPANIONS ARE NOT ALIVE-AND-HOSTILE. 11:52:09 (2026-10-04), verbatim payloads: the
+-- last sentinel died, its gold landed, and the pickup said "something is still alive here"
+-- -- the guardian angel and the horse -- until the walker left without it.
+emunah.config.set("riding.mount", "horse368644")
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
+mock.feed("Char.Items.List", {
+   location = "room",
+   items = {
+      { attrib = "mx", icon = "animal", id = "368644", name = "a heavy horse" },
+      { attrib = "m", id = "318870", name = "a guardian angel" },
+      { attrib = "m", id = "234015", name = "an apathetic gnoll sentinel" },
+   },
+})
+mock.sent = {}
+mock.feed("Char.Items.Add", { location = "room",
+   item = { attrib = "t", icon = "coin", id = "497034", name = "some gold sovereigns" } })
+eq(#mock.sent, 0, "not while the sentinel still stands", table.concat(mock.sent, " | "))
+mock.feed("Char.Items.Remove", { location = "room",
+   item = { attrib = "mdt", icon = "deadbody", id = "234015",
+            name = "the corpse of an apathetic gnoll sentinel" } })
+eq(#emunah.denizens.here(), 0, "the angel and the horse are not denizens")
+ok(not emunah.watch.inCombat(), "nor are we in combat with them")
+mock.line("You have slain an apathetic gnoll sentinel, retrieving the corpse.")
+eq(table.concat(mock.sent, " | "), "get gold", "the last one dead: GET GOLD")
+
+-- Two piles: GET GOLD takes every pile in the room (the user, 2026-10-04), so one goes.
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
+mock.sent = {}
+mock.feed("Char.Items.List", {
+   location = "room",
+   items = {
+      { attrib = "m", id = "318870", name = "a guardian angel" },
+      { attrib = "t", icon = "coin", id = "601", name = "some gold sovereigns" },
+      { attrib = "t", icon = "coin", id = "602", name = "some gold sovereigns" },
+   },
+})
+eq(table.concat(mock.sent, " | "), "get gold", "two piles down, one GET goes")
+ok(not emunah.loot.pending(), "and it covers both")
+mock.feed("Char.Items.Remove", { location = "room",
+   item = { attrib = "t", icon = "coin", id = "601", name = "some gold sovereigns" } })
+mock.feed("Char.Items.Remove", { location = "room",
+   item = { attrib = "t", icon = "coin", id = "602", name = "some gold sovereigns" } })
+eq(table.concat(mock.sent, " | "), "get gold", "both lifted: nothing more is sent")
 
 -- ---------------------------------------------------------------------------
 -- STOWING IT.
@@ -10948,7 +10991,7 @@ do
    bash.stop("test")
    emunah.walker.stop("test", true)   -- emergency: no walk home to leave in flight
 
-   emunah.loot.attempted = {}
+   emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
    emunah.loot.creditUntil = nil
    emunah.config.set("loot.gold", true)
    -- The narrow rule is off by default; assert against the shipped behaviour.
@@ -11002,7 +11045,7 @@ do
    mock.sent = {}
    mock.feed("Char.Vitals", { bal = "0", eq = "0" })
    ok(not left, "the room is HELD rather than handed back to the walker")
-   ok(not emunah.util.contains(mock.sent, "get 90001"),
+   ok(not emunah.util.contains(mock.sent, "get gold"),
       "...and no GET goes out while the resources for it are spent")
 
    -- Balance and equilibrium return: the pickup becomes possible, and the room stops being
@@ -11010,7 +11053,7 @@ do
    left = false
    mock.sent = {}
    mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-   ok(emunah.util.contains(mock.sent, "get 90001"),
+   ok(emunah.util.contains(mock.sent, "get gold"),
       "the pile is taken the moment balance and equilibrium are back",
       table.concat(mock.sent, " | "))
    ok(not emunah.loot.pending(), "nothing left pending once it has been taken")
@@ -11021,7 +11064,7 @@ do
    -- argument as the attempt budgets in curing/engine.lua.
    bash.stop("test")
    emunah.walker.stop("test", true)   -- emergency: no walk home to leave in flight
-   emunah.loot.attempted = {}
+   emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
    mock.feed("Room.Info", { num = 8, name = "Stuck room", area = "Test", exits = { e = 9 } })
    mock.feed("Char.Items.List", {
       location = "room",
@@ -11058,7 +11101,7 @@ do
    -- for four seconds in every room containing somebody else's loot.
    emunah.config.set("loot.ownKillsOnly", true)
    emunah.loot.creditUntil = nil          -- no kill of ours credited it
-   emunah.loot.attempted = {}
+   emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
    ok(not emunah.loot.pending(),
       "gold that is not ours is not pending, so the room is never held for it")
    emunah.config.set("loot.ownKillsOnly", false)

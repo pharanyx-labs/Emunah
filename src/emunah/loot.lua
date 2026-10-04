@@ -6,15 +6,14 @@
 ---
 --- DRIVEN BY GMCP, NOT BY THE MESSAGE
 --- ----------------------------------
---- The obvious approach is to trigger on the spill line and send `get gold`. This does not,
---- because Char.Items.Add already tells us precisely what appeared in the room and gives us
---- its replica number. That matters for the same reason it matters when attacking: `get
---- gold` is ambiguous when several piles are on the ground, whereas `get 12345` is not. It
---- also works for gold that arrives any other way -- a corpse someone else made, a pile
---- dropped by a fleeing denizen -- without needing a pattern for each.
+--- Char.Items.Add says when gold has landed in the room, so no pattern is needed for the
+--- spill line: at 11:52:09 (2026-10-04) `some gold sovereigns` (attrib "t") arrived in the
+--- room's list ahead of "A tiny pile of sovereigns spills from the corpse." It also covers
+--- gold that arrives any other way -- a corpse someone else made, a pile dropped by a fleeing
+--- denizen.
 ---
---- The spill message is kept as a backstop, since a corpse's contents occasionally land
---- without a separate Add.
+--- THE COMMAND IS `get gold`, the user's (2026-10-04), not `get <replica>`, and it takes
+--- every pile in the room (the user, 2026-10-04). So one goes out for all of them.
 
 local M = {}
 
@@ -27,8 +26,13 @@ local event = emunah.event
 M.PATTERNS = { "sovereign", "gold coin", "golden crown" }
 
 --- Replica numbers we have already tried to take, so a pile we cannot pick up (someone
---- else's, or out of reach) is not retried on every room list.
+--- else's, or out of reach) is not retried on every room list. `get gold` takes every pile,
+--- so all of them are marked when it goes.
 M.attempted = {}
+
+--- Seconds to wait for a GET to land before the next. Covers the round trip, as STOW_GUARD
+--- does for the PUT.
+M.GET_GUARD = 1.5
 
 M.stats = { picked = 0 }
 
@@ -126,11 +130,18 @@ function M.take(id, name)
    -- Do NOT mark attempted when we cannot act: nothing else is holding this pile for us.
    -- The balance and equilibrium events below re-sweep once they return, so a pile skipped
    -- mid-fight is picked up a moment later rather than lost for the rest of the visit.
-   if not emunah.act.send("get " .. id, { standing = true, bal = true, eq = true }) then
+   -- One GET in flight. A kill that drops two piles adds both at once, and the first `get
+   -- gold` takes both.
+   if emunah.timers.active("loot.get") then return false end
+   if not emunah.act.send("get gold", { standing = true, bal = true, eq = true }) then
       return false
    end
 
    M.attempted[id] = true
+   for _, item in ipairs(emunah.gmcp.items.at("room")) do
+      if M.isGold(item.name) then M.attempted[tostring(item.id)] = true end
+   end
+   emunah.timers.start("loot.get", M.GET_GUARD, function() M.sweep() end)
    M.stats.picked = M.stats.picked + 1
    log.debug("Picking up %s (%s).", tostring(name or "item"), id)
    event.raise("loot.taken", id, name)
@@ -375,8 +386,15 @@ end, "loot")
 --- it the budget only ever counts up, and the fourth stow of a hunt would be refused with a
 --- warning about a problem that had already resolved itself three times.
 event.register("emunah.items.removed", function(_, location, item)
-   if location ~= "inv" or not item or not M.isGold(item.name) then return end
-   M.stowGold()
+   if not item or not M.isGold(item.name) then return end
+   if location == "inv" then
+      M.stowGold()
+   elseif location == "room" then
+      -- A GET landed (or someone else took it). It took every pile there was, so the
+      -- others are already marked; only gold that landed behind it is left to sweep.
+      emunah.timers.stop("loot.get")
+      M.sweep()
+   end
 end, "loot")
 
 --- A full room list can also carry gold we have not seen (walking into a room where

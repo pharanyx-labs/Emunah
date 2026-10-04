@@ -119,6 +119,30 @@ There is no numeric quantity field, so the name is the only source. `engine.queu
 still stops after `STOCK_ATTEMPTS` pulls that do not move the count, in case a wording
 turns up that this does not parse.
 
+### Gold from a kill, and our own creatures
+
+From one `emset debug gmcp` trace (2026-10-04, 11:52:08–11:52:12), the last sentinel in
+a room dying to `angel sear`. The gold reaches the room's list **before** the corpse leaves
+it and before any text:
+
+```
+Char.Items.Add {item={attrib="t" icon="coin" id="497034" name="some gold sovereigns"} location="room"}
+Char.Items.Add {item={icon="deadbody" id="234015" name="the corpse of an apathetic gnoll sentinel"} location="inv"}
+Char.Items.Remove {item={attrib="mdt" icon="deadbody" id="234015" ...} location="room"}
+...
+You have slain an apathetic gnoll sentinel, retrieving the corpse.
+You have gained 15787 experience.
+A tiny pile of sovereigns spills from the corpse.
+```
+
+The guardian angel (`attrib="m" id="318870" name="a guardian angel"`) and the mount
+(`attrib="mx" id="368644" name="a heavy horse"`) carry `m` like any denizen.
+`denizens.here()` leaves them out by name and replica number; counted, they made every room
+"alive" and gold was never picked up. What `x` means is not established.
+
+The pickup sends `get gold`, the user's command, which takes every pile in the room (the
+user, 2026-10-04), so one goes out per room.
+
 ## IRE.Rift
 
 `IRE.Rift.List` is the full contents, `IRE.Rift.Change` a single commodity after it moves.
