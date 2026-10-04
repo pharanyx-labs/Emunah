@@ -12561,10 +12561,12 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
    engine.remove("clumsiness")
    engine.enabled = false
 
-   -- Not in the room: nothing to vault onto, and the prompt says so.
+   -- Not in the room for longer than that: nothing to vault onto, and the prompt says so.
    mock.sent = {}
    room(pegasus, angel)
    eq(riding.present(), false, "lost: the room list no longer has it")
+   mock.advance(riding.LEFT_BEHIND + 0.1)
+   vitals()
    eq(riding.following(), false, "so it is not following")
    ok(not sent("vault") and not sent("order"), "and nothing is sent for a mount that is not here",
       table.concat(mock.sent, " | "))
@@ -12614,6 +12616,22 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
    mock.advance(riding.GUARD + 0.1); vitals()
    ok(not sent("vault"), "keep-up off never vaults", table.concat(mock.sent, " | "))
    ok(sent("order 368644 follow me"), "but still keeps it following", table.concat(mock.sent, " | "))
+
+   -- A follower walks in after you: the new room's list comes without it, and it is added a
+   -- moment later. That is not "lost", and must not order it again -- it did, in every room
+   -- (reported from play, 2026-10-04).
+   riding.setFollowing(true)
+   for _ = 1, 3 do
+      mock.sent = {}
+      room(pegasus, angel)
+      eq(riding.following(), true, "a move: the list without it does not undo following")
+      ok(not riding.warning(), "...nor warn while it walks in")
+      vitals()
+      mock.advance(0.5)
+      room(pegasus, horse, angel)
+      vitals()
+      ok(not sent("order"), "...and its arrival orders nothing", table.concat(mock.sent, " | "))
+   end
 
    -- DEFENCES settles riding either way.
    mock.line("You have the following defences:")
