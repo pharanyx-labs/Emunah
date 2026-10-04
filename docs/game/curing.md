@@ -280,6 +280,27 @@ cures and states as text, and text can be faked. svof's defences, as Emunah appl
    `Char.Afflictions` reports it within `engine.TEXT_CONFIRM` (2s). Blackout is the
    exception.
 
+Emunah's own lines (`curing/detect/patterns.lua`) act the moment they arrive, because most
+of them answer a command and the answer is what frees a slot. svof's per-line checks
+(`raw-svo.valid.main.lua`) cover them instead:
+
+5. **A reply needs a question** [svof]. A refusal is believed only within 3s of a command
+   of ours (`detect.REPLY_WINDOW`), and of the right verb where the line names one: the
+   anorexia refusal needs an `EAT`, asthma's a `SMOKE`, slickness's an `APPLY`; the WAKE
+   struggle and `You already are awake.` need a `WAKE`, the writhe-start lines a `WRITHE`,
+   `You are not fallen or kneeling.` a `STAND`, the self-sleep onset a `SLEEP`. Paralysis,
+   prone, asleep and balance refusals need any command. svof: "We aren't eating goldenseal
+   at the moment." Commands are seen through Mudlet's `sysDataSendRequest`
+   (`core/outgoing.lua`), typed or sent.
+6. **Not so soon** [svof: `conf.ai_minherbbal`, 1.1s]. `You may eat another plant or
+   mineral.` less than 1.1s after a herb `EAT` (not irid or potash, which have their own
+   balance) is ignored. svof: "Couldnt've possibly recovered herb balance so soon."
+7. **The quit prayer needs a QUIT** *(the user, 2026-10-04: the prayer only ever follows
+   QUIT)*. Otherwise a faked line would empty the pack into the rift and stop restocking.
+
+Anything ignored is marked on its own line with an `(i)` whose tooltip says why, as svof's
+`ignore_illusion()` does. `curing.antiIllusion false` turns 1, 2, 5 and 6 off.
+
 The prompt trigger is also the heartbeat's backup. A prompt with no `Char.Vitals` since the
 last one runs the tick itself (`gmcp.vitals.onPrompt`).
 

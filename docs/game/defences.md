@@ -471,3 +471,68 @@ Char.Defences.Remove = { "inspiration" }
 Nothing strips it; it simply lapses after about ten minutes. That is exactly the shape
 keep-up exists for, so it is in `defkeepup.M.commands` and needs only
 `emset defs add inspiration`.
+
+## Selfishness (antitheft)
+
+`SELFISHNESS` raises it and `GENEROSITY` drops it [svof: `defs_data.selfishness`]. Lines:
+
+| | |
+|---|---|
+| raised | `You rub your hands together greedily.` [svof] |
+| already up | `You already are a selfish bastard.` *(the user, 2026-10-04; also svof)* |
+| dropped | `A feeling of generosity spreads throughout you.` [svof] |
+| DEF | `You are feeling quite selfish.` |
+
+HELP THIEVERY: "Turn on your curing and setup selfishness as a defence." It is the one
+defence a thief may strip, and a pickpocket checks it when the attempt completes, so the
+race is the gap between losing it and raising it again.
+
+**Both directions spend 0.50s of equilibrium.** From play, 2026-10-04:
+
+```
+08:08:28.63  generosity
+A feeling of generosity spreads throughout you.
+Equilibrium used: 0.50s.
+08:09:39.34  selfishness
+You rub your hands together greedily.
+Equilibrium used: 0.50s.
+```
+
+The prompt went from `excdb` to `xcdb`: equilibrium gone, balance kept. So keep-up raises it
+on the equilibrium slot. Whether it also *needs* balance hasn't been seen (balance was up),
+so both are required, per HELP's default for bal/eq abilities. It competes with
+`perform hands` for equilibrium, but only for half a second.
+
+**`GET` and `PUT` of gold with your own pack work while selfish** *(the user, 2026-10-04)*.
+svof refuses `EMPTY` (pipes) and `BOIL` while selfish, and Emunah sends neither.
+
+## Sileris and myrrh: named after what they do
+
+The game names these defences after their effect, not the item [svof: `gamename` in
+`raw-svo.dict.lua`]:
+
+| item | `Char.Defences` name | DEF line |
+|---|---|---|
+| sileris / quicksilver (apply) | `fangbarrier` | `You are protected from the fangs of serpents.` |
+| myrrh / bisemutum (eat) | `scholasticism` | `Your mind is racing with enhanced speed.` |
+
+Keep-up keyed them by the item name, so it waited for a name the game never sends. That's
+the same bug as venom/poisonresist, and the same fix: `afflist.defenceCures` is keyed by
+the server's name, `deflist.ALIASES` maps the item names onto it, and config migration 11
+moves a saved mode across. The `emset defs` grid still shows them as `sileris` and `myrrh`.
+
+Sileris hardens a few seconds after it's applied [svof: `waitingforsileris`,
+`customwait = 8`]:
+
+```
+You apply a sileris berry to yourself.                         <- applied, not yet up
+The sileris berry juice hardens into a supple purple shell.    <- up (seen in play, 2026-10-04)
+```
+
+and for quicksilver, `You apply a quicksilver droplet to yourself.` /
+`The quicksilver hardens into a supple metallic shell.` [svof]. Keep-up won't apply again
+for 8s after the apply line. The hardening line only counts after an `APPLY` of ours
+(anti-illusion).
+
+`fangbarrier` used to have its own entry as a skill command (`fangbarrier`) that was never
+seen working. It's gone; the salve raises it.

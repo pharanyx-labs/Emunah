@@ -42,6 +42,10 @@
 ---
 ---   unconscious  Same as stunned. The reference system refuses every action on it.
 ---
+---   halted    Nothing is sent. QUIT or QQ typed means the client is closing (the user,
+---             2026-10-04): once INR ALL has gone out, the system stops entirely. See
+---             M.halt().
+---
 ---   paralysed / entangled / arm balance   See M.blocked() below.
 ---
 --- Requirements are a plain table so a caller states only what it actually costs:
@@ -53,6 +57,27 @@ local M = {}
 
 --- Hold everything back until this time. See M.rateLimited().
 M.backoffUntil = nil
+
+--- Why the system has stopped entirely, or nil. Held on the module table on purpose: a
+--- reload (emreload) is a deliberate restart and clears it, as does a new connection.
+M.halted = nil
+
+--- Stop sending anything at all. Everything automated goes through M.blocked(), so this
+--- one flag is the whole of "stop the system" -- curing, keep-up, the hunt, loot, pipes.
+function M.halt(reason)
+   if M.halted then return end
+   M.halted = reason or "halted"
+   emunah.log.info("<ansi_light_red>Stopped<ansi_yellow> -- %s. Nothing more will be sent "
+      .. "until you reconnect, emreload, or `emset pause`.", M.halted)
+   emunah.event.raise("halted", M.halted)
+end
+
+function M.resume()
+   if not M.halted then return false end
+   M.halted = nil
+   emunah.event.raise("resumed")
+   return true
+end
 
 --- Achaea has throttled us. Confirmed live: "Now now, don't be so hasty!" after steps went
 --- out roughly one round trip apart.
@@ -92,6 +117,8 @@ local NONE = {}
 
 function M.blocked(needs)
    needs = needs or NONE
+
+   if M.halted then return "halted" end
 
    if M.backoffUntil then
       if emunah.util.now() < M.backoffUntil then return "rate limited" end
@@ -188,12 +215,19 @@ function M.send(command, needs)
 
    -- `quiet`: don't echo the command locally. For housekeeping whose output is gagged too
    -- (pipes.lua), where a lone echoed "light pipe367581" is the noise left behind.
+   -- `sending` tells core/outgoing.lua this one is ours, not typed: Mudlet raises
+   -- sysDataSendRequest from inside send(), before it returns.
+   M.sending = true
    if needs and needs.quiet then send(command, false) else send(command) end
+   M.sending = false
    -- Logged AFTER the send. With `emset debug` on this is a console print -- Qt work on the
    -- thread that has not yet handed the command to the socket -- so before the send it
    -- delayed every command by exactly the cost of describing it.
    emunah.log.debug("-> %s", command)
    return true
 end
+
+-- A new connection is a new session: whatever stopped the last one no longer applies.
+emunah.event.register("sysConnectionEvent", function() M.resume() end, "act")
 
 return M

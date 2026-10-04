@@ -227,6 +227,12 @@ end
 --- way one call always lands on a clean, fully-on or fully-off state, regardless of how
 --- `! cure` or `! defs` may have left them individually.
 M.handlers.pause = function()
+   -- Stopped by QUIT (act.halt): the client did not close after all. Picking up again is
+   -- what is wanted, not pausing curing on top of a system that is already sending nothing.
+   if emunah.act.resume() then
+      log.info("<ansi_light_green>Resumed<ansi_yellow> after QUIT.")
+      return
+   end
    local engine = emunah.curing.engine
    local keepup = emunah.curing.defkeepup
    -- Both modules log their own "X on."/"X off." when called directly (see engine.start()
@@ -249,20 +255,15 @@ end
 
 --- The keep-up grid: every defence we know how to raise, as clickable toggles.
 ---
---- Three states per defence, not two, and that is the point of building this rather than
---- printing a list. A checkbox alone answers "did I ask for this", which is the least
---- interesting of the three questions -- the others being whether it is actually up right
---- now, and whether we hold a command capable of raising it at all. A defence sitting
---- wanted-but-unraisable looks identical to one that is merely down, and stays that way
---- forever.
+--- Three questions per defence, not one: did you ask for it, is it up right now, and do we
+--- hold a command that can raise it. A checkbox alone answers only the first, and a defence
+--- sitting wanted-but-unraisable looks identical to one that is merely down.
 ---
----   [ ] off     not wanted
----   [o] defup   raise it once if it is missing, then leave it alone
----   [x] keepup  raise it whenever it is missing, indefinitely
----   [-] faint   we have no command for it; asking for it would achieve nothing
----
---- and the NAME is coloured by what is actually true right now: green up, red wanted but
---- down, dim down.
+---   section   kept up / raised once / not raised   -- what you asked for
+---   dot       the section again: green kept up, yellow raised once, dim not raised (all
+---             alike, up or not)
+---   name      red wanted but down, amber waiting on another defence
+---   "-"       no command known; the tooltip says how to give it one
 ---
 --- Clicking re-renders rather than editing in place: Mudlet's main console has no
 --- addressable cells, and a fresh grid under the old one is what every other clickable view
@@ -271,7 +272,30 @@ local function defencesGrid()
    local keepup = emunah.curing.defkeepup
    local names  = keepup.known()
 
-   ndbTitle("defences", keepup.enabled and "ON" or "OFF")
+   -- THE SECTION AND THE DOT ARE THE MODE, THE NAME IS THE TRUTH. Grouped by what you
+   -- asked for -- kept up, raised once, not raised -- so a toggle needs no legend (removed
+   -- at the user's request, 2026-10-04). The dot is solid and coloured by the section:
+   -- green kept up, yellow raised once (the user, 2026-10-04 -- a dot that followed "is it
+   -- up" read as red on a defence just clicked into keep-up, and grey on a raised-once one
+   -- already done, like bliss). Whether a wanted defence is actually down shows in its
+   -- NAME: red down, amber waiting on another defence.
+   -- Sileris, not `fangbarrier`: what you apply, not what the server calls it.
+   local labels = emunah.curing.deflist.LABELS or {}
+   local function label(name) return labels[name] or name end
+
+   local sections = { keepup = {}, defup = {}, off = {} }
+   local up, down = 0, 0
+   for _, name in ipairs(names) do
+      local state = keepup.state(name)
+      local section = sections[state.mode or "off"] or sections.off
+      section[#section + 1] = state
+      if state.mode and state.up then up = up + 1
+      elseif state.mode and state.raisable and not state.satisfied then down = down + 1 end
+   end
+
+   local summary = string.format("%d up  %s  %d down  %s  %s", up, "\194\183", down,
+      "\194\183", keepup.enabled and "ON" or "OFF")
+   ndbTitle("defences", summary)
    if not keepup.enabled then
       decho("\n  " .. theme().dc("affliction") .. "defences are OFF"
          .. faint(" -- nothing below is being raised. "))
@@ -281,94 +305,87 @@ local function defencesGrid()
          .. "emunah.commands.handlers.defs()", "Start raising these defences", true)
    end
 
-   local COLUMNS, column = 3, 0
-   for _, name in ipairs(names) do
-      local state = keepup.state(name)
+   local COLUMNS, WIDTH = 3, 20
+   local DOT, NONE = "\226\151\143", "\194\183"
 
-      -- THE BOX IS THE MODE, THE NAME IS THE TRUTH. Two questions, two channels: what did
-      -- you ask for, and what is actually up. Folding them together would make "I asked for
-      -- this and it is not up" -- the only state anything is owed about -- look the same as
-      -- "I never asked for it".
-      local box, boxColour
+   local function text(t) return theme().dc("text") .. t end
+   local function mark(state)
+      if not state.raisable then return faint("-"), dim end
+      local paint = text
+      if state.mode and not state.up and not (state.mode == "defup" and state.satisfied) then
+         paint = state.blockedBy and function(t) return theme().dc("warning") .. t end
+            or function(t) return theme().dc("affliction") .. t end
+      end
+      if state.mode == "keepup" then return theme().dc("defence") .. DOT, paint end
+      if state.mode == "defup" then return theme().dc("warning") .. DOT, paint end
+      -- Not raised looks the same whether or not it happens to be up: a coat of sileris
+      -- still on after being switched off read as a different grey from its neighbours
+      -- (the user, 2026-10-04).
+      return faint(NONE), dim
+   end
+
+   local function hint(state)
+      local name = state.name
       if not state.raisable then
-         box, boxColour = "-", theme().dc("inactive")
-      elseif state.mode == "defup" then
-         box, boxColour = "o", theme().dc("warning")
-      elseif state.mode == "keepup" then
-         box, boxColour = "x", theme().dc("defence")
-      else
-         box, boxColour = " ", theme().dc("textDim")
+         return name .. ": no command known. `emset defs add " .. name .. " <command>`"
       end
+      if labels[name] then name = labels[name] .. " (the game calls it " .. name .. ")" end
+      return ({ [""] = "Raise " .. name .. " once",
+                defup  = "Keep " .. name .. " up",
+                keepup = "Stop raising " .. name })[state.mode or ""]
+         .. "  (" .. tostring(state.command) .. ")"
+         -- Say when the command has not been checked against a live Char.Defences:
+         -- "it never goes up" is a likelier outcome for those.
+         .. (state.blockedBy and ("  -- waiting for " .. state.blockedBy
+               .. ", without which you cannot see or hear") or "")
+         .. (state.source == "imported" and "  [unverified]" or "")
+         .. (state.unconfirmable
+               and "  [never shows as up -- Char.Defences has no line for it]" or "")
+   end
 
-      local nameColour_
-      if state.up then
-         nameColour_ = theme().dc("defence")
-      elseif state.mode and state.blockedBy then
-         -- Wanted, down, and waiting on something else -- which is not the same problem as
-         -- "wanted and not going up", and should not read like it.
-         nameColour_ = theme().dc("warning")
-      elseif state.mode == "defup" and state.satisfied then
-         -- Done, not owed anything further -- the `emset defs list` text view already
-         -- draws this distinction ("done (lapsed)"); the grid did not, so a satisfied defup
-         -- entry (an ordinary lapsed one, or an unconfirmable one-shot like `bliss`) looked
-         -- identical to one that had never been raised at all.
-         nameColour_ = theme().dc("textDim")
-      elseif state.mode and state.raisable then
-         nameColour_ = theme().dc("affliction")
-      else
-         nameColour_ = theme().dc("textDim")
+   local function cells(label, list, cell)
+      if #list == 0 then return end
+      decho("\n\n  " .. theme().dc("borderLit") .. label)
+      for index, item in ipairs(list) do
+         if (index - 1) % COLUMNS == 0 then decho("\n    ") end
+         cell(item)
       end
+   end
 
-      if column == 0 then decho("\n  ") end
-      -- The whole cell is the link, checkbox included: a three-character click target is
-      -- an unkind one, and the name beside it is what the eye is already on.
-      dechoLink(string.format("%s[%s] %s%-20s", boxColour, box, nameColour_, name:sub(1, 20)),
-         -- Cycle, ask for a prompt so the change is acted on now rather than whenever the
-         -- game next says something, then redraw.
+   -- The whole cell is the link, dot included: a one-character click target is an unkind
+   -- one. Clicking cycles off -> raise once -> keep up -> off, then redraws.
+   local function defence(state)
+      local dot, paint = mark(state)
+      dechoLink(string.format("%s %s", dot, paint(string.format("%-" .. WIDTH .. "s",
+            label(state.name):sub(1, WIDTH)))),
          string.format("emunah.curing.defkeepup.cycle(%q) "
             .. "emunah.curing.defkeepup.nudge() "
-            .. "emunah.commands.handlers.defs()", name),
-         state.raisable
-            and (({ [""] = "Raise " .. name .. " once (defup)",
-                    defup  = "Keep " .. name .. " up (keepup)",
-                    keepup = "Stop raising " .. name })[state.mode or ""]
-                 .. "  (" .. tostring(state.command) .. ")"
-                 -- Say when the command has not been checked against a live
-                 -- Char.Defences: "it never goes up" is a likelier outcome for those, and
-                 -- the tooltip should not hide it.
-                 .. (state.blockedBy
-                     and ("  -- waiting for " .. state.blockedBy
-                          .. ", without which you cannot see or hear") or "")
-                 .. (state.source == "imported" and "  [unverified]" or "")
-                 .. (state.unconfirmable
-                     and "  [never shows as up -- Char.Defences has no line for it]" or ""))
-            -- Say why it is inert rather than offering a toggle that cannot help.
-            or (name .. ": no command known. `emset defs add " .. name .. " <command>`"),
-         true)
-
-      column = (column + 1) % COLUMNS
+            .. "emunah.commands.handlers.defs()", state.name),
+         hint(state), true)
    end
+
+   for _, list in pairs(sections) do
+      table.sort(list, function(a, b) return label(a.name) < label(b.name) end)
+   end
+   cells("kept up", sections.keepup, defence)
+   cells("raised once", sections.defup, defence)
+   cells("not raised", sections.off, defence)
 
    -- Pipe keep-up is its own module (`emset pipes`), not a defence, but relighting is what
    -- keeps rebounding and the other smoked defences raisable, and this grid is where the
    -- player looked for it: "i don't see the pipe relight toggle when i type emset defs".
    -- Two states, on or off -- the same switch as `emset pipes on|off`.
    local pipesOn = emunah.config.get("pipes.enabled", true) ~= false
-   decho("\n\n  ")
-   dechoLink(string.format("%s[%s] %s%-20s", pipesOn and theme().dc("defence") or theme().dc("textDim"),
-         pipesOn and "x" or " ", theme().dc(pipesOn and "defence" or "textDim"), "pipe relight"),
-      "emunah.pipes.toggle() emunah.config.save() emunah.commands.handlers.defs()",
-      pipesOn and "Stop refilling and relighting your pipes"
-         or "Keep your pipes filled and lit",
-      true)
-   decho(faint("  keeps pipes filled and lit  --  emset pipes for each pipe"))
+   cells("pipes", { pipesOn }, function(on)
+      dechoLink(string.format("%s %s", on and (theme().dc("defence") .. DOT) or faint(NONE),
+            (on and theme().dc("text") or theme().dc("textDim")) .. "pipe relight"),
+         "emunah.pipes.toggle() emunah.config.save() emunah.commands.handlers.defs()",
+         on and "Stop refilling and relighting your pipes" or "Keep your pipes filled and lit",
+         true)
+   end)
 
-   decho("\n\n  " .. faint("click cycles:  [ ] off  ->  [o] defup (raise once)  ->  "
-      .. "[x] keepup  ->  off"))
-   decho("\n  " .. faint("[-] no command known.  Name: green up now, red wanted but down, "
-      .. "dim down"))
-   decho("\n  " .. faint("emset defs on|off  |  emset defs add <name> <command> "
-      .. "corrects a name that never appears"))
+   decho("\n")
+   ndbRule()
 end
 
 M.handlers.defs = function(arg, rest)
@@ -837,6 +854,32 @@ M.handlers.loot = function(arg)
    end
 end
 
+M.handlers.antitheft = function(arg)
+   local antitheft = emunah.antitheft
+   if arg == "on" then antitheft.setEnabled(true)
+   elseif arg == "off" then antitheft.setEnabled(false)
+   elseif arg == "now" then
+      local n = antitheft.sweep()
+      emunah.loot.stowGold()
+      log.info("Put away: %d valuable(s), and any loose gold.", n)
+   else
+      local on = antitheft.enabled()
+      header("Antitheft")
+      row("status", on and "on" or "off", on and "ansi_light_green" or "ansi_light_red")
+      local defences = emunah.gmcp.defences
+      local selfish = defences and defences.has("selfishness")
+      row("selfishness", (selfish and "up" or "down") .. ", keep-up "
+         .. tostring(emunah.curing.defkeepup.mode("selfishness") or "off"),
+         selfish and "ansi_light_green" or "ansi_light_red")
+      local count = antitheft.packCount()
+      row("pack", string.format("%s -- %s of %d items", tostring(emunah.loot.pack()),
+         count and tostring(count) or "?", tonumber(emunah.config.get("pack.capacity", 50)) or 50))
+      local sweep = antitheft.sweepList()
+      row("kept in the pack", #sweep > 0 and table.concat(sweep, ", ") or "gold only")
+      decho("\n  " .. faint("emset antitheft on|off|now  --  emhelp antitheft for its settings"))
+   end
+end
+
 M.handlers.pipes = function(arg)
    local pipes = emunah.pipes
    if arg == "on" then pipes.start()
@@ -971,6 +1014,18 @@ table.insert(registry(), tempAlias([[^\s*sleep\s*$]], function()
    local detect = emunah.curing and emunah.curing.detect
    if detect then detect.intendSleep() end
    send("sleep")
+end))
+
+-- BUY by bare number: `buy 50 476321`, or `buy 476321` for one. Asked for by the user
+-- (2026-10-04), and the third exception to one prefix. It cannot shadow a real BUY: HELP
+-- SHOPS needs the full name ("tun115258", never "115258"), so a digits-only item is one the
+-- game refuses anyway. shop.buyByNumber() fills in the name from the WARES listing.
+table.insert(registry(), tempAlias([[^\s*buy\s+(\d+)\s+(\d+)\s*$]], function()
+   emunah.shop.buyByNumber(matches[2], matches[3])
+end))
+
+table.insert(registry(), tempAlias([[^\s*buy\s+(\d+)\s*$]], function()
+   emunah.shop.buyByNumber(1, matches[2])
 end))
 
 -- Reflect whatever curing/keep-up state a fresh load (or a reload mid-session) actually

@@ -83,3 +83,6 @@ __pycache__/
 *.swo
 .DS_Store
 Thumbs.db
+
+# Third-party reference code kept locally for study, not redistributed.
+stuff/

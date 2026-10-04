@@ -48,6 +48,25 @@ the disconnect, or the next prompt would pull the herbs straight back out.
 
 ## Containers
 
+**One pack: `backpack452292`** (`pack.id`), the user's default. Gold is stowed in it,
+purchases are paid from it, and antitheft keeps valuables in it. A pack holds **50 items**,
+and a full pack put inside another counts as one item *(the user, 2026-10-04)*. The
+character has **two other packs that are never to be used** *(the same)*, so nothing names a
+container except `pack.id`.
+
+**The packs cannot be closed.** Verbatim, 2026-10-04:
+
+```
+08:08:02.35  close backpack452292
+A canvas backpack doesn't have a lid or top of any sort to be closed.
+08:08:06.99  close pack
+A shaggy sheepskin backpack doesn't have a lid or top of any sort to be closed.
+```
+
+So antitheft can't keep the pack closed. That needs a container with a lid. Note also that
+`close pack` picked the *other* pack, which is exactly why every command names the pack by
+its replica number.
+
 Gold is stowed with `PUT <item> IN <container>` and the container is worn with
 `WEAR <container>`, both by replica number *(command forms stated by the user)*:
 
@@ -56,14 +75,30 @@ put gold in backpack452292
 wear backpack452292
 ```
 
-**What `PUT` costs has not been established.** `loot.stowGold()` therefore declares no
-requirement and relies on being retried when a balance returns, with an attempt budget to
-stop that becoming a loop. Confirm the cost and the requirement can be declared properly.
+A `GET` and a `PUT` of gold, traced with `emset debug gmcp` (2026-10-04):
 
-**Also unverified: whether gold placed in a container leaves the `inv` location.** The model
-is that it does — `Char.Items` tracks container contents under `repNNN` as a separate
-location (see `gmcp/items.lua`) — and `M.STOW_ATTEMPTS` is what bounds the damage if that is
-wrong. A `Char.Items` trace of one `put` closes both questions.
+```
+08:12:22.17  get 5 gold from pack452292
+[gmcp] << Char.Items.Add {item={icon="coin" id="620083" name="some gold sovereigns"} location="inv"}
+You get 5 gold sovereigns from a canvas backpack.
+08:12:24.65  (put gold in backpack452292)
+[gmcp] << Char.Items.Remove {item={icon="coin" id="620083" name="some gold sovereigns"} location="inv"}
+You put 5 gold sovereigns in a canvas backpack.
+```
+
+- **Gold put in the pack leaves `inv`.** `Char.Items.Remove` with `location="inv"` is the
+  confirmation `loot.lua` waits for, so its model holds.
+- **Neither showed a balance spent.** The prompt read `excdb` before and after both. That's
+  one sample, so `loot.stowGold()` still declares nothing and keeps its attempt budget.
+- **Loose gold's name carries no amount** ("some gold sovereigns"). The text line does.
+- **A gold `GET` you type is held**, not stowed. Emunah answered the GET above with
+  `put gold in` in the same packet. Now a typed `get ... gold` leaves the gold in hand for
+  `loot.holdTyped` (30s), then puts it back if it's still loose.
+
+**[open]** Whether `Char.Status.gold` counts gold in the pack. The trace above summarises
+Char.Status as `{...}`, so it doesn't show. `lua display(gmcp.Char.Status.gold)` before and
+after a `GET` settles it. Until then antitheft's gold watch reacts to any loose gold, not
+an amount.
 
 Observed verbatim, and the trigger that re-wears the pack:
 
@@ -94,6 +129,16 @@ example, but nothing about the mechanic is ink-specific).
   *vial* from the rift; this one fills the *rift itself* from a shop).
 - Retrieving gold to pay with must name the container by replica number, the same rule as
   `PUT`/`WEAR` above: `get <n> gold from backpack452292`, not `get gold from pack`.
+
+**The purchase's gold must not be stowed.** Reported from play (2026-10-04): a click got
+the right gold from the pack, then loot saw it arrive in inventory and sent `put gold in` the
+pack before the `BUY`. `shop.lua` now holds gold for `shop.PAY_WINDOW` (3s) from the `GET`;
+`loot.stowGold()` waits it out, then puts back anything a refused `BUY` left loose.
+
+**Buying by number:** `buy 50 476321` (or `buy 476321` for one) is Emunah's, at the user's
+request. The game refuses a bare number, so it is looked up in this session's `WARES`
+listings and bought by its full name, gold first. A number no listing showed is refused,
+not guessed. Tuns still fill one at a time.
 
 **Not established, and `shop.lua` deliberately does not guess:**
 

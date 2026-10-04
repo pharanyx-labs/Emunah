@@ -103,7 +103,7 @@ yours so Emunah does not wake you out of it).
 <table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>logLevel</code></td><td>info</td><td>debug, info, warn or error. <code>emset debug</code> toggles between info and debug.</td></tr>
 <tr><td><code>system.update</code></td><td>true</td><td>Pull main (fast-forward only) before every reload. Off, a reload loads what is on disk.</td></tr>
-<tr><td><code>schema</code></td><td>9</td><td>Config format version. Managed by the migrations; do not set this by hand.</td></tr>
+<tr><td><code>schema</code></td><td>10</td><td>Config format version. Managed by the migrations; do not set this by hand.</td></tr>
 </tbody></table>
 
 <h2 id="curing">Curing</h2>
@@ -121,7 +121,7 @@ yours so Emunah does not wake you out of it).
 
 <div class="cmd-block">
 <span class="cmd-syntax">emset pause</span>
-<p>pause or resume curing and defences together</p>
+<p>pause or resume curing and defences together; after QUIT, resume everything</p>
 </div>
 
 <div class="cmd-block">
@@ -137,7 +137,7 @@ yours so Emunah does not wake you out of it).
 <table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>curing.enabled</code></td><td>false</td><td>Off by default, deliberately. Curing is opt-in.</td></tr>
 <tr><td><code>curing.method</code></td><td>herbs</td><td>herbs or minerals. Changes which item every cure resolves to.</td></tr>
-<tr><td><code>curing.confirmWait</code></td><td>2 s</td><td>How long a sent cure holds its vector waiting for the game to confirm it, before the vector is re-armed.</td></tr>
+<tr><td><code>curing.confirmWait</code></td><td>2.0 s</td><td>How long a sent cure holds its vector waiting for the game to confirm it, before the vector is re-armed.</td></tr>
 <tr><td><code>curing.reconcileEvery</code></td><td>20 ticks</td><td>How often the tracked list is reconciled against Char.Afflictions wholesale.</td></tr>
 <tr><td><code>curing.healthThreshold</code></td><td>80 %</td><td>Sip health below this.</td></tr>
 <tr><td><code>curing.manaThreshold</code></td><td>85 %</td><td></td></tr>
@@ -147,16 +147,16 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>curing.diag</code></td><td>true</td><td>Send DIAG when the affliction list is in doubt -- which is what answers <code>loki</code>, the one affliction GMCP does not report honestly.</td></tr>
 <tr><td><code>curing.clotThreshold</code></td><td>30</td><td>Bleeding above this is clotted.</td></tr>
 <tr><td><code>curing.focusGuilt</code></td><td>false</td><td></td></tr>
-<tr><td><code>curing.elixirConfirm</code></td><td>7 s</td><td></td></tr>
-<tr><td><code>curing.mossConfirm</code></td><td>9 s</td><td></td></tr>
+<tr><td><code>curing.elixirConfirm</code></td><td>7.0 s</td><td></td></tr>
+<tr><td><code>curing.mossConfirm</code></td><td>9.0 s</td><td></td></tr>
 <tr><td><code>curing.riftConfirm</code></td><td>1.5 s</td><td></td></tr>
 <tr><td><code>curing.restock</code></td><td>true</td><td>Pull consumables out of the rift as they run low.</td></tr>
 <tr><td><code>curing.restockEvery</code></td><td>1 ticks</td><td>Every prompt by default. It used to be every tenth, which made each pull ten prompts apart for no benefit -- only one pull can be in flight anyway.</td></tr>
 <tr><td><code>curing.restockSalves</code></td><td>false</td><td></td></tr>
 <tr><td><code>curing.stockTarget</code></td><td>1</td><td>How many of each consumable to keep in hand.</td></tr>
 <tr><td><code>curing.recovery.&lt;vector&gt;</code></td><td>per vector s</td><td>Override the fallback recovery time for one vector, e.g. curing.recovery.herb.</td></tr>
-<tr><td><code>curing.antiIllusion</code></td><td>true</td><td>The reference system's anti-illusion for EmunahTriggers.xml: reports wait for the prompt, and a block containing an illusion is discarded whole. Off applies each report the moment its line arrives.</td></tr>
-<tr><td><code>curing.textConfirm</code></td><td>2 s</td><td>How long an affliction reported by text waits for the server to confirm it before it is dropped as an illusion.</td></tr>
+<tr><td><code>curing.antiIllusion</code></td><td>true</td><td>The reference system's anti-illusion: EmunahTriggers.xml reports wait for the prompt and a block containing an illusion is discarded whole; a refusal is believed only after a command it could answer; a herb balance back within 1.1s of eating is ignored. Ignored lines are marked (i). Off believes every line as it arrives.</td></tr>
+<tr><td><code>curing.textConfirm</code></td><td>2.0 s</td><td>How long an affliction reported by text waits for the server to confirm it before it is dropped as an illusion.</td></tr>
 <tr><td><code>curing.focusMinMana</code></td><td>35 % of max</td><td>FOCUS is held at or below this mana (the reference system's <code>manause</code>).</td></tr>
 <tr><td><code>priorities</code></td><td>{}</td><td>Per-affliction, per-vector rank overrides. Written by <code>emset prio</code>.</td></tr>
 </tbody></table>
@@ -272,7 +272,7 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>walker.returnToStart</code></td><td>true</td><td>Toggled in-session by <code>emset walk return</code>; not persisted.</td></tr>
 <tr><td><code>walker.stopBelowHealth</code></td><td>40 %</td><td></td></tr>
 <tr><td><code>walker.stopOnPlayer</code></td><td>false</td><td></td></tr>
-<tr><td><code>walker.transitTimeout</code></td><td>8 s</td><td></td></tr>
+<tr><td><code>walker.transitTimeout</code></td><td>8.0 s</td><td></td></tr>
 <tr><td><code>bashing.attack</code></td><td>angel sear</td><td></td></tr>
 <tr><td><code>bashing.balance</code></td><td>both</td><td>What the attack REQUIRES: eq, bal or both.</td></tr>
 <tr><td><code>bashing.consumes</code></td><td>eq</td><td>What the attack SPENDS: eq or bal. Not the same question as <code>balance</code>.</td></tr>
@@ -337,14 +337,45 @@ yours so Emunah does not wake you out of it).
 <p>sweep the room now</p>
 </div>
 
+<div class="cmd-block">
+<span class="cmd-syntax">buy [qty] &lt;number&gt;</span>
+<p>buy by the number from WARES, e.g. buy 50 476321; gold comes from the pack</p>
+</div>
+
 <table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>loot.gold</code></td><td>true</td><td></td></tr>
 <tr><td><code>loot.aloneOnly</code></td><td>true</td><td>Only lift gold with nobody else in the room.</td></tr>
 <tr><td><code>loot.ownKillsOnly</code></td><td>false</td><td></td></tr>
 <tr><td><code>loot.noDenizens</code></td><td>true</td><td>Do not stop to loot while something is still alive.</td></tr>
-<tr><td><code>loot.stowIn</code></td><td>backpack452292</td><td>Where gold goes. This default is one character's backpack id and will not be yours.</td></tr>
-<tr><td><code>shop.stowIn</code></td><td>(caller's choice)</td><td></td></tr>
+<tr><td><code>loot.holdTyped</code></td><td>30 s</td><td>Gold you take out of the pack yourself (get ... gold) is left in hand this long before it goes back. 0 puts it straight back.</td></tr>
+<tr><td><code>pack.id</code></td><td>backpack452292</td><td>The one pack, by replica number: gold is stowed in it, purchases are paid from it, and antitheft keeps it worn and closed.</td></tr>
+<tr><td><code>pack.capacity</code></td><td>50 items</td><td>How many items the pack holds. A pack inside it counts as one.</td></tr>
 <tr><td><code>shop.confirmAbove</code></td><td>(unset) gp</td><td>Purchases above this price ask for confirmation.</td></tr>
+</tbody></table>
+
+<h2 id="antitheft">Antitheft</h2>
+<p>Keeps selfishness up (it is on the defences grid, <code>emset defs</code>), cures generosity early, puts named valuables in the pack, and raises an alert when an item leaves your inventory or pack with nothing you sent to explain it, or when selfishness is stripped. An enemy entering the room puts everything away at once.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset antitheft</span>
+<p>status: selfishness, the pack and what is kept in it</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset antitheft on|off</span>
+<p>switch it on (selfishness joins keep-up) or off (it leaves)</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset antitheft now</span>
+<p>put loose gold and valuables in the pack now</p>
+</div>
+
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>antitheft.enabled</code></td><td>true</td><td></td></tr>
+<tr><td><code>antitheft.alarm</code></td><td>true</td><td>Alert when an item leaves inventory or the pack unexplained.</td></tr>
+<tr><td><code>antitheft.sweep</code></td><td>(none)</td><td>Comma-separated words from item names to keep in the pack, e.g. "sigil, key". Never curatives: those must stay loose to be eaten.</td></tr>
+<tr><td><code>antitheft.goldGrace</code></td><td>5 s</td><td>Loose gold older than this is reported and put away. 0 is off.</td></tr>
 </tbody></table>
 
 <h2 id="people">People</h2>
@@ -424,6 +455,7 @@ See <a href="curing.html">Curing Engine</a> for what the curing commands are dri
   <a href="#hunting">Hunting</a>
   <a href="#pvp">PvP</a>
   <a href="#loot">Loot &amp; shop</a>
+  <a href="#antitheft">Antitheft</a>
   <a href="#people">People</a>
   <a href="#interface">Interface</a>
 </div>

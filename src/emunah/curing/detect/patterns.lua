@@ -42,7 +42,13 @@ local detect = emunah.curing.detect
 -- around it -- see afflist.blocks and have.blockedBy().
 -- ---------------------------------------------------------------------------
 
+-- ANTI-ILLUSION, layer 5 (curing/detect/init.lua): each of these is a refusal, so it is
+-- believed only after a command it could be refusing. `reply` names the verb where the line
+-- names it -- "cannot eat", "cannot smoke", "the salve" -- and is "" (any command) where it
+-- does not.
+
 detect.define("anorexia", {
+   reply = "^eat ",
    gain = {
       [[^You are afflicted with anorexia and cannot eat anything\.$]],
       [[^You cannot afford to eat that in your condition\.$]],
@@ -50,6 +56,7 @@ detect.define("anorexia", {
 })
 
 detect.define("asthma", {
+   reply = "^smoke ",
    gain = {
       [[^You are having difficulty breathing and cannot smoke\.$]],
       [[^Your lungs are too constricted to smoke\.$]],
@@ -57,6 +64,7 @@ detect.define("asthma", {
 })
 
 detect.define("slickness", {
+   reply = "^apply ",
    gain = {
       [[^Your body is too slick with oil for the salve to have any effect\.$]],
       [[^The salve slides off your slick skin\.$]],
@@ -73,6 +81,7 @@ detect.define("slickness", {
 -- they are unambiguous. Verbatim from the arena -- the first for `drink health`, the second
 -- also for `drink health`, the third for `perform hands`.
 detect.define("paralysis", {
+   reply = "",
    gain = {
       [[^You are paralysed and cannot move\.$]],
       [[^Your state of paralysis prevents you from doing that\.$]],
@@ -254,8 +263,9 @@ do
    local id = tempRegexTrigger(
       [[^You grow still and begin to silently pray for preservation of your soul while you are out of the land\.$]],
       function()
+         -- Believed only after a QUIT: see engine.onQuitPrayerLine().
          local engine = emunah.curing and emunah.curing.engine
-         if engine and engine.onQuitPrayer then engine.onQuitPrayer() end
+         if engine and engine.onQuitPrayerLine then engine.onQuitPrayerLine() end
       end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
@@ -477,8 +487,9 @@ local REJECTIONS = {
 }
 
 for _, rejection in ipairs(REJECTIONS) do
-   local id = tempRegexTrigger(rejection.pattern,
-      rejection.handler or rearm(rejection.vector))
+   -- Refusals: an illusioned one would hold a vector we actually have (layer 5).
+   local id = tempRegexTrigger(rejection.pattern, detect.reply(nil, "a balance refusal",
+      rejection.handler or rearm(rejection.vector)))
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
       table.insert(emunah._persist.detectTriggers, id)
@@ -542,11 +553,13 @@ end
 do
    local function onProne() detect.onProne() end
 
-   for _, pattern in ipairs({
-      [[^You must be standing first\.$]],           -- the rejection: backstop
-      [[sending you sprawling\.$]],                 -- observed: wildcat soldier
+   for _, entry in ipairs({
+      -- the rejection, the backstop: a reply, so it needs a command (layer 5)
+      { [[^You must be standing first\.$]],
+        detect.reply(nil, "a refusal for being down", onProne) },
+      { [[sending you sprawling\.$]], onProne },     -- observed: wildcat soldier
    }) do
-      local id = tempRegexTrigger(pattern, onProne)
+      local id = tempRegexTrigger(entry[1], entry[2])
       if id then
          emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
          table.insert(emunah._persist.detectTriggers, id)
@@ -558,12 +571,16 @@ do
    -- "You are not fallen or kneeling." is what Achaea actually says when you STAND while
    -- already up -- confirmed live at 09:09:28.43. The guessed "You are already standing."
    -- is kept in case it exists too; it has never been observed.
-   for _, pattern in ipairs({
-      [[^You stand up\.$]],
-      [[^You are not fallen or kneeling\.$]],
-      [[^You are already standing\.$]],
+   -- The two refusals answer a STAND (layer 5). "You stand up." is left alone: something
+   -- other than our STAND may stand us, and believing it wrongly only costs one refused
+   -- command, whose "You must be standing first." puts the flag back.
+   local function onStood() detect.onStood() end
+   for _, entry in ipairs({
+      { [[^You stand up\.$]], onStood },
+      { [[^You are not fallen or kneeling\.$]], detect.reply("^stand", "already standing", onStood) },
+      { [[^You are already standing\.$]], detect.reply("^stand", "already standing", onStood) },
    }) do
-      local upId = tempRegexTrigger(pattern, function() detect.onStood() end)
+      local upId = tempRegexTrigger(entry[1], entry[2])
       if upId then
          emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
          table.insert(emunah._persist.detectTriggers, upId)
@@ -961,16 +978,20 @@ end
 -- ---------------------------------------------------------------------------
 
 do
-   for _, pattern in ipairs({
+   -- Both are answers (layer 5): the onset to a SLEEP of ours, the rejection to anything.
+   local function onSleep() detect.onSleep() end
+   for _, entry in ipairs({
       -- The onset of a self-inflicted sleep. Observed 06:03:03.06.
-      [[^You close your eyes, curl up in a ball, and fall asleep\.$]],
+      { [[^You close your eyes, curl up in a ball, and fall asleep\.$]],
+        detect.reply("^sleep", "falling asleep", onSleep) },
       -- The REJECTION, and circular in the same way stun's is: it can only make the flag
       -- true after a command has already been thrown away. Kept anyway because it is what
       -- re-asserts the state if SLEEP_GUARD expires early on a long sleep -- see the note
       -- on that constant for why being wrong there is cheap.
-      [[^You are asleep and can do nothing\. WAKE will attempt to wake you\.$]],
+      { [[^You are asleep and can do nothing\. WAKE will attempt to wake you\.$]],
+        detect.reply(nil, "a refusal for being asleep", onSleep) },
    }) do
-      local id = tempRegexTrigger(pattern, function() detect.onSleep() end)
+      local id = tempRegexTrigger(entry[1], entry[2])
       if id then
          emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
          table.insert(emunah._persist.detectTriggers, id)
@@ -983,7 +1004,7 @@ do
    for _, pattern in ipairs({
       [[^You open your eyes and stretch languidly, feeling deliciously well-rested\.$]],
       [[^You open your eyes and yawn mightily\.$]],
-      [[^You already are awake\.$]],
+      -- (the reply to a WAKE; see below)
       [[^You are jerked awake by the pain\.$]],
    }) do
       local id = tempRegexTrigger(pattern, function() detect.onWake() end)
@@ -993,11 +1014,19 @@ do
       end
    end
 
+   local awakeId = tempRegexTrigger([[^You already are awake\.$]],
+      detect.reply("^wake", "already awake", function() detect.onWake() end))
+   if awakeId then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, awakeId)
+   end
+
    -- WAKE accepted: the struggle has begun, and another WAKE would only prolong it (HELP
-   -- SLEEPING). The reference system's `start waking` trigger, verbatim.
+   -- SLEEPING). The reference system's `start waking` trigger, verbatim. Believed only after
+   -- a WAKE (layer 5): a faked one would stop us waking for the rest of the sleep.
    local startId = tempRegexTrigger(
       [[^You begin your struggle to escape from the dreamworld\.$]],
-      function() detect.onWakeStart() end)
+      detect.reply("^wake", "the WAKE struggle", function() detect.onWakeStart() end))
    if startId then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
       table.insert(emunah._persist.detectTriggers, startId)
@@ -1023,7 +1052,9 @@ do
       [[^You begin trying to wrest your mind free of that which has transfixed it\.$]],
       [[^You begin to writhe furiously to escape the \w+ that has impaled you\.$]],
    }) do
-      persist(tempRegexTrigger(pattern, function() engine().onWritheStart() end))
+      -- Answers to a WRITHE (layer 5): a faked one would stop us writhing.
+      persist(tempRegexTrigger(pattern, detect.reply("^writhe", "the writhe starting",
+         function() engine().onWritheStart() end)))
    end
 
    for _, pattern in ipairs({
@@ -1036,7 +1067,8 @@ do
 
    persist(tempRegexTrigger(
       [[^You begin to writhe helplessly, throwing your body off balance\.$]],
-      function() engine().onWritheHelpless() end))
+      detect.reply("^writhe", "writhing helplessly",
+         function() engine().onWritheHelpless() end)))
 end
 
 -- ---------------------------------------------------------------------------
@@ -1159,6 +1191,27 @@ do
    }) do
       persist(tempRegexTrigger(pattern, function() emunah.curing.deflist.setBliss(true) end))
    end
+
+   -- SELFISHNESS answered (antitheft). "You already are a selfish bastard." is the game's
+   -- own reply to raising it while it is up -- given by the user, 2026-10-04 -- and "You rub
+   -- your hands together greedily." the raise landing [svof: defs_data.selfishness]. Either
+   -- answers the keep-up raise in flight. Already up while Char.Defences does not say so
+   -- means the defence is reported under another name: stop raising it, and say which names
+   -- are unclaimed, as for the elixirs above. Both answer a SELFISHNESS (anti-illusion
+   -- layer 5).
+   local function selfishAnswered(already)
+      local flight = emunah.queue.awaiting("equilibrium")
+      if flight and flight.tag == "def:selfishness" then emunah.queue.confirm("equilibrium") end
+      local defences = emunah.gmcp.defences
+      if already and not (defences and defences.has("selfishness")) then
+         emunah.curing.defkeepup.abandon("selfishness",
+            "the game says it is already up, so Char.Defences must call it something else")
+      end
+   end
+   persist(tempRegexTrigger([[^You rub your hands together greedily\.$]],
+      detect.reply("^selfishness", "selfishness raised", function() selfishAnswered(false) end)))
+   persist(tempRegexTrigger([[^You already are a selfish bastard\.$]],
+      detect.reply("^selfishness", "selfishness already up", function() selfishAnswered(true) end)))
 
    -- And its wear-off, which neither the reference system nor any capture had until
    -- 15:15:26.52 on 2026-09-28. Keep-up can now re-cast bliss the moment it lapses rather

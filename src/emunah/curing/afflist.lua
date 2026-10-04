@@ -142,14 +142,19 @@ M.armAfflictions = {
 --- Defences maintained with the same machinery as cures. Kept here so
 --- curing/defkeepup.lua can restore them with the right command, rather than duplicating
 --- the herb knowledge.
+---
+--- KEYED BY THE SERVER'S NAME, which is not always the item's. svof's gamename table:
+--- sileris grants `fangbarrier`, myrrh `scholasticism`. Keyed by the item, keep-up waited
+--- for a defence the game never names and applied berry after berry (2026-10-04). The item
+--- names still work, through deflist.ALIASES.
 M.defenceCures = {
    insomnia   = { vector = "herb",  item = "cohosh",    alt = "gypsum"    },
    kola       = { vector = "herb",  item = "kola",      alt = "quartz"    },
-   myrrh      = { vector = "herb",  item = "myrrh",     alt = "bisemutum" },
+   scholasticism = { vector = "herb", item = "myrrh",   alt = "bisemutum" },
    thirdeye   = { vector = "herb",  item = "echinacea", alt = "dolomite"  },
    deathsight = { vector = "herb",  item = "skullcap",  alt = "azurite"   },
    rebounding = { vector = "smoke", item = "skullcap",  alt = "malachite" },
-   sileris    = { vector = "salve", item = "sileris",   alt = "quicksilver", location = "body" },
+   fangbarrier = { vector = "salve", item = "sileris",  alt = "quicksilver", location = "body" },
 }
 
 --- The afflictions themselves.
@@ -416,9 +421,12 @@ M.afflictions = {
       cures = { { vector = "salve", item = "caloric", alt = "exothermic", location = "body" } },
       priority = { salve = 12 },
    },
+   -- Raised from herb 30 / focus 6 for antitheft (the user, 2026-10-04): generosity strips
+   -- selfishness, and a pickpocket lands in the gap before it is back (HELP THIEVERY;
+   -- "Hide > mesmerize > generosity > pickpocket"). Still behind the locks and paralysis.
    generosity = {
       cures = { { vector = "herb", item = "bellwort", alt = "cuprum" }, { vector = "focus" } },
-      priority = { herb = 30, focus = 6 },
+      priority = { herb = 7, focus = 2 },
    },
    -- ADDED from the tk cross-check; see the comment above flushings.
    guilt = {

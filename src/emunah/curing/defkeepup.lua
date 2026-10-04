@@ -46,7 +46,7 @@ M.enabled = false
 ---
 --- A blank line costs nothing and produces one immediately.
 function M.nudge()
-   if not M.enabled then return false end
+   if not M.enabled or emunah.act.halted then return false end
    send("")
    return true
 end
@@ -289,9 +289,14 @@ local function raisePending(name)
    local r = raising[name]
    if not r then return false end
    local now = util.now()
-   if r.eaten then return now - r.eaten < M.RAISE_PENDING end
+   if r.eaten then return now - r.eaten < (r.window or M.RAISE_PENDING) end
    return now - r.sent < M.EAT_PENDING
 end
+
+--- How long sileris (or quicksilver) takes to harden after the apply [svof:
+--- waitingforsileris, customwait = 8]. Applied, it is not up yet: keep-up must not apply a
+--- second one into the gap.
+M.SILERIS_HARDEN = 8.0
 
 -- The eat line starts the wait. Any "You eat ..." counts for every raise still waiting on
 -- one: an item raise is at most one per vector in flight, and a line about another herb
@@ -306,6 +311,46 @@ do
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
       table.insert(emunah._persist.detectTriggers, id)
+   end
+end
+
+-- SILERIS IS APPLIED, THEN HARDENS -- svof's "sileris/quicksilver start" and "finished"
+-- triggers, verbatim. The apply line starts the wait the way an eat line does; the
+-- hardening line (seen in play, 2026-10-04) is the defence landing, as `fangbarrier`. It is
+-- believed only after an APPLY of ours (anti-illusion layer 5, curing/detect/init.lua).
+do
+   local function persist(id)
+      if id then
+         emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+         table.insert(emunah._persist.detectTriggers, id)
+      end
+   end
+   for _, pattern in ipairs({
+      [[^You apply a sileris berry to yourself\.$]],
+      [[^You apply a quicksilver droplet to yourself\.$]],
+   }) do
+      persist(tempRegexTrigger(pattern, function()
+         local r = raising.fangbarrier
+         if r and not r.eaten then r.eaten, r.window = util.now(), M.SILERIS_HARDEN end
+      end))
+   end
+   local function hardened()
+      local outgoing = emunah.outgoing
+      local detect = emunah.curing.detect
+      if detect and detect.antiIllusion and detect.antiIllusion() and outgoing
+         and not outgoing.sentRecently("^apply", M.SILERIS_HARDEN + 2) then
+         detect.markIllusion("sileris hardening, but nothing was applied")
+         return
+      end
+      raising.fangbarrier = nil
+      M.resetBudget("fangbarrier")
+      if M.mode("fangbarrier") == "defup" then M.satisfied.fangbarrier = true end
+   end
+   for _, pattern in ipairs({
+      [[^The sileris berry juice hardens into a supple purple shell\.$]],
+      [[^The quicksilver hardens into a supple metallic shell\.$]],
+   }) do
+      persist(tempRegexTrigger(pattern, hardened))
    end
 end
 

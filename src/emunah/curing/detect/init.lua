@@ -165,8 +165,30 @@ end
 --      confirms it (engine.TEXT_CONFIRM). The reference system: "serverside curing is completely immune" to
 --      illusions -- which is exactly what GMCP is.
 --
+-- Emunah's own lines (patterns.lua) act the moment they arrive, because most of them answer
+-- a command and the answer is what frees the slot. Three more layers cover them, from svof's
+-- per-line checks (raw-svo.valid.main.lua):
+--
+--   5. A REPLY NEEDS A QUESTION. A refusal ("You are afflicted with anorexia and cannot eat
+--      anything.", "You must regain balance first.", "You are asleep and can do nothing.")
+--      only answers a command, so with no command of ours sent in the last M.REPLY_WINDOW it
+--      cannot be real. Where the refusal names its verb, only that verb counts: the
+--      anorexia line needs an EAT, the WAKE struggle line needs a WAKE. svof: "We aren't
+--      eating goldenseal at the moment", "Not actually trying to focus right now". See
+--      M.reply().
+--   6. NOT SO SOON. A herb balance announced back less than M.MIN_HERB_BALANCE after the
+--      eat is an illusion. svof: "Couldnt've possibly recovered herb balance so soon"
+--      (conf.ai_minherbbal). Believed, it sends the next herb inside the balance -- eaten
+--      for nothing, "The plant has no effect."
+--   7. THE QUIT PRAYER NEEDS A QUIT. See engine.onQuitPrayerLine().
+--
+-- Whatever is ignored is marked on the line itself with an "(i)" whose tooltip says why,
+-- as svof's ignore_illusion() does: an illusion that changes nothing is otherwise
+-- indistinguishable from a trigger that is broken.
+--
 -- `emunah set curing.antiIllusion false` applies reports the moment they arrive instead
--- (the reference system's `vconfig aillusion`); layers 3 and 4 still apply.
+-- (the reference system's `vconfig aillusion`), and turns 5 and 6 off; 3, 4 and 7 still
+-- apply.
 -- ---------------------------------------------------------------------------
 
 local paragraph = {}
@@ -174,6 +196,62 @@ local illusion = nil
 
 local function antiIllusion()
    return emunah.config.get("curing.antiIllusion", true) ~= false
+end
+
+M.antiIllusion = antiIllusion
+
+--- Say, on the line itself, that it was ignored and why. svof's ignore_illusion() does the
+--- same with an "(i)" link. Printed during a trigger, cecho text joins the end of the line
+--- being processed (shop.lua relies on the same thing, with a newline, to start a fresh one).
+function M.markIllusion(why)
+   why = tostring(why or "an illusion")
+   log.info("Illusion ignored -- %s.", why)
+   if type(cechoLink) == "function" then
+      cechoLink(" <ansi_light_black>(<ansi_magenta>i<ansi_light_black>)<reset>", "",
+         "Ignored as an illusion: " .. why, true)
+   end
+end
+
+--- How long after a command its reply can still arrive. A round trip is well under a
+--- second; generous so a lagging connection does not turn a real refusal into an "illusion".
+M.REPLY_WINDOW = 3.0
+
+--- Wrap a refusal handler so it runs only when a command it could be answering went out.
+--- @param verb string|nil Lua pattern the sent command must match (e.g. "^eat "); nil = any
+--- @param what string the line, for the "(i)" tooltip
+--- @param fn function the real handler
+function M.reply(verb, what, fn)
+   return function(...)
+      if antiIllusion() then
+         local outgoing = emunah.outgoing
+         if outgoing and not outgoing.sentRecently(verb or ".", M.REPLY_WINDOW) then
+            M.markIllusion(string.format("%s, but %s", what,
+               verb and ("no " .. verb:gsub("[%^%$]", ""):gsub("%s+$", ""):upper()
+                  .. " was sent") or "nothing was sent for it to answer"))
+            return
+         end
+      end
+      return fn(...)
+   end
+end
+
+--- The fastest a herb balance comes back after an eat [svof: conf.ai_minherbbal, raised
+--- from its shipped 1.0 to 1.1 by svof's own config migration].
+M.MIN_HERB_BALANCE = 1.1
+
+--- An EAT that spends the herb balance: anything but irid moss and potash, which have a
+--- balance of their own (docs/game/balance.md). Measured from the command going out, as
+--- svof measures from the eat, and NOT from have.spend(): "The plant has no effect" spends
+--- the balance again on the reply, and timing from that would reject the real announcement
+--- that follows it a moment later.
+local function herbEat(command)
+   return command:find("^eat ") ~= nil and not command:find("irid") and not command:find("potash")
+end
+
+--- When the last herb went down, or nil.
+function M.lastHerbEat()
+   local outgoing = emunah.outgoing
+   return outgoing and outgoing.lastSent(herbEat)
 end
 
 local TEXT_STATES = {
@@ -270,6 +348,12 @@ end
 
 --- This block of output contains an illusion: throw away everything it reported.
 function M.textIllusion(reason)
+   if not illusion and type(cechoLink) == "function" then
+      -- The mark goes on the line that gave it away; the log line comes at the prompt,
+      -- with the count of what was discarded.
+      cechoLink(" <ansi_light_black>(<ansi_magenta>i<ansi_light_black>)<reset>", "",
+         "Ignored as an illusion: " .. tostring(reason or "a line that cannot be real"), true)
+   end
    illusion = illusion or reason or "a line that cannot be real"
 end
 
@@ -598,7 +682,7 @@ end
 --- @param kind string "gain" | "cure"
 --- @param pattern string a Mudlet-flavoured (PCRE) regex
 --- @return boolean
-function M.add(affliction, kind, pattern)
+function M.add(affliction, kind, pattern, reply)
    affliction = tostring(affliction or ""):lower()
    if affliction == "" or type(pattern) ~= "string" then return false end
    if kind ~= "gain" and kind ~= "cure" then
@@ -609,13 +693,17 @@ function M.add(affliction, kind, pattern)
    M.patterns[affliction] = M.patterns[affliction] or { gain = {}, cure = {} }
    table.insert(M.patterns[affliction][kind], pattern)
 
-   local id = tempRegexTrigger(pattern, function()
+   local handler = function()
       if kind == "gain" then
          M.onGain(affliction)
       else
          M.onCure(affliction)
       end
-   end)
+   end
+   if reply then
+      handler = M.reply(reply ~= "" and reply or nil, affliction .. " refused a command", handler)
+   end
+   local id = tempRegexTrigger(pattern, handler)
 
    if not id then
       log.error("Could not create a %s trigger for %s.", kind, affliction)
@@ -627,8 +715,12 @@ function M.add(affliction, kind, pattern)
 end
 
 --- Convenience: register several patterns for one affliction.
+--- `spec.reply`: the gain lines are refusals of a command matching this Lua pattern
+--- ("" for any command), and are believed only after one (layer 5 above).
 function M.define(affliction, spec)
-   for _, pattern in ipairs(spec.gain or {}) do M.add(affliction, "gain", pattern) end
+   for _, pattern in ipairs(spec.gain or {}) do
+      M.add(affliction, "gain", pattern, spec.reply)
+   end
    for _, pattern in ipairs(spec.cure or {}) do M.add(affliction, "cure", pattern) end
 end
 
@@ -653,6 +745,16 @@ function M.balance(vector, spec)
 
    for _, pattern in ipairs(spec.gain or {}) do
       local id = tempRegexTrigger(pattern, function()
+         -- Layer 6: a herb balance back faster than any herb balance is an illusion.
+         local eaten = vector == "herb" and antiIllusion() and M.lastHerbEat()
+         if eaten then
+            local elapsed = emunah.util.now() - eaten
+            if elapsed < M.MIN_HERB_BALANCE then
+               M.markIllusion(string.format("herb balance back %.2fs after eating, and it "
+                  .. "takes at least %.1fs", elapsed, M.MIN_HERB_BALANCE))
+               return
+            end
+         end
          -- Free the QUEUE SLOT as well as the balance. queue.flush() refuses a vector while
          -- something is in flight on it, and only the confirm timeout was clearing that --
          -- so the announcement that the balance is back left the slot held anyway, and no

@@ -55,6 +55,20 @@ local function load()
    dofile(ROOT .. "/src/emunah.lua")
 end
 
+--- Forget what has been sent. The mock clock stands still, so an eat and the balance coming
+--- back land at the same instant -- which anti-illusion rightly calls impossible (layer 6 in
+--- curing/detect/init.lua). Tests whose subject is something else start from an eat long
+--- past; tests of the timing itself advance the clock instead.
+function mock.forgetSends()
+   emunah.outgoing.recent = {}
+end
+
+--- A command went to the game. A refusal is only believed as the answer to one (layer 5 in
+--- curing/detect/init.lua), so a test feeding one says what it was answering.
+function mock.sentCommand(command)
+   emunah.outgoing.record(command)
+end
+
 -- ===========================================================================
 suite("loader")
 
@@ -77,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 55, "all 55 manifest modules loaded")
+eq(loadedModules, 57, "all 57 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -1700,6 +1714,7 @@ mock.feed("Char.Defences.List", {})
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 emunah.have.spend("herb")
 eq(emunah.have.balance("herb"), false, "eating spends the herb balance")
+mock.forgetSends()
 mock.line("You may eat another plant or mineral.")
 eq(emunah.have.balance("herb"), true, "...and the game's own announcement returns it")
 
@@ -1733,6 +1748,7 @@ ok(table.concat(mock.sent, " | "):find("eat kelp"), "the cure is sent",
 -- the first one has not been answered yet.
 mock.sent = {}
 for _ = 1, 4 do
+   mock.forgetSends()
    mock.line("You may eat another plant or mineral.")
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 end
@@ -1855,6 +1871,7 @@ detect.textPrompt()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 detect.textLine()
+mock.forgetSends()
 mock.line("You may eat another plant or mineral.")
 ok(not sentText():find("eat bloodroot"), "(nothing yet: the line came after Char.Vitals)")
 detect.textPrompt()
@@ -1966,6 +1983,7 @@ ok(not table.concat(mock.sent, " | "):find("eat kelp"),
    table.concat(mock.sent, " | "))
 
 -- The game announcing the balance is what releases it, and then the next cure follows.
+mock.forgetSends()
 mock.line("You may eat another plant or mineral.")
 eq(emunah.have.balance("herb"), true, "the game's own announcement returns it")
 mock.sent = {}
@@ -2861,8 +2879,8 @@ table.sort(undocumented); table.sort(phantom)
 eq(#undocumented, 0, "every command handler is in a module", table.concat(undocumented, ", "))
 eq(#phantom, 0, "no module documents a handler that does not exist", table.concat(phantom, ", "))
 
--- ONE PREFIX: every command is `emset ...` or `emhelp ...`, bar the two documented words
--- that deliberately are not (sleep, emreload).
+-- ONE PREFIX: every command is `emset ...` or `emhelp ...`, bar the three documented words
+-- that deliberately are not (sleep, emreload, and buy-by-number).
 local stray = {}
 for _, row in ipairs(help.commands()) do
    local syntax = row.command.syntax
@@ -3653,9 +3671,28 @@ do
    ok(table.concat(mock.sent, " | "):find("outr", 1, true), "(fixture: restocking is live)",
       table.concat(mock.sent, " | "))
    emunah.queue.reset(); emunah.timers.stopAll()
+   local PRAYER = "You grow still and begin to silently pray for preservation of your soul while you are out of the land."
+
+   -- ANTI-ILLUSION: the prayer only ever follows a QUIT (the user, 2026-10-04). A faked
+   -- copy would empty the pack into the rift and stop restocking for the session.
    mock.sent = {}
-   mock.line("You grow still and begin to silently pray for preservation of your soul while you are out of the land.")
-   eq(mock.sent[1], "inr all", "the quit prayer sends INR ALL")
+   emunah.outgoing.quitAt = nil
+   mock.line(PRAYER)
+   eq(#mock.sent, 0, "the prayer with no QUIT typed is an illusion: nothing sent",
+      table.concat(mock.sent, " | "))
+   eq(engine.leaving, false, "...and restocking carries on")
+
+   -- QUIT typed: INR ALL at once, and once it has gone out the system stops entirely --
+   -- the client is closing (the user, 2026-10-04).
+   mock.sent = {}
+   mock.command("quit")
+   eq(mock.sent[1], "inr all", "typing QUIT sends INR ALL")
+   eq(emunah.act.halted ~= nil, true, "...and once it is sent, the system halts")
+   mock.line(PRAYER)
+   eq(#mock.sent, 1, "the prayer that follows does not send INR ALL twice",
+      table.concat(mock.sent, " | "))
+   eq(emunah.act.send("smite 123", { bal = true }), false, "nothing goes out while halted")
+   emunah.act.resume()
    mock.line("You store 3 bloodroot, bringing the total in the rift to 53.")
    mock.advance(5)
    mock.sent = {}
@@ -3664,6 +3701,18 @@ do
       "...and restocking does not pull it all back out", table.concat(mock.sent, " | "))
    raiseEvent("sysDisconnectionEvent")
    eq(engine.leaving, false, "the disconnect ends it, so the next login restocks as usual")
+
+   -- QQ is QUIT's shortcut and means the same. If INR ALL cannot go out (dead here), the
+   -- system stops anyway after a moment rather than running while the client closes.
+   mock.feed("Char.Vitals", { hp = "0", maxhp = "1000", bal = "1", eq = "1" })
+   emunah.queue.reset(); mock.sent = {}
+   mock.command("qq")
+   eq(#mock.sent, 0, "QQ while dead: INR ALL is held", table.concat(mock.sent, " | "))
+   eq(emunah.act.halted, nil, "...not halted yet")
+   mock.advance(engine.QUIT_HALT_AFTER + 0.01)
+   ok(emunah.act.halted ~= nil, "...but halted once the grace runs out")
+   emunah.act.resume()
+   raiseEvent("sysDisconnectionEvent")
    -- Back in the game for the suites after this one: the disconnect ended the session.
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 
@@ -3998,23 +4047,40 @@ mock.advance(detect.STUN_GUARD + 0.1)
 ok(not detect.isStunned(), "the guard releases a stun whose clear message never arrived")
 
 -- Same failure mode for prone, same backstop.
+mock.sentCommand("smite rat")
 mock.line("You must be standing first.")
 ok(detect.isProne(), "prone, with no stand confirmation to come")
 mock.advance(detect.PRONE_GUARD + 0.1)
 ok(not detect.isProne(), "the guard releases a knockdown that was never confirmed upright")
 
 -- "You are already standing." also resolves it -- something else stood us up first.
+mock.sentCommand("smite rat")
 mock.line("You must be standing first.")
 ok(detect.isProne(), "prone again")
+mock.sentCommand("stand")
 mock.line("You are already standing.")
 ok(not detect.isProne(), "an 'already standing' reply clears it too")
 
 -- "You are not fallen or kneeling." is what Achaea actually says to a STAND when already
 -- up -- confirmed live. Our guessed wording had never been observed.
+mock.sentCommand("smite rat")
 mock.line("You must be standing first.")
 ok(detect.isProne(), "down")
+mock.sentCommand("stand")
 mock.line("You are not fallen or kneeling.")
 ok(not detect.isProne(), "the real 'already standing' reply clears it")
+
+-- ANTI-ILLUSION, layer 5: a refusal with no command of ours behind it answers nothing.
+detect.onStood()
+mock.forgetSends()
+mock.line("You must be standing first.")
+ok(not detect.isProne(), "a refusal when nothing was sent is an illusion: not prone")
+detect.onProne()
+mock.line("You are not fallen or kneeling.")
+ok(detect.isProne(), "...and an 'already standing' with no STAND sent does not stand us")
+mock.sentCommand("stand")
+mock.line("You are not fallen or kneeling.")
+ok(not detect.isProne(), "...but after a STAND it does")
 
 -- Equilibrium is announced with its exact cost, the same as balance.
 emunah.timers.stopAll()
@@ -4203,6 +4269,7 @@ ok(not detect.isAsleep(), "SLEEP_GUARD bounds an involuntary sleep")
 eq(emunah.act.blocked(), nil, "...and the system is not left frozen")
 
 -- The rejection re-asserts the state, which is what makes being wrong above cheap.
+mock.sentCommand("smite rat")
 mock.line("You are asleep and can do nothing. WAKE will attempt to wake you.")
 ok(detect.isAsleep(), "the rejection re-asserts asleep after an early guard")
 mock.feed("Char.Afflictions.Remove", { "sleeping" })
@@ -5107,8 +5174,8 @@ defkeepup.enabled = true
 -- "the things one particular table happens to hold".
 local known = defkeepup.known()
 ok(emunah.util.contains(known, "cloak"), "a plain-command defence is on the grid")
-ok(emunah.util.contains(known, "sileris"),
-   "...as is an item-based one from afflist.defenceCures")
+ok(emunah.util.contains(known, "fangbarrier"),
+   "...as is an item-based one from afflist.defenceCures (sileris, as the game names it)")
 ok(emunah.util.contains(known, "inspiration"), "...and inspiration")
 ok(emunah.util.contains(known, "magicresist"), "...and one of the unverified ones")
 
@@ -5729,6 +5796,35 @@ eq(defkeepup.mode("shield"), "keepup", "clicking again selects keepup")
 mock.click(shieldLink)
 eq(defkeepup.mode("shield"), nil, "and a third click switches it off")
 
+-- THE DOT IS THE SECTION (the user, 2026-10-04): one click, a solid yellow dot under
+-- "raised once", whatever the defence is doing; a second, solid green under "kept up". It
+-- followed "is it up" before, so a defence just clicked into keep-up read red, and a
+-- raised-once one already done (bliss) grey.
+do
+   local theme = emunah.ui.theme
+   local DOT = "\226\151\143"
+   local function shieldText()
+      mock.links = {}
+      emunah.commands.handlers.defs()
+      for index, link in ipairs(mock.links) do
+         if link.text:find("shield", 1, true) then return link.text, index end
+      end
+   end
+   local _, index = shieldText()
+   mock.click(index)
+   local shown = shieldText()
+   ok(shown:find(theme.dc("warning") .. DOT, 1, true),
+      "raised once: a solid yellow dot, though shield is down", shown)
+   _, index = shieldText()
+   mock.click(index)
+   shown = shieldText()
+   ok(shown:find(theme.dc("defence") .. DOT, 1, true),
+      "kept up: a solid green dot, though shield is still down", shown)
+   ok(shown:find(theme.dc("affliction") .. "shield", 1, true),
+      "...and the name says it is down", shown)
+   defkeepup.setMode("shield", nil)
+end
+
 -- "i don't see the pipe relight toggle when i type emset defs". Pipe keep-up is its own
 -- module, but the grid is where it was looked for, so it carries the same switch.
 do
@@ -5745,11 +5841,13 @@ do
    end
    local index, link = pipeLink()
    ok(index ~= nil, "the defence grid has a pipe relight toggle")
-   ok(link and link.text:find("[x]", 1, true), "...ticked while pipe keep-up is on")
+   -- A green dot when on, a dim one when off (the [x]/[ ] boxes and their legend went,
+   -- 2026-10-04).
+   ok(link and link.text:find("\226\151\143", 1, true), "...a green dot while pipe keep-up is on")
    mock.click(index)
    eq(emunah.config.get("pipes.enabled", true), false, "clicking it switches pipe keep-up off")
    index, link = pipeLink()
-   ok(link and link.text:find("[ ]", 1, true), "...and the redrawn grid shows it off")
+   ok(link and not link.text:find("\226\151\143", 1, true), "...and the redrawn grid shows it off")
    mock.click(index)
    eq(emunah.config.get("pipes.enabled", true), true, "clicking again switches it back on")
    emunah.pipes.poll = savedPoll
@@ -5769,6 +5867,13 @@ for _, link in ipairs(mock.links) do
    if link.command:find("defkeepup.start", 1, true) then turnOn = true end
 end
 ok(turnOn, "...and offers a one-click way to turn it on")
+do
+   local grid = table.concat(mock.echoed, " ")
+   ok(not grid:find("click cycles", 1, true) and not grid:find("emset defs add", 1, true),
+      "no legend or usage lines under the grid (removed, 2026-10-04)")
+   local rule = grid:match("(%-+)%s*$")
+   ok(rule and #rule >= 40, "...it ends on a rule of dashes", grid:sub(-120))
+end
 
 defkeepup.drop("rebounding"); defkeepup.drop("cloak")
 defkeepup.enabled = false
@@ -6703,7 +6808,10 @@ do
    local function strip() mock.advance(0) return tostring(mock.widgets["emunah.balances"].contents) end
    local function header() return tostring(mock.widgets["emunah.header.afflictions"].contents) end
 
-   ok(affs():find("clear", 1, true), "no afflictions reads as clear")
+   -- Once, in the title bar: the body repeating it under "Afflictions" read as a duplicate.
+   local clearBody = affs()
+   ok(header():find("clear", 1, true), "no afflictions: the title bar reads clear", header())
+   ok(not clearBody:find("clear", 1, true), "...and the body does not say it again", clearBody)
 
    -- Anorexia: the salve goes out at once, so its row reads `curing`, and it shuts eating.
    engine.add("anorexia", "trigger")
@@ -8351,12 +8459,12 @@ eq(#mock.sent, 0, "...but not while asleep", table.concat(mock.sent, " | "))
 emunah.curing.detect.onWake()
 
 -- The container is one setting, used by both the PUT and the WEAR.
-emunah.config.set("loot.stowIn", "pack999")
+emunah.config.set("pack.id", "pack999")
 mock.sent = {}
 mock.line("You remove a canvas backpack.")
 eq(table.concat(mock.sent, " | "), "wear pack999", "the container is configurable",
    table.concat(mock.sent, " | "))
-emunah.config.set("loot.stowIn", "backpack452292")
+emunah.config.set("pack.id", "backpack452292")
 
 -- A SAFETY STOP MUST NOT LEAVE US WALKING.
 --
@@ -9216,6 +9324,74 @@ do
    eq(shop.find("tun700001").category, "Elixirs",
       "a plain '[Category]' header (no dashes) is recognised")
    eq(mock.deletedLines, deletedBefore, "rendering a listing never calls deleteLine()")
+
+   -- ---------------------------------------------------------------------------
+   -- GOLD TAKEN OUT TO PAY IS NOT PUT BACK. Reported from play: a click got the right gold
+   -- from the pack, then loot saw it land in inventory and sent `put gold in` the pack
+   -- before the BUY could spend it.
+   shop.setConfirmAbove(nil)
+   mock.line("Proprietor: Seraph Myrddin D'Ischai, Page of Aeowynn.")
+   mock.line("[-[ Inks ]-]")
+   wares({
+      "      goldink476321 gold inks                                  222     350gp ea",
+   })
+   emunah.timers.stop("loot.stow"); emunah.loot.stowAttempts = 0
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   mock.sent = {}
+   ok(shop.purchase("goldink476321", 1), "a purchase goes out")
+   mock.feed("Char.Items.Add", {
+      location = "inv", item = { id = "990001", name = "350 gold sovereigns", attrib = "t" },
+   })
+   eq(table.concat(mock.sent, " | "), "get 350 gold from backpack452292 | buy goldink476321",
+      "the purchase's gold landing in inventory is not put back in the pack",
+      table.concat(mock.sent, " | "))
+   -- A BUY the game refused leaves the gold loose: once the pay window lapses, it goes back.
+   mock.sent = {}
+   mock.advance(shop.PAY_WINDOW + 0.01)
+   eq(table.concat(mock.sent, " | "), "put gold in backpack452292",
+      "...but gold still loose after the purchase goes back in the pack",
+      table.concat(mock.sent, " | "))
+   mock.feed("Char.Items.Remove", {
+      location = "inv", item = { id = "990001", name = "350 gold sovereigns" },
+   })
+
+   -- GOLD YOU TAKE OUT YOURSELF stays out. 08:12:22.17, 2026-10-04: a typed `get 5 gold
+   -- from pack452292` was answered with `put gold in backpack452292` in the same packet.
+   mock.advance(shop.PAY_WINDOW + 0.01)
+   emunah.timers.stop("loot.stow"); emunah.loot.stowAttempts = 0
+   mock.sent = {}
+   mock.command("get 5 gold from pack452292")
+   mock.feed("Char.Items.Add", {
+      location = "inv", item = { id = "620083", name = "some gold sovereigns", attrib = "t" },
+   })
+   eq(#mock.sent, 0, "gold you fetched yourself is not put straight back",
+      table.concat(mock.sent, " | "))
+   mock.advance(emunah.loot.HOLD_TYPED + 0.01)
+   eq(table.concat(mock.sent, " | "), "put gold in backpack452292",
+      "...until the hold runs out, if it is still loose", table.concat(mock.sent, " | "))
+   mock.feed("Char.Items.Remove", {
+      location = "inv", item = { id = "620083", name = "some gold sovereigns" },
+   })
+
+   -- BUY BY NUMBER: `buy 50 476321` fills in the name from the listing. HELP SHOPS wants
+   -- the full name; the bare number would be refused by the game.
+   mock.advance(shop.PAY_WINDOW + 0.01)
+   mock.sent = {}
+   ok(mock.command("buy 50 476321"), "`buy 50 476321` is ours, not the game's")
+   eq(table.concat(mock.sent, " | "), "get 17500 gold from backpack452292 | buy 50 goldink476321",
+      "...and buys 50 of the listed item, gold first", table.concat(mock.sent, " | "))
+   mock.advance(shop.PAY_WINDOW + 0.01)
+   mock.sent = {}
+   ok(mock.command("buy 476321"), "`buy 476321` buys one")
+   eq(table.concat(mock.sent, " | "), "get 350 gold from backpack452292 | buy goldink476321",
+      "...for one item's price", table.concat(mock.sent, " | "))
+   mock.advance(shop.PAY_WINDOW + 0.01)
+   mock.sent = {}
+   mock.command("buy 2 123123")
+   eq(#mock.sent, 0, "a number no WARES listed is refused, not guessed",
+      table.concat(mock.sent, " | "))
+   eq(mock.command("buy 2 goldink476321"), false, "a full name goes to the game untouched")
+   mock.advance(shop.PAY_WINDOW + 0.01)
 end
 
 -- ===========================================================================
@@ -11471,6 +11647,285 @@ end
 reset()
 end)()
 
+-- ===========================================================================
+suite("anti-illusion: Emunah's own lines")
+
+-- Layers 5 to 7 in curing/detect/init.lua, after svof's per-line checks: a refusal needs a
+-- command it could be refusing, a herb balance cannot be back before 1.1s, and anything
+-- ignored says so on the line.
+;(function()
+   local detect = emunah.curing.detect
+   local engine = emunah.curing.engine
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll()
+
+   -- A refusal that names its verb needs that verb. "We aren't eating goldenseal at the
+   -- moment" [svof].
+   mock.forgetSends()
+   mock.links = {}
+   mock.line("You are afflicted with anorexia and cannot eat anything.")
+   ok(not engine.has("anorexia"), "an anorexia refusal with no EAT sent is an illusion")
+   ok(mock.links[1] and mock.links[1].hint:find("EAT", 1, true),
+      "...and the line is marked (i), saying why", mock.links[1] and mock.links[1].hint)
+   mock.sentCommand("smoke pipe123")
+   mock.line("You are afflicted with anorexia and cannot eat anything.")
+   ok(not engine.has("anorexia"), "...a SMOKE does not explain it either")
+   mock.sentCommand("eat kelp")
+   mock.line("You are afflicted with anorexia and cannot eat anything.")
+   ok(engine.has("anorexia"), "after an EAT, the same line is believed")
+   engine.clear()
+
+   -- Paralysis refuses anything, so any command will do -- but there has to be one.
+   mock.forgetSends()
+   mock.line("You are paralysed and cannot move.")
+   ok(not engine.has("paralysis"), "a paralysis refusal with nothing sent is an illusion")
+   mock.sentCommand("north")
+   mock.line("You are paralysed and cannot move.")
+   ok(engine.has("paralysis"), "...and believed after any command")
+   engine.clear()
+
+   -- The WAKE struggle: a faked one would stop us waking for the rest of the sleep.
+   detect.onSleep()
+   mock.forgetSends()
+   mock.line("You begin your struggle to escape from the dreamworld.")
+   ok(not detect.waking, "a WAKE struggle with no WAKE sent is an illusion")
+   mock.sentCommand("wake")
+   mock.line("You begin your struggle to escape from the dreamworld.")
+   ok(detect.waking, "...and real after a WAKE")
+   detect.onWake()
+
+   -- Layer 6: herb balance back faster than it can be [svof: conf.ai_minherbbal].
+   emunah.have.spend("herb")
+   mock.forgetSends()
+   mock.sentCommand("eat kelp")
+   mock.advance(0.3)
+   mock.line("You may eat another plant or mineral.")
+   eq(emunah.have.balance("herb"), false, "herb balance 0.3s after an eat is an illusion")
+   mock.advance(detect.MIN_HERB_BALANCE)
+   mock.line("You may eat another plant or mineral.")
+   eq(emunah.have.balance("herb"), true, "...and believed once it could be real")
+   -- Irid moss has its own balance: eating it says nothing about the herb balance.
+   emunah.have.spend("herb")
+   mock.sentCommand("eat irid")
+   mock.line("You may eat another plant or mineral.")
+   eq(emunah.have.balance("herb"), true, "an irid eat does not make a herb balance line suspect")
+
+   -- `curing.antiIllusion false` turns the per-line checks off, as svof's `vconfig aillusion`.
+   emunah.config.set("curing.antiIllusion", false)
+   mock.forgetSends()
+   mock.line("You are paralysed and cannot move.")
+   ok(engine.has("paralysis"), "with anti-illusion off, the refusal is believed as it comes")
+   emunah.config.set("curing.antiIllusion", true)
+   engine.clear(); emunah.queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Afflictions.List", {})
+end)()
+
+-- ===========================================================================
+suite("sileris is fangbarrier, myrrh is scholasticism")
+
+-- svof's gamename table: the server names these defences after what they do. Keyed by the
+-- item, keep-up waited for a name the game never sends, applying berry after berry
+-- (2026-10-04). Sileris also takes up to 8s to harden after the apply [svof].
+;(function()
+   local deflist, keepup = emunah.curing.deflist, emunah.curing.defkeepup
+   eq(deflist.canonical("sileris"), "fangbarrier", "sileris is the fangbarrier defence")
+   eq(deflist.canonical("myrrh"), "scholasticism", "myrrh is the scholasticism defence")
+   local vector, command = deflist.resolve("fangbarrier")
+   eq(vector, "salve", "fangbarrier is raised by the salve...")
+   ok(tostring(command):find("sileris", 1, true), "...applying sileris", command)
+
+   local saved = { defences = { keepup = { sileris = "keepup", myrrh = "defup" } }, schema = 10 }
+   emunah.config.migrate(saved)
+   eq(saved.defences.keepup.fangbarrier, "keepup", "a saved sileris keep-up moves to fangbarrier")
+   eq(saved.defences.keepup.scholasticism, "defup", "...and myrrh to scholasticism")
+   eq(saved.defences.keepup.sileris, nil, "...leaving nothing under the item's name")
+
+   -- Applied is not up: no second berry while it hardens.
+   local detect = emunah.curing.detect
+   detect.onUnstunned(); detect.onStood(); detect.onWake(); detect.onConscious()
+   emunah.queue.reset(); emunah.timers.stopAll()
+   local wasEnabled = keepup.enabled
+   keepup.enabled = true
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Defences.List", {})
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "9101", name = "a sileris berry", attrib = "e" },
+      { id = "9102", name = "a sileris berry", attrib = "e" },
+   } })
+   keepup.setMode("sileris", "keepup")
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("apply sileris", 1, true), "keep-up applies sileris",
+      table.concat(mock.sent, " | "))
+   mock.line("You apply a sileris berry to yourself.")
+   mock.line("You may apply another salve to yourself.")
+   mock.advance(3)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("apply sileris", 1, true),
+      "...and not again while it hardens", table.concat(mock.sent, " | "))
+   mock.line("The sileris berry juice hardens into a supple purple shell.")
+   mock.feed("Char.Defences.Add", { name = "fangbarrier", desc = "" })
+   ok(keepup.state("sileris").up, "hardened, it is up -- as fangbarrier")
+
+   -- The hardening line with no apply behind it is an illusion.
+   mock.forgetSends()
+   mock.links = {}
+   mock.line("The sileris berry juice hardens into a supple purple shell.")
+   ok(mock.links[1] and mock.links[1].hint:find("sileris", 1, true),
+      "a hardening line with nothing applied is marked as an illusion")
+
+   -- Switched off while the coat is still on, it looks like every other "not raised" entry
+   -- (the user, 2026-10-04: it read as a different shade of grey).
+   keepup.setMode("fangbarrier", nil)
+   do
+      local function cell(word)
+         mock.links = {}
+         emunah.commands.handlers.defs()
+         for _, link in ipairs(mock.links) do
+            if link.text:find(word, 1, true) then return link.text:gsub(word .. "%s*$", "") end
+         end
+      end
+      local up, down = cell("sileris"), cell("shield")
+      eq(up, down, "a not-raised defence that is up is drawn like one that is down")
+   end
+   keepup.enabled = wasEnabled
+   emunah.queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Defences.List", {})
+end)()
+
+-- ===========================================================================
+suite("antitheft: selfishness, the pack, and alarms on loss")
+
+-- Chosen by the user, 2026-10-04, from HELP THIEVERY's advice and how theft works in play:
+-- force generosity, pickpocket before selfishness returns. A function of its own: the main
+-- chunk is at Lua 5.1's 200-local limit.
+;(function()
+   local antitheft = emunah.antitheft
+   local alarms = {}
+   emunah.event.register("emunah.antitheft.alarm", function(_, title, what)
+      alarms[#alarms + 1] = title .. ": " .. tostring(what)
+   end, "test.antitheft")
+   emunah.timers.stopAll(); emunah.queue.reset()
+   -- The package suite above leaves states behind; start upright, awake and unstunned.
+   local detect = emunah.curing.detect
+   detect.onUnstunned(); detect.onStood(); detect.onWake(); detect.onConscious()
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+
+   -- SELFISHNESS is a defence keep-up knows, so `emset defs` lists it with a toggle, and
+   -- antitheft put it on keep-up the first time it ran.
+   local known = {}
+   for _, name in ipairs(emunah.curing.defkeepup.known()) do known[name] = true end
+   ok(known.selfishness, "selfishness is on the defences grid (`emset defs`)")
+   eq(emunah.curing.defkeepup.mode("selfishness"), "keepup", "...kept up by antitheft")
+   eq(select(2, emunah.curing.deflist.resolve("selfishness")), "selfishness",
+      "...raised with SELFISHNESS [svof]")
+
+   -- The game's own "already up" reply, given by the user: it answers the raise, and with
+   -- Char.Defences not showing it, the name must differ -- stop raising.
+   local abandoned
+   local realAbandon = emunah.curing.defkeepup.abandon
+   emunah.curing.defkeepup.abandon = function(name) abandoned = name end
+   mock.feed("Char.Defences.List", {})
+   -- It spends equilibrium (08:09:39.34, "Equilibrium used: 0.50s.").
+   eq(emunah.curing.deflist.resolve("selfishness"), "equilibrium",
+      "selfishness is raised on the equilibrium slot")
+   emunah.queue.push("equilibrium", "selfishness", { tag = "def:selfishness", confirm = 5 })
+   emunah.queue.flush()
+   ok(emunah.queue.awaiting("equilibrium") ~= nil, "(a selfishness raise in flight)",
+      tostring(emunah.act.blocked({ bal = true, eq = true })))
+   mock.line("You already are a selfish bastard.")
+   eq(emunah.queue.awaiting("equilibrium"), nil, "'You already are a selfish bastard.' answers it")
+   eq(abandoned, "selfishness", "...and, unlisted by Char.Defences, stops it being raised again")
+   emunah.curing.defkeepup.abandon = realAbandon
+   emunah.queue.reset()
+
+   -- SELFISHNESS STRIPPED: an alarm unless we typed GENEROSITY ourselves.
+   mock.feed("Char.Defences.Add", { name = "selfishness", desc = "" })
+   mock.forgetSends()
+   alarms = {}
+   mock.feed("Char.Defences.Remove", { "selfishness" })
+   ok(alarms[1] and alarms[1]:find("Selfishness stripped", 1, true),
+      "selfishness dropping with no GENEROSITY of ours raises the alarm", alarms[1])
+   mock.feed("Char.Defences.Add", { name = "selfishness", desc = "" })
+   mock.sentCommand("generosity")
+   alarms = {}
+   mock.feed("Char.Defences.Remove", { "selfishness" })
+   eq(#alarms, 0, "...but not when we typed GENEROSITY")
+
+   -- THE THEFT ALARM: an item leaving inventory with nothing we sent to explain it.
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "5001", name = "a silver sigil", attrib = "t" },
+      { id = "5002", name = "a canvas backpack", attrib = "wc" },
+   } })
+   mock.forgetSends()
+   alarms = {}
+   mock.feed("Char.Items.Remove", { location = "inv", item = { id = "5001", name = "a silver sigil" } })
+   ok(alarms[1] and alarms[1]:find("silver sigil", 1, true),
+      "an item gone with nothing sent to explain it raises the theft alarm", alarms[1])
+   mock.feed("Char.Items.Add", { location = "inv", item = { id = "5001", name = "a silver sigil", attrib = "t" } })
+   mock.sentCommand("drop 5001")
+   alarms = {}
+   mock.feed("Char.Items.Remove", { location = "inv", item = { id = "5001", name = "a silver sigil" } })
+   eq(#alarms, 0, "...but not after a DROP of ours")
+   -- Out of the pack, too: its contents are listed under the pack's own number.
+   mock.feed("Char.Items.List", { location = "rep452292", items = {
+      { id = "6001", name = "a bag of runes", attrib = "t" },
+   } })
+   mock.forgetSends()
+   alarms = {}
+   mock.feed("Char.Items.Remove", { location = "rep452292", item = { id = "6001", name = "a bag of runes" } })
+   ok(alarms[1] and alarms[1]:find("pack", 1, true), "...and out of the pack", alarms[1])
+
+   -- SWEEPING: named valuables go into THE pack, and never past its 50-item limit.
+   emunah.config.set("antitheft.sweep", "sigil")
+   mock.sent = {}
+   mock.feed("Char.Items.Add", { location = "inv", item = { id = "5003", name = "a gold sigil", attrib = "t" } })
+   eq(table.concat(mock.sent, " | "), "put 5003 in backpack452292",
+      "a named valuable turning up loose goes into the pack", table.concat(mock.sent, " | "))
+   local full = {}
+   for index = 1, 50 do full[index] = { id = tostring(7000 + index), name = "a thing", attrib = "" } end
+   mock.feed("Char.Items.List", { location = "rep452292", items = full })
+   antitheft.swept = {}
+   mock.sent = {}
+   mock.feed("Char.Items.Add", { location = "inv", item = { id = "5004", name = "a jade sigil", attrib = "t" } })
+   eq(#mock.sent, 0, "...but not into a full pack (50 items)", table.concat(mock.sent, " | "))
+   ok(not table.concat(mock.sent, " | "):find("5002"), "the pack itself is never swept")
+   emunah.config.set("antitheft.sweep", "")
+   mock.feed("Char.Items.List", { location = "rep452292", items = {} })
+
+   -- AN ENEMY WALKS IN: loose gold goes away now, not on the next balance.
+   emunah.namedb.iff("Pickpocket", "enemy")
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "8001", name = "a pile of gold sovereigns", attrib = "t" },
+   } })
+   emunah.loot.stowAttempts = 0
+   emunah.timers.start("loot.stow", 10)
+   mock.sent = {}
+   mock.feed("Room.AddPlayer", { name = "Pickpocket", fullname = "Pickpocket" })
+   ok(table.concat(mock.sent, " | "):find("put gold in backpack452292", 1, true),
+      "an enemy entering puts loose gold away at once", table.concat(mock.sent, " | "))
+   mock.feed("Room.RemovePlayer", "Pickpocket")
+   emunah.namedb.iff("Pickpocket", nil)
+
+   -- LOOSE GOLD that does not go in is called out and tried again -- within loot's budget,
+   -- never resetting it (that turned a PUT that never works into a loop).
+   mock.sent = {}
+   mock.advance(antitheft.GOLD_GRACE + 0.01)
+   ok(emunah.loot.stowAttempts <= emunah.loot.STOW_ATTEMPTS,
+      "the loose-gold watch never exceeds loot's attempt budget", emunah.loot.stowAttempts)
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+
+   -- OFF takes selfishness back off keep-up.
+   antitheft.setEnabled(false)
+   eq(emunah.curing.defkeepup.mode("selfishness"), nil, "antitheft off drops selfishness")
+   antitheft.setEnabled(true)
+   eq(emunah.curing.defkeepup.mode("selfishness"), "keepup", "...and on puts it back")
+
+   emunah.event.kill("test.antitheft")
+   emunah.timers.stopAll(); emunah.queue.reset()
+end)()
+
 suite("angel presences: a warning window for hostiles nearby")
 
 -- Its own function: the main chunk is at Lua 5.1's 200-local limit.
@@ -11579,6 +12034,11 @@ end)()
    local engine, queue = emunah.curing.engine, emunah.queue
    local wasEnabled = engine.enabled
    engine.enabled = true
+   -- Keep-up off: an earlier suite leaves it on, and selfishness (antitheft) spends the
+   -- equilibrium `perform hands` needs, which is a different question from this one.
+   local keepup = emunah.curing.defkeepup
+   local wasKeeping = keepup.enabled
+   keepup.enabled = false
    engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
    -- Whatever an earlier suite left: a stun flag holds every command.
    local detect = emunah.curing.detect
@@ -11600,6 +12060,7 @@ end)()
    ok(emunah.gmcp.vitals.trusted("hp"), "the figure is trusted again once it clears")
    engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
    engine.enabled = wasEnabled
+   keepup.enabled = wasKeeping
 end)()
 
 suite("docs stay in sync with the code, and with each other")

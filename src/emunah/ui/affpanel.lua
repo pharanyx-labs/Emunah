@@ -205,10 +205,9 @@ local function updateAfflictions()
       html[n] = '<p style="margin:0 0 4px 0">' .. pills .. "</p>"
    end
 
-   if count == 0 then
-      n = n + 1
-      html[n] = theme.span("defence", "&#10004; clear")
-   else
+   -- Nothing to list: the title bar already reads "clear", and the body saying it again
+   -- under it was reported as a duplicate (2026-10-04). The body stays empty.
+   if count > 0 then
       n = n + 1
       html[n] = '<table width="100%" cellspacing="0" cellpadding="1">'
       for index = 1, count do

@@ -135,7 +135,9 @@ M.commands = {
                     requires = "mindseye" },
    blindness    = { vector = "herb", command = "eat bayberry", item = "bayberry",
                     requires = "mindseye" },
-   fangbarrier  = { vector = "balance",     command = "fangbarrier",  skill = "fangbarrier" },
+   -- `fangbarrier` was here as a skill command of its own, never seen working. It is what
+   -- sileris grants [svof: sileris.gamename], so it is raised by the salve now --
+   -- afflist.defenceCures.fangbarrier.
 
    -- Priest (Devotion). `perform inspiration`, equilibrium 3.50s -- both verified, see
    -- docs/game/defences.md. Reported by GMCP as:
@@ -278,6 +280,18 @@ M.ALIASES = {
    -- `blindness`/`deafness`. Keeps typing and config under the old, natural names working.
    blind = "blindness",
    deaf  = "deafness",
+   -- The item, not the defence [svof: gamename]. See afflist.defenceCures.
+   sileris     = "fangbarrier",
+   quicksilver = "fangbarrier",
+   myrrh       = "scholasticism",
+   bisemutum   = "scholasticism",
+}
+
+--- What the grid calls a defence whose server name nobody would recognise: you apply
+--- sileris and eat myrrh, whatever Char.Defences says.
+M.LABELS = {
+   fangbarrier   = "sileris",
+   scholasticism = "myrrh",
 }
 
 --- The Char.Defences name for whatever the user typed.
@@ -328,6 +342,14 @@ M.IMPORTED = {
    clinging       = { vector = "balance", command = "cling" },
    curseward      = { vector = "balance", command = "curseward" },
    hypersight     = { vector = "balance", command = "hypersight on" },
+   -- Antitheft: a pickpocket fails against it, and stripping it is the thief's opening
+   -- move (HELP THIEVERY: "setup selfishness as a defence"). Command and lines are svof's
+   -- (raw-svo.defs.lua), and the cost is from play, 2026-10-04 08:09:39.34:
+   --   selfishness -> "You rub your hands together greedily." "Equilibrium used: 0.50s."
+   -- with the prompt going excdb -> xcdb. Whether it also NEEDS balance has not been seen
+   -- (balance was up), so both are required, per HELP's default for bal/eq abilities.
+   selfishness    = { vector = "equilibrium", command = "selfishness",
+                      needs = { bal = true, eq = true, standing = true } },
 
    -- Priest.
    heresy         = { vector = "balance", command = "hunt heresy",
@@ -373,7 +395,7 @@ M.IMPORTED = {
 -- "Equilibrium used: N.NNs." / "Balance used: N.NNs." line.
 for _, entry in pairs(M.IMPORTED) do
    entry.source = "imported"
-   entry.needs  = entry.vector == "balance"
+   entry.needs  = entry.needs or entry.vector == "balance"
       and { bal = true, eq = true, standing = true }
       or  { standing = true }
 end

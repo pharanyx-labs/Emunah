@@ -20,7 +20,7 @@ local PATH = getMudletHomeDir() .. "/emunah-config.lua"
 --- reload does not even get that far -- M.data is restored wholesale from
 --- emunah._persist. So a bad default, once written or once carried across a reload, is
 --- permanent until something rewrites it. That is what MIGRATIONS is for.
-local SCHEMA = 9
+local SCHEMA = 11
 
 local MIGRATIONS = {
    -- bashing.balance shipped as "bal" long after smite was confirmed to need balance AND
@@ -148,6 +148,40 @@ local MIGRATIONS = {
       return "defences.keepup: frost -> temperance (the name Char.Defences uses)"
    end,
 
+   -- `loot.stowIn` and `shop.stowIn` were two names for the one backpack: gold went into
+   -- one and purchases were paid out of the other. Antitheft keeps that same pack closed
+   -- and counts what is in it, and three settings for one container is two to get wrong.
+   -- An explicit choice under either old name is carried to `pack.id`.
+   [10] = function(data)
+      local chosen = (data.loot and data.loot.stowIn) or (data.shop and data.shop.stowIn)
+      if data.loot then data.loot.stowIn = nil end
+      if data.shop then data.shop.stowIn = nil end
+      if chosen == nil or chosen == "" then return end
+      data.pack = data.pack or {}
+      data.pack.id = data.pack.id or chosen
+      return "loot.stowIn / shop.stowIn -> pack.id (" .. tostring(chosen) .. ")"
+   end,
+
+   -- Same family as [4]-[9]: sileris grants `fangbarrier` and myrrh `scholasticism`
+   -- [svof: gamename]. A mode saved under the item's name never matched, so keep-up applied
+   -- sileris until its attempt budget ran out (2026-10-04). See afflist.defenceCures.
+   [11] = function(data)
+      local modes = data.defences and data.defences.keepup
+      if type(modes) ~= "table" then return end
+      local moved = {}
+      for item, defence in pairs({ sileris = "fangbarrier", myrrh = "scholasticism" }) do
+         if modes[item] ~= nil then
+            modes[defence] = modes[defence] or modes[item]
+            modes[item] = nil
+            moved[#moved + 1] = item .. " -> " .. defence
+         end
+      end
+      if #moved > 0 then
+         table.sort(moved)
+         return "defences.keepup: " .. table.concat(moved, ", ") .. " (the names Char.Defences uses)"
+      end
+   end,
+
    -- NOTE: bashing.attack moving from "smite" to "angel sear" is NOT a migration here, on
    -- purpose. Every entry above corrects a shipped default that was factually wrong --
    -- smite genuinely needed BOTH, the array genuinely became a map. Switching attacks is a
@@ -207,6 +241,14 @@ local DEFAULTS = {
 
    loot = {
       gold = true,
+   },
+
+   -- THE pack: gold is stowed in it, purchases are paid out of it, and antitheft keeps it
+   -- worn and closed. By replica number -- `put gold in backpack` is ambiguous once a
+   -- second pack is involved. The character has two other packs that are never to be used.
+   pack = {
+      id       = "backpack452292",
+      capacity = 50,   -- items a pack holds; a pack inside it counts as one (the user, 2026-10-04)
    },
 
    namedb = {

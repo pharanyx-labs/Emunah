@@ -45,6 +45,11 @@ Anti-illusion follows the reference system:
 - one illusion discards the whole block;
 - a cure line needs its cure in flight;
 - an affliction is dropped unless the server confirms it within ~2 seconds.
+
+Emunah's own lines get svof's per-line checks whether or not the package is installed: a
+refusal (`You are paralysed and cannot move.`) counts only after a command it could be
+answering, a herb balance back within 1.1s of eating is ignored, and the quit prayer counts
+only after you typed QUIT. Anything ignored is marked `(i)` on its line.
 Regenerate it with `python3 tools/build-trigger-package.py <reference checkout>`; don't edit it by
 hand.
 
@@ -58,7 +63,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 55 modules.
+[emunah] v0.1.0 loaded -- 57 modules.
 ```
 
 ## Capabilities
@@ -132,12 +137,18 @@ code, so a command or setting added without being documented fails `lua test/run
 | manna | `emset manna` |
 | hunting | `emset hunt [off]`, `emset bash [on\|off\|attack <command>]`, `emset walk [start\|stop]` |
 | pvp | `emset pvp [on\|off\|target <name>\|target off]` |
-| loot | `emset loot [on\|off\|now]` |
+| loot | `emset loot [on\|off\|now]`, `buy [qty] <number>` |
+| antitheft | `emset antitheft [on\|off\|now]` |
 | people | `emset whois <person>`, `emset iff <person> ally\|enemy\|auto` |
 | interface | `emset ui [rebuild]`, `emset ui map on\|off` |
 
 `emreload` still works if the command module itself fails to load. `sleep` is the game's
-SLEEP, marked as yours so Emunah does not wake you out of it.
+SLEEP, marked as yours so Emunah does not wake you out of it. `buy 50 476321` buys by the
+number `WARES` showed, paying from the pack.
+
+Typing `QUIT` or `QQ` means the client is closing: Emunah stores the pack in the rift with
+`INR ALL`, then stops sending anything at all. Reconnecting, `emreload` or `emset pause`
+starts it again.
 
 ### Denizen kill lists
 

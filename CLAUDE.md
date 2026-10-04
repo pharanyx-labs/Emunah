@@ -84,8 +84,9 @@ There is one prefix, `emset`, plus `emhelp`. Keep it that way:
   undocumented, or documented but missing.
 - A new setting only needs a `help.lua` entry with its module. `emset <setting> <value>`
   and `emhelp <module>` pick it up with no command code.
-- Don't add bare aliases or a second prefix. `sleep` (marks a voluntary sleep) and `emreload`
-  (works when commands fail to load) are the only exceptions.
+- Don't add bare aliases or a second prefix. `sleep` (marks a voluntary sleep), `emreload`
+  (works when commands fail to load) and `buy [qty] <number>` (the user's request; it only
+  catches a digits-only item, which the game refuses anyway) are the only exceptions.
 - After changing `help.lua`, run `lua tools/build-commands-page.lua` to regenerate
   `website/commands.html`.
 
