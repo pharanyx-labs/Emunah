@@ -66,6 +66,15 @@ M.PRIORITY = 150
 --- The chyron-free warning, appended to the prompt. Plain text so tests can find it.
 M.TAG = "no %s"
 
+--- Seconds the mount may be missing from the room before it counts as left behind. A
+--- follower walks in AFTER you, so the new room's item list comes without it and it is added
+--- a moment later. Taking that first list as "not following" ordered it to follow again in
+--- every room (reported from play, 2026-10-04: "we simply cannot order the horse to follow on
+--- every room"). That ordering is inferred from the report -- no trace of a move yet; an
+--- `emset debug gmcp` of one would settle it. Following is now only cleared by a line that
+--- says so (lose, dismount) or by the mount staying gone this long.
+M.LEFT_BEHIND = 2.0
+
 --- svof's riding isadvisable() refusals beyond what `needs` already covers (prone,
 --- paralysis, entanglement, balance): you cannot vault with these.
 M.CANNOT_VAULT = {
@@ -86,6 +95,9 @@ function M.following() return state.following end
 
 local orders = { at = nil, count = 0 }
 local vaults = { count = 0, warned = false }
+--- When the mount was first missing from the room, and whether that has been judged as left
+--- behind yet (see M.LEFT_BEHIND).
+local missing = { since = nil, judged = false }
 
 local function config(key, default)
    return emunah.config.get(key, default)
@@ -235,6 +247,11 @@ local function vault()
    queue.flush()
 end
 
+--- Has the mount been missing for longer than a follower takes to walk in?
+function M.leftBehind()
+   return missing.since ~= nil and emunah.util.now() - missing.since >= M.LEFT_BEHIND
+end
+
 --- Act on what we know now. Called on every room change, on the tick, and when a line
 --- changes the state.
 function M.check()
@@ -242,13 +259,19 @@ function M.check()
    if vitals and vitals.live and not vitals.live() then return end
    local here = M.present()
    if here == false then
-      -- Not in the room we are in: it is not following, and we cannot be on it.
-      state.following = false
-      if state.riding then state.riding = false end
-      orders.count, orders.at = 0, nil
+      missing.since = missing.since or emunah.util.now()
+      -- Gone for good: it is not following, and we cannot be on it. Once per absence, so
+      -- the order budget is fresh for when we find it again, and only then.
+      if M.leftBehind() and not missing.judged then
+         missing.judged = true
+         state.following = false
+         if state.riding then state.riding = false end
+         orders.count, orders.at = 0, nil
+      end
       return
    end
    if here ~= true then return end
+   missing.since, missing.judged = nil, false
    vault()
    order()
 end
@@ -264,7 +287,8 @@ function M.warning()
    if not M.followOn() then return nil end
    local _, _, word = M.mount()
    if not word then return nil end
-   if M.present() == false then return string.format(M.TAG, word) end
+   -- Not while a follower is still walking in behind us: that would flash on every move.
+   if M.present() == false and M.leftBehind() then return string.format(M.TAG, word) end
    return nil
 end
 
@@ -442,6 +466,7 @@ event.register("emunah.prompt", onPrompt, "riding")
 event.register("sysDisconnectionEvent", function()
    state.riding, state.following = nil, nil
    orders.count, orders.at = 0, nil
+   missing.since, missing.judged = nil, false
    vaults.count, vaults.warned = 0, false
 end, "riding")
 
