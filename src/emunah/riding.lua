@@ -25,14 +25,22 @@
 --- Char.Vitals. It is tracked from the lines above and svof's (raw-svo.defs.lua
 --- defs_data.riding, and the lost_riding / "riding already on" triggers), and settled by a
 --- DEFENCES listing ("You are riding (.+)." [svof defr]) -- which defkeepup already sends
---- after a reload. Until one of those says, it is unknown, and an unknown state never spends
---- a balance: the user's rule is that keeping the mount never wastes one.
+--- after a reload.
+---
+--- AN UNKNOWN STATE IS SETTLED BY VAULTING, because asking is free (the user, 10:21:15):
+---
+---   vault horse368644       "You must dismount before you can mount anything else."
+---                           -- no balance line, prompt flags unchanged
+---   order 368644 follow me  "A heavy horse is already following you."  -- free, while riding
+---
+--- So a vault sent while we do not know is either refused for nothing (we were riding) or
+--- is the vault keep-up wanted anyway (we were not). Neither wastes a balance.
 ---
 --- NEVER WASTING A BALANCE, concretely:
 ---   * the follow order is the only thing sent unprompted, and it is free;
----   * the vault (1.0s of balance) goes only when we KNOW we are not riding, the mount is in
----     the room to be vaulted, nothing is waiting to be cured, and neither bashing nor PvP
----     owns the balance;
+---   * the vault (1.0s of balance) goes only when we are not known to be riding, the mount
+---     is in the room to be vaulted, nothing is waiting to be cured, and neither bashing nor
+---     PvP owns the balance;
 ---   * it waits in the queue's balance slot behind anything more important, and is re-checked
 ---     at the moment it would go out;
 ---   * a vault that does not take is retried a bounded number of times, then left alone.
@@ -161,9 +169,7 @@ local function order()
    local _, id = M.mount()
    if not id or M.present() ~= true then return end
    if orders.at and emunah.util.now() - orders.at < M.GUARD then return end
-   -- Once only while we do not know whether we are riding: what an order to a horse you
-   -- are sitting on answers has never been seen. Free, but three of them at login is noise.
-   if orders.count >= (state.riding == nil and 1 or M.ATTEMPTS) then return end
+   if orders.count >= M.ATTEMPTS then return end
    -- Ordinary blocks only, as WIELDED and PIPELIST: it costs no balance.
    if emunah.act.send("order " .. id .. " follow me", {}) then
       orders.at = emunah.util.now()
@@ -183,9 +189,8 @@ end
 --- moment it would go out (queue `valid`), since any of these can change while it waits.
 function M.vaultHeld()
    if not M.keepupOn() then return "riding keep-up is off" end
-   if state.riding ~= false then
-      return state.riding and "already riding" or "not known whether riding"
-   end
+   -- Unknown is allowed through: see the header -- the refusal is free.
+   if state.riding == true then return "already riding" end
    if not M.mount() then return "no mount set" end
    if M.present() ~= true then return "the mount is not here" end
    local engine = emunah.curing and emunah.curing.engine
@@ -331,13 +336,24 @@ do
    keep(tempRegexTrigger([[^You climb up on (.+)\.$]],
       mountingReply("a mount landed", function() M.setRiding(true) end)))
 
-   -- ALREADY ON: svof's "riding already on" trigger, answering a VAULT/MOUNT.
+   -- ALREADY ON: svof's "riding already on" trigger, answering a VAULT/MOUNT. The first
+   -- line verbatim at 10:21:15, and free: no balance line, the prompt kept its `x`.
+   --
+   -- So the balance our vault marked spent (vitals.spend, in vault()) was never spent, and
+   -- is put back here. Char.Vitals carries bal only when it changes, and it did not, so
+   -- nothing else would restore it -- every balance action would wait on a balance we have.
+   -- Only when it was our vault that was answered: a vault you typed spent nothing of ours.
+   local function alreadyOn()
+      local queue = emunah.queue
+      local action = queue and queue.awaiting("balance")
+      if action and action.tag == "riding" then emunah.gmcp.vitals.bal = true end
+      M.setRiding(true)
+   end
    for _, line in ipairs({
       [[^You must dismount before you can mount anything else\.$]],
       [[^You must dismount from what you are currently riding before you can mount anything else\.$]],
    }) do
-      keep(tempRegexTrigger(line,
-         mountingReply("already riding", function() M.setRiding(true) end)))
+      keep(tempRegexTrigger(line, mountingReply("already riding", alreadyOn)))
    end
    -- The same trigger's third line answers anything, not only a mount.
    keep(tempRegexTrigger([[^You cannot do that while mounted\.$]],
@@ -379,6 +395,11 @@ do
    -- FOLLOWING. Verbatim at 10:10:08 and 10:10:27.
    keep(tempRegexTrigger([[^(.+) obediently falls into line behind you\.$]],
       detect.reply("^order", "a follow order obeyed", function()
+         if isOurs(matches[2]) then M.setFollowing(true) end
+      end)))
+   -- Verbatim at 10:21:16, the answer to an order while riding it.
+   keep(tempRegexTrigger([[^(.+) is already following you\.$]],
+      detect.reply("^order", "already following", function()
          if isOurs(matches[2]) then M.setFollowing(true) end
       end)))
    keep(tempRegexTrigger([[^You move about quickly and lose (.+)\.$]],

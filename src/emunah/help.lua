@@ -128,8 +128,8 @@ M.modules = {
       .. "it is ordered to follow you (free). With keep-up on, you vault back onto it "
       .. "whenever you are off it -- but only when the balance is idle: never while "
       .. "anything needs curing, never while bashing or PvP is running, never while it is "
-      .. "not in the room, and never when Emunah does not know whether you are already "
-      .. "riding. While it is not with you, the end of your prompt says so. Also toggled "
+      .. "not in the room. (Not knowing whether you are already riding is no bar: the game "
+      .. "refuses a vault onto a horse you are on for free.) While it is not with you, the end of your prompt says so. Also toggled "
       .. "from the `emset defs` grid.",
   commands = {
    { syntax = "emset riding", handler = "riding",

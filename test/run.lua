@@ -12450,24 +12450,28 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
       "here and not known to be following: ordered to follow, in the user's syntax")
    eq(riding.riding(), nil, "whether we are riding is not known yet")
 
-   mock.sent = {}
-   mock.advance(riding.GUARD + 0.1); vitals()
-   ok(not sent("order"), "riding not known: one order only, not three",
-      table.concat(mock.sent, " | "))
+   -- 10:21:16: the answer while riding it.
+   mock.line("A heavy horse is already following you.")
+   eq(riding.following(), true, "\"already following\" marks it following")
 
    -- 10:10:08: obeyed -- straight after an order, as every reply is (detect layer 5).
+   riding.setFollowing(nil)
    mock.command("order 368644 follow me")
    mock.line("Your order is obeyed.")
    mock.line("A heavy horse obediently falls into line behind you.")
    eq(riding.following(), true, "the obey line marks it following")
 
-   -- Keep-up on, but riding is not known: the vault costs a balance, so it waits.
-   riding.start()
+   -- Keep-up on with riding not known: vault, because the refusal is free (10:21:15).
    mock.sent = {}
-   vitals()
-   ok(not sent("vault"), "an unknown riding state never spends the balance on a vault",
+   riding.start()
+   ok(sent("vault horse368644"), "an unknown riding state is settled by vaulting",
       table.concat(mock.sent, " | "))
-   eq(riding.vaultHeld(), "not known whether riding", "and says why")
+   eq(emunah.gmcp.vitals.bal, false, "the vault marks the balance spent")
+   mock.line("You must dismount before you can mount anything else.")
+   eq(riding.riding(), true, "the refusal says we were riding all along")
+   eq(emunah.gmcp.vitals.bal, true,
+      "and gives back the balance it never cost, which Char.Vitals will not resend")
+   eq(queue.awaiting("balance"), nil, "and frees the balance slot")
 
    -- 10:09:54: a dismount settles it.
    mock.command("dismount")
@@ -12528,6 +12532,11 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
    ok(sent("vault horse368644"), "found again, keep-up vaults on", table.concat(mock.sent, " | "))
    ok(sent("order 368644 follow me"), "and orders it to follow meanwhile (free)",
       table.concat(mock.sent, " | "))
+   local ordersSent = 0
+   for _, command in ipairs(mock.sent) do
+      if command == "order 368644 follow me" then ordersSent = ordersSent + 1 end
+   end
+   eq(ordersSent, 1, "once, not once per room event")
    mock.echoed = {}
    emunah.curing.detect.textPrompt()
    ok(not table.concat(mock.echoed, ""):find("no horse", 1, true), "the warning goes")

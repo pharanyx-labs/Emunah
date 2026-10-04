@@ -231,7 +231,14 @@ The state comes from the lines above, svof's (`defs_data.riding` on/off lines, i
 room walked into on horseback (10:09:48) and while following (10:10:12), and missing once lost
 (10:10:28). Its replica number never changes (the user).
 
-**Not yet seen:** the reply to VAULT while already mounted (svof: `You must dismount before
-you can mount anything else.` and a longer variant), and the reply to ORDER … FOLLOW to a
-horse you are riding. So while riding is unknown, Emunah sends no vault and sends the free
-order only once.
+**Asking is free** (the user, 2026-10-04, 10:21:15–10:21:35, while riding): no balance line,
+prompt flags `exckdb` throughout.
+
+| Command, while riding | Reply |
+| --- | --- |
+| `vault horse368644` | `You must dismount before you can mount anything else.` |
+| `order 368644 follow me` | `A heavy horse is already following you.` |
+
+So while the riding state is unknown, Emunah vaults: a refusal costs nothing and says we are
+riding, and otherwise the vault is the one keep-up wanted. The refusal puts back the balance
+`vitals.spend("bal")` marked spent, since `Char.Vitals` will not resend an unchanged `bal`.
