@@ -1239,6 +1239,19 @@ do
    persist(tempRegexTrigger(
       [[^You have a mace in the land, which you should call for\.$]],
       function() emunah.curing.deflist.noteMaceInLand() end))
+   -- A summon takes seconds, and these say one is under way: svof's "Mace start", and the
+   -- answer to a second SUMMON sent into it -- both verbatim at 11:36:47.39 and 11:36:49.41
+   -- (2026-10-04). Interrupted is svof's "Mace interrupted".
+   persist(tempRegexTrigger(
+      [[^You stand with arms outstretched, your mouth moving rapidly in fervent prayer\.$]],
+      detect.reply("^summon", "a mace summon started",
+         function() emunah.curing.deflist.noteMaceSummoning() end)))
+   persist(tempRegexTrigger([[^You are already summoning your mace\.$]],
+      detect.reply("^summon", "a mace summon under way",
+         function() emunah.curing.deflist.noteMaceSummoning() end)))
+   persist(tempRegexTrigger(
+      [[^Your action foils your attempt at summoning your spiritual mace\.$]],
+      function() emunah.curing.deflist.noteMaceSummonFoiled() end))
    persist(tempRegexTrigger(
       [[^You start to wield a spiritual mace in your left hand\.$]],
       function() emunah.curing.deflist.noteMaceWielded() end))

@@ -196,6 +196,24 @@ the attempt budget stopped it for never appearing in `Char.Defences` — which t
 never does. The wield confirmation in that same login was `You start to wield a spiritual
 mace in your left hand.` (12:49:24.41).
 
+**A summon takes seconds** (2026-10-04): `You stand with arms outstretched, your mouth moving
+rapidly in fervent prayer.` at 11:36:47.39, the mace at 11:36:49.87. Keep-up's 2s confirm
+wait runs from the send, so it lapsed first and a second `summon mace` went out at
+11:36:49.22, answered `You are already summoning your mace.` Both lines now hold the summon
+for svof's `waitingformace` wait (3s, `deflist.MACE_SUMMON_WAIT`), and
+`Your action foils your attempt at summoning your spiritual mace.` [svof] releases it. The
+prompt kept its `x` throughout, so the summon did not take balance in that login.
+
+## `vigilance` needs equilibrium
+
+`vigilance on` was refused `You must regain equilibrium first.` at 11:36:49.41 (2026-10-04),
+balance up, and raised at 11:36:51.40 (`You squint your eyes, more alert to potential
+danger.`) with balance down from a vault. It cost nothing: the prompt kept its `e`. The other
+free imported defences (watches, resistances, `telesense`, `softfocus`, `bell`) have not been
+seen. They need balance and equilibrium both, because svof sends its balanceless defences
+only with both ([svof] `check_balanceless_acts`). `insomnia` is the exception, on evidence:
+it went through at 11:36:47.39 after mindseye had spent equilibrium.
+
 ## The shield, and `WIELDED`
 
 `WIELDED` lists what is in each hand (2026-10-04, 09:25:53.45, verbatim):

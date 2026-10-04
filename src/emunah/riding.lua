@@ -37,7 +37,8 @@
 --- is the vault keep-up wanted anyway (we were not). Neither wastes a balance.
 ---
 --- NEVER WASTING A BALANCE, concretely:
----   * the follow order is the only thing sent unprompted, and it is free;
+---   * the follow order is the only thing sent unprompted, and it is free -- though it
+---     needs balance and equilibrium both, and waits on our own vault;
 ---   * the vault (1.0s of balance) goes only when we are not known to be riding, the mount
 ---     is in the room to be vaulted, nothing is waiting to be cured, and neither bashing nor
 ---     PvP owns the balance;
@@ -173,17 +174,26 @@ end
 -- keeping it
 -- ---------------------------------------------------------------------------
 
---- Order the mount to follow, if it is here, not ridden and not already following. Free
---- (10:09:54 -> 10:10:08: no balance line, prompt flags unchanged).
+--- Order the mount to follow, if it is here, not ridden and not already following. Costs
+--- nothing (10:09:54 -> 10:10:08: no balance line, prompt flags unchanged), but NEEDS both:
+--- at the 2026-10-04 login it was refused "You must regain equilibrium first." (11:36:47.81,
+--- balance up, mindseye's equilibrium spent) and "You must regain balance first."
+--- (11:36:50.90, equilibrium up, the vault's balance spent).
 local function order()
    if not M.followOn() then return end
    if state.riding == true or state.following == true then return end
+   -- Our vault is about to settle it: once on the horse there is nothing to follow. At
+   -- 11:36:50.33 the order went out behind the vault and was refused for its balance.
+   local queue = emunah.queue
+   local pending, awaiting = queue.pending("balance"), queue.awaiting("balance")
+   if (pending and pending.tag == "riding") or (awaiting and awaiting.tag == "riding") then
+      return
+   end
    local _, id = M.mount()
    if not id or M.present() ~= true then return end
    if orders.at and emunah.util.now() - orders.at < M.GUARD then return end
    if orders.count >= M.ATTEMPTS then return end
-   -- Ordinary blocks only, as WIELDED and PIPELIST: it costs no balance.
-   if emunah.act.send("order " .. id .. " follow me", {}) then
+   if emunah.act.send("order " .. id .. " follow me", { bal = true, eq = true }) then
       orders.at = emunah.util.now()
       orders.count = orders.count + 1
    end

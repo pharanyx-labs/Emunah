@@ -179,6 +179,16 @@ function M.blocked(needs)
       end
       if needs.bal and not vitals.bal then return "no balance" end
       if needs.eq and not vitals.eq then return "no equilibrium" end
+      -- SENT, NOT YET ANSWERED. Something of ours on the balance (equilibrium) slot is about
+      -- to spend it, whatever Char.Vitals says meanwhile. vitals.spend() marks it, but a
+      -- Char.Vitals the server sent before it ran the command puts it back: at 11:36:50.33
+      -- (2026-10-04) `perform bliss` and the horse's follow order went out behind
+      -- `vault horse368644`, and both came back "You must regain balance first."
+      local queue = emunah.queue
+      if queue then
+         if needs.bal and queue.awaiting("balance") then return "balance in flight" end
+         if needs.eq and queue.awaiting("equilibrium") then return "equilibrium in flight" end
+      end
    end
 
    return nil
