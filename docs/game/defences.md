@@ -161,12 +161,20 @@ insomnia and relax insomnia"). Cohosh is off the restock list.
   insomnia.`). Lines **[svof]**: `You clench your fists, grit your teeth, and banish all
   possibility of sleep.` / `You are already an insomniac.`
 - **`RELAX INSOMNIA`** answers **[svof "svo relaxed insomnia"]**: `You relax your mind and
-  feel as if you could sleep.` / `You are not an insomniac.` Its cost has not been seen.
+  feel as if you could sleep.` / `You are not an insomniac.` **Free** (play, 2026-10-04
+  10:33:32.62: the first line, with `Char.Afflictions.Remove` and `Char.Defences.Remove`,
+  no balance line, prompt `exckdb` either side).
 - **Typed `sleep`**: with insomnia up, `relax insomnia` goes first and `sleep` follows its
   answer, or after 3s without one. `deflist.HOLDS.insomnia` keeps keep-up from raising
   insomnia from the moment `sleep` is typed until the character wakes (the user's request).
-- **Not yet seen:** whether the skill's insomnia reports through `Char.Defences` the way
-  cohosh's did (17:59:54). If it does not, keep-up's attempt budget stops it.
+- **The skill reports through GMCP exactly as cohosh did** (play, 2026-10-04
+  10:38:23.09): `Char.Afflictions.Add` (with the server's `cure="EAT GOLDENSEAL"`, which
+  `M.DELIBERATE` keeps the engine from acting on) and `Char.Defences.Add` for `insomnia`,
+  then `You clench your fists, grit your teeth, and banish all possibility of sleep.` It
+  cost about 3% mana (90% to 87%), no balance or equilibrium: prompt `exckdb` either side.
+- **The whole sleep, end to end** (10:33:15–10:38:23): `sleep` typed, `relax insomnia`,
+  the relaxed line, `sleep`, asleep and held, nothing raised for five minutes, awake at
+  10:38:22.70, then `insomnia` the next prompt.
 
 ## The spiritual mace
 

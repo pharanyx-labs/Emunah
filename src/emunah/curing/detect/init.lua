@@ -523,7 +523,7 @@ end
 --- cannot easily go to sleep."), so RELAX INSOMNIA goes first and SLEEP follows its answer
 --- (the user, 2026-10-04). The answers are svof's ("svo relaxed insomnia"): "You relax your
 --- mind and feel as if you could sleep." or "You are not an insomniac." -- see M.onRelaxed().
---- Its cost has not been seen; it goes with the ordinary blocks, as WAKE does.
+--- Free: no balance line, prompt unchanged (10:33:32.62), so ordinary blocks only.
 function M.goToSleep()
    local defences = emunah.gmcp.defences
    if not (defences and defences.has("insomnia")) then return sleepNow() end

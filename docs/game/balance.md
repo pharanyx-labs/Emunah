@@ -227,6 +227,10 @@ The state comes from the lines above, svof's (`defs_data.riding` on/off lines, i
 `lost_riding` and "riding already on" triggers) **[svof]**, and the `DEFENCES` listing line
 `You are riding (.+).` **[svof defr]**.
 
+**Falling asleep throws you off** (2026-10-04, 10:33:32.81): `You close your eyes, curl up in
+a ball, and fall asleep.` then `You lose purchase on a heavy horse.` — svof's offr line, so
+riding goes false and the follow order goes out once awake (10:38:22.70, obeyed).
+
 **The mount is in the room's `Char.Items` list whether ridden or following** — listed in the
 room walked into on horseback (10:09:48) and while following (10:10:12), and missing once lost
 (10:10:28). Its replica number never changes (the user).
