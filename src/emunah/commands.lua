@@ -597,6 +597,34 @@ M.handlers.iff = function(arg, rest)
    if not ok then log.warn(tostring(why)) end
 end
 
+--- Mark an organisation hostile, so everyone in it is an enemy -- for highlighting, targeting
+--- and the angel's presence alert. With no arguments, list what is marked.
+---     emset hostile city mhaldor        emset hostile city mhaldor off
+M.handlers.hostile = function(arg, rest)
+   local ndb = emunah.namedb
+   if not arg then
+      local list = ndb.hostiles()
+      if #list == 0 then
+         log.info("No organisation is marked hostile. Usage: emset hostile city|house|order <name> [off]")
+         return
+      end
+      local parts = {}
+      for _, org in ipairs(list) do parts[#parts + 1] = org.name .. " (" .. org.kind .. ")" end
+      log.info("Hostile: %s.", table.concat(parts, ", "))
+      return
+   end
+   local org, off = tostring(rest or ""):match("^(.-)%s+(off)$")
+   org = org or rest
+   local ok, why = ndb.setHostile(arg, org, off == nil)
+   if not ok then
+      log.warn("%s. Usage: emset hostile city|house|order <name> [off]", tostring(why))
+      return
+   end
+   ndb.save()
+   log.info("%s %s is %s.", util.capitalise(tostring(org)), tostring(arg):lower(),
+      off and "no longer hostile" or "hostile")
+end
+
 M.handlers.ui = function(arg, rest)
    if arg == "rebuild" then
       -- Rebuild from scratch: also the cure for a panel that is off-screen, zero-sized, or

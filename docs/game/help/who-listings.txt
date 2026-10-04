@@ -97,6 +97,11 @@ WHAT IS AND IS NOT ESTABLISHED HERE
   that anchoring is load-bearing, not incidental.
 - In particular the "(Targossas)" in that tail is NOT read as a city. The web API is the
   authority on someone's city; this is not.
+- 2026-10-03: the tail is appended by a Mudlet MAPPING SCRIPT, not the game (the user, with
+  every script off, captured the scan without it).
+- With every script off the line still breaks right after "a mana of", the figure on the
+  next line ("...on a health of 9407 and a mana of" / "7233."). namedb/capture.lua's pattern
+  makes the mana figure optional, and presences.lua reads only the name and the room.
 
 =============================================================================== HONOURS
 Captured 2026-08-02. Two subjects, chosen because they differ in almost every optional line.

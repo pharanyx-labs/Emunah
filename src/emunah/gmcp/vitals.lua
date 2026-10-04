@@ -248,8 +248,18 @@ end
 --- feed is unusable until the affliction clears", and every consumer decides for itself
 --- what to do without it. They all decide the same thing, because there is only one safe
 --- answer when you cannot see your own health: heal, and stop fighting.
+---
+--- SUCCUMBED does the same. It is what a Bard's ghazal finale leaves ("All-consuming
+--- adoration envelops you in Anzerloi's ghazal's apotheosis as you forsake reason for
+--- madness.", Char.Afflictions.Add {cure="" name="succumbed"}), and from that packet on
+--- every Char.Vitals read hp="2850" -- full -- straight through two hits of 689+239 and
+--- 689+298 (20:23:00.60 and 20:23:02.52 on 2026-10-03). Nothing healed: the elixir back at
+--- 00.17, the moss at 01.01 and equilibrium at 03.13 all went unused against a 100% that
+--- was not there, and the next finale killed. The Bard's own account: "It was special
+--- recklessness."
 M.LIARS = {
    recklessness = { "hp", "mp" },
+   succumbed    = { "hp", "mp" },
 }
 
 --- Is Char.Vitals telling the truth about this resource right now?
