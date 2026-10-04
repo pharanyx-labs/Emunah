@@ -344,7 +344,11 @@ M.IMPORTED = {
    treewatch      = { vector = "free", command = "treewatch on" },
    softfocus      = { vector = "free", command = "softfocus on" },
    telesense      = { vector = "free", command = "telesense on" },
-   vigilance      = { vector = "free", command = "vigilance on" },
+   -- Equilibrium, not balance, from play (2026-10-04): refused "You must regain equilibrium
+   -- first." at 11:36:49.41 with balance up, raised at 11:36:51.40 with balance down from a
+   -- vault. Costs neither: the prompt kept its `e`.
+   vigilance      = { vector = "free", command = "vigilance on",
+                      needs = { eq = true, standing = true } },
 
    -- Everyone. Costing a balance of some kind -- see BALANCEFUL below.
    alertness      = { vector = "balance", command = "alertness on" },
@@ -402,11 +406,14 @@ M.IMPORTED = {
 -- direction that is cheap: waiting costs a delay, guessing wrong costs a refusal and one of
 -- three attempts. The real cost timer still comes from the game's own
 -- "Equilibrium used: N.NNs." / "Balance used: N.NNs." line.
+--
+-- COSTING NOTHING DOES NOT MEAN NEEDING NOTHING. svof sends its balanceless defences only
+-- with balance, equilibrium and both arms ([svof] check_balanceless_acts), and `vigilance on`
+-- went out here without equilibrium and was refused (11:36:49.41, 2026-10-04). So the free
+-- ones need both as well, until play shows one does not -- as vigilance has, for balance.
 for _, entry in pairs(M.IMPORTED) do
    entry.source = "imported"
-   entry.needs  = entry.needs or entry.vector == "balance"
-      and { bal = true, eq = true, standing = true }
-      or  { standing = true }
+   entry.needs  = entry.needs or { bal = true, eq = true, standing = true }
 end
 
 -- ---------------------------------------------------------------------------
@@ -543,6 +550,7 @@ event.register("sysDisconnectionEvent", function()
    if emunah._persist then
       emunah._persist.maceSummoned = nil
       emunah._persist.macePlace = nil
+      emunah._persist.maceSummoning = nil
       emunah._persist.blissUp = nil
    end
 end, "curing.deflist")
@@ -557,6 +565,7 @@ local function rememberMace(place)
    emunah._persist = emunah._persist or {}
    emunah._persist.maceSummoned = true
    emunah._persist.macePlace = place
+   emunah._persist.maceSummoning = nil
    -- The summons that provoked the line were the wrong verb, not evidence the defence
    -- cannot be raised. trackmace never appears in Char.Defences, so those attempts would
    -- otherwise retire it ("Raised trackmace 3 times...") with the mace still unwielded.
@@ -572,6 +581,24 @@ end
 function M.noteMaceInLand()
    rememberMace("land")
    if emunah.queue then emunah.queue.confirm("balance") end
+end
+
+--- Seconds a summon may take from its start line before it counts as not happening, and
+--- keep-up may summon again. svof's waitingformace `customwait`; play took 2.48s (the start
+--- line at 11:36:47.39, the mace at 11:36:49.87, 2026-10-04).
+M.MACE_SUMMON_WAIT = 3.0
+
+--- A summon has started (svof's "Mace start" line), or the game says one already has.
+--- Keep-up's confirm wait runs from the SEND, and is shorter than the summon: at 11:36:49.22
+--- it lapsed and `summon mace` went again, answered "You are already summoning your mace."
+function M.noteMaceSummoning()
+   emunah._persist = emunah._persist or {}
+   emunah._persist.maceSummoning = util.now()
+end
+
+--- svof's "Mace interrupted": nothing is coming, so summoning may go again.
+function M.noteMaceSummonFoiled()
+   if emunah._persist then emunah._persist.maceSummoning = nil end
 end
 
 function M.noteMaceWielded()
@@ -659,6 +686,11 @@ M.DYNAMIC = {
 --- again at the moment of sending (defkeepup's queue `valid`), because each of these can
 --- change while the raise waits for its slot.
 M.HOLDS = {
+   trackmace = function()
+      local at = emunah._persist and emunah._persist.maceSummoning
+      if at and util.now() - at < M.MACE_SUMMON_WAIT then return "the mace is being summoned" end
+      return nil
+   end,
    insomnia = function()
       -- The user, 2026-10-04: "ensure insomnia is not raised while i sleep". From the moment
       -- SLEEP is typed (RELAX INSOMNIA goes first) until the character wakes.

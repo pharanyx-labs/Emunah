@@ -222,6 +222,19 @@ horse `horse368644`. The character's Riding skill tops out at VAULT (`AB RIDING`
 The user names the follow command as `order 368644 follow me` (bare number); that is what
 `riding.lua` sends.
 
+**The order costs nothing but needs balance and equilibrium both** (2026-10-04 login):
+refused `You must regain equilibrium first.` at 11:36:47.81 (balance up, mindseye's
+equilibrium spent) and `You must regain balance first.` at 11:36:50.90 (equilibrium up, the
+vault's balance spent). Since it is pointless once riding, it is not sent while our own
+vault is queued or in flight.
+
+**A sent balance action holds everything that needs balance until it is answered.** At
+11:36:50.33 `perform bliss` and the order went out behind `vault horse368644` and both were
+refused for balance. `vitals.spend("bal")` had marked it spent, and nothing but a
+`Char.Vitals` carrying `bal` writes it back, so one sent before the server ran the vault did
+(inferred: no GMCP trace of that moment). `act.blocked` now treats an unanswered action on
+the `balance` slot as balance spent, and the same for `equilibrium`.
+
 **Riding is not in GMCP.** The vault produced only `Char.Vitals`, no `Char.Defences.Add`.
 The state comes from the lines above, svof's (`defs_data.riding` on/off lines, its
 `lost_riding` and "riding already on" triggers) **[svof]**, and the `DEFENCES` listing line

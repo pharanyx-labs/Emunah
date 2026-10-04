@@ -5681,6 +5681,82 @@ do
    queue.reset(); emunah.timers.stopAll()
 end
 
+-- A summon takes longer than keep-up's confirm wait. At the 2026-10-04 login it started at
+-- 11:36:47.39 and landed at 11:36:49.87, and a second `summon mace` went out at 11:36:49.22
+-- into "You are already summoning your mace."
+do
+   local deflist = emunah.curing.deflist
+   local keep = emunah.config.get("defences.keepup")
+   queue.reset(); emunah.timers.stopAll()
+   defkeepup.resetBudget()
+   defkeepup.enabled = true
+   emunah._persist.maceSummoned = nil
+   emunah._persist.macePlace = nil
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   mock.feed("Char.Defences.List", {})
+   emunah.config.set("defences.keepup", { trackmace = "keepup" })
+   local function summons()
+      local n = 0
+      for _, command in ipairs(mock.sent) do
+         if command == "summon mace" then n = n + 1 end
+      end
+      return n
+   end
+   local function tick() mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" }) end
+
+   mock.sent = {}
+   tick()
+   eq(summons(), 1, "keep-up summons the mace")
+   mock.advance(0.33)
+   mock.line("You stand with arms outstretched, your mouth moving rapidly in fervent prayer.")
+   mock.advance(1.9)
+   tick()
+   eq(summons(), 1, "not again while it is being summoned, past the confirm wait")
+   mock.line("You are already summoning your mace.")
+   mock.advance(0.4)
+   tick()
+   eq(summons(), 1, "...and the game saying so holds it too")
+   mock.line("White strands of light weave themselves together before your eyes, and within seconds you hold a spiritual mace within your grasp.")
+   tick()
+   ok(table.concat(mock.sent, " | "):find("wield mace", 1, true),
+      "the mace arrives: wielded, not held for the summon", table.concat(mock.sent, " | "))
+
+   -- svof's waitingformace: a summon that never lands is tried again.
+   queue.reset(); emunah.timers.stopAll()
+   defkeepup.resetBudget()
+   emunah._persist.maceSummoned = nil
+   emunah._persist.macePlace = nil
+   mock.sent = {}
+   deflist.noteMaceSummoning()
+   tick()
+   eq(summons(), 0, "held while a summon is under way")
+   mock.advance(deflist.MACE_SUMMON_WAIT + 0.1)
+   tick()
+   eq(summons(), 1, "summoned again once it has had svof's three seconds")
+   mock.line("Your action foils your attempt at summoning your spiritual mace.")
+   eq(deflist.held("trackmace"), nil, "an interrupted summon holds nothing")
+
+   emunah.config.set("defences.keepup", keep)
+   emunah._persist.maceSummoned = nil
+   emunah._persist.macePlace = nil
+   emunah._persist.maceSummoning = nil
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   queue.reset(); emunah.timers.stopAll()
+end
+
+-- `vigilance on` costs nothing but needs equilibrium: refused without it at 11:36:49.41
+-- (2026-10-04), raised at 11:36:51.40 with balance down. The other free imported defences
+-- need both, as svof's check_balanceless_acts does.
+do
+   local deflist = emunah.curing.deflist
+   local _, command, needs = deflist.resolve("vigilance")
+   eq(command, "vigilance on", "vigilance is raised with VIGILANCE ON")
+   eq(needs.eq, true, "it needs equilibrium")
+   ok(not needs.bal, "but not balance")
+   local _, _, telesense = deflist.resolve("telesense")
+   ok(telesense.bal and telesense.eq, "a free imported defence needs balance and equilibrium")
+end
+
 -- Herb defences are raised only when the herb is already in hand. No announcement that
 -- restocking will get there: at 12:49:20 that line fired while restock could not run.
 do
@@ -12509,6 +12585,21 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
    mock.line("A heavy horse obediently falls into line behind you.")
    eq(riding.following(), true, "the obey line marks it following")
 
+   -- Free, but not without balance and equilibrium: refused for each at the 2026-10-04 login
+   -- (11:36:47.81 equilibrium, 11:36:50.90 balance).
+   riding.setFollowing(nil)
+   mock.sent = {}
+   emunah.gmcp.vitals.eq = false
+   riding.check()
+   ok(not sent("order"), "the order waits for equilibrium", table.concat(mock.sent, " | "))
+   emunah.gmcp.vitals.eq, emunah.gmcp.vitals.bal = true, false
+   riding.check()
+   ok(not sent("order"), "and for balance", table.concat(mock.sent, " | "))
+   emunah.gmcp.vitals.bal = true
+   riding.check()
+   ok(sent("order 368644 follow me"), "and goes once both are back", table.concat(mock.sent, " | "))
+   riding.setFollowing(true)
+
    -- Keep-up on with riding not known: vault, because the refusal is free (10:21:15).
    mock.sent = {}
    riding.start()
@@ -12580,13 +12671,16 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
    mock.sent = {}
    room(pegasus, horse, angel)
    ok(sent("vault horse368644"), "found again, keep-up vaults on", table.concat(mock.sent, " | "))
-   ok(sent("order 368644 follow me"), "and orders it to follow meanwhile (free)",
+   -- 11:36:50.33 (2026-10-04): the order went out behind the vault and was refused for the
+   -- balance the vault had just spent. Once on, there is nothing to follow.
+   ok(not sent("order"), "and orders nothing while its vault is in flight",
       table.concat(mock.sent, " | "))
-   local ordersSent = 0
-   for _, command in ipairs(mock.sent) do
-      if command == "order 368644 follow me" then ordersSent = ordersSent + 1 end
-   end
-   eq(ordersSent, 1, "once, not once per room event")
+   -- `perform bliss` went out with it too, the same refusal: a Char.Vitals the server sent
+   -- before it ran the vault had put the balance the vault marked spent back.
+   emunah.gmcp.vitals.bal = true
+   eq(emunah.act.blocked({ bal = true }), "balance in flight",
+      "nothing that needs the balance goes while the vault is in flight, whatever Char.Vitals says")
+   eq(emunah.act.blocked({ eq = true }), nil, "equilibrium is not touched by it")
    mock.echoed = {}
    emunah.curing.detect.textPrompt()
    ok(not table.concat(mock.echoed, ""):find("no horse", 1, true), "the warning goes")
