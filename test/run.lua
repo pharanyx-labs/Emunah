@@ -11571,6 +11571,37 @@ suite("angel presences: a warning window for hostiles nearby")
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 end)()
 
+;(function()
+   suite("succumbed lies about health, like recklessness")
+   -- 2026-10-03, 20:23:00.60-20:23:03.84: after a Bard's ghazal finale left `succumbed`,
+   -- every Char.Vitals read full health through two hits of ~930 and ~990, nothing healed,
+   -- and the next finale killed.
+   local engine, queue = emunah.curing.engine, emunah.queue
+   local wasEnabled = engine.enabled
+   engine.enabled = true
+   engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   -- Whatever an earlier suite left: a stun flag holds every command.
+   local detect = emunah.curing.detect
+   detect.stunned, detect.prone, detect.unconscious = false, false, false
+   detect.onWake()
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Vitals", { hp = "2850", maxhp = "2850", mp = "5000", maxmp = "5000", bal = "1", eq = "1" })
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "2850", maxhp = "2850", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("drink health", 1, true), "(at full health, no sip)")
+   mock.feed("Char.Afflictions.Add", { name = "succumbed", cure = "", desc = "" })
+   ok(not emunah.gmcp.vitals.trusted("hp"), "succumbed makes the health figure untrusted")
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "2850", maxhp = "2850", bal = "1", eq = "1" })
+   local sent = table.concat(mock.sent, " | ")
+   ok(sent:find("drink health", 1, true), "...so a reported 100% still heals", sent)
+   ok(sent:find("perform hands", 1, true), "...on every source, hands included", sent)
+   mock.feed("Char.Afflictions.Remove", { "succumbed" })
+   ok(emunah.gmcp.vitals.trusted("hp"), "the figure is trusted again once it clears")
+   engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   engine.enabled = wasEnabled
+end)()
+
 suite("docs stay in sync with the code, and with each other")
 
 -- Duplicated figures across README/website/docs/performance.md have drifted before: three
