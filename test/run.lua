@@ -11774,7 +11774,20 @@ suite("sileris is fangbarrier, myrrh is scholasticism")
    ok(mock.links[1] and mock.links[1].hint:find("sileris", 1, true),
       "a hardening line with nothing applied is marked as an illusion")
 
+   -- Switched off while the coat is still on, it looks like every other "not raised" entry
+   -- (the user, 2026-10-04: it read as a different shade of grey).
    keepup.setMode("fangbarrier", nil)
+   do
+      local function cell(word)
+         mock.links = {}
+         emunah.commands.handlers.defs()
+         for _, link in ipairs(mock.links) do
+            if link.text:find(word, 1, true) then return link.text:gsub(word .. "%s*$", "") end
+         end
+      end
+      local up, down = cell("sileris"), cell("shield")
+      eq(up, down, "a not-raised defence that is up is drawn like one that is down")
+   end
    keepup.enabled = wasEnabled
    emunah.queue.reset(); emunah.timers.stopAll()
    mock.feed("Char.Defences.List", {})

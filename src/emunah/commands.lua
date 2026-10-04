@@ -260,7 +260,8 @@ end
 --- sitting wanted-but-unraisable looks identical to one that is merely down.
 ---
 ---   section   kept up / raised once / not raised   -- what you asked for
----   dot       the section again: green kept up, yellow raised once, dim not raised
+---   dot       the section again: green kept up, yellow raised once, dim not raised (all
+---             alike, up or not)
 ---   name      red wanted but down, amber waiting on another defence
 ---   "-"       no command known; the tooltip says how to give it one
 ---
@@ -317,7 +318,9 @@ local function defencesGrid()
       end
       if state.mode == "keepup" then return theme().dc("defence") .. DOT, paint end
       if state.mode == "defup" then return theme().dc("warning") .. DOT, paint end
-      if state.up then return dim(DOT), text end
+      -- Not raised looks the same whether or not it happens to be up: a coat of sileris
+      -- still on after being switched off read as a different grey from its neighbours
+      -- (the user, 2026-10-04).
       return faint(NONE), dim
    end
 
