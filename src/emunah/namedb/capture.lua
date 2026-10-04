@@ -543,6 +543,67 @@ local function keep(id)
    return id
 end
 
+-- ---------------------------------------------------------------------------
+-- CITY ENEMIES
+-- ---------------------------------------------------------------------------
+--
+-- Verbatim, 19:29:26.17 on 2026-10-04:
+--
+--   Enemies of the Radiant Nation of Targossas:
+--   Khaseem, Ziel, Erikarn, Jems, Proficy, Fitz, Theosis, Accipiter, Shecks, Imyrr, Naz, Paine,
+--   Dochitha, Saibel, ...
+--   ..., Aletheia, Luz, Kralik, Vostyr, Hoyt
+--   Total: 95
+--
+-- Names, comma-separated, wrapped by the game; a wrapped line ends in a comma. Read only
+-- after you typed CITY ENEMIES, so the header in a tell or an illusion does nothing, and
+-- the total is the check: a listing that does not add up flags who it named and clears no
+-- one, since the names it missed would otherwise be cleared.
+
+--- The enemy listing being read: { names = {...} }, or nil.
+M.enemies = nil
+
+--- How long after CITY ENEMIES goes out its header is believed.
+M.ENEMIES_WINDOW = 10
+
+function M.enemiesHeader()
+   local outgoing = emunah.outgoing
+   if not (outgoing and outgoing.sentRecently("^city enemies$", M.ENEMIES_WINDOW)) then return end
+   M.enemies = { names = {} }
+end
+
+--- One line of the listing: names, the total, or the end of it.
+function M.enemiesLine(line)
+   local listing = M.enemies
+   if not listing then return end
+   local total = line:match("^Total: (%d+)%s*$")
+   if total then
+      M.enemies = nil
+      total = tonumber(total)
+      local complete = total == #listing.names
+      if not complete then
+         log.warn("CITY ENEMIES says %d and %d were read -- flagging those, clearing no one.",
+            total, #listing.names)
+      end
+      local added, cleared = ndb().setCityEnemies(listing.names, complete)
+      log.info("City enemies: %d (%d new, %d no longer).", #listing.names, added, cleared)
+      return
+   end
+   local names = {}
+   for piece in (line .. ","):gmatch("([^,]*),") do
+      piece = util.trim(piece)
+      if piece ~= "" then
+         if not piece:match("^%u%l+$") then
+            -- Not a line of names: the listing ended without its total. Nothing applied.
+            M.enemies = nil
+            return
+         end
+         names[#names + 1] = piece
+      end
+   end
+   for _, name in ipairs(names) do listing.names[#listing.names + 1] = name end
+end
+
 M.killAll()
 
 -- REGISTRATION ORDER IS THE CONTROL FLOW. Mudlet fires triggers in the order they were
@@ -649,6 +710,16 @@ do
    keep(tempRegexTrigger(ANGEL, function()
       if not M.enabled then return end
       M.sensed(matches[2], matches[3], matches[4], matches[5])
+   end))
+
+   -- CITY ENEMIES: the header, then every line until the total. Not gated on
+   -- namedb.capture: you typed it to have the list kept.
+   keep(tempRegexTrigger([[^Enemies of (.+):$]], function() M.enemiesHeader() end))
+   keep(tempRegexTrigger([[^]], function()
+      if not M.enemies then return end
+      if type(isPrompt) == "function" and isPrompt() then M.enemies = nil return end
+      local line = getCurrentLine()
+      if type(line) == "string" and not line:match("^Enemies of .+:$") then M.enemiesLine(line) end
    end))
 
    keep(tempRegexTrigger([[^]], function()

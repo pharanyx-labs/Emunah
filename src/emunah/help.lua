@@ -472,6 +472,9 @@ M.settings = {
   shipped = true, detail = "How long the presence warning stays up without a click. 0 keeps "
        .. "it until clicked." },
 { key = "names.cityTint", default = true, type = "boolean", topic = "people", shipped = true },
+{ key = "names.enemyLinks", default = true, type = "boolean", topic = "people", shipped = false,
+  detail = "An enemy's name in the game text is a link: click it for their record, as "
+       .. "`emset whois`." },
 }
 
 -- ---------------------------------------------------------------------------

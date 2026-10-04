@@ -108,6 +108,7 @@ emset hostile                        <span class="c"># list the hostile organisa
 <div class="table-wrap"><table>
   <thead><tr><th>Source</th><th>How it is set</th></tr></thead>
   <tbody>
+    <tr><td>City enemies</td><td>Typing <code>CITY ENEMIES</code>. The listing replaces the last one each time: everyone on it is an enemy, and anyone dropped from it no longer is. A listing whose names do not add up to its total adds without clearing anyone.</td></tr>
     <tr><td>Declared</td><td><code>emset iff &lt;person&gt; ally|enemy</code>. It survives imports, and survives the broader rules changing underneath it.</td></tr>
     <tr><td>Derived</td><td><code>emset hostile city|house|order &lt;name&gt;</code> makes everyone in that organisation an enemy, without touching a single record.</td></tr>
   </tbody>
@@ -117,9 +118,10 @@ emset hostile                        <span class="c"># list the hostile organisa
 <h2 id="highlighting">Names in the text</h2>
 <p>Colour and weight do two different jobs, and they stack:</p>
 <ul>
-  <li><strong>Colour</strong> says where someone stands relative to you: enemy, ally, or which city.</li>
+  <li><strong>Colour</strong> says where someone stands relative to you: a dark red for your city's enemies, green for allies, otherwise their city. Any other enemy, declared or derived, keeps that colour and is <strong>underlined</strong>.</li>
   <li><strong>Weight</strong> says there is something about them: a Dragon, a mark, infamy, or importance you set yourself.</li>
 </ul>
+<p>An enemy's name is also a link: click it for their record, the same as <code>emset whois</code>. <code>names.enemyLinks</code> turns that off.</p>
 <p>Only names already in the database are styled; nothing is invented from a capitalised word at the start of a sentence. Your own name is never highlighted. For an ally whose name is also a common word, <code>lua emunah.ui.names.ignore("&lt;person&gt;", true)</code> stops the highlighting and forgets nothing else.</p>
 <p>The highlighter's trigger is built from the database itself, so it fires only on lines that name somebody you know, about one line in eight in practice, rather than every line with a capital letter.</p>
 
@@ -132,6 +134,7 @@ emset hostile                        <span class="c"># list the hostile organisa
     <tr><td><code>CLWHO</code></td><td>Clan membership.</td></tr>
     <tr><td><code>QW</code></td><td>Who is around.</td></tr>
     <tr><td><code>HONOURS</code></td><td>The richest source: full name, race, city, house, order, level and more.</td></tr>
+    <tr><td><code>CITY ENEMIES</code></td><td>Your city's enemies, replaced each time you type it.</td></tr>
     <tr><td>Your guardian angel</td><td>Where someone is, and their health and mana, as of that moment.</td></tr>
   </tbody>
 </table></div>

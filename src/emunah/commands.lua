@@ -469,6 +469,17 @@ M.handlers.defs = function(arg, rest)
    end
 end
 
+--- How each standing is shown in a report. Removed with the roster in 03e1a97 while
+--- `whois` and nameColour() still read it, so every `emset whois` of a known person -- and
+--- every click on an enemy's name, which runs it -- died on a nil global with nothing on
+--- screen ("i get the tooltip when i hover but when i click, nothing happens", 2026-10-04).
+local STANDING = {
+   enemy   = { colour = "affliction", label = "enemy"   },
+   ally    = { colour = "defence",    label = "ally"    },
+   neutral = { colour = "textDim",    label = "neutral" },
+   self    = { colour = "textBright", label = "you"     },
+}
+
 --- The colour a name is drawn in -- the same decision the highlighter makes, so a name
 --- reads identically in the roster and in the scroll.
 local function nameColour(name)
