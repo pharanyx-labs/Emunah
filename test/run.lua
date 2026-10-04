@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 57, "all 57 manifest modules loaded")
+eq(loadedModules, 58, "all 58 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -7468,6 +7468,7 @@ mock.feed("Room.Info", { num = 902, name = "A field", area = "Newarea3", exits =
 
 mock.links = {}
 mock.deletedLines = 0
+mock.command("ih")
 mock.line("wildcat338261       a wildcat soldier")
 
 eq(mock.deletedLines, 1, "the matched line is deleted before being redrawn")
@@ -7491,7 +7492,116 @@ mock.links = {}
 mock.line("Number of objects: 3")
 eq(#mock.links, 0, "the object-count trailer line is left alone")
 
+-- The user's report, 2026-10-04 09:13:02.44: ELIST's bare vials have IH's shape. With the
+-- trigger always on, each was recorded as a denizen, offered as "Click to allow killing
+-- this", and deleted mid-packet, which fused it onto the row above.
+mock.prompt("H:100% M:88% E:100% W:100%  exckdb  T:  09:13:02.44-")
+eq(emunah.ih.awaiting, false, "the prompt after an IH ends it")
+mock.links = {}
+mock.deletedLines = 0
+mock.command("elist")
+mock.line("Vial477753                    an elixir of mana              42       88")
+eq(#mock.links, 0, "an ELIST row is not relinked as a denizen")
+eq(mock.deletedLines, 0, "and is not deleted")
+ok(not den.known("an elixir of mana              42       88", "Newarea3"),
+   "nor recorded as one")
+ok(emunah.ih.isIh("ih") and emunah.ih.isIh("IH vial") and not emunah.ih.isIh("ihelp"),
+   "IH is `ih`, alone or with an argument")
+
+-- Rows already recorded by the old trigger are dropped when the list loads.
+den.areas = {
+   Newarea3 = {
+      ["an elixir of mana              42       88"] =
+         { name = "an elixir of mana              42       88", seen = 1, wanted = false },
+      ["a wildcat soldier"] = { name = "a wildcat soldier", seen = 1, wanted = true },
+   },
+}
+eq(den.dropListingRows(), 1, "one listing row is dropped")
+ok(den.known("a wildcat soldier", "Newarea3"), "a real denizen is kept")
+
 den.areas = {}
+
+-- ===========================================================================
+suite("elist: restyled in place, with a total per fluid")
+do
+
+local elist = emunah.elist
+local theme = emunah.ui.theme
+local RULE = string.rep("-", 79)
+local function elistListing(rows)
+   mock.echoed = {}
+   mock.deletedLines = 0
+   mock.command("elist")
+   mock.line("Vial                          Fluid                          Sips     Months  ")
+   mock.line(RULE)
+   local styled = {}
+   for _, row in ipairs(rows) do
+      mock.line(row)
+      styled[#styled + 1] = mock.formatted
+   end
+   mock.line(RULE)
+   return styled
+end
+
+local styled = elistListing({
+   "Pinewood vial41028            an elixir of health            149      88",
+   "Oaken vial418713              an elixir of health            39       63",
+   "Vial477753                    an elixir of mana              42       88",
+   "A sandstone vial47327         a salve of restoration         200      93",
+   "A white marble vial411725     a caloric salve                45       137",
+   "Vial507758                    an elixir of frost             170      88",
+   "Vial676646                    empty                          0        88",
+})
+eq(mock.deletedLines, 0, "nothing is deleted: ELIST arrives in one packet")
+
+local function runOf(formatted, text)
+   for _, entry in ipairs(formatted) do
+      if entry.text == text then return entry end
+   end
+   return nil
+end
+local function hex(key) return theme.colour[key] end
+eq((runOf(styled[1], "an elixir of health") or {}).colour, hex("health"), "health is drawn red")
+eq((runOf(styled[3], "an elixir of mana") or {}).colour, hex("mana"), "mana blue")
+eq((runOf(styled[4], "a salve of restoration") or {}).colour, hex("endurance"), "salves amber")
+eq((runOf(styled[6], "an elixir of frost") or {}).colour, hex("equilibrium"),
+   "the other elixirs violet")
+eq((runOf(styled[1], "149") or {}).colour, hex("textBright"), "plenty of sips is bright")
+eq((runOf(styled[2], "39") or {}).colour, hex("warning"), "a low vial is flagged")
+eq((runOf(styled[7], "empty") or {}).colour, hex("inactive"), "an empty vial is greyed out")
+eq((runOf(styled[5], "A white marble vial411725") or {}).colour, hex("textDim"),
+   "a vial's name recedes")
+
+local summary = table.concat(mock.echoed, "\n")
+ok(summary:find("health " .. theme.dc("textBright") .. "188", 1, true),
+   "health totals both vials", summary)
+ok(summary:find("mana " .. theme.dc("warning") .. "42", 1, true), "a low total is flagged")
+ok(summary:find("restoration", 1, true) and summary:find("caloric", 1, true),
+   "salves are named short")
+ok(summary:find("Vial676646", 1, true), "the empty vial is named")
+
+-- A listing nobody asked for is left as it came.
+mock.advance(elist.WINDOW + 1)
+mock.echoed = {}
+mock.line("Vial                          Fluid                          Sips     Months  ")
+mock.line(RULE)
+mock.line("Vial477753                    an elixir of mana              42       88")
+eq(#mock.formatted, 0, "a row without an ELIST sent is not restyled")
+mock.line(RULE)
+eq(#mock.echoed, 0, "and gets no summary")
+
+-- A prompt ends a listing whose closing rule never came.
+elistListing({})
+mock.command("elist")
+mock.line("Vial                          Fluid                          Sips     Months  ")
+mock.prompt("H:100% M:88% E:100% W:100%  exckdb  T:  09:14:43.18-")
+mock.line("Vial477753                    an elixir of mana              42       88")
+eq(#mock.formatted, 0, "a row after the prompt is not part of the listing")
+
+eq(elist.parse("A very long carved oaken vial123 an elixir of health 149 88").vial,
+   "A very long carved oaken vial123", "a name squeezing the gaps to one space still parses")
+eq(elist.kind("an epidermal salve"), "endurance", "epidermal is a salve")
+end
 
 -- ===========================================================================
 suite("bashing loop (Priest)")

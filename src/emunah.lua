@@ -121,6 +121,9 @@ local MANIFEST = {
    -- and gmcp.status for the gold-spent verification, so it follows both
    { path = "emunah.shop",               as = "shop"          },
 
+   -- restyles ELIST and totals its sips; needs ui.theme and outgoing (was it asked for)
+   { path = "emunah.elist",              as = "elist"         },
+
    -- antitheft: keeps selfishness up and valuables in the pack, and raises the alarm on an
    -- unexplained loss. Reads loot (the pack), shop (the pay window), outgoing and items;
    -- uses ui.alert, and curing.defkeepup for selfishness, both loaded above.

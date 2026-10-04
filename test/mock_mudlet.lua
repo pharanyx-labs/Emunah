@@ -224,6 +224,19 @@ function mock.install(homeDir)
       return start - 1
    end
 
+   --- selectSection(from, length): `from` is 0-based, as in Mudlet.
+   function _G.selectSection(from, length)
+      from, length = tonumber(from) or 0, tonumber(length) or 0
+      if from < 0 or length <= 0 or from + length > #mock.currentLine then
+         selection = nil
+         return false
+      end
+      selection = { text = mock.currentLine:sub(from + 1, from + length), at = from + 1,
+                    bold = false, italic = false, underline = false }
+      mock.formatted[#mock.formatted + 1] = selection
+      return true
+   end
+
    function _G.deselect() selection = nil end
 
    --- Background of the current selection, as Mudlet returns it: three components.

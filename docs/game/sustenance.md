@@ -165,6 +165,25 @@ Not yet established, so do not build on it without asking: whether the target vi
 empty first, what a successful fill prints, and what it prints when the rift is out of that
 fluid. Nothing automates filling for that reason.
 
+### ELIST
+
+What you carry, one vial per row, between two 79-dash rules. Seen at 09:14:10.52 on
+2026-10-04 (rows trimmed):
+
+    Vial                          Fluid                          Sips     Months
+    -------------------------------------------------------------------------------
+    Pinewood vial41028            an elixir of health            149      88
+    A white marble vial411725     a caloric salve                45       137
+    Vial477753                    an elixir of mana              42       88
+    Vial676646                    empty                          0        88
+    -------------------------------------------------------------------------------
+
+The columns start at 1, 31, 62 and 71. A vial holds 200 sips when full; every full one in
+that listing reads 200. An empty vial's fluid reads `empty`, with 0 sips. A vial with no
+adjective is listed as bare `Vial<number>`, which is the shape of an `IH` row: `ih.lua`
+took them for denizens until it was limited to answering an `ih` (09:13:02.44).
+`elist.lua` colours the listing in place and totals sips per fluid under it.
+
 ## Pipes
 
 `PIPELIST` is the complete state of every pipe, and the only reliable source for it:
