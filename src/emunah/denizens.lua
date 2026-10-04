@@ -96,11 +96,28 @@ function M.area()
    return room and room.area or nil
 end
 
+--- Our own creatures, which carry the `m` attribute like any denizen but are not one: the
+--- guardian angel (`attrib="m"`, id 318870, the same in the 10:09:48 and 11:52:12 traces of
+--- 2026-10-04) by name, and the mount (`attrib="mx"`) by its replica number.
+M.COMPANIONS = { ["a guardian angel"] = true }
+
+local function companion(item)
+   if M.COMPANIONS[tostring(item.name or ""):lower()] then return true end
+   local riding = emunah.riding
+   if not (riding and riding.mount) then return false end
+   local _, mount = riding.mount()
+   return mount ~= nil and tostring(item.id) == mount
+end
+
 --- Denizens standing in this room right now.
 ---
 --- Identified by the GMCP `m` attribute, and corpses (`d`) are excluded -- a corpse is
 --- still a monster as far as the attribute string is concerned, and queuing an attack on
 --- one is a wasted balance.
+---
+--- Our companions are excluded too. Counted, they kept every room "alive" for good: at
+--- 11:52:09 (2026-10-04) the last sentinel died, its gold landed, and the pickup answered
+--- "something is still alive here" -- the angel and the horse -- until the walker left.
 --- @return table array of { id, name }
 function M.here()
    local items = emunah.gmcp.items
@@ -109,7 +126,7 @@ function M.here()
    local out = {}
    for _, item in ipairs(items.at("room")) do
       local attrib = items.attrib(item)
-      if attrib.monster and not attrib.dead then
+      if attrib.monster and not attrib.dead and not companion(item) then
          out[#out + 1] = { id = item.id, name = item.name or "" }
       end
    end
