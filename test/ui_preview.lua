@@ -113,6 +113,9 @@ local function resolve(value, size, offset, isSize)
    if negative then text = text:sub(2) end
    local number = tonumber(text:match("^([%d%.]+)")) or 0
    local px = text:find("%%") and (size * number / 100) or number
+   -- Geyser's "N%+Mpx": a percentage plus a pixel offset.
+   local extra = text:match("%%%s*([%+%-]%d+)")
+   if extra then px = px + tonumber(extra) end
    if negative then
       return isSize and (size - offset - px) or (size - px)
    end

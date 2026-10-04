@@ -43,6 +43,10 @@ M.colour = {
    -- Section titles and anything that says "this is ours, in progress": a cure sent and
    -- waiting for its answer is drawn in it, so in-flight reads differently from ready.
    accent    = "#5aa7f5",
+   -- The CURE / DEFS / BASH switches at the end of the balance strip. A blue of their own,
+   -- deeper than `accent` and `balance`, so a switch that is on never reads as a balance
+   -- in flight or BAL beside it.
+   mode      = "#6c84e8",
    -- A genuinely dark red, distinct from the brighter `health`/`affliction` accents --
    -- reserved for "everything has stopped" states (the paused banner) so it reads as more
    -- severe than an ordinary affliction warning.

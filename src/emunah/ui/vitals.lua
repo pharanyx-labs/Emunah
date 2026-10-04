@@ -4,9 +4,12 @@
 --- your eyes already are while fighting. A vitals panel you have to look away to read is a
 --- vitals panel you check too late.
 ---
----   row 1   TARGET health bar                | status: what is running, what is in flight
+---   row 1   (title) TARGET | status: pvp, rate limit, death, what is in flight
 ---   row 2   HP | MP | EP | WP, each with its change since the last prompt
----   row 3   BAL EQ | every curing balance     | XP | class stats
+---   row 3   BAL EQ | every curing balance | CURE DEFS BASH | XP | class stats
+---
+--- The target bar is only as wide as what it says ("no target", or a name and a percentage),
+--- and the status label takes the rest of the row. A fixed 60% was mostly empty bar.
 ---
 --- THE BALANCE STRIP is the HUD's reason to exist. Each cell is one balance, in one of five
 --- states, by colour and by mark:
@@ -65,6 +68,14 @@ local ROW3_Y = string.format("-%dpx", ROW3_H + 2)
 local ROW2_Y = string.format("-%dpx", ROW3_H + 2 + GAP + ROW2_H)
 local ROW1_Y = string.format("-%dpx", ROW3_H + 2 + GAP + ROW2_H + GAP + ROW1_H)
 
+-- Row 1 starts right of the container's title. Adjustable.Container draws its title ("Combat")
+-- in the top-left corner of its own background, under its children, and a target bar from the
+-- left edge cut the word off. Room for it in Mudlet's default label font, with some to spare.
+local TITLE_PX = 70
+local TARGET_GAP = 6
+-- A long target description is cut to this many characters, so the bar stays a bar.
+local TARGET_NAME_MAX = 40
+
 local function available()
    return layout.container("bottom") ~= nil and type(Geyser) == "table"
 end
@@ -101,9 +112,10 @@ function M.build()
    local parent = layout.container("bottom")
    M.widgets = {}
 
-   -- Row 1: the target, and the system's own state beside it.
-   M.widgets.target = gauge("emunah.target", "0.5%", ROW1_Y, "60%", ROW1_H, "affliction", parent)
-   M.widgets.status = label("emunah.status", "61%", ROW1_Y, "38.5%", ROW1_H, parent)
+   -- Row 1: the target, and the system's own state beside it. Both are placed properly by
+   -- fitTarget() once the target's text is known.
+   M.widgets.target = gauge("emunah.target", TITLE_PX .. "px", ROW1_Y, "100px", ROW1_H, "affliction", parent)
+   M.widgets.status = label("emunah.status", "50%", ROW1_Y, "49.5%", ROW1_H, parent)
 
    -- Row 2: the four resources.
    for index, resource in ipairs(RESOURCES) do
@@ -143,6 +155,7 @@ end
 --- Called by M.build(): the widgets are brand new.
 function M.forgetLights()
    gaugeShown = {}
+   M.targetWidth = nil
    for _, key in ipairs({ "status", "balances", "stats", "target" }) do
       theme.forgetPainted("hud." .. key)
    end
@@ -245,6 +258,23 @@ local function curing(vector)
    return cell("defence", vector.label .. " " .. TICK, true), false
 end
 
+--- The switches, after the balances: on is the mode blue, off is the grey the status pills
+--- used to be. They sit here rather than in the status label at the user's request, beside
+--- the balances they spend.
+local function modes()
+   local engine = emunah.curing and emunah.curing.engine
+   local keepup = emunah.curing and emunah.curing.defkeepup
+   local bashing = emunah.bashing
+   return {
+      { "CURE", engine and engine.enabled },
+      { "DEFS", keepup and keepup.enabled },
+      { "BASH", bashing and bashing.enabled },
+   }
+end
+
+-- Set apart from the balances: a gap, a rule, a gap.
+local DIVIDER = '<td>&nbsp;</td><td style="color:%s">&#9474;</td><td>&nbsp;</td>'
+
 local cells = {}
 
 --- Repaint the balance strip. Returns whether anything on it is counting down.
@@ -270,6 +300,12 @@ function M.updateBalances()
       live = live or counting
    end
    n = n + 1
+   cells[n] = string.format(DIVIDER, theme.colour.borderLit)
+   for _, mode in ipairs(modes()) do
+      n = n + 1
+      cells[n] = mode[2] and cell("mode", mode[1], true) or cell("inactive", mode[1], true)
+   end
+   n = n + 1
    cells[n] = "</tr></table>"
 
    theme.paintLabel(widget, "hud.balances", table.concat(cells, "", 1, n))
@@ -283,22 +319,13 @@ M.updateVectors = M.updateBalances
 -- status, stats, target
 -- ---------------------------------------------------------------------------
 
---- What is switched on, and what has been sent and not yet answered.
+--- What needs saying beside the target, and what has been sent and not yet answered. The
+--- CURE / DEFS / BASH switches are on the balance strip (modes()).
 function M.updateStatus()
    local widget = M.widgets.status
    if not widget then return end
 
-   local function mode(on, text)
-      return theme.pill(on and "defence" or "inactive", text)
-   end
-
-   local engine = emunah.curing and emunah.curing.engine
-   local keepup = emunah.curing and emunah.curing.defkeepup
-   local parts = {
-      mode(engine and engine.enabled, "CURE"),
-      mode(keepup and keepup.enabled, "DEFS"),
-      mode(emunah.bashing and emunah.bashing.enabled, "BASH"),
-   }
+   local parts = {}
    local pvp = emunah.pvp
    if pvp and pvp.enabled then
       parts[#parts + 1] = theme.pill("affliction", "PVP " .. theme.esc(tostring(pvp.target or "?"):upper()))
@@ -319,7 +346,7 @@ function M.updateStatus()
    table.sort(flying)
    local html = table.concat(parts, "&nbsp;")
    if #flying > 0 then
-      html = html .. "&nbsp;&nbsp;" .. theme.span("accent", "&#8250; " .. table.concat(flying, ", "))
+      html = html .. (html ~= "" and "&nbsp;&nbsp;" or "") .. theme.span("accent", "&#8250; " .. table.concat(flying, ", "))
    end
 
    theme.paintLabel(widget, "hud.status", html)
@@ -349,6 +376,41 @@ function M.updateStats()
    theme.paintLabel(widget, "hud.stats", html)
 end
 
+--- How many characters a piece of rich text shows: tags drop out, an entity is one.
+function M.visibleLength(html)
+   return #(html:gsub("<[^>]*>", ""):gsub("&#?%w+;", "x"))
+end
+
+--- Pixel width of one character of the HUD's text. Measured where Mudlet can (calcFontSize
+--- knows the screen's DPI); otherwise 0.6em at 96 dpi, a little over Ubuntu Mono's 0.5em.
+local function charWidth()
+   if type(calcFontSize) == "function" then
+      local ok, width = pcall(calcFontSize, theme.font.small, theme.font.family)
+      if ok and tonumber(width) and width > 0 then return width end
+   end
+   return theme.font.small * 96 / 72 * 0.6
+end
+
+--- Size the target bar to its text and give the status label the rest of the row. Only when
+--- the width changes: a resize repositions the gauge's three labels.
+function M.fitTarget(text)
+   local target, status = M.widgets.target, M.widgets.status
+   -- The caption's 6px padding each side, and two characters of slack: an estimate that is
+   -- short clips the percentage, one that is long costs a few pixels.
+   local px = math.ceil((M.visibleLength(text) + 2) * charWidth()) + 12
+   if px == M.targetWidth then return end
+   M.targetWidth = px
+   target:move(TITLE_PX .. "px", ROW1_Y)
+   target:resize(px .. "px", ROW1_H)
+   if status then
+      local x = TITLE_PX + px + TARGET_GAP
+      status:move(x .. "px", ROW1_Y)
+      -- Geyser reads "99.5%-Npx" as a percentage plus a pixel offset: the label ends where
+      -- every other row does, whatever the window's width.
+      status:resize(string.format("99.5%%-%dpx", x), ROW1_H)
+   end
+end
+
 --- The target's health bar. Its own events, not the per-prompt one: a target changes
 --- independently of your own prompt.
 function M.updateTarget()
@@ -356,23 +418,24 @@ function M.updateTarget()
    local ire = emunah.gmcp.ire
    if not widget or not ire then return end
 
-   if not ire.hasTarget() then
-      setGauge("target", widget, 0, 100, theme.span("textDim", "no target"))
-      return
+   local current, text = 0, theme.span("textDim", "no target")
+   if ire.hasTarget() then
+      local health = ire.targetHealth()
+      local raw = tostring(ire.target.description or ire.target.id or "target")
+      local name = #raw > TARGET_NAME_MAX
+         and theme.esc(raw:sub(1, TARGET_NAME_MAX - 1)) .. "&#8230;" or theme.esc(raw)
+      local id = ire.target.id and theme.span("textDim", "&nbsp;#" .. theme.esc(ire.target.id)) or ""
+      text = theme.span("textBright", name, true) .. id
+      current = 100
+      if health then
+         -- hpperc can arrive fractional; floor before %d.
+         local pct = math.floor(health)
+         current = health
+         text = text .. "&nbsp;&nbsp;" .. theme.span(theme.forPercent(pct), pct .. "%", true)
+      end
    end
-
-   local health = ire.targetHealth()
-   local name = theme.esc(ire.target.description or ire.target.id or "target")
-   local id = ire.target.id and theme.span("textDim", "&nbsp;#" .. theme.esc(ire.target.id)) or ""
-   if health then
-      -- hpperc can arrive fractional; floor before %d.
-      local pct = math.floor(health)
-      setGauge("target", widget, health, 100,
-         theme.span("textBright", name, true) .. id .. "&nbsp;&nbsp;"
-            .. theme.span(theme.forPercent(pct), pct .. "%", true))
-   else
-      setGauge("target", widget, 100, 100, theme.span("textBright", name, true) .. id)
-   end
+   M.fitTarget(text)
+   setGauge("target", widget, current, 100, text)
 end
 
 --- Everything driven by a prompt.
@@ -400,12 +463,20 @@ emunah.event.registerAll({
 end, "ui.vitals")
 
 emunah.event.registerAll({
-   "emunah.curing.enabled", "emunah.curing.disabled",
-   "emunah.defkeepup.enabled", "emunah.defkeepup.disabled",
-   "emunah.bashing.started", "emunah.bashing.stopped",
    "emunah.pvp.started", "emunah.pvp.stopped", "emunah.pvp.target",
    "emunah.rateLimited", "emunah.character.died", "emunah.character.revived",
 }, function() theme.later("vitals.status", M.updateStatus) end, "ui.vitals")
+
+-- The switches are drawn on the balance strip.
+emunah.event.registerAll({
+   "emunah.curing.enabled", "emunah.curing.disabled",
+   "emunah.defkeepup.enabled", "emunah.defkeepup.disabled",
+   "emunah.bashing.started", "emunah.bashing.stopped",
+}, function()
+   theme.later("vitals.balances", function()
+      if M.updateBalances() then theme.wakeClock() end
+   end)
+end, "ui.vitals")
 
 emunah.event.registerAll({
    "emunah.target",

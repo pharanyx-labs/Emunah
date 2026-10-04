@@ -48,9 +48,9 @@ local scrolling = nil
 ---   |------------|                           |             |
 ---   | DEFENCES   |                           |             |
 ---   +------------+---------------------------+-------------+
----   | TARGET ======== health ========  | status pills, in flight  |
+---   | Combat [TARGET 42%] | pvp, warnings, in flight              |
 ---   | HP ====  | MP ====  | EP ====  | WP ====                     |
----   | BAL EQ | HERB SALVE SIP PURG SMOKE FOCUS MOSS TREE | XP | stats|
+---   | BAL EQ HERB .. TREE | CURE DEFS BASH        | XP  | stats    |
 ---   +---------------------------------------------------------------+
 ---
 --- Everything about YOU is in one column: where you are, what is wrong, what is up. The
