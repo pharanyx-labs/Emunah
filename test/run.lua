@@ -9317,6 +9317,24 @@ do
       location = "inv", item = { id = "990001", name = "350 gold sovereigns" },
    })
 
+   -- GOLD YOU TAKE OUT YOURSELF stays out. 08:12:22.17, 2026-10-04: a typed `get 5 gold
+   -- from pack452292` was answered with `put gold in backpack452292` in the same packet.
+   mock.advance(shop.PAY_WINDOW + 0.01)
+   emunah.timers.stop("loot.stow"); emunah.loot.stowAttempts = 0
+   mock.sent = {}
+   mock.command("get 5 gold from pack452292")
+   mock.feed("Char.Items.Add", {
+      location = "inv", item = { id = "620083", name = "some gold sovereigns", attrib = "t" },
+   })
+   eq(#mock.sent, 0, "gold you fetched yourself is not put straight back",
+      table.concat(mock.sent, " | "))
+   mock.advance(emunah.loot.HOLD_TYPED + 0.01)
+   eq(table.concat(mock.sent, " | "), "put gold in backpack452292",
+      "...until the hold runs out, if it is still loose", table.concat(mock.sent, " | "))
+   mock.feed("Char.Items.Remove", {
+      location = "inv", item = { id = "620083", name = "some gold sovereigns" },
+   })
+
    -- BUY BY NUMBER: `buy 50 476321` fills in the name from the listing. HELP SHOPS wants
    -- the full name; the bare number would be refused by the game.
    mock.advance(shop.PAY_WINDOW + 0.01)
@@ -11697,12 +11715,15 @@ suite("antitheft: selfishness, the pack, and alarms on loss")
    local realAbandon = emunah.curing.defkeepup.abandon
    emunah.curing.defkeepup.abandon = function(name) abandoned = name end
    mock.feed("Char.Defences.List", {})
-   emunah.queue.push("balance", "selfishness", { tag = "def:selfishness", confirm = 5 })
+   -- It spends equilibrium (08:09:39.34, "Equilibrium used: 0.50s.").
+   eq(emunah.curing.deflist.resolve("selfishness"), "equilibrium",
+      "selfishness is raised on the equilibrium slot")
+   emunah.queue.push("equilibrium", "selfishness", { tag = "def:selfishness", confirm = 5 })
    emunah.queue.flush()
-   ok(emunah.queue.awaiting("balance") ~= nil, "(a selfishness raise in flight)",
+   ok(emunah.queue.awaiting("equilibrium") ~= nil, "(a selfishness raise in flight)",
       tostring(emunah.act.blocked({ bal = true, eq = true })))
    mock.line("You already are a selfish bastard.")
-   eq(emunah.queue.awaiting("balance"), nil, "'You already are a selfish bastard.' answers it")
+   eq(emunah.queue.awaiting("equilibrium"), nil, "'You already are a selfish bastard.' answers it")
    eq(abandoned, "selfishness", "...and, unlisted by Char.Defences, stops it being raised again")
    emunah.curing.defkeepup.abandon = realAbandon
    emunah.queue.reset()
@@ -11901,6 +11922,11 @@ end)()
    local engine, queue = emunah.curing.engine, emunah.queue
    local wasEnabled = engine.enabled
    engine.enabled = true
+   -- Keep-up off: an earlier suite leaves it on, and selfishness (antitheft) spends the
+   -- equilibrium `perform hands` needs, which is a different question from this one.
+   local keepup = emunah.curing.defkeepup
+   local wasKeeping = keepup.enabled
+   keepup.enabled = false
    engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
    -- Whatever an earlier suite left: a stun flag holds every command.
    local detect = emunah.curing.detect
@@ -11922,6 +11948,7 @@ end)()
    ok(emunah.gmcp.vitals.trusted("hp"), "the figure is trusted again once it clears")
    engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
    engine.enabled = wasEnabled
+   keepup.enabled = wasKeeping
 end)()
 
 suite("docs stay in sync with the code, and with each other")

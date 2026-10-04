@@ -487,7 +487,21 @@ HELP THIEVERY: "Turn on your curing and setup selfishness as a defence." It is t
 defence a thief may strip, and a pickpocket checks it when the attempt completes, so the
 race is the gap between losing it and raising it again.
 
-**[open]** Which balance it spends. svof marks it balanceful without saying which, so it
-needs both (`deflist.IMPORTED`). **[open]** svof refuses `EMPTY` (pipes) and `BOIL` while
-selfish. Emunah sends neither. Whether it also refuses `PUT` into your own pack has not been
-seen. If it does, gold stowing hits `loot.STOW_ATTEMPTS` and says so.
+**Both directions spend 0.50s of equilibrium.** From play, 2026-10-04:
+
+```
+08:08:28.63  generosity
+A feeling of generosity spreads throughout you.
+Equilibrium used: 0.50s.
+08:09:39.34  selfishness
+You rub your hands together greedily.
+Equilibrium used: 0.50s.
+```
+
+The prompt went from `excdb` to `xcdb`: equilibrium gone, balance kept. So keep-up raises it
+on the equilibrium slot. Whether it also *needs* balance hasn't been seen (balance was up),
+so both are required, per HELP's default for bal/eq abilities. It competes with
+`perform hands` for equilibrium, but only for half a second.
+
+**`GET` and `PUT` of gold with your own pack work while selfish** *(the user, 2026-10-04)*.
+svof refuses `EMPTY` (pipes) and `BOIL` while selfish, and Emunah sends neither.

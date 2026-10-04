@@ -399,6 +399,9 @@ M.settings = {
   shipped = false },
 { key = "loot.noDenizens", default = true, type = "boolean", topic = "loot",
   shipped = false, detail = "Do not stop to loot while something is still alive." },
+{ key = "loot.holdTyped", default = 30, type = "number", unit = "s", topic = "loot",
+  shipped = false, detail = "Gold you take out of the pack yourself (get ... gold) is left in "
+       .. "hand this long before it goes back. 0 puts it straight back." },
 { key = "pack.id", default = "backpack452292", type = "string", topic = "loot",
   shipped = true, detail = "The one pack, by replica number: gold is stowed in it, purchases "
        .. "are paid from it, and antitheft keeps it worn and closed." },

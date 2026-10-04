@@ -215,7 +215,11 @@ function M.send(command, needs)
 
    -- `quiet`: don't echo the command locally. For housekeeping whose output is gagged too
    -- (pipes.lua), where a lone echoed "light pipe367581" is the noise left behind.
+   -- `sending` tells core/outgoing.lua this one is ours, not typed: Mudlet raises
+   -- sysDataSendRequest from inside send(), before it returns.
+   M.sending = true
    if needs and needs.quiet then send(command, false) else send(command) end
+   M.sending = false
    -- Logged AFTER the send. With `emset debug` on this is a console print -- Qt work on the
    -- thread that has not yet handed the command to the socket -- so before the send it
    -- delayed every command by exactly the cost of describing it.

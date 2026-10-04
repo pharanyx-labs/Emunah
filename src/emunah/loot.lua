@@ -257,6 +257,8 @@ function M.stowGold()
    -- refused BUY still ends with its gold in the pack.
    local shop = emunah.shop
    if shop and shop.paying and shop.paying() then return false end
+   -- Nor is gold you took out yourself. See M.HOLD_TYPED.
+   if emunah.timers.active("loot.hold") then return false end
 
    local loose = looseGold()
    if loose == nil then return false end
@@ -292,6 +294,21 @@ function M.stowGold()
    emunah.timers.start("loot.stow", M.STOW_GUARD)
    return true
 end
+
+--- How long gold you fetched yourself stays in hand before it goes back in the pack.
+---
+--- `get 5 gold from pack452292`, typed, was answered with `put gold in backpack452292` in
+--- the same packet (08:12:22.17 on 2026-10-04): the GET's Char.Items.Add looked like any
+--- other gold arriving. Gold you take out is for something -- a GIVE, a payment -- so it is
+--- left alone for this long, then put away if it is still loose. `loot.holdTyped`.
+M.HOLD_TYPED = 30
+
+event.register("emunah.sent", function(_, command, typed)
+   if not typed or not command:find("^get%s.*gold") then return end
+   local hold = tonumber(emunah.config.get("loot.holdTyped", M.HOLD_TYPED)) or M.HOLD_TYPED
+   if hold <= 0 then return end
+   emunah.timers.start("loot.hold", hold, function() M.stowGold() end)
+end, "loot")
 
 function M.setEnabled(value)
    emunah.config.set("loot.gold", value)

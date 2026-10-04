@@ -262,18 +262,18 @@ local function checkGold()
    if not enabled() then return end
    local shop = emunah.shop
    if shop and shop.paying and shop.paying() then return end
+   -- Gold you took out yourself is yours to hold until loot.HOLD_TYPED runs out.
+   if emunah.timers.active("loot.hold") then return end
    local gold = looseGold()
    if not gold then return end
    log.warn("Antitheft: %s has been loose for %ss -- putting it in %s.", gold.name,
       tostring(tonumber(emunah.config.get("antitheft.goldGrace", M.GOLD_GRACE))),
       tostring(pack()))
-   -- NOT a fresh attempt budget: if a PUT never works, loot.stowGold() stops after three
-   -- and says what to check. Resetting it here every few seconds made that a loop.
+   -- Through loot's own budget AND its guard: resetting the budget here made a PUT that
+   -- never works into a loop, and skipping the guard sent a second PUT alongside one loot
+   -- had just sent itself.
    local loot = emunah.loot
-   if loot then
-      emunah.timers.stop("loot.stow")
-      loot.stowGold()
-   end
+   if loot then loot.stowGold() end
 end
 
 local function watchGold()

@@ -1200,8 +1200,8 @@ do
    -- are unclaimed, as for the elixirs above. Both answer a SELFISHNESS (anti-illusion
    -- layer 5).
    local function selfishAnswered(already)
-      local flight = emunah.queue.awaiting("balance")
-      if flight and flight.tag == "def:selfishness" then emunah.queue.confirm("balance") end
+      local flight = emunah.queue.awaiting("equilibrium")
+      if flight and flight.tag == "def:selfishness" then emunah.queue.confirm("equilibrium") end
       local defences = emunah.gmcp.defences
       if already and not (defences and defences.has("selfishness")) then
          emunah.curing.defkeepup.abandon("selfishness",

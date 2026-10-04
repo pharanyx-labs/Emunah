@@ -330,10 +330,12 @@ M.IMPORTED = {
    hypersight     = { vector = "balance", command = "hypersight on" },
    -- Antitheft: a pickpocket fails against it, and stripping it is the thief's opening
    -- move (HELP THIEVERY: "setup selfishness as a defence"). Command and lines are svof's
-   -- (raw-svo.defs.lua: on "You rub your hands together greedily.", off "A feeling of
-   -- generosity spreads throughout you."); svof marks it balanceful, which balance is
-   -- unrecorded, hence BOTH below. The DEF line maps to it in M.DEF_LINES.
-   selfishness    = { vector = "balance", command = "selfishness" },
+   -- (raw-svo.defs.lua), and the cost is from play, 2026-10-04 08:09:39.34:
+   --   selfishness -> "You rub your hands together greedily." "Equilibrium used: 0.50s."
+   -- with the prompt going excdb -> xcdb. Whether it also NEEDS balance has not been seen
+   -- (balance was up), so both are required, per HELP's default for bal/eq abilities.
+   selfishness    = { vector = "equilibrium", command = "selfishness",
+                      needs = { bal = true, eq = true, standing = true } },
 
    -- Priest.
    heresy         = { vector = "balance", command = "hunt heresy",
@@ -379,7 +381,7 @@ M.IMPORTED = {
 -- "Equilibrium used: N.NNs." / "Balance used: N.NNs." line.
 for _, entry in pairs(M.IMPORTED) do
    entry.source = "imported"
-   entry.needs  = entry.vector == "balance"
+   entry.needs  = entry.needs or entry.vector == "balance"
       and { bal = true, eq = true, standing = true }
       or  { standing = true }
 end

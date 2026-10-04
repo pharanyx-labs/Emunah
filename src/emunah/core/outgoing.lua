@@ -65,11 +65,15 @@ function M.record(command)
    if command == "" then return end
    local now = emunah.util.now()
    local recent = M.recent
-   recent[#recent + 1] = { at = now, command = command }
+   -- Typed by you, or sent by Emunah: everything automated goes through act.send(), which
+   -- flags itself for the duration of the send.
+   local typed = not (emunah.act and emunah.act.sending)
+   recent[#recent + 1] = { at = now, command = command, typed = typed }
    -- Trim from the front once something has aged out; bounded either way.
    while #recent > 64 or (recent[1] and recent[1].at < now - M.WINDOW) do
       table.remove(recent, 1)
    end
+   emunah.event.raise("sent", command, typed)
    if M.isQuit(command) then
       M.quitAt = now
       emunah.event.raise("quitting", command)

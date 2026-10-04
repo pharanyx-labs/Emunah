@@ -75,14 +75,30 @@ put gold in backpack452292
 wear backpack452292
 ```
 
-**What `PUT` costs has not been established.** `loot.stowGold()` therefore declares no
-requirement and relies on being retried when a balance returns, with an attempt budget to
-stop that becoming a loop. Confirm the cost and the requirement can be declared properly.
+A `GET` and a `PUT` of gold, traced with `emset debug gmcp` (2026-10-04):
 
-**Also unverified: whether gold placed in a container leaves the `inv` location.** The model
-is that it does — `Char.Items` tracks container contents under `repNNN` as a separate
-location (see `gmcp/items.lua`) — and `M.STOW_ATTEMPTS` is what bounds the damage if that is
-wrong. A `Char.Items` trace of one `put` closes both questions.
+```
+08:12:22.17  get 5 gold from pack452292
+[gmcp] << Char.Items.Add {item={icon="coin" id="620083" name="some gold sovereigns"} location="inv"}
+You get 5 gold sovereigns from a canvas backpack.
+08:12:24.65  (put gold in backpack452292)
+[gmcp] << Char.Items.Remove {item={icon="coin" id="620083" name="some gold sovereigns"} location="inv"}
+You put 5 gold sovereigns in a canvas backpack.
+```
+
+- **Gold put in the pack leaves `inv`.** `Char.Items.Remove` with `location="inv"` is the
+  confirmation `loot.lua` waits for, so its model holds.
+- **Neither showed a balance spent.** The prompt read `excdb` before and after both. That's
+  one sample, so `loot.stowGold()` still declares nothing and keeps its attempt budget.
+- **Loose gold's name carries no amount** ("some gold sovereigns"). The text line does.
+- **A gold `GET` you type is held**, not stowed. Emunah answered the GET above with
+  `put gold in` in the same packet. Now a typed `get ... gold` leaves the gold in hand for
+  `loot.holdTyped` (30s), then puts it back if it's still loose.
+
+**[open]** Whether `Char.Status.gold` counts gold in the pack. The trace above summarises
+Char.Status as `{...}`, so it doesn't show. `lua display(gmcp.Char.Status.gold)` before and
+after a `GET` settles it. Until then antitheft's gold watch reacts to any loose gold, not
+an amount.
 
 Observed verbatim, and the trigger that re-wears the pack:
 
