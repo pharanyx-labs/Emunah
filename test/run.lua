@@ -6567,14 +6567,60 @@ do
    end
 end
 ok(tostring(mock.widgets["emunah.stats"].contents):find("Kai", 1, true), "charstats block rendered")
-ok(tostring(mock.widgets["emunah.status"].contents):find("CURE", 1, true), "status pills rendered")
 
--- Target gauge with a fractional health percentage.
-mock.feed("IRE.Target.Set", "1234")
-mock.feed("IRE.Target.Info", { id = "1234", short_desc = "a rat", hpperc = "66.5" })
-mock.advance(0)
-ok(mock.widgets["emunah.target"].value ~= nil, "target gauge handles fractional hp%",
-   mock.widgets["emunah.target"].value and mock.widgets["emunah.target"].value.text)
+-- The CURE / DEFS / BASH switches sit at the end of the balance strip, after TREE, in their
+-- own blue -- not in the status label beside the target (the user's request).
+do
+   local strip = tostring(mock.widgets["emunah.balances"].contents)
+   local tree, cure = strip:find("TREE", 1, true), strip:find("CURE", 1, true)
+   ok(cure and tree and cure > tree, "the switches come after TREE on the balance strip", strip)
+   ok(strip:find("DEFS", 1, true) and strip:find("BASH", 1, true), "...all three of them")
+   local status = tostring(mock.widgets["emunah.status"].contents)
+   ok(not status:find("CURE", 1, true) and not status:find("BASH", 1, true),
+      "...and are no longer in the status label", status)
+
+   local engine = emunah.curing.engine
+   local was = engine.enabled
+   engine.enabled = true
+   emunah.ui.vitals.updateBalances()
+   strip = tostring(mock.widgets["emunah.balances"].contents)
+   ok(strip:find(emunah.ui.theme.hex("mode") .. "; font-weight:bold\">CURE", 1, true),
+      "a switch that is on is drawn in the mode blue", strip)
+   engine.enabled = was
+   emunah.ui.vitals.updateBalances()
+end
+
+-- The target bar is as wide as its text, and starts clear of the container's "Combat"
+-- title (reported from play: the bar cut the word off, and was mostly empty at 60% wide).
+do
+   local vitals = emunah.ui.vitals
+   local target, status = mock.widgets["emunah.target"], mock.widgets["emunah.status"]
+   local function px(value) return tonumber(tostring(value):match("^(%d+)px$")) end
+
+   ok((px(target.cons.x) or 0) >= 60, "the target bar starts right of the title", target.cons.x)
+   local empty = px(target.cons.width)
+   ok(empty and empty < 120, "\"no target\" gets a short bar", target.cons.width)
+   eq(px(status.cons.x), px(target.cons.x) + empty + 6, "the status label starts just after it")
+   eq(status.cons.width, string.format("99.5%%-%dpx", px(status.cons.x)),
+      "...and runs to the strip's right margin")
+
+   -- Target gauge with a fractional health percentage.
+   mock.feed("IRE.Target.Set", "1234")
+   mock.feed("IRE.Target.Info", { id = "1234", short_desc = "a rat", hpperc = "66.5" })
+   mock.advance(0)
+   ok(target.value ~= nil, "target gauge handles fractional hp%", target.value and target.value.text)
+   local named = px(target.cons.width)
+   ok(named > empty, "a named target widens the bar", named)
+   ok(named >= math.ceil(vitals.visibleLength(target.value.text) * 5.3), "...enough for its text",
+      named .. " for " .. target.value.text)
+   eq(px(status.cons.x), px(target.cons.x) + named + 6, "...and the status label moves with it")
+
+   mock.feed("IRE.Target.Info", { id = "1234", short_desc = string.rep("a very long name ", 6), hpperc = "50" })
+   mock.advance(0)
+   ok(target.value.text:find("&#8230;", 1, true), "a long description is cut short", target.value.text)
+   ok(px(target.cons.width) < 400, "...so the bar stays a bar", target.cons.width)
+   ok(vitals.visibleLength("<b>a&nbsp;b</b>&#8230;") == 4, "visibleLength drops tags, counts entities as one")
+end
 
 -- Affliction panel with real content.
 --
@@ -6890,9 +6936,9 @@ do
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
    ok(affs():find("in the rift", 1, true), "a refused cure says why", affs())
 
-   -- Status: what is on, and what is in flight.
-   local status = tostring(mock.widgets["emunah.status"].contents)
-   ok(status:find("CURE", 1, true), "the status line shows curing", status)
+   -- The switches: what is on.
+   local strip = tostring(mock.widgets["emunah.balances"].contents)
+   ok(strip:find("CURE", 1, true), "the balance strip shows curing", strip)
 
    -- The clock runs while something counts down, and stops when nothing does.
    engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()

@@ -743,13 +743,15 @@ function mock.installGeyser()
             self.style = sheet
             return self
          end,
-         -- Geyser's move(x, y) and resize(width, height): new constraints, same formats.
+         -- Geyser's move(x, y) and resize(width, height): new constraints, same formats. A
+         -- nil keeps the current one, as Geyser.Container:move/resize do.
          move = function(_, x, y)
-            self.cons.x, self.cons.y = x, y
+            self.cons.x, self.cons.y = x or self.cons.x, y or self.cons.y
             return self
          end,
          resize = function(_, width, height)
-            self.cons.width, self.cons.height = width, height
+            self.cons.width = width or self.cons.width
+            self.cons.height = height or self.cons.height
             return self
          end,
          enableScrollBar  = function() self.scrollBar = true  return self end,
