@@ -5812,11 +5812,13 @@ do
    end
    local index, link = pipeLink()
    ok(index ~= nil, "the defence grid has a pipe relight toggle")
-   ok(link and link.text:find("[x]", 1, true), "...ticked while pipe keep-up is on")
+   -- A green dot when on, a dim one when off (the [x]/[ ] boxes and their legend went,
+   -- 2026-10-04).
+   ok(link and link.text:find("\226\151\143", 1, true), "...a green dot while pipe keep-up is on")
    mock.click(index)
    eq(emunah.config.get("pipes.enabled", true), false, "clicking it switches pipe keep-up off")
    index, link = pipeLink()
-   ok(link and link.text:find("[ ]", 1, true), "...and the redrawn grid shows it off")
+   ok(link and not link.text:find("\226\151\143", 1, true), "...and the redrawn grid shows it off")
    mock.click(index)
    eq(emunah.config.get("pipes.enabled", true), true, "clicking again switches it back on")
    emunah.pipes.poll = savedPoll
@@ -5836,6 +5838,13 @@ for _, link in ipairs(mock.links) do
    if link.command:find("defkeepup.start", 1, true) then turnOn = true end
 end
 ok(turnOn, "...and offers a one-click way to turn it on")
+do
+   local grid = table.concat(mock.echoed, " ")
+   ok(not grid:find("click cycles", 1, true) and not grid:find("emset defs add", 1, true),
+      "no legend or usage lines under the grid (removed, 2026-10-04)")
+   local rule = grid:match("(%-+)%s*$")
+   ok(rule and #rule >= 40, "...it ends on a rule of dashes", grid:sub(-120))
+end
 
 defkeepup.drop("rebounding"); defkeepup.drop("cloak")
 defkeepup.enabled = false
