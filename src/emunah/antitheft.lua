@@ -24,8 +24,10 @@
 ---   Loose-gold watch         gold still loose after `antitheft.goldGrace` seconds is
 ---                            reported and stowed again
 ---
---- NOT YET: keeping the pack CLOSED between uses. The OPEN/CLOSE wording and what a closed
---- pack does to GET and to Char.Items are not in docs/game/, and the commands are not guessed.
+--- NOT DONE, AND NOT POSSIBLE: keeping the pack CLOSED between uses. The character's packs
+--- have no lid -- 08:08:02.35 `close backpack452292` -> "A canvas backpack doesn't have a lid
+--- or top of any sort to be closed." (and the same for the sheepskin one). See
+--- docs/game/sustenance.md.
 ---
 --- THE ONE PACK. Only `pack.id` is ever used. The character has two other packs that must
 --- never be touched (the user, 2026-10-04), so nothing here names a container by anything but

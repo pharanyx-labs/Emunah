@@ -54,6 +54,19 @@ and a full pack put inside another counts as one item *(the user, 2026-10-04)*. 
 character has **two other packs that are never to be used** *(the same)*, so nothing names a
 container except `pack.id`.
 
+**The packs cannot be closed.** Verbatim, 2026-10-04:
+
+```
+08:08:02.35  close backpack452292
+A canvas backpack doesn't have a lid or top of any sort to be closed.
+08:08:06.99  close pack
+A shaggy sheepskin backpack doesn't have a lid or top of any sort to be closed.
+```
+
+So antitheft can't keep the pack closed. That needs a container with a lid. Note also that
+`close pack` picked the *other* pack, which is exactly why every command names the pack by
+its replica number.
+
 Gold is stowed with `PUT <item> IN <container>` and the container is worn with
 `WEAR <container>`, both by replica number *(command forms stated by the user)*:
 
