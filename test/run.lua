@@ -290,7 +290,34 @@ mock.feed("Char.Items.List", {
    },
 })
 eq(emunah.gmcp.items.count("inv"), 2, "inventory list tracked")
-ok(emunah.gmcp.items.has("bloodroot"), "find matches on substring")
+ok(emunah.gmcp.items.has("bloodroot"), "find matches a word in the name")
+
+-- WHOLE WORDS. Live, 09:42:10 and 09:42:25: a Hashani duck confit counted as ash and a
+-- gingerbread cookie as ginger, so three of each read as four and the restocker stored a
+-- real herb. A plural still counts, so a pluralised stack is not missed.
+mock.feed("Char.Items.List", {
+   location = "inv",
+   items = {
+      { id = "1", name = "a group of 3 pieces of ash", attrib = "gre" },
+      { id = "2", name = "Hashani duck confit on an electrum plate", attrib = "" },
+      { id = "3", name = "a gingerbread cookie in the shape of a siren", attrib = "" },
+      { id = "4", name = "a steel helmet", attrib = "w" },
+      { id = "5", name = "a group of 2 prickly pears", attrib = "gre" },
+   },
+})
+eq(emunah.gmcp.items.quantity("ash"), 3, "Hashani is not ash")
+eq(emunah.gmcp.items.count("ginger"), 0, "gingerbread is not ginger")
+eq(emunah.gmcp.items.count("elm"), 0, "a helmet is not elm")
+eq(emunah.gmcp.items.quantity("pear"), 2, "a plural still matches")
+eq(emunah.gmcp.items.count("electrum plate"), 1, "a phrase matches")
+
+mock.feed("Char.Items.List", {
+   location = "inv",
+   items = {
+      { id = "1", name = "a bloodroot", attrib = "e" },
+      { id = "2", name = "a leather pack", attrib = "c" },
+   },
+})
 
 -- An Update handler that copies the OLD entry means the new name never lands.
 mock.feed("Char.Items.Update", {
@@ -3856,6 +3883,16 @@ mock.sent = {}
 mock.feed("Char.Vitals", healthy)
 ok(not table.concat(mock.sent, " | "):find("ash"),
    "at exactly three, it neither pulls nor stores", table.concat(mock.sent, " | "))
+
+-- Food bought from a shop is not a herb. Live, 09:42:10: "Hashani duck confit" read as a
+-- fourth ash and `inr 1 ash` stored a real one.
+mock.feed("Char.Items.Add", { location = "inv",
+   item = { id = "602", name = "Hashani duck confit on an electrum plate", attrib = "" } })
+queue.reset(); emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", healthy)
+ok(not table.concat(mock.sent, " | "):find("inr"),
+   "a Hashani dish does not make three ash read as four", table.concat(mock.sent, " | "))
 
 -- Nothing is pulled that the rift does not have.
 mock.feed("IRE.Rift.List", {})
