@@ -1020,8 +1020,8 @@ end
 killAll()
 
 -- ONE PREFIX. Everything Emunah does is `emset ...`, and `emhelp` explains it. The bare
--- shortcuts (`pp`, `emdefs`, `ndb`, `pipes`, `manna`, `affpop`) and the long `emunah`
--- prefix are gone: a second vocabulary for the same things is the kind of thing that made
+-- shortcuts (`emdefs`, `ndb`, `pipes`, `manna`, `affpop`) and the long `emunah` prefix are
+-- gone (`pp` came back at the user's request, below): a second vocabulary for the same things is the kind of thing that made
 -- the help hard to follow.
 --
 -- tempAlias takes a PCRE REGEX, not a Lua pattern: whitespace is `\s` here, never `%s`.
@@ -1048,12 +1048,20 @@ table.insert(registry(), tempAlias([[^\s*emhelp\s*$]], function()
 end))
 
 -- SLEEP, typed on its own. NOT a command: it records that this sleep was yours, so the
--- system does not WAKE you out of it (curing/detect's voluntary sleep). The SLEEP itself
--- still goes to the game. Anchored to a bare SLEEP; anything else falls through untouched.
+-- system does not WAKE you out of it (curing/detect's voluntary sleep), relaxes insomnia
+-- first if it is up, and keeps keep-up from raising it again until you wake (the user,
+-- 2026-10-04). See detect.goToSleep(). Anchored to a bare SLEEP; anything else falls
+-- through untouched.
 table.insert(registry(), tempAlias([[^\s*sleep\s*$]], function()
    local detect = emunah.curing and emunah.curing.detect
-   if detect then detect.intendSleep() end
-   send("sleep")
+   if detect then detect.goToSleep() else send("sleep") end
+end))
+
+-- PP: pause or resume curing and defence keep-up together, the same as `emset pause`.
+-- Asked for by the user (2026-10-04), and the fourth exception to one prefix: a pause is
+-- the thing typed in a hurry.
+table.insert(registry(), tempAlias([[^\s*pp\s*$]], function()
+   M.handlers.pause()
 end))
 
 -- BUY by bare number: `buy 50 476321`, or `buy 476321` for one. Asked for by the user

@@ -111,7 +111,7 @@ end
 --- in the rift and have to be pulled out before they can be eaten or smoked.
 ---
 --- Three sources, all drawing from the same rift: affliction cures (afflist.afflictions),
---- defence cures (afflist.defenceCures -- cohosh for insomnia, echinacea for thirdeye,
+--- defence cures (afflist.defenceCures -- echinacea for thirdeye,
 --- skullcap for deathsight/rebounding, myrrh), and deflist.lua's bare-command defences that
 --- carry an explicit `item` (bayberry for blind, hawthorn for deaf). Before defence cures
 --- were included here, keep-up would raise a defence like insomnia until the rift ran dry

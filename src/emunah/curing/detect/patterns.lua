@@ -990,6 +990,13 @@ do
       -- on that constant for why being wrong there is cheap.
       { [[^You are asleep and can do nothing\. WAKE will attempt to wake you\.$]],
         detect.reply(nil, "a refusal for being asleep", onSleep) },
+      -- RELAX INSOMNIA's answers, verbatim from svof's "svo relaxed insomnia": relaxed, or
+      -- there was nothing to relax. Either way a SLEEP waiting on it goes (goToSleep).
+      -- Answers to a RELAX only (layer 5): a faked one would send SLEEP into insomnia.
+      { [[^You relax your mind and feel as if you could sleep\.$]],
+        detect.reply("^relax", "insomnia relaxed", function() detect.onRelaxed() end) },
+      { [[^You are not an insomniac\.$]],
+        detect.reply("^relax", "no insomnia to relax", function() detect.onRelaxed() end) },
    }) do
       local id = tempRegexTrigger(entry[1], entry[2])
       if id then

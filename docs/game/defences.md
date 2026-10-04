@@ -145,9 +145,28 @@ on lists already in hand; `outr` does not wait for the equilibrium that mindseye
 spent (17:31:34.08 sight restored and `Equilibrium used: 3.00s.`, first `outr` previously
 held until 17:31:37.10). [svof canoutr] does not consult equilibrium.
 
-Herb defences (`deathsight`, `insomnia`, `thirdeye`) are eaten only when that herb is
+Herb defences (`deathsight`, `thirdeye`) are eaten only when that herb is
 already in the pack. They are not announced as waiting on restock: at 12:49:20 that
 announcement fired while restock could not run, because sight was still down.
+
+## Insomnia: the skill, and relaxing it to sleep
+
+Raised with `INSOMNIA`, not cohosh (the user, 2026-10-04: "we can send the commands
+insomnia and relax insomnia"). Cohosh is off the restock list.
+
+- **`INSOMNIA`** **[svof dict.insomnia.misc]**: a misc action, which `check_misc` refuses
+  only while stunned, unconscious or asleep. Emunah sends it on the free vector with
+  ordinary blocks. svof also holds it below `manause` (Emunah uses `curing.focusMinMana`,
+  the same floor as FOCUS) and while hypersomnic (`Your hypersomnia prevents your
+  insomnia.`). Lines **[svof]**: `You clench your fists, grit your teeth, and banish all
+  possibility of sleep.` / `You are already an insomniac.`
+- **`RELAX INSOMNIA`** answers **[svof "svo relaxed insomnia"]**: `You relax your mind and
+  feel as if you could sleep.` / `You are not an insomniac.` Its cost has not been seen.
+- **Typed `sleep`**: with insomnia up, `relax insomnia` goes first and `sleep` follows its
+  answer, or after 3s without one. `deflist.HOLDS.insomnia` keeps keep-up from raising
+  insomnia from the moment `sleep` is typed until the character wakes (the user's request).
+- **Not yet seen:** whether the skill's insomnia reports through `Char.Defences` the way
+  cohosh's did (17:59:54). If it does not, keep-up's attempt budget stops it.
 
 ## The spiritual mace
 

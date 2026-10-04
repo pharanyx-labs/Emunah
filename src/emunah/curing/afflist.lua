@@ -147,8 +147,10 @@ M.armAfflictions = {
 --- sileris grants `fangbarrier`, myrrh `scholasticism`. Keyed by the item, keep-up waited
 --- for a defence the game never names and applied berry after berry (2026-10-04). The item
 --- names still work, through deflist.ALIASES.
+--- No `insomnia`: it is raised with the INSOMNIA skill, not cohosh (the user, 2026-10-04).
+--- See deflist.commands.insomnia. Kept out of here, this table also keeps cohosh off the
+--- restock list.
 M.defenceCures = {
-   insomnia   = { vector = "herb",  item = "cohosh",    alt = "gypsum"    },
    kola       = { vector = "herb",  item = "kola",      alt = "quartz"    },
    scholasticism = { vector = "herb", item = "myrrh",   alt = "bisemutum" },
    thirdeye   = { vector = "herb",  item = "echinacea", alt = "dolomite"  },

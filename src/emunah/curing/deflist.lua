@@ -20,7 +20,15 @@ local event   = emunah.event
 --- plain commands rather than item cures. Extend via `emunah def add <name> <command>`.
 M.commands = {
    -- name        = { vector, command }
-   insomnia     = { vector = "herb",        command = "eat cohosh" },
+   -- THE SKILL, NOT COHOSH (the user, 2026-10-04: "stop using cohosh as we can send the
+   -- commands insomnia and relax insomnia"). svof's dict.insomnia.misc sends the same bare
+   -- `insomnia` when its `conf.insomnia` is on, as a misc action: check_misc refuses it only
+   -- while stunned, unconscious or asleep, never for balance or equilibrium, so it rides the
+   -- free vector. svof's isadvisable also wants mana above `manause` and no hypersomnia;
+   -- those are M.HOLDS.insomnia, with the voluntary sleep the user asked for. Lines [svof]:
+   -- "You clench your fists, grit your teeth, and banish all possibility of sleep." and
+   -- "You are already an insomniac."
+   insomnia     = { vector = "free",        command = "insomnia" },
    deathsight   = { vector = "herb",        command = "eat skullcap" },
    thirdeye     = { vector = "herb",        command = "eat echinacea" },
    rebounding   = { vector = "smoke",       command = "smoke skullcap" },
@@ -644,6 +652,36 @@ end
 M.DYNAMIC = {
    trackmace = resolveTrackmace,
 }
+
+--- Defences that are raisable but must not be raised RIGHT NOW: name -> function returning
+--- the reason, or nil. Keep-up holds them quietly, without spending an attempt, and asks
+--- again at the moment of sending (defkeepup's queue `valid`), because each of these can
+--- change while the raise waits for its slot.
+M.HOLDS = {
+   insomnia = function()
+      -- The user, 2026-10-04: "ensure insomnia is not raised while i sleep". From the moment
+      -- SLEEP is typed (RELAX INSOMNIA goes first) until the character wakes.
+      local detect = emunah.curing.detect
+      if detect and detect.sleepWanted() then return "you are going to sleep" end
+      -- svof: `not affs.hypersomnia` -- "Your hypersomnia prevents your insomnia."
+      if emunah.act.afflicted("hypersomnia") then return "hypersomnia prevents it" end
+      -- svof: can_usemana() -- the skill costs mana, and it stops above `manause`. The same
+      -- floor FOCUS uses (have.vectorBlocked).
+      local vitals = emunah.gmcp.vitals
+      local floor = tonumber(emunah.config.get("curing.focusMinMana", have.FOCUS_MIN_MANA))
+         or have.FOCUS_MIN_MANA
+      if vitals and vitals.maxmp > 0 and (vitals.percent.mp or 100) <= floor then
+         return "mana below " .. floor .. "%"
+      end
+      return nil
+   end,
+}
+
+--- Why this defence is held right now, or nil. See M.HOLDS.
+function M.held(name)
+   local hold = M.HOLDS[M.canonical(name)]
+   return hold and hold() or nil
+end
 
 --- Resolve how to raise a defence.
 ---
