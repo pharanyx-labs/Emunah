@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 59, "all 59 manifest modules loaded")
+eq(loadedModules, 60, "all 60 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -7522,85 +7522,106 @@ ok(den.known("a wildcat soldier", "Newarea3"), "a real denizen is kept")
 den.areas = {}
 
 -- ===========================================================================
-suite("elist: restyled in place, with a total per fluid")
+suite("elist: parsed and redrawn as a table, one section per kind")
 do
+   local elist, theme = emunah.elist, emunah.ui.theme
+   local RULE = string.rep("-", 79)
+   local HEADER = "Vial                          Fluid                          Sips     Months  "
+   local function plain(text) return (text:gsub("<%d+,%d+,%d+>", "")) end
 
-local elist = emunah.elist
-local theme = emunah.ui.theme
-local RULE = string.rep("-", 79)
-local function elistListing(rows)
-   mock.echoed = {}
-   mock.deletedLines = 0
+   -- The user's listing at 09:14:10.52 (2026-10-04), most of it.
+   local ROWS = {
+      "Pinewood vial41028            an elixir of health            149      88",
+      "A sandstone vial47327         a salve of restoration         200      93",
+      "A white marble vial411725     a caloric salve                45       137",
+      "Oaken vial418713              an elixir of health            39       63",
+      "Vial477753                    an elixir of mana              42       88",
+      "Vial478446                    an elixir of mana              200      88",
+      "Vial507758                    an elixir of frost             170      88",
+      "Vial539295                    an elixir of immunity          195      88",
+      "Vial614872                    an elixir of immunity          200      91",
+      "Vial676646                    empty                          0        88",
+      "Vial676811                    a salve of mending             199      88",
+      "Vial677237                    a salve of mending             200      88",
+      "Vial677241                    a salve of mending             200      88",
+   }
+
+   mock.buffer, mock.echoed, mock.deletedText = {}, {}, {}
+   mock.line("H:100% M:86% E:100% W:100%  exckdb  T:  09:14:10.52-")
+   mock.typedEcho("elist")
    mock.command("elist")
-   mock.line("Vial                          Fluid                          Sips     Months  ")
+   mock.line(HEADER)
    mock.line(RULE)
-   local styled = {}
-   for _, row in ipairs(rows) do
-      mock.line(row)
-      styled[#styled + 1] = mock.formatted
-   end
+   for _, row in ipairs(ROWS) do mock.line(row) end
+   mock.line("A tell arriving mid-listing.")
    mock.line(RULE)
-   return styled
-end
+   mock.prompt("H:100% M:86% E:100% W:100%  exckdb  T:  09:14:43.18-")
+   mock.advance(0)
 
-local styled = elistListing({
-   "Pinewood vial41028            an elixir of health            149      88",
-   "Oaken vial418713              an elixir of health            39       63",
-   "Vial477753                    an elixir of mana              42       88",
-   "A sandstone vial47327         a salve of restoration         200      93",
-   "A white marble vial411725     a caloric salve                45       137",
-   "Vial507758                    an elixir of frost             170      88",
-   "Vial676646                    empty                          0        88",
-})
-eq(mock.deletedLines, 0, "nothing is deleted: ELIST arrives in one packet")
+   eq(#mock.deletedText, #ROWS + 3, "the game's header, rules and rows are gone")
+   local left = table.concat(mock.buffer, "\n")
+   ok(left:find("A tell arriving mid-listing.", 1, true), "a line that is not a row stays")
+   ok(left:find("09:14:10.52-elist", 1, true) and left:find("09:14:43.18-", 1, true),
+      "both prompts stay")
 
-local function runOf(formatted, text)
-   for _, entry in ipairs(formatted) do
-      if entry.text == text then return entry end
+   local drawn = table.concat(mock.echoed, "")
+   local lines = {}
+   for line in drawn:gmatch("[^\n]+") do lines[#lines + 1] = line end
+   local widths = true
+   for _, line in ipairs(lines) do
+      if #plain(line) ~= 79 then widths = false end
    end
-   return nil
-end
-local function hex(key) return theme.colour[key] end
-eq((runOf(styled[1], "an elixir of health") or {}).colour, hex("health"), "health is drawn red")
-eq((runOf(styled[3], "an elixir of mana") or {}).colour, hex("mana"), "mana blue")
-eq((runOf(styled[4], "a salve of restoration") or {}).colour, hex("endurance"), "salves amber")
-eq((runOf(styled[6], "an elixir of frost") or {}).colour, hex("equilibrium"),
-   "the other elixirs violet")
-eq((runOf(styled[1], "149") or {}).colour, hex("textBright"), "plenty of sips is bright")
-eq((runOf(styled[2], "39") or {}).colour, hex("warning"), "a low vial is flagged")
-eq((runOf(styled[7], "empty") or {}).colour, hex("inactive"), "an empty vial is greyed out")
-eq((runOf(styled[5], "A white marble vial411725") or {}).colour, hex("textDim"),
-   "a vial's name recedes")
+   ok(#lines > 0 and widths, "every line of the table is 79 wide, borders and all",
+      plain(drawn))
+   local text = plain(drawn)
+   local function at(needle) return text:find(needle, 1, true) end
+   ok(at("| HEALTH & MANA") and at("| ELIXIRS") and at("| SALVES") and at("| EMPTY"),
+      "a section each for health and mana, elixirs, salves and empties")
+   ok(at("| HEALTH & MANA") < at("| ELIXIRS") and at("| ELIXIRS") < at("| SALVES")
+      and at("| SALVES") < at("| EMPTY"), "in that order")
+   ok(at("| health       |   188 | vial41028 149  vial418713 39"), "health totals its vials",
+      text)
+   ok(at("| health ") < at("| mana "), "health before mana")
+   ok(at("| mending      |   599 |"), "salves named short, totalled")
+   ok(at("| vial676646 "), "the empty vial is listed under EMPTY")
+   ok(not at("empty        |"), "and not as a fluid")
 
-local summary = table.concat(mock.echoed, "\n")
-ok(summary:find("health " .. theme.dc("textBright") .. "188", 1, true),
-   "health totals both vials", summary)
-ok(summary:find("mana " .. theme.dc("warning") .. "42", 1, true), "a low total is flagged")
-ok(summary:find("restoration", 1, true) and summary:find("caloric", 1, true),
-   "salves are named short")
-ok(summary:find("Vial676646", 1, true), "the empty vial is named")
+   -- Colours: the total is green, yellow under 500, red under 100.
+   ok(drawn:find(theme.dc("warning") .. "  188", 1, true), "health at 188 is yellow")
+   ok(drawn:find(theme.dc("defence") .. "  599", 1, true), "mending at 599 is green")
+   eq(elist.totalColour(99), "affliction", "under 100 is red")
+   eq(elist.totalColour(100), "warning", "100 is yellow")
+   eq(elist.totalColour(500), "defence", "500 is green")
+   ok(drawn:find(theme.dc("health") .. "health", 1, true)
+      and drawn:find(theme.dc("mana") .. "mana", 1, true), "health red and mana blue by name")
 
--- A listing nobody asked for is left as it came.
-mock.advance(elist.WINDOW + 1)
-mock.echoed = {}
-mock.line("Vial                          Fluid                          Sips     Months  ")
-mock.line(RULE)
-mock.line("Vial477753                    an elixir of mana              42       88")
-eq(#mock.formatted, 0, "a row without an ELIST sent is not restyled")
-mock.line(RULE)
-eq(#mock.echoed, 0, "and gets no summary")
+   -- A listing nobody asked for is left as it came.
+   mock.advance(elist.WINDOW + 1)
+   mock.echoed, mock.deletedText = {}, {}
+   mock.line(HEADER)
+   mock.line(RULE)
+   mock.line(ROWS[1])
+   mock.line(RULE)
+   mock.advance(0)
+   eq(#mock.deletedText, 0, "an unasked-for ELIST is not hidden")
+   eq(#mock.echoed, 0, "and nothing is drawn")
 
--- A prompt ends a listing whose closing rule never came.
-elistListing({})
-mock.command("elist")
-mock.line("Vial                          Fluid                          Sips     Months  ")
-mock.prompt("H:100% M:88% E:100% W:100%  exckdb  T:  09:14:43.18-")
-mock.line("Vial477753                    an elixir of mana              42       88")
-eq(#mock.formatted, 0, "a row after the prompt is not part of the listing")
+   -- A prompt before the closing rule still draws what was read.
+   mock.echoed = {}
+   mock.command("elist")
+   mock.line(HEADER)
+   mock.line(RULE)
+   mock.line(ROWS[1])
+   mock.prompt("H:100% M:86% E:100% W:100%  exckdb  T:  09:14:50.00-")
+   mock.advance(0)
+   ok(plain(table.concat(mock.echoed, "")):find("vial41028 149", 1, true),
+      "a listing cut short by a prompt is still drawn")
 
-eq(elist.parse("A very long carved oaken vial123 an elixir of health 149 88").vial,
-   "A very long carved oaken vial123", "a name squeezing the gaps to one space still parses")
-eq(elist.kind("an epidermal salve"), "endurance", "epidermal is a salve")
+   eq(elist.parse("A very long carved oaken vial123 an elixir of health 149 88").vial,
+      "A very long carved oaken vial123", "a name squeezing the gaps to one space still parses")
+   eq(elist.token("A white marble vial411725"), "vial411725", "a vial is named by its id")
+   eq(select(2, elist.kind("an epidermal salve")), "salves", "epidermal is a salve")
+   mock.buffer = {}
 end
 
 -- ===========================================================================

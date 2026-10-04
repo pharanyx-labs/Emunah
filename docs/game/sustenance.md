@@ -182,7 +182,9 @@ The columns start at 1, 31, 62 and 71. A vial holds 200 sips when full; every fu
 that listing reads 200. An empty vial's fluid reads `empty`, with 0 sips. A vial with no
 adjective is listed as bare `Vial<number>`, which is the shape of an `IH` row: `ih.lua`
 took them for denizens until it was limited to answering an `ih` (09:13:02.44).
-`elist.lua` colours the listing in place and totals sips per fluid under it.
+`elist.lua` hides the listing (`ui/gag.lua`, after the packet) and draws a bordered table
+in its place: health and mana, other elixirs, salves, empties; one row per fluid, its total
+green, yellow under 500, red under 100 (the user's thresholds, 2026-10-04).
 
 ## Pipes
 

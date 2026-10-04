@@ -1,4 +1,4 @@
---- ELIST, restyled where it stands, with a total per fluid underneath.
+--- ELIST, parsed and redrawn as a bordered table, one row per fluid.
 ---
 --- The game's listing (2026-10-04, 09:14:10.52):
 ---
@@ -9,54 +9,70 @@
 ---   Vial676646                    empty                          0        88
 ---   -------------------------------------------------------------------------------
 ---
---- Each row is coloured by what it holds (health red, mana blue, the other elixirs
---- violet, salves amber, an empty vial greyed out), its sips by how many are left, and
---- the header and rules recede. Under the closing rule, one line per kind totals the
---- sips of every vial holding each fluid -- what you actually want to know before a fight.
+--- What replaces it (the user, 2026-10-04): health and mana in their own section, then the
+--- other elixirs, then salves, then the empty vials. Each fluid's TOTAL is green, yellow
+--- under 500 sips, red under 100. Totals, not single vials: a vial holds 200 when full,
+--- so a per-vial number could never reach 500 and would always read yellow.
 ---
---- COLOUR ONLY, NEVER deleteLine() OR replace(). ELIST arrives as one packet, and deleting
---- inside it is the bug that brought this module about: ih.lua relinked the bare-vial rows
---- by deleting them, which fused one onto the row above and shifted it a column. A gag
---- that deletes after the packet (pipes.lua) is safe, but it draws the rows blank for a
---- moment before they collapse -- the flash reported for pipes. Colouring changes nothing
---- Mudlet is still parsing, and the summary is an echo after the last rule, as shop.lua
---- prints its buy lines.
+---   +--------------+-------+------------------------------------------------------+
+---   | Fluid        |  Sips | Vials                                                |
+---   +--------------+-------+------------------------------------------------------+
+---   | HEALTH & MANA                                                               |
+---   +--------------+-------+------------------------------------------------------+
+---   | health       |   188 | vial41028 149  vial418713 39                         |
+---   ...
+---   | EMPTY                                                                       |
+---   +-----------------------------------------------------------------------------+
+---   | vial676646                                                                  |
+---   +-----------------------------------------------------------------------------+
+---
+--- Months is left out: what it counts down to has not been established.
+---
+--- HOW THE GAME'S LINES GO. ELIST arrives as one packet, so nothing is deleted inside it:
+--- ui/gag.lua hides each line and deletes it once the packet is done, and the table is
+--- echoed after the closing rule. Only lines that parse as rows are hidden, so anything
+--- else arriving in the middle is still shown.
 
 local M = {}
 
 local theme = emunah.ui.theme
 
---- Sips at or under this are drawn as running low. Vials hold 200 when full (every full
---- one in the listing above), so this is a quarter.
-M.LOW = 50
+--- A fluid's total under this is red, and under M.YELLOW yellow; green otherwise.
+M.RED = 100
+M.YELLOW = 500
 
---- How long after an ELIST goes out its header is believed. Only the colouring depends
---- on it, but a listing nobody asked for is not ours to restyle.
+--- How long after an ELIST goes out its header is believed. A listing nobody asked for is
+--- left as it came.
 M.WINDOW = 10
 
---- How wide the summary may run before it wraps, matching the listing's rule.
+--- The table's width, matching the game's rule.
 M.WIDTH = 79
 
---- The listing being drawn, from its header to its closing rule or the next prompt.
+local FLUID_W, SIPS_W = 12, 5
+local VIALS_W = M.WIDTH - (2 + FLUID_W + 3 + SIPS_W + 3 + 2)
+local INNER_W = M.WIDTH - 4
+
+--- The listing being read, from its header to its closing rule or the next prompt.
 local listing = nil
 
 local function trim(text)
    return (tostring(text or ""):match("^%s*(.-)%s*$"))
 end
 
---- What a fluid is, for colour and grouping: palette key, group, and a short name.
----   "an elixir of health"    -> health,      elixirs, "health"
+--- What a fluid is: palette key, section, and a short name.
+---   "an elixir of health"    -> health,      vitals,  "health"
+---   "an elixir of frost"     -> equilibrium, elixirs, "frost"
 ---   "a salve of restoration" -> endurance,   salves,  "restoration"
 ---   "a caloric salve"        -> endurance,   salves,  "caloric"
----   "empty"                  -> inactive,    nil,     "empty"
+---   "empty"                  -> inactive,    empty,   "empty"
 function M.kind(fluid)
    fluid = trim(fluid):lower()
-   if fluid == "empty" or fluid == "" then return "inactive", nil, "empty" end
+   if fluid == "empty" or fluid == "" then return "inactive", "empty", "empty" end
    local short = fluid:gsub("^an?%s+", "")
    if short:find("^elixir of ") then
       short = short:gsub("^elixir of ", "")
-      if short == "health" then return "health", "elixirs", short end
-      if short == "mana" then return "mana", "elixirs", short end
+      if short == "health" then return "health", "vitals", short end
+      if short == "mana" then return "mana", "vitals", short end
       return "equilibrium", "elixirs", short
    end
    if short:find("salve") then
@@ -75,82 +91,150 @@ function M.parse(line)
    return { vial = vial, fluid = fluid, sips = tonumber(sips), months = tonumber(months) }
 end
 
---- Colour a run of the current line, by 1-based position. A run not found is skipped.
-local function paint(from, length, key, bold)
-   if not from or length <= 0 then return end
-   if selectSection(from - 1, length) == false then return end
-   setFgColor(theme.rgb(key))
-   setBold(bold == true)
+--- The vial as you would name it in a command: "Pinewood vial41028" -> "vial41028".
+function M.token(vial)
+   return (tostring(vial):match("(%S+)$") or tostring(vial)):lower()
 end
 
-local function sipsColour(sips)
-   if sips <= 0 then return "affliction" end
-   if sips <= M.LOW then return "warning" end
-   return "textBright"
+function M.totalColour(total)
+   if total < M.RED then return "affliction" end
+   if total < M.YELLOW then return "warning" end
+   return "defence"
 end
 
-local function styleRow(line, row)
-   local key = M.kind(row.fluid)
-   local empty = key == "inactive"
-   paint(1, #row.vial, empty and "inactive" or "textDim")
-   local at = line:find(row.fluid, #row.vial + 1, true)
-   paint(at, #row.fluid, key, not empty)
-   local sipsText, monthsText = tostring(row.sips), tostring(row.months)
-   local sipsAt = at and line:find(sipsText, at + #row.fluid, true)
-   paint(sipsAt, #sipsText, empty and "inactive" or sipsColour(row.sips), row.sips <= M.LOW)
-   local monthsAt = sipsAt and line:find(monthsText, sipsAt + #sipsText, true)
-   paint(monthsAt, #monthsText, "inactive")
-   deselect()
+-- ---------------------------------------------------------------------------
+-- drawing
+-- ---------------------------------------------------------------------------
+
+M.SECTIONS = {
+   { id = "vitals",  title = "HEALTH & MANA" },
+   { id = "elixirs", title = "ELIXIRS" },
+   { id = "salves",  title = "SALVES" },
+   { id = "other",   title = "OTHER" },
+}
+
+local function dc(key) return theme.dc(key) end
+local function edge(text) return dc("textDim") .. text end
+
+local function fit(text, width)
+   text = tostring(text)
+   if #text > width then return text:sub(1, width) end
+   return text .. string.rep(" ", width - #text)
 end
 
---- The summary lines, in decho markup: one per group, wrapped at M.WIDTH.
-function M.summary(rows)
-   local groups, order, empties = {}, {}, {}
-   for _, row in ipairs(rows) do
-      local key, group, short = M.kind(row.fluid)
-      if not group then
-         empties[#empties + 1] = row.vial
-      else
-         local g = groups[group]
-         if not g then
-            g = { totals = {}, order = {}, keys = {} }
-            groups[group] = g
-            order[#order + 1] = group
-         end
-         if not g.totals[short] then
-            g.totals[short] = 0
-            g.order[#g.order + 1] = short
-            g.keys[short] = key
-         end
-         g.totals[short] = g.totals[short] + row.sips
+local RULE3 = "+" .. string.rep("-", FLUID_W + 2) .. "+" .. string.rep("-", SIPS_W + 2) .. "+"
+   .. string.rep("-", VIALS_W + 2) .. "+"
+local RULE1 = "+" .. string.rep("-", M.WIDTH - 2) .. "+"
+
+local function wide(colour, text)
+   return edge("| ") .. dc(colour) .. fit(text, INNER_W) .. edge(" |")
+end
+
+local function row(fluidKey, fluid, totalKey, total, vials, vialsWidth)
+   return edge("| ") .. dc(fluidKey) .. fit(fluid, FLUID_W) .. edge(" | ")
+      .. dc(totalKey) .. string.format("%" .. SIPS_W .. "s", total) .. edge(" | ")
+      .. vials .. string.rep(" ", VIALS_W - vialsWidth) .. edge(" |")
+end
+
+--- Lay out "token sips" pieces across lines no wider than `width`: { {markup, width}, ... }.
+local function wrap(pieces, width)
+   local lines, markup, used = {}, "", 0
+   for _, piece in ipairs(pieces) do
+      local gap = used > 0 and 2 or 0
+      if used > 0 and used + gap + piece.width > width then
+         lines[#lines + 1] = { markup, used }
+         markup, used, gap = "", 0, 0
       end
+      markup = markup .. string.rep(" ", gap) .. piece.markup
+      used = used + gap + piece.width
    end
-
-   local lines = {}
-   local label = function(text) return theme.dc("textDim") .. string.format("  %-9s", text) end
-   local indent = string.rep(" ", 11)
-   for _, group in ipairs(order) do
-      local g = groups[group]
-      local line, width = label(group), 11
-      for _, short in ipairs(g.order) do
-         local total = g.totals[short]
-         local plain = string.format("%s %d", short, total)
-         if width > 11 and width + 2 + #plain > M.WIDTH then
-            lines[#lines + 1] = line
-            line, width = indent, 11
-         end
-         if width > 11 then line, width = line .. "  ", width + 2 end
-         line = line .. theme.dc(g.keys[short]) .. short .. " "
-            .. theme.dc(sipsColour(total)) .. tostring(total)
-         width = width + #plain
-      end
-      lines[#lines + 1] = line
-   end
-   if #empties > 0 then
-      lines[#lines + 1] = label("empty") .. theme.dc("inactive") .. table.concat(empties, "  ")
-   end
+   lines[#lines + 1] = { markup, used }
    return lines
 end
+
+--- The table, as decho lines.
+function M.render(rows)
+   local fluids, empties = {}, {}
+   for _, entry in ipairs(rows) do
+      local key, section, short = M.kind(entry.fluid)
+      if section == "empty" then
+         empties[#empties + 1] = M.token(entry.vial)
+      else
+         local fluid = fluids[short]
+         if not fluid then
+            fluid = { name = short, key = key, section = section, total = 0, vials = {} }
+            fluids[short] = fluid
+         end
+         fluid.total = fluid.total + entry.sips
+         fluid.vials[#fluid.vials + 1] = { token = M.token(entry.vial), sips = entry.sips }
+      end
+   end
+
+   local out = {
+      edge(RULE3),
+      edge("| ") .. dc("text") .. fit("Fluid", FLUID_W) .. edge(" | ") .. dc("text")
+         .. string.format("%" .. SIPS_W .. "s", "Sips") .. edge(" | ") .. dc("text")
+         .. fit("Vials", VIALS_W) .. edge(" |"),
+      edge(RULE3),
+   }
+
+   for _, section in ipairs(M.SECTIONS) do
+      local list = {}
+      for _, fluid in pairs(fluids) do
+         if fluid.section == section.id then list[#list + 1] = fluid end
+      end
+      -- Health before mana; the rest alphabetical.
+      table.sort(list, function(a, b)
+         if section.id == "vitals" then return a.name == "health" and b.name ~= "health" end
+         return a.name < b.name
+      end)
+      if #list > 0 then
+         out[#out + 1] = wide("accent", section.title)
+         out[#out + 1] = edge(RULE3)
+         for _, fluid in ipairs(list) do
+            local pieces = {}
+            for _, vial in ipairs(fluid.vials) do
+               pieces[#pieces + 1] = {
+                  markup = dc("textDim") .. vial.token .. " " .. dc("text") .. tostring(vial.sips),
+                  width = #vial.token + 1 + #tostring(vial.sips),
+               }
+            end
+            for index, line in ipairs(wrap(pieces, VIALS_W)) do
+               if index == 1 then
+                  out[#out + 1] = row(fluid.key, fluid.name, M.totalColour(fluid.total),
+                     tostring(fluid.total), line[1], line[2])
+               else
+                  out[#out + 1] = row("text", "", "text", "", line[1], line[2])
+               end
+            end
+         end
+         out[#out + 1] = edge(RULE3)
+      end
+   end
+
+   if #empties > 0 then
+      out[#out + 1] = wide("accent", "EMPTY")
+      out[#out + 1] = edge(RULE1)
+      local pieces = {}
+      for _, token in ipairs(empties) do
+         pieces[#pieces + 1] = { markup = dc("inactive") .. token, width = #token }
+      end
+      for _, line in ipairs(wrap(pieces, INNER_W)) do
+         out[#out + 1] = edge("| ") .. line[1] .. string.rep(" ", INNER_W - line[2]) .. edge(" |")
+      end
+      out[#out + 1] = edge(RULE1)
+   end
+
+   if #rows == 0 then
+      out[#out + 1] = wide("textDim", "No vials.")
+      out[#out + 1] = edge(RULE1)
+   end
+   return out
+end
+
+-- ---------------------------------------------------------------------------
+-- reading the game's listing
+-- ---------------------------------------------------------------------------
 
 --- Did we just ask for one?
 local function asked()
@@ -158,43 +242,43 @@ local function asked()
    return outgoing ~= nil and outgoing.sentRecently("^elist", M.WINDOW)
 end
 
+local function hide() emunah.ui.gag.current() end
+
+local function draw(rows)
+   decho("\n" .. table.concat(M.render(rows), "\n"))
+end
+
 function M.onHeader()
    if not asked() then return end
    listing = { rules = 0, rows = {} }
-   if selectCurrentLine() ~= false then
-      setFgColor(theme.rgb("accent"))
-      setBold(true)
-      deselect()
-   end
+   hide()
 end
 
 function M.onRule()
    if not listing then return end
-   if selectCurrentLine() ~= false then
-      setFgColor(theme.rgb("border"))
-      deselect()
-   end
+   hide()
    listing.rules = listing.rules + 1
    if listing.rules < 2 then return end
    local rows = listing.rows
    listing = nil
-   if #rows == 0 then return end
-   decho("\n" .. table.concat(M.summary(rows), "\n") .. "<r>")
+   draw(rows)
 end
 
---- Every line: a row while a listing is open, and the prompt that ends one regardless.
+--- Every line: a row while a listing is open. A prompt before the closing rule still
+--- draws what was read, rather than leaving hidden rows with nothing in their place.
 function M.onLine()
    if not listing then return end
    if type(isPrompt) == "function" and isPrompt() then
+      local rows = listing.rows
       listing = nil
+      if #rows > 0 then draw(rows) end
       return
    end
    if listing.rules ~= 1 then return end
-   local line = getCurrentLine()
-   local row = M.parse(line)
+   local row = M.parse(getCurrentLine())
    if not row then return end
    listing.rows[#listing.rows + 1] = row
-   styleRow(line, row)
+   hide()
 end
 
 -- ---------------------------------------------------------------------------

@@ -87,6 +87,8 @@ local MANIFEST = {
 
    -- ui
    { path = "emunah.ui.theme",           as = "ui.theme"      },
+   -- hides lines after their packet is done; pipes and elist both use it
+   { path = "emunah.ui.gag",             as = "ui.gag"        },
    { path = "emunah.ui.echo",            as = "ui.echo"       },
    { path = "emunah.ui.alert",           as = "ui.alert"      },
    { path = "emunah.ui.layout",          as = "ui.layout"     },
