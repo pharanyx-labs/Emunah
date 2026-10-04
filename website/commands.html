@@ -103,7 +103,7 @@ yours so Emunah does not wake you out of it).
 <table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>logLevel</code></td><td>info</td><td>debug, info, warn or error. <code>emset debug</code> toggles between info and debug.</td></tr>
 <tr><td><code>system.update</code></td><td>true</td><td>Pull main (fast-forward only) before every reload. Off, a reload loads what is on disk.</td></tr>
-<tr><td><code>schema</code></td><td>10</td><td>Config format version. Managed by the migrations; do not set this by hand.</td></tr>
+<tr><td><code>schema</code></td><td>11</td><td>Config format version. Managed by the migrations; do not set this by hand.</td></tr>
 </tbody></table>
 
 <h2 id="curing">Curing</h2>
@@ -190,6 +190,7 @@ yours so Emunah does not wake you out of it).
 </div>
 
 <table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>shield.watch</code></td><td>true</td><td>A notice on the chyron while no shield is wielded. Settles on the next inventory change. WIELDED is shown at login either way.</td></tr>
 <tr><td><code>defences.enabled</code></td><td>false</td><td></td></tr>
 <tr><td><code>defences.keepup</code></td><td>{}</td><td>name -&gt; "defup" or "keepup". Written by the defence grid.</td></tr>
 <tr><td><code>defences.commands</code></td><td>{}</td><td>name -&gt; the command that raises it, for defences we ship no command for.</td></tr>

@@ -124,6 +124,10 @@ local MANIFEST = {
    -- restyles ELIST and totals its sips; needs ui.theme and outgoing (was it asked for)
    { path = "emunah.elist",              as = "elist"         },
 
+   -- shows WIELDED at login and keeps a chyron notice up while no shield is wielded;
+   -- reads gmcp.items and writes to ui.chyron
+   { path = "emunah.shield",             as = "shield"        },
+
    -- antitheft: keeps selfishness up and valuables in the pack, and raises the alarm on an
    -- unexplained loss. Reads loot (the pack), shop (the pay window), outgoing and items;
    -- uses ui.alert, and curing.defkeepup for selfishness, both loaded above.

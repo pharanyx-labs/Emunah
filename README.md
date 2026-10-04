@@ -63,7 +63,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 58 modules.
+[emunah] v0.1.0 loaded -- 59 modules.
 ```
 
 ## Capabilities
@@ -196,6 +196,7 @@ src/emunah/
   denizens.lua                        -- per-area kill list, targets by replica number
   ih.lua                              -- linkifies `ih` output
   elist.lua                           -- colours ELIST, totals sips per fluid
+  shield.lua                          -- WIELDED at login; chyron notice if no shield
   bashing.lua                         -- walk, target, attack, advance
   namedb.lua                          -- who is a person, and what are they
   namedb/api.lua                      -- api.achaea.com: real data, not inference

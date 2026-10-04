@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 58, "all 58 manifest modules loaded")
+eq(loadedModules, 59, "all 59 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -12306,6 +12306,58 @@ do
 end
 
 -- ===========================================================================
+
+-- ===========================================================================
+suite("shield: WIELDED at login, and a chyron notice while none is wielded")
+
+do
+   local shield, chyron = emunah.shield, emunah.ui.chyron
+   chyron.clear()
+   emunah.config.set("shield.watch", true)
+   local mace = { id = "341225", name = "a spiritual mace", attrib = "l" }
+   local function kite(attrib) return { id = "680194", name = "a kite shield", attrib = attrib } end
+
+   -- The user's WIELDED at 09:25:53.45: mace left, kite shield right.
+   mock.feed("Char.Items.List", { location = "inv", items = { mace, kite("L") } })
+   ok(not chyron.showing(shield.NOTICE), "a wielded shield puts nothing on the chyron")
+
+   mock.feed("Char.Items.Update", { location = "inv", item = kite("") })
+   ok(chyron.showing(shield.NOTICE), "unwielding it puts a notice up")
+   eq(chyron.messages[#chyron.messages].text, "Your kite shield is not wielded",
+      "naming the shield")
+   eq(chyron.messages[#chyron.messages].colour, "warning", "as a warning")
+
+   mock.feed("Char.Items.Update", { location = "inv", item = kite("") })
+   eq(#chyron.messages, 1, "a second report replaces the notice rather than queueing a copy")
+
+   mock.feed("Char.Items.Update", { location = "inv", item = kite("l") })
+   ok(not chyron.showing(shield.NOTICE), "wielding it again takes the notice down")
+
+   mock.feed("Char.Items.Remove", { location = "inv", item = kite("L") })
+   eq(chyron.messages[#chyron.messages] and chyron.messages[#chyron.messages].text,
+      "You are carrying no shield", "losing it altogether says so")
+
+   emunah.config.set("shield.watch", false)
+   mock.feed("Char.Items.List", { location = "inv", items = { mace } })
+   ok(not chyron.showing(shield.NOTICE), "shield.watch off takes it down")
+   emunah.config.set("shield.watch", true)
+   chyron.clear()
+
+   -- Login: WIELDED once the login burst has passed.
+   mock.feed("Char.Vitals", { hp = "2800", maxhp = "2800", bal = "1", eq = "1" })
+   mock.sent = {}
+   mock.feed("Char.Name", { name = "Saemora", fullname = "Saemora" })
+   local function sentWielded()
+      for _, command in ipairs(mock.sent) do
+         if command == "wielded" then return true end
+      end
+      return false
+   end
+   ok(not sentWielded(), "not straight away, into the login burst")
+   mock.advance(shield.LOGIN_DELAY)
+   ok(sentWielded(), "WIELDED goes out after it", table.concat(mock.sent, " | "))
+   emunah.timers.stopAll()
+end
 
 io.write("\n", string.rep("-", 60), "\n")
 io.write(string.format("%d passed, %d failed\n", passed, failed))

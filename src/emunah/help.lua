@@ -317,6 +317,9 @@ M.settings = {
   detail = "Per-affliction, per-vector rank overrides. Written by `emset prio`." },
 
 -- defences
+{ key = "shield.watch", default = true, type = "boolean", topic = "defences", shipped = false,
+  detail = "A notice on the chyron while no shield is wielded. Settles on the next "
+       .. "inventory change. WIELDED is shown at login either way." },
 { key = "defences.enabled", default = false, type = "boolean", topic = "defences",
   shipped = true },
 { key = "defences.keepup", default = "{}", type = "table", topic = "defences", shipped = true,
