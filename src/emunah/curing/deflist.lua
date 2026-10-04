@@ -626,8 +626,9 @@ end
 ---      While blind without mindseye that line is the only signal -- Char.Items.Add does
 ---      not fire, so a summon that already worked never set maceSummoned, and the next
 ---      tick summoned again.
----   never summoned this login -> SUMMON MACE. Costs 2.9s of balance, confirmed by the user
----      directly rather than GMCP -- the only capture taken was chained (`summon
+---   never summoned this login -> SUMMON MACE. Costs 2.90s of balance (AB SPIRITUALITY MACE),
+---      and only when it makes one -- free with a mace held or in the land (the user). The
+---      first capture of it was chained (`summon
 ---      mace;;wield mace`), which is also why that chain is not what this sends: the wield
 ---      half fired before the mace existed ("What do you wish to wield?" at 07:39:16.19,
 ---      preceding the conjuring message by 0.01s) and had to be typed again by hand. Sending

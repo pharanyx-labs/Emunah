@@ -1,0 +1,15 @@
+Source: AB SPIRITUALITY MACE, in-game, pasted by the user 2026-10-04.
+The user adds: it only costs balance when it actually summons one. Holding a mace, or with one in the land, SUMMON MACE costs nothing.
+
+Mace (Spirituality)                           Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            SUMMON MACE
+                   CALL MACE
+                   SMITE <target> <limb> [CHASTEN <BODY|MIND|affliction>]
+Works on/against:  Adventurers and denizens
+Cooldown:          2.90 seconds of balance
+Details:
+Using your inherent link to the spirit world, you may summon a spiritual mace, with which to smite 
+down your enemies. Note that your spiritual mace can be used with the targeting abilities in 
+weaponry.
+-------------------------------------------------------------------------------

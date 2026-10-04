@@ -183,7 +183,7 @@ mace is:
 
 | State | Command | Evidence |
 |---|---|---|
-| Never summoned this login | `summon mace` | Balance, 2.9s, user-confirmed |
+| Never summoned this login | `summon mace` | 2.90s of balance (`AB SPIRITUALITY MACE`, [help](help/ab-spirituality-mace.txt)); free when a mace is held or in the land (the user) |
 | Already exists, not in inventory | `call mace` | 07:49:40.91, equilibrium 4.00s, same item id recalled |
 | In inventory, unwielded | `wield mace` | No cost line; needs balance and equilibrium |
 
@@ -201,8 +201,13 @@ rapidly in fervent prayer.` at 11:36:47.39, the mace at 11:36:49.87. Keep-up's 2
 wait runs from the send, so it lapsed first and a second `summon mace` went out at
 11:36:49.22, answered `You are already summoning your mace.` Both lines now hold the summon
 for svof's `waitingformace` wait (3s, `deflist.MACE_SUMMON_WAIT`), and
-`Your action foils your attempt at summoning your spiritual mace.` [svof] releases it. The
-prompt kept its `x` throughout, so the summon did not take balance in that login.
+`Your action foils your attempt at summoning your spiritual mace.` [svof] releases it.
+
+What a summon costs: `AB SPIRITUALITY MACE` gives `Cooldown: 2.90 seconds of balance`, and the
+user adds that it costs balance only when it actually summons one. With a mace held or in the
+land, `summon mace` costs nothing. Not yet explained: in the 11:36:47 summon, which did produce
+a mace, the prompt kept its `x` from the start line to the mace (11:36:47.39 to 11:36:49.87),
+and a vault took balance at 11:36:50.52.
 
 ## `vigilance` needs equilibrium
 
