@@ -3089,12 +3089,55 @@ ndb.record("Stranger")
 mock.setLine("Saemora nods at Anzerloi. Malefactor eyes Malefactor's blade.")
 names.onLine()
 
+-- RED IS OUR CITY'S ENEMY LIST ALONE; any other enemy is underlined in its ordinary colour
+-- (the user, 2026-10-04: "underline people if they are considered an enemy via the ndb and
+-- user specifying such and only have city enemies in red. make the red darker, too").
 ok(mock.formatOf("Malefactor") ~= nil, "an enemy on the line is styled")
-eq(mock.formatOf("Malefactor").colour, emunah.ui.theme.colour.affliction,
-   "...in the enemy colour")
-eq(mock.formatOf("Malefactor").bold, true, "...and bold")
+eq(mock.formatOf("Malefactor").colour, names.cityColour.mhaldor,
+   "...an enemy marked by hand keeps its city's colour, not red")
+eq(mock.formatOf("Malefactor").underline, true, "...and is underlined")
+ndb.setCityEnemies({ "Khaseem" })
+mock.setLine("Khaseem arrives.")
+names.onLine()
+eq(mock.formatOf("Khaseem").colour, names.CITY_ENEMY, "a city enemy is the one red")
+ok(names.CITY_ENEMY ~= emunah.ui.theme.colour.affliction, "...a darker red than the alarm red")
+eq(mock.formatOf("Khaseem").bold, true, "...and bold")
+mock.setLine("Saemora nods at Anzerloi. Malefactor eyes Malefactor's blade.")
+names.onLine()
 eq(mock.formatOf("Anzerloi").colour, emunah.ui.theme.colour.defence,
    "an ally is styled in the ally colour")
+
+-- AN ENEMY'S NAME IS A LINK to their record (the user, 2026-10-04: "the option to left click
+-- the names of enemies that will report their ndb entry"). Allies and strangers are not.
+ok(type(mock.formatOf("Malefactor").link) == "string", "an enemy's name is a link")
+eq(mock.formatOf("Anzerloi").link, nil, "...an ally's is not")
+do
+   mock.setLine("Khaseem arrives.")
+   names.onLine()
+   ok(type(mock.formatOf("Khaseem").link) == "string", "...a city enemy's is")
+   mock.setLine("Saemora nods at Anzerloi. Malefactor eyes Malefactor's blade.")
+   names.onLine()
+   local reported = nil
+   local whois = emunah.commands.handlers.whois
+   emunah.commands.handlers.whois = function(name) reported = name end
+   local fn = loadstring(mock.formatOf("Malefactor").link)
+   ok(fn and pcall(fn), "the link runs")
+   eq(reported, "Malefactor", "...and reports that person's record, as `emset whois`")
+   emunah.commands.handlers.whois = whois
+   -- And for real: the click prints the record, with no error on the way.
+   mock.echoed = {}
+   local ran, err = pcall(loadstring(mock.formatOf("Malefactor").link))
+   ok(ran, "the real report runs from the link", tostring(err))
+   ok(table.concat(mock.echoed, ""):find("Malefactor", 1, true), "...and prints the record",
+      table.concat(mock.echoed, ""))
+   emunah.config.set("names.enemyLinks", false)
+   mock.setLine("Malefactor arrives.")
+   names.onLine()
+   eq(mock.formatOf("Malefactor").link, nil, "names.enemyLinks off: no link")
+   emunah.config.set("names.enemyLinks", nil)
+   mock.setLine("Saemora nods at Anzerloi. Malefactor eyes Malefactor's blade.")
+   names.onLine()
+end
 
 -- Each occurrence gets its own run. selectString takes an ORDINAL, and passing 1 twice
 -- restyles the first name and leaves the second plain -- invisible unless a test counts.
@@ -3117,7 +3160,7 @@ ndb.set("Malefactor", "infamy", "4")
 mock.setLine("Malefactor arrives.")
 names.onLine()
 local style = mock.formatOf("Malefactor")
-eq(style.colour, emunah.ui.theme.colour.affliction, "standing still owns the colour")
+eq(style.colour, names.cityColour.mhaldor, "standing still owns the colour")
 eq(style.underline, true, "a Mark adds an underline")
 eq(style.italic, true, "infamy adds italics")
 
@@ -12602,6 +12645,30 @@ suite("antitheft: selfishness, the pack, and alarms on loss")
    mock.feed("Room.RemovePlayer", "Pickpocket")
    emunah.namedb.iff("Pickpocket", nil)
 
+   -- ONLY THE DECLARED ENEMIES ("we are being a bit too aggressive with the antitheft",
+   -- 2026-10-04). A citizen of a city marked hostile is not one; our city's list is.
+   emunah.namedb.set("Passerby", "city", "Mhaldor")
+   emunah.namedb.setHostile("city", "mhaldor", true)
+   ok(emunah.namedb.isEnemy("Passerby"), "(a citizen of a hostile city derives as an enemy)")
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "8001", name = "a pile of gold sovereigns", attrib = "t" },
+   } })
+   emunah.loot.stowAttempts = 0
+   emunah.timers.start("loot.stow", 10)
+   mock.sent = {}
+   mock.feed("Room.AddPlayer", { name = "Passerby", fullname = "Passerby" })
+   ok(not table.concat(mock.sent, " | "):find("put gold", 1, true),
+      "...but walking in does not tighten up", table.concat(mock.sent, " | "))
+   mock.feed("Room.RemovePlayer", "Passerby")
+   emunah.namedb.setCityEnemies({ "Passerby" })
+   mock.sent = {}
+   mock.feed("Room.AddPlayer", { name = "Passerby", fullname = "Passerby" })
+   ok(table.concat(mock.sent, " | "):find("put gold in backpack452292", 1, true),
+      "one on our city's enemy list does", table.concat(mock.sent, " | "))
+   mock.feed("Room.RemovePlayer", "Passerby")
+   emunah.namedb.setCityEnemies({})
+   emunah.namedb.setHostile("city", "mhaldor", false)
+
    -- LOOSE GOLD that does not go in is called out and tried again -- within loot's budget,
    -- never resetting it (that turned a PUT that never works into a loop).
    mock.sent = {}
@@ -12618,6 +12685,65 @@ suite("antitheft: selfishness, the pack, and alarms on loss")
 
    emunah.event.kill("test.antitheft")
    emunah.timers.stopAll(); emunah.queue.reset()
+end)()
+
+suite("city enemies: read from CITY ENEMIES, replaced every time")
+;(function()
+   local ndb, capture = emunah.namedb, emunah.namedb.capture
+   -- The user's listing, 19:29:26.17 on 2026-10-04.
+   local LISTING = {
+      "Enemies of the Radiant Nation of Targossas:",
+      "Khaseem, Ziel, Erikarn, Jems, Proficy, Fitz, Theosis, Accipiter, Shecks, Imyrr, Naz, Paine, ",
+      "Dochitha, Saibel, Thiev, Hikagejuunin, Sobriquet, Katalyst, Kog, Nahaj, Mizik, Llialesam, Leviticus,",
+      "Diadorus, Agathon, Pharaus, Voc, Titonus, Amranu, Maelgor, Sohl, Kaden, Dunn, Fieth, Ryzant, Eril, ",
+      "Thundarsa, Avianca, Tharonus, Aegoth, Alashi, Akri, Faeryn, Crixos, Annase, Anaria, Tsia, Jei, ",
+      "Minkai, Mercer, Belaziel, Kalys, Lyrikai, Ariadna, Sadey, Eoka, Haeron, Veera, Ysindrolir, Ulvin, ",
+      "Senrir, Iktha, Armali, Sartori, Layta, Veya, Iakres, Sjeng, Irimon, Aheli, Harkon, Gavai, Archaeon, ",
+      "Shaul, Inki, Sprucebruce, Cabba, Mystor, Samhirket, Evisi, Maedhros, Mumin, Tsurrok, Othival, ",
+      "Treischt, Nikolais, Nagis, Lawr, Tabethys, Valkael, Aletheia, Luz, Kralik, Vostyr, Hoyt",
+      "Total: 95",
+   }
+   local function listed()
+      local n = 0
+      for _, person in pairs(ndb.people) do if person.cityenemy then n = n + 1 end end
+      return n
+   end
+   ndb.setCityEnemies({})
+   ndb.set("Formerfoe", "cityenemy", "yes")
+
+   mock.command("city enemies")
+   for _, line in ipairs(LISTING) do mock.line(line) end
+   eq(listed(), 95, "all 95 are city enemies")
+   ok(ndb.get("Khaseem").cityenemy and ndb.get("Hoyt").cityenemy and ndb.get("Dochitha").cityenemy,
+      "...the first, the last, and the first of a wrapped line")
+   ok(ndb.isDeclaredEnemy("Hikagejuunin"), "...and each is a declared enemy")
+   ok(not ndb.get("Formerfoe").cityenemy, "someone no longer listed is no longer one")
+
+   -- Again, shorter: the table follows the latest listing.
+   mock.advance(1)
+   mock.command("city enemies")
+   mock.line("Enemies of the Radiant Nation of Targossas:")
+   mock.line("Khaseem, Ziel")
+   mock.line("Total: 2")
+   eq(listed(), 2, "typed again, the list is replaced")
+
+   -- A listing that does not add up flags who it names and clears no one.
+   mock.advance(1)
+   mock.command("city enemies")
+   mock.line("Enemies of the Radiant Nation of Targossas:")
+   mock.line("Erikarn")
+   mock.line("Total: 3")
+   ok(ndb.get("Erikarn").cityenemy and ndb.get("Khaseem").cityenemy and ndb.get("Ziel").cityenemy,
+      "a short listing adds, and clears no one")
+
+   -- Not asked for: left alone.
+   mock.advance(capture.ENEMIES_WINDOW + 1)
+   mock.line("Enemies of the Radiant Nation of Targossas:")
+   mock.line("Khaseem")
+   mock.line("Total: 1")
+   ok(ndb.get("Ziel").cityenemy, "an enemy listing nobody asked for changes nothing")
+
+   ndb.setCityEnemies({})
 end)()
 
 suite("angel presences: a warning window for hostiles nearby")

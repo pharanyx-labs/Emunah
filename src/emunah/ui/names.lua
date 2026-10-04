@@ -14,7 +14,10 @@
 ---          or an importance you set yourself.
 ---
 --- They stack. A Mhaldorian Dragon who is also enemied to your city reads as enemy-red and
---- bold and underlined, and each of those three is independently recoverable by eye. A
+--- bold and underlined, and each of those three is independently recoverable by eye.
+---
+--- Red is our city's enemy list alone (CITY ENEMIES, namedb.setCityEnemies). Every other
+--- enemy is underlined in its ordinary colour. A
 --- scheme that folded them into one colour ramp would make the common case (an ordinary
 --- citizen of a hostile city) and the rare one (a Dragon Mark) look alike, which is the
 --- opposite of what a highlighter is for.
@@ -47,6 +50,11 @@ M.cityColour = {
    mhaldor   = "#b4463f",
    targossas = "#d1a13c",
 }
+
+--- Our city's enemies: the one red. Darker than the theme's affliction red, which reads
+--- as an alarm on every line it touches ("only have city enemies in red. make the red
+--- darker, too", the user, 2026-10-04).
+M.CITY_ENEMY = "#b3261e"
 
 --- Tones that are not a city. Pulled from the theme so a retheme moves these with it.
 local function tone(name)
@@ -81,8 +89,11 @@ function M.styleFor(name)
    local standing = ndb.relationship(name)
    local style = {}
 
-   if standing == "enemy" then
-      style.colour = tone("affliction")
+   -- RED IS OUR CITY'S ENEMY LIST, and nothing else (the user, 2026-10-04). Any other enemy
+   -- -- marked by you, a house or order enemy, a citizen of somewhere marked hostile -- keeps
+   -- its ordinary colour and is underlined, below.
+   if person.cityenemy then
+      style.colour = M.CITY_ENEMY
       style.bold = true
    elseif standing == "ally" then
       style.colour = tone("defence")
@@ -99,6 +110,7 @@ function M.styleFor(name)
    end
 
    -- Weight, stacked on top of whatever colour was chosen above.
+   if standing == "enemy" then style.underline = true end
    if person.dragon then style.bold = true end
    if person.mark then style.underline = true end
    if ndb.isInfamous(name) then style.italic = true end
@@ -143,12 +155,22 @@ function M.onLine()
    if not ok or type(line) ~= "string" or line == "" then return 0 end
 
    local occurrence, styled = {}, 0
+   local links = emunah.config.get("names.enemyLinks", true) ~= false
    for _, name in ipairs(ndb.findNames(line)) do
       occurrence[name] = (occurrence[name] or 0) + 1
       local style = M.styleFor(name)
       if style then
          if selectString(name, occurrence[name]) > -1 then
             draw(style)
+            -- AN ENEMY'S NAME IS A LINK to their record (the user, 2026-10-04: "the option
+            -- to left click the names of enemies that will report their ndb entry"). The
+            -- same report as `emset whois`. After draw(): the link is added to the text as
+            -- styled, not in place of the style.
+            if links and type(setLink) == "function"
+               and (ndb.isDeclaredEnemy(name) or ndb.relationship(name) == "enemy") then
+               setLink(string.format("emunah.commands.handlers.whois(%q)", name),
+                  "What the name database knows about " .. name)
+            end
             styled = styled + 1
          end
       end

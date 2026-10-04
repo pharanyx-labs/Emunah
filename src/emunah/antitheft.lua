@@ -292,7 +292,11 @@ end
 --- Is this person a reason to tighten up? Enemies by the name database's reckoning.
 local function hostile(name)
    local namedb = emunah.namedb
-   return namedb and namedb.isEnemy and namedb.isEnemy(name) or false
+   -- The declared enemies only: our city's list and anyone marked enemy by hand. isEnemy()
+   -- also counts every citizen of an organisation marked hostile, which tightened up for
+   -- half the people walking past ("we are being a bit too aggressive with the antitheft",
+   -- the user, 2026-10-04).
+   return namedb and namedb.isDeclaredEnemy and namedb.isDeclaredEnemy(name) or false
 end
 
 --- Put everything away now, rather than on the next balance.

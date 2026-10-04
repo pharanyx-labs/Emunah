@@ -481,6 +481,49 @@ function M.isCityEnemy(name)
       and M.hostile.city[tostring(person.city):lower()])
 end
 
+--- The REAL enemies: on our city's enemy list, or marked enemy by you. Not a derived enemy --
+--- a citizen of an organisation marked hostile, or a house or order enemy. What antitheft
+--- tightens up for, because the derived answer was too broad ("we are being a bit too
+--- aggressive with the antitheft ... these are the real enemies", the user, 2026-10-04,
+--- pasting CITY ENEMIES).
+function M.isDeclaredEnemy(name)
+   if M.isSelf(name) then return false end
+   local person = M.get(name)
+   if not person then return false end
+   return person.cityenemy == true or person.iff == "enemy"
+end
+
+--- Replace our city's enemy list with CITY ENEMIES' answer: everyone listed is flagged, and
+--- anyone flagged before and not listed now is not. Updated every time the list is read
+--- (the user: "i need the enemy table to update each time i type city enemies").
+--- @param names table the names listed
+--- @param complete boolean false when the listing did not add up: flag, but clear no one
+--- @return number added, number cleared
+function M.setCityEnemies(names, complete)
+   local listed, added, cleared = {}, 0, 0
+   for _, name in ipairs(names) do
+      if not M.isSelf(name) then
+         local person = M.record(name)
+         if person then
+            if not person.cityenemy then added = added + 1 end
+            person.cityenemy = true
+            listed[key(name)] = true
+         end
+      end
+   end
+   if complete ~= false then
+      for id, person in pairs(M.people) do
+         if person.cityenemy and not listed[id] then
+            person.cityenemy = nil
+            cleared = cleared + 1
+         end
+      end
+   end
+   M.touch()
+   event.raise("namedb.cityEnemies", #names, added, cleared)
+   return added, cleared
+end
+
 --- Is this someone an offensive ability may be aimed at?
 ---
 --- Deliberately narrow: NOT us, and NOT an ally. A stranger is a legitimate target for an
@@ -666,10 +709,14 @@ M.sources = {
         .. "only the negative infamy wording has been seen, and guessing the positive "
         .. "one would mark innocents" },
 
-   { name = "enemies", implemented = false,
-     what = "CITY ENEMIES / HOUSE ENEMIES / ORDER ENEMIES",
-     gives = "the cityenemy / houseenemy / orderenemy flags",
-     needs = "verbatim output of each of the three enemy listings" },
+   { name = "city enemies", implemented = true,
+     what = "CITY ENEMIES",
+     gives = "the cityenemy flag, replaced from each listing" },
+
+   { name = "house/order enemies", implemented = false,
+     what = "HOUSE ENEMIES / ORDER ENEMIES",
+     gives = "the houseenemy / orderenemy flags",
+     needs = "verbatim output of each listing" },
 }
 
 event.register("emunah.room.players", function()

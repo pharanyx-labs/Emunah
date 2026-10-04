@@ -268,6 +268,14 @@ function mock.install(homeDir)
    _G.setBold      = styler("bold")
    _G.setItalics   = styler("italic")
    _G.setUnderline = styler("underline")
+   --- setLink([window,] command, tooltip) on the selection: kept on it, so a test can read
+   --- the link a name was given and run it as a click would.
+   function _G.setLink(...)
+      if not selection then return end
+      local args = { ... }
+      if #args >= 3 then table.remove(args, 1) end
+      selection.link, selection.linkHint = args[1], args[2]
+   end
 
    --- What was applied to a given piece of text, or nil. Occurrence defaults to the first.
    function mock.formatOf(text, occurrence)
