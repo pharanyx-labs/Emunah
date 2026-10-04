@@ -169,6 +169,19 @@ the attempt budget stopped it for never appearing in `Char.Defences` — which t
 never does. The wield confirmation in that same login was `You start to wield a spiritual
 mace in your left hand.` (12:49:24.41).
 
+## The shield, and `WIELDED`
+
+`WIELDED` lists what is in each hand (2026-10-04, 09:25:53.45, verbatim):
+
+    You are wielding:
+          mace341225: a spiritual mace in your left hand.
+          kite shield680194: a kite shield in your right hand.
+
+It printed no balance line, and the prompt's flags (`exckdb`) were the same on both sides of
+it. `shield.lua` sends it 2s after `Char.Name` at login, and keeps a chyron notice up while
+no item named `shield` in the inventory has a wielded attribute (`l` or `L`). It does not
+wield the shield: what `WIELD` costs or prints for a shield has not been seen.
+
 ## A defence's name is not always what grants it
 
 `Char.Defences` names a defence after **what it does**, not after the thing that granted it.

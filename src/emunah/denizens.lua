@@ -62,7 +62,28 @@ function M.load()
       return false
    end
    M.areas = loaded
+   if M.dropListingRows() > 0 then M.save() end
    return true
+end
+
+--- Remove "denizens" that are really rows of a listing, and say how many went.
+---
+--- ih.lua used to treat every "noun123  text" line as IH, so ELIST's bare vials were
+--- recorded as denizens named for the rest of the row, its sip and month columns
+--- included: "an elixir of mana              42       88". No creature's name ends in a
+--- gap and two numbers, so that shape is what is dropped.
+function M.dropListingRows()
+   local dropped = 0
+   for _, list in pairs(M.areas) do
+      for key, entry in pairs(list) do
+         local name = type(entry) == "table" and entry.name or key
+         if tostring(name):find("%s%s+%d+%s+%d+%s*$") then
+            list[key] = nil
+            dropped = dropped + 1
+         end
+      end
+   end
+   return dropped
 end
 
 -- ---------------------------------------------------------------------------

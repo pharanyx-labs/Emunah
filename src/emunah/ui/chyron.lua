@@ -214,14 +214,31 @@ end
 
 --- Queue a message to scroll through the chyron. The entry point "send a message to it
 --- programmatically" is built around -- anything in the codebase can call this.
+---
+--- A `key` makes it a standing notice rather than an announcement: sending the same key
+--- again replaces it where it stands instead of queueing a copy, and M.dismiss(key) takes
+--- it down once whatever it reports is put right (shield.lua's "not wielded").
 --- @param text string
 --- @param colour string|nil a theme.colour key, default "textBright"
+--- @param key string|nil
 --- @return boolean
-function M.send(text, colour)
+function M.send(text, colour, key)
    text = tostring(text or "")
    if text == "" then return false end
 
-   table.insert(M.messages, { text = text, colour = colour })
+   if key ~= nil then
+      for _, message in ipairs(M.messages) do
+         if message.key == key then
+            if message.text == text and message.colour == colour then return true end
+            message.text, message.colour = text, colour
+            recompile()
+            render()
+            return true
+         end
+      end
+   end
+
+   table.insert(M.messages, { text = text, colour = colour, key = key })
    -- Oldest dropped first -- a chyron showing four things at once is not a chyron, it is a
    -- wall of text, and "three, on a loop" was the actual request.
    while #M.messages > M.MAX_MESSAGES do table.remove(M.messages, 1) end
@@ -231,6 +248,31 @@ function M.send(text, colour)
    render()
    ensureTicking()
    return true
+end
+
+--- Take down the notice sent with this key. Returns whether one was up.
+function M.dismiss(key)
+   for index, message in ipairs(M.messages) do
+      if message.key == key then
+         table.remove(M.messages, index)
+         recompile()
+         if #M.messages == 0 then
+            scrollPos = 0
+            stopTicking()
+         end
+         render()
+         return true
+      end
+   end
+   return false
+end
+
+--- Is the notice with this key up?
+function M.showing(key)
+   for _, message in ipairs(M.messages) do
+      if message.key == key then return true end
+   end
+   return false
 end
 
 --- Drop every queued message and stop scrolling.

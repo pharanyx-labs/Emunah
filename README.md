@@ -63,7 +63,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 57 modules.
+[emunah] v0.1.0 loaded -- 60 modules.
 ```
 
 ## Capabilities
@@ -190,11 +190,13 @@ src/emunah/
   gmcp/     init vitals status afflictions defences items skills room comm ire
   have/     capabilities              -- the "is this possible" gate
   curing/   afflist curelist deflist engine defkeepup detect/ (init, patterns, opponent, diag)
-  ui/       theme layout vitals affpanel chat roompanel map
+  ui/       theme gag layout vitals affpanel chat roompanel map
   walker.lua                          -- area walker
   keys.lua                            -- numpad movement bindings
   denizens.lua                        -- per-area kill list, targets by replica number
   ih.lua                              -- linkifies `ih` output
+  elist.lua                           -- redraws ELIST as a table by kind
+  shield.lua                          -- WIELDED at login; chyron notice if no shield
   bashing.lua                         -- walk, target, attack, advance
   namedb.lua                          -- who is a person, and what are they
   namedb/api.lua                      -- api.achaea.com: real data, not inference

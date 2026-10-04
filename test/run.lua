@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 57, "all 57 manifest modules loaded")
+eq(loadedModules, 60, "all 60 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -7468,6 +7468,7 @@ mock.feed("Room.Info", { num = 902, name = "A field", area = "Newarea3", exits =
 
 mock.links = {}
 mock.deletedLines = 0
+mock.command("ih")
 mock.line("wildcat338261       a wildcat soldier")
 
 eq(mock.deletedLines, 1, "the matched line is deleted before being redrawn")
@@ -7491,7 +7492,137 @@ mock.links = {}
 mock.line("Number of objects: 3")
 eq(#mock.links, 0, "the object-count trailer line is left alone")
 
+-- The user's report, 2026-10-04 09:13:02.44: ELIST's bare vials have IH's shape. With the
+-- trigger always on, each was recorded as a denizen, offered as "Click to allow killing
+-- this", and deleted mid-packet, which fused it onto the row above.
+mock.prompt("H:100% M:88% E:100% W:100%  exckdb  T:  09:13:02.44-")
+eq(emunah.ih.awaiting, false, "the prompt after an IH ends it")
+mock.links = {}
+mock.deletedLines = 0
+mock.command("elist")
+mock.line("Vial477753                    an elixir of mana              42       88")
+eq(#mock.links, 0, "an ELIST row is not relinked as a denizen")
+eq(mock.deletedLines, 0, "and is not deleted")
+ok(not den.known("an elixir of mana              42       88", "Newarea3"),
+   "nor recorded as one")
+ok(emunah.ih.isIh("ih") and emunah.ih.isIh("IH vial") and not emunah.ih.isIh("ihelp"),
+   "IH is `ih`, alone or with an argument")
+
+-- Rows already recorded by the old trigger are dropped when the list loads.
+den.areas = {
+   Newarea3 = {
+      ["an elixir of mana              42       88"] =
+         { name = "an elixir of mana              42       88", seen = 1, wanted = false },
+      ["a wildcat soldier"] = { name = "a wildcat soldier", seen = 1, wanted = true },
+   },
+}
+eq(den.dropListingRows(), 1, "one listing row is dropped")
+ok(den.known("a wildcat soldier", "Newarea3"), "a real denizen is kept")
+
 den.areas = {}
+
+-- ===========================================================================
+suite("elist: parsed and redrawn as a table, one section per kind")
+do
+   local elist, theme = emunah.elist, emunah.ui.theme
+   local RULE = string.rep("-", 79)
+   local HEADER = "Vial                          Fluid                          Sips     Months  "
+   local function plain(text) return (text:gsub("<%d+,%d+,%d+>", "")) end
+
+   -- The user's listing at 09:14:10.52 (2026-10-04), most of it.
+   local ROWS = {
+      "Pinewood vial41028            an elixir of health            149      88",
+      "A sandstone vial47327         a salve of restoration         200      93",
+      "A white marble vial411725     a caloric salve                45       137",
+      "Oaken vial418713              an elixir of health            39       63",
+      "Vial477753                    an elixir of mana              42       88",
+      "Vial478446                    an elixir of mana              200      88",
+      "Vial507758                    an elixir of frost             170      88",
+      "Vial539295                    an elixir of immunity          195      88",
+      "Vial614872                    an elixir of immunity          200      91",
+      "Vial676646                    empty                          0        88",
+      "Vial676811                    a salve of mending             199      88",
+      "Vial677237                    a salve of mending             200      88",
+      "Vial677241                    a salve of mending             200      88",
+   }
+
+   mock.buffer, mock.echoed, mock.deletedText = {}, {}, {}
+   mock.line("H:100% M:86% E:100% W:100%  exckdb  T:  09:14:10.52-")
+   mock.typedEcho("elist")
+   mock.command("elist")
+   mock.line(HEADER)
+   mock.line(RULE)
+   for _, row in ipairs(ROWS) do mock.line(row) end
+   mock.line("A tell arriving mid-listing.")
+   mock.line(RULE)
+   mock.prompt("H:100% M:86% E:100% W:100%  exckdb  T:  09:14:43.18-")
+   mock.advance(0)
+
+   eq(#mock.deletedText, #ROWS + 3, "the game's header, rules and rows are gone")
+   local left = table.concat(mock.buffer, "\n")
+   ok(left:find("A tell arriving mid-listing.", 1, true), "a line that is not a row stays")
+   ok(left:find("09:14:10.52-elist", 1, true) and left:find("09:14:43.18-", 1, true),
+      "both prompts stay")
+
+   local drawn = table.concat(mock.echoed, "")
+   local lines = {}
+   for line in drawn:gmatch("[^\n]+") do lines[#lines + 1] = line end
+   local widths = true
+   for _, line in ipairs(lines) do
+      if #plain(line) ~= 79 then widths = false end
+   end
+   ok(#lines > 0 and widths, "every line of the table is 79 wide, borders and all",
+      plain(drawn))
+   local text = plain(drawn)
+   local function at(needle) return text:find(needle, 1, true) end
+   ok(at("| HEALTH & MANA") and at("| ELIXIRS") and at("| SALVES") and at("| EMPTY"),
+      "a section each for health and mana, elixirs, salves and empties")
+   ok(at("| HEALTH & MANA") < at("| ELIXIRS") and at("| ELIXIRS") < at("| SALVES")
+      and at("| SALVES") < at("| EMPTY"), "in that order")
+   ok(at("| health       |   188 | vial41028 149  vial418713 39"), "health totals its vials",
+      text)
+   ok(at("| health ") < at("| mana "), "health before mana")
+   ok(at("| mending      |   599 |"), "salves named short, totalled")
+   ok(at("| vial676646 "), "the empty vial is listed under EMPTY")
+   ok(not at("empty        |"), "and not as a fluid")
+
+   -- Colours: the total is green, yellow under 500, red under 100.
+   ok(drawn:find(theme.dc("warning") .. "  188", 1, true), "health at 188 is yellow")
+   ok(drawn:find(theme.dc("defence") .. "  599", 1, true), "mending at 599 is green")
+   eq(elist.totalColour(99), "affliction", "under 100 is red")
+   eq(elist.totalColour(100), "warning", "100 is yellow")
+   eq(elist.totalColour(500), "defence", "500 is green")
+   ok(drawn:find(theme.dc("health") .. "health", 1, true)
+      and drawn:find(theme.dc("mana") .. "mana", 1, true), "health red and mana blue by name")
+
+   -- A listing nobody asked for is left as it came.
+   mock.advance(elist.WINDOW + 1)
+   mock.echoed, mock.deletedText = {}, {}
+   mock.line(HEADER)
+   mock.line(RULE)
+   mock.line(ROWS[1])
+   mock.line(RULE)
+   mock.advance(0)
+   eq(#mock.deletedText, 0, "an unasked-for ELIST is not hidden")
+   eq(#mock.echoed, 0, "and nothing is drawn")
+
+   -- A prompt before the closing rule still draws what was read.
+   mock.echoed = {}
+   mock.command("elist")
+   mock.line(HEADER)
+   mock.line(RULE)
+   mock.line(ROWS[1])
+   mock.prompt("H:100% M:86% E:100% W:100%  exckdb  T:  09:14:50.00-")
+   mock.advance(0)
+   ok(plain(table.concat(mock.echoed, "")):find("vial41028 149", 1, true),
+      "a listing cut short by a prompt is still drawn")
+
+   eq(elist.parse("A very long carved oaken vial123 an elixir of health 149 88").vial,
+      "A very long carved oaken vial123", "a name squeezing the gaps to one space still parses")
+   eq(elist.token("A white marble vial411725"), "vial411725", "a vial is named by its id")
+   eq(select(2, elist.kind("an epidermal salve")), "salves", "epidermal is a salve")
+   mock.buffer = {}
+end
 
 -- ===========================================================================
 suite("bashing loop (Priest)")
@@ -12196,6 +12327,58 @@ do
 end
 
 -- ===========================================================================
+
+-- ===========================================================================
+suite("shield: WIELDED at login, and a chyron notice while none is wielded")
+
+do
+   local shield, chyron = emunah.shield, emunah.ui.chyron
+   chyron.clear()
+   emunah.config.set("shield.watch", true)
+   local mace = { id = "341225", name = "a spiritual mace", attrib = "l" }
+   local function kite(attrib) return { id = "680194", name = "a kite shield", attrib = attrib } end
+
+   -- The user's WIELDED at 09:25:53.45: mace left, kite shield right.
+   mock.feed("Char.Items.List", { location = "inv", items = { mace, kite("L") } })
+   ok(not chyron.showing(shield.NOTICE), "a wielded shield puts nothing on the chyron")
+
+   mock.feed("Char.Items.Update", { location = "inv", item = kite("") })
+   ok(chyron.showing(shield.NOTICE), "unwielding it puts a notice up")
+   eq(chyron.messages[#chyron.messages].text, "Your kite shield is not wielded",
+      "naming the shield")
+   eq(chyron.messages[#chyron.messages].colour, "warning", "as a warning")
+
+   mock.feed("Char.Items.Update", { location = "inv", item = kite("") })
+   eq(#chyron.messages, 1, "a second report replaces the notice rather than queueing a copy")
+
+   mock.feed("Char.Items.Update", { location = "inv", item = kite("l") })
+   ok(not chyron.showing(shield.NOTICE), "wielding it again takes the notice down")
+
+   mock.feed("Char.Items.Remove", { location = "inv", item = kite("L") })
+   eq(chyron.messages[#chyron.messages] and chyron.messages[#chyron.messages].text,
+      "You are carrying no shield", "losing it altogether says so")
+
+   emunah.config.set("shield.watch", false)
+   mock.feed("Char.Items.List", { location = "inv", items = { mace } })
+   ok(not chyron.showing(shield.NOTICE), "shield.watch off takes it down")
+   emunah.config.set("shield.watch", true)
+   chyron.clear()
+
+   -- Login: WIELDED once the login burst has passed.
+   mock.feed("Char.Vitals", { hp = "2800", maxhp = "2800", bal = "1", eq = "1" })
+   mock.sent = {}
+   mock.feed("Char.Name", { name = "Saemora", fullname = "Saemora" })
+   local function sentWielded()
+      for _, command in ipairs(mock.sent) do
+         if command == "wielded" then return true end
+      end
+      return false
+   end
+   ok(not sentWielded(), "not straight away, into the login burst")
+   mock.advance(shield.LOGIN_DELAY)
+   ok(sentWielded(), "WIELDED goes out after it", table.concat(mock.sent, " | "))
+   emunah.timers.stopAll()
+end
 
 io.write("\n", string.rep("-", 60), "\n")
 io.write(string.format("%d passed, %d failed\n", passed, failed))

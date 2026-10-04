@@ -87,6 +87,8 @@ local MANIFEST = {
 
    -- ui
    { path = "emunah.ui.theme",           as = "ui.theme"      },
+   -- hides lines after their packet is done; pipes and elist both use it
+   { path = "emunah.ui.gag",             as = "ui.gag"        },
    { path = "emunah.ui.echo",            as = "ui.echo"       },
    { path = "emunah.ui.alert",           as = "ui.alert"      },
    { path = "emunah.ui.layout",          as = "ui.layout"     },
@@ -120,6 +122,13 @@ local MANIFEST = {
    -- shop listings and buying by replica number; reads loot.pack() for where gold lives
    -- and gmcp.status for the gold-spent verification, so it follows both
    { path = "emunah.shop",               as = "shop"          },
+
+   -- restyles ELIST and totals its sips; needs ui.theme and outgoing (was it asked for)
+   { path = "emunah.elist",              as = "elist"         },
+
+   -- shows WIELDED at login and keeps a chyron notice up while no shield is wielded;
+   -- reads gmcp.items and writes to ui.chyron
+   { path = "emunah.shield",             as = "shield"        },
 
    -- antitheft: keeps selfishness up and valuables in the pack, and raises the alarm on an
    -- unexplained loss. Reads loot (the pack), shop (the pay window), outgoing and items;

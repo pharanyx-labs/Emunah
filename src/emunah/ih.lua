@@ -17,6 +17,20 @@
 --- real lines or over-matches something else, grow/tighten it from what you actually see
 --- rather than guessing a fix.
 ---
+--- ONLY WHILE AN IH IS BEING ANSWERED
+--- ------------------------------------
+--- The pattern is a noun glued to digits, then text -- which is not only IH. ELIST's bare
+--- vials match it exactly:
+---
+---   Vial477753                    an elixir of mana              42       88
+---
+--- With the trigger always on (until 2026-10-04), every such row was recorded as a denizen
+--- named "an elixir of mana   42   88", relinked as "Click to allow killing this", and
+--- deleted mid-packet, which fused it onto the row above ("...39  63Vial477753") and
+--- shifted it a column (the user's report, 09:13:02.44). So a line is only an IH row
+--- between an `ih` you sent and the next prompt. denizens.load() drops the rows already
+--- recorded.
+---
 --- WHY deleteLine() + cechoLink() RATHER THAN A SEPARATE ECHO
 --- ------------------------------------------------------------
 --- Leaving the original line in place and echoing a second, clickable copy under it would
@@ -47,7 +61,21 @@ function M.killAll()
    return n
 end
 
+--- Is this command an IH? `ih` alone or with an argument; never a longer word.
+function M.isIh(command)
+   command = tostring(command or ""):lower()
+   return command == "ih" or command:find("^ih%s") ~= nil
+end
+
+--- True from an `ih` going out until the next prompt.
+M.awaiting = false
+
+emunah.event.register("emunah.sent", function(_, command)
+   if M.isIh(command) then M.awaiting = true end
+end, "ih")
+
 local function onLine()
+   if not M.awaiting then return end
    local prefix      = matches and matches[2]   -- e.g. "wildcat"
    local replicaId    = matches and matches[3]   -- e.g. "338261"
    local padding      = matches and matches[4]
@@ -86,5 +114,8 @@ end
 M.killAll()
 
 table.insert(registry(), tempRegexTrigger(PATTERN, onLine))
+table.insert(registry(), tempRegexTrigger([[^]], function()
+   if type(isPrompt) == "function" and isPrompt() then M.awaiting = false end
+end))
 
 return M
