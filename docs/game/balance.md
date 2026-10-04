@@ -205,3 +205,40 @@ therefore flushes only the eating vectors (plus `free` and `writhe`) while it is
 **`TOUCH TREE` is refused while paralysed.** Confirmed live 2026-08-03 `16:14:25.08`:
 `touch tree` sent while paralysed came back `Frustratingly, your body won't respond to your
 call to action.` So `tree` is not among the vectors allowed through (`queue.WHILE_PARALYSED`).
+
+## Riding: what costs what
+
+From one `emset debug gmcp` trace (the user, 2026-10-04, 10:09:37–10:10:28), with the
+horse `horse368644`. The character's Riding skill tops out at VAULT (`AB RIDING`).
+
+| Command | Reply | Cost |
+| --- | --- | --- |
+| `vault horse368644` | `You easily vault onto the back of a heavy horse.` | `Balance used: 1.0s.` (prompt lost `x`) |
+| `dismount` | `You step down off of a heavy horse.` | none seen |
+| `order horse368644 follow me` | `Your order is obeyed.` / `A heavy horse obediently falls into line behind you.` | none: no balance line, prompt flags unchanged |
+| `lose horse` | `You move about quickly and lose a heavy horse.` | `Balance used: 0.5s.` |
+| `mounts` | `Your loyal mounts are:` … | `Equilibrium used: 4.00s.` (09:47:01). Never sent automatically |
+
+The user names the follow command as `order 368644 follow me` (bare number); that is what
+`riding.lua` sends.
+
+**Riding is not in GMCP.** The vault produced only `Char.Vitals`, no `Char.Defences.Add`.
+The state comes from the lines above, svof's (`defs_data.riding` on/off lines, its
+`lost_riding` and "riding already on" triggers) **[svof]**, and the `DEFENCES` listing line
+`You are riding (.+).` **[svof defr]**.
+
+**The mount is in the room's `Char.Items` list whether ridden or following** — listed in the
+room walked into on horseback (10:09:48) and while following (10:10:12), and missing once lost
+(10:10:28). Its replica number never changes (the user).
+
+**Asking is free** (the user, 2026-10-04, 10:21:15–10:21:35, while riding): no balance line,
+prompt flags `exckdb` throughout.
+
+| Command, while riding | Reply |
+| --- | --- |
+| `vault horse368644` | `You must dismount before you can mount anything else.` |
+| `order 368644 follow me` | `A heavy horse is already following you.` |
+
+So while the riding state is unknown, Emunah vaults: a refusal costs nothing and says we are
+riding, and otherwise the vault is the one keep-up wanted. The refusal puts back the balance
+`vitals.spend("bal")` marked spent, since `Char.Vitals` will not resend an unchanged `bal`.

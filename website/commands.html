@@ -220,6 +220,25 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>pipes.poll</code></td><td>0 s</td><td>Re-check every pipe this often with PIPELIST. 0 (the default) asks only when the pipes are not known, e.g. after login or a reload.</td></tr>
 </tbody></table>
 
+<h2 id="riding">Riding</h2>
+<p>Keeps your mount with you: whenever it is in the room and you are not riding it, it is ordered to follow you (free). With keep-up on, you vault back onto it whenever you are off it -- but only when the balance is idle: never while anything needs curing, never while bashing or PvP is running, never while it is not in the room. (Not knowing whether you are already riding is no bar: the game refuses a vault onto a horse you are on for free.) While it is not with you, the end of your prompt says so. Also toggled from the <code>emset defs</code> grid.</p>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset riding</span>
+<p>the mount: here or not, ridden or following, keep-up on or off</p>
+</div>
+
+<div class="cmd-block">
+<span class="cmd-syntax">emset riding on|off</span>
+<p>switch riding keep-up (vaulting back on) on or off</p>
+</div>
+
+<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>riding.keepup</code></td><td>false</td><td>Vault back onto the mount whenever you are off it and the balance is idle.</td></tr>
+<tr><td><code>riding.mount</code></td><td>horse368644</td><td>The mount, as VAULT takes it. Its number is how the room list and ORDER name it.</td></tr>
+<tr><td><code>riding.follow</code></td><td>true</td><td>Order the mount to follow you whenever it is here and not ridden, and warn on the prompt while it is not with you.</td></tr>
+</tbody></table>
+
 <h2 id="manna">Manna</h2>
 <p>Performs the manna rite: the three commands, with the waits between them, done for you once each is possible.</p>
 
@@ -452,6 +471,7 @@ See <a href="curing.html">Curing Engine</a> for what the curing commands are dri
   <a href="#curing">Curing</a>
   <a href="#defences">Defences</a>
   <a href="#pipes">Pipes</a>
+  <a href="#riding">Riding</a>
   <a href="#manna">Manna</a>
   <a href="#hunting">Hunting</a>
   <a href="#pvp">PvP</a>
