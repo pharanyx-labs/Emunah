@@ -8,10 +8,13 @@ that state.
 The module tree lives on disk as plain Lua and reloads with a single command, so development
 happens in a normal editor with no package reimport in the loop.
 
+Documentation: **[emunah.pharanyx.co.uk](https://emunah.pharanyx.co.uk)**, built from
+`website/`.
+
 ```
 emreload          update from GitHub's main, then reload every module from disk
-emunah            list commands
-emset status     system and character state
+emhelp            every module, and whether it is on
+emset             status: curing, defences, safety floors, what is tracked
 ```
 
 ## Requirements
@@ -73,7 +76,7 @@ A successful load reports:
 | GMCP tracking | Complete | Vitals, status, afflictions, defences, items, skills, room, channels, rift, target, time |
 | Interface | Complete | Vitals strip, affliction and defence panels, tabbed chat, room and target panels, embedded map |
 | Capability layer | Complete | `have.skill / item / cure / def / balance` — one gate answering "is this possible right now" |
-| Curing engine | Working | Per-vector action queue, blocking-affliction handling, 131-affliction cure table |
+| Curing engine | Working | Per-vector action queue, blocking-affliction handling, 133-affliction cure table |
 | Healing | Working | Four sources across three independent balances, each with its own threshold |
 | Rift management | Working | Stock levels maintained automatically in both directions |
 | Area walker | Working | Self-driving, no mapper-script dependency |
@@ -205,7 +208,7 @@ src/emunah/
   loot.lua                            -- collect gold by replica number
   class/    adapter priest            -- class interface + auto-detection
   commands.lua
-test/       mock_mudlet.lua run.lua   -- 1729 behavioural tests
+test/       mock_mudlet.lua run.lua   -- 2433 behavioural tests
             bench.lua profile.lua     -- per-prompt cost, and where it goes
 package/    .mpackage build project
 tools/      build-xml.py syntax_check.py run_tests.py

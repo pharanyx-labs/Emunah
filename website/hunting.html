@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automated hunting | Emunah</title>
+<meta name="description" content="Emunah&#x27;s automated hunting: walk an area room by room, fight the denizens on your kill list by replica number, collect the gold, and stop safely on its own.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/hunting.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Automated hunting | Emunah">
+<meta property="og:description" content="Emunah&#x27;s automated hunting: walk an area room by room, fight the denizens on your kill list by replica number, collect the gold, and stop safely on its own.">
+<meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html" aria-current="page">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html" aria-current="page">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
+<h1>Automated hunting</h1>
+<p class="lede">One command walks an area room by room, fights whatever is on your kill list, collects the gold, and moves on when the room is clear. Curing and defence keep-up carry on underneath it the whole time.</p>
+<pre><code>emset hunt              <span class="c"># walk and bash together (F11)</span>
+emset hunt off          <span class="c"># stop both</span>
+emset hunt retreat      <span class="c"># stop, go back three rooms the way you came, and stay (F12)</span></code></pre>
+
+<h2 id="loop">The loop</h2>
+<ol class="loop" aria-label="The hunting loop">
+  <li><div><strong>Arrive</strong><span>The walker steps to the nearest room in the area it has not visited yet.</span></div></li>
+  <li><div><strong>Choose a target</strong><span>The next denizen in the room whose kind is on the area's kill list, by replica number.</span></div></li>
+  <li><div><strong>Attack</strong><span>Whenever the attack's balance allows, with your class's openers first when they are worth it.</span></div></li>
+  <li><div><strong>Confirm the kill</strong><span>The target leaving the room ends the fight: dead, fled, or taken by someone else all mean the same thing.</span></div></li>
+  <li><div><strong>Collect</strong><span>When the last one is down, <code>get gold</code>. The room is held for a few seconds so the gold is never left behind.</span></div></li>
+  <li class="back"><div><strong>Move on</strong><span>Back to the walker for the next room, until the area is done.</span></div></li>
+</ol>
+
+<h2 id="walker">The walker</h2>
+<p>The walker visits every room in the area, always heading for the nearest one left. It uses Mudlet's own map and speedwalking, so no mapper script is needed, though it uses the IRE mapper's arrival events when that is installed. Candidates are ranked by map distance first and only the closest few are pathfound, so a large area does not stall the client.</p>
+<p>While the hunt is running, the walker steps one room at a time and waits to be told to move on. A speedwalk would cross several rooms in one go and walk straight past the denizens in them. On its own, <code>emset walk start</code> explores an area at its own pace.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><code>walker.stepDelay</code></td><td>0.6 s</td><td>The pause between steps when the walker paces itself.</td></tr>
+    <tr><td><code>walker.avoid</code></td><td>none</td><td>Rooms the walk never enters.</td></tr>
+    <tr><td><code>walker.transitTimeout</code></td><td>8 s</td><td>How long to keep trying for a room the game will not let you reach, across water or through a closed door, before skipping it.</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="kill-list">The kill list</h2>
+<p>Each area has its own list of which kinds of denizen to fight, saved between sessions. The first time Emunah sees a new kind in an area, it prints a clickable line to add it. Every denizen in the room panel is clickable too, filled when the hunt will attack it and hollow when it will not, and the game's own <code>ih</code> listing becomes clickable in the same way.</p>
+<p>Targets are always chosen by replica number, the game's unique number for each creature. Two identical rats in a room are two different targets, and the attack always goes to the one being fought.</p>
+
+<h2 id="attack">The attack</h2>
+<p>The attack is <code>bashing.attack</code>, sent as <code>&lt;attack&gt; &lt;replica&gt;</code>. It goes when the balance it needs is up, and nothing else of Emunah's is about to spend it. Your target's health comes from the game after every hit, so Emunah knows whether the attack is landing.</p>
+<p>For a Priest, the default is Angel Sear, with two openers when they pay for themselves:</p>
+<ul>
+  <li><strong>Penitence</strong> brands the target to take more damage from smiting. It is sent only when enough hits are left to make it worth the equilibrium, devotion and mana, and never at a target someone else has already branded.</li>
+  <li><strong>The rite of desolation</strong>, on its own cooldown, against denizens only.</li>
+</ul>
+<p>A target still standing after <code>bashing.maxAttempts</code> attacks (40 by default) is given up on, so the hunt never grinds forever on something it cannot hurt.</p>
+
+<h2 id="safety">Stopping safely</h2>
+<p>An unattended hunt has to be able to stop itself. It stops:</p>
+<ul>
+  <li>at its health floor, <code>bashing.stopBelowHealth</code> (50% by default);</li>
+  <li>when health is critical, <code>watch.critical</code> (30%), which stops everything;</li>
+  <li>when mana, endurance, willpower or your class's resource falls below its floor;</li>
+  <li>out of combat, when health drains faster than it should, from bleeding or poison;</li>
+  <li>when the area has been walked, or you move by hand.</li>
+</ul>
+<p>Inside a fight, a fast drop in health is not a reason to stop: standing still does not stop a denizen hitting you, so the critical floor is what applies. After a health stop, the hunt resumes on its own once you have recovered ten points above the floor, attacking only and never walking. Any other stop waits for you.</p>
+<p>It will not attack with another player in the room; it moves on instead of standing there. <code>bashing.stopOnPlayer</code> ends the hunt outright when someone arrives.</p>
+
+<h2 id="gold">Gold</h2>
+<p>When the last denizen in the room is down, Emunah sends <code>get gold</code> and puts the gold in your pack. It waits until nothing is left alive and nobody else is in the room, and holds the room for up to four seconds so the walker never leaves gold on the floor. Your guardian angel and your mount do not count as anything alive. See <a href="sustenance.html#loot">Loot</a>.</p>
+
+<h2 id="watching">Seeing what it decided</h2>
+<p><code>emset bash</code> shows the target, the kills, damage dealt and taken, and whether it is running. <code>emset debug</code> prints every command sent and every command held with the reason, so a hunt that is deliberately waiting never looks like one that has hung.</p>
+<pre><code>emset bash                     <span class="c"># target, kills, damage, running or not</span>
+emset bash attack angel sear   <span class="c"># the attack</span>
+emset walk                     <span class="c"># the area, rooms left, rooms visited</span>
+emset bashing.stopBelowHealth 60</code></pre>
+
+<h2 id="classes">Classes</h2>
+<p>Offence sits behind a small class interface: the hunt asks the class whether it can attack, tells it to attack, and reads its resources for the HUD. The class is detected when you log in. Priest is implemented today; see the <a href="roadmap.html">roadmap</a> for what comes next.</p>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="defences.html"><small>Previous</small>Defence maintenance</a>
+  <a class="next" href="pvp.html"><small>Next</small>PvP</a>
+</nav>
+</main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#loop">The loop</a>
+  <a href="#walker">The walker</a>
+  <a href="#kill-list">The kill list</a>
+  <a href="#attack">The attack</a>
+  <a href="#safety">Stopping safely</a>
+  <a href="#gold">Gold</a>
+  <a href="#watching">Seeing what it decided</a>
+  <a href="#classes">Classes</a>
+</aside>
+</div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
+</body>
+</html>

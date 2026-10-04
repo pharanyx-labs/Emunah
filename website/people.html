@@ -1,205 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>People &amp; Names — Emunah</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>People and names | Emunah</title>
+<meta name="description" content="Emunah&#x27;s database of everyone you have seen, who is an ally or an enemy, names highlighted in the game text, and alerts when your angel senses an enemy.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/people.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="People and names | Emunah">
+<meta property="og:description" content="Emunah&#x27;s database of everyone you have seen, who is an ally or an enemy, names highlighted in the game text, and alerts when your angel senses an enemy.">
+<meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
 </head>
 <body>
-<div class="layout">
-<nav class="sidebar">
-  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
-  <p class="tagline">An Achaea system for Mudlet</p>
+<a class="skip" href="#main">Skip to content</a>
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
   <ul>
-    <li><a href="index.html">Overview</a></li>
-    <li><a href="getting-started.html">Getting Started</a></li>
-    <li><a href="commands.html">Command Reference</a></li>
-    <li><a href="api.html">Lua API</a></li>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
   </ul>
-  <div class="nav-group-title">How it works</div>
+  <h4>Features</h4>
   <ul>
-    <li><a href="curing.html">Curing Engine</a></li>
-    <li><a href="combat.html">Combat &amp; PvP</a></li>
-    <li><a href="people.html" class="active">People &amp; Names</a></li>
-    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="curing.html">Client-side curing</a></li>
     <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html" aria-current="page">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
     <li><a href="architecture.html">Architecture</a></li>
     <li><a href="performance.html">Performance</a></li>
-  </ul>
-  <div class="nav-group-title">Project</div>
-  <ul>
+    <li><a href="api.html">Lua API</a></li>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main class="with-toc">
-<div class="content">
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html" aria-current="page">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
+<h1>People and names</h1>
+<p class="lede">Emunah keeps a record of everyone you have seen, and puts what it knows about them where you will actually read it: in the game text, the moment their name goes past.</p>
+<pre><code>emset whois sarapis                  <span class="c"># everything known about someone</span>
+emset iff sarapis enemy              <span class="c"># mark someone an ally or an enemy</span>
+emset iff sarapis auto               <span class="c"># back to what their city says</span>
+emset hostile city mhaldor           <span class="c"># everyone in Mhaldor is an enemy</span>
+emset hostile                        <span class="c"># list the hostile organisations</span></code></pre>
 
-<h1>People &amp; Names</h1>
-<p class="lede">
-A roster, a dossier, and the same judgement rendered into the scroll where you will actually
-read it.
-</p>
+<h2 id="standing">Allies and enemies</h2>
+<p>Standing comes from two places, and what you declare always wins.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Source</th><th>How it is set</th></tr></thead>
+  <tbody>
+    <tr><td>Declared</td><td><code>emset iff &lt;person&gt; ally|enemy</code>. It survives imports, and survives the broader rules changing underneath it.</td></tr>
+    <tr><td>Derived</td><td><code>emset hostile city|house|order &lt;name&gt;</code> makes everyone in that organisation an enemy, without touching a single record.</td></tr>
+  </tbody>
+</table></div>
+<p>An organisation-wide marking is the quick way to express a war; a declaration is the way to express the one person in it you are not fighting. <code>auto</code> hands the decision back to the organisation.</p>
 
-<h2 id="why">Why a database at all</h2>
-<p>
-The name database knows who is an enemy. That is worth very little if reading it means typing
-a command &mdash; the moment it matters is the moment a name goes past in a room description
-or a shout, and you have about a second. So the database is rendered into the game text
-itself: known names take on colour and weight in place.
-</p>
-<p>
-Everything else here exists to fill that database honestly. A roster built from guesses would
-colour an ally red once and never be trusted again.
-</p>
-
-<h2 id="standing">Standing: declared and derived</h2>
-<p>
-Two independent mechanisms, and <strong>declaration always wins</strong>.
-</p>
-<table>
-<thead><tr><th>Source</th><th>How it is set</th></tr></thead>
-<tbody>
-<tr><td><strong>Declared</strong></td><td><code>emset iff &lt;person&gt; ally|enemy|auto</code>. Survives an import, and survives the derived rules changing under it.</td></tr>
-<tr><td><strong>Derived</strong></td><td>From city, house and order hostility &mdash; <code>lua emunah.namedb.setHostile("city", "Mhaldor", true)</code> marks every recorded Mhaldorian an enemy without touching a single record.</td></tr>
-</tbody>
-</table>
-<p>
-<code>auto</code> hands the decision back to derivation. The distinction matters because the
-derived rules are broad by design: an org-wide marking is the efficient way to express a war,
-and an explicit exception is the way to express the person inside it you are not fighting.
-</p>
-
-<h2 id="highlighting">Highlighting: colour and weight</h2>
-<p>
-Two channels doing two different jobs, and keeping them separate is the whole point.
-</p>
-<table>
-<thead><tr><th>Channel</th><th>Answers</th></tr></thead>
-<tbody>
-<tr><td><strong>Colour</strong></td><td>Where do they stand relative to me &mdash; enemy, ally, or which city.</td></tr>
-<tr><td><strong>Weight</strong></td><td>Is there something about this person &mdash; a Dragon, a Mark, infamy, or an importance you set yourself.</td></tr>
-</tbody>
-</table>
-<p>
-They stack. A Mhaldorian Dragon who is also enemied to your city reads as enemy-red and bold
-and underlined, and each of those three is independently recoverable by eye. A scheme that
-folded them into one colour ramp would make the common case (an ordinary citizen of a hostile
-city) and the rare one (a Dragon Mark) look alike, which is the opposite of what a highlighter
-is for.
-</p>
-<p>
-A candidate is only ever styled if it is <em>already</em> a record. Nothing is ever invented
-from a capitalised noun at the start of a sentence. Your own name is never highlighted &mdash;
-it is on almost every line worth reading, and marking it turns the signal into noise.
-</p>
-
-<div class="callout callout-tip">
-<div class="callout-title">The opt-out</div>
-<p>
-<code>lua emunah.ui.names.ignore("&lt;person&gt;", true)</code>, for the ally whose name is a common word or
-the shopkeeper you see forty times an hour. It forgets nothing else about them.
-</p>
-</div>
-
-<div class="bug">
-<h4>The highlighter used to run on nearly every line</h4>
-<p>
-Its trigger was <code>[A-Z][a-z]</code> &mdash; "contains a capitalised word" &mdash; on the
-reasoning that this is the cheapest pre-filter Mudlet can apply. Both halves of that were
-true and the conclusion was still wrong, because the pre-filter did not filter: in Achaea
-essentially every line contains a capitalised word. Measured, it matched <strong>88% of
-lines</strong>, each costing a full database scan.
-</p>
-<p>
-The trigger is now built from the roster itself &mdash; one alternation regex, rebuilt when
-the database changes &mdash; and fires on <strong>12%</strong> of lines, which is the lines
-that actually name somebody. See <a href="performance.html">Performance</a>.
-</p>
-</div>
-
-<h2 id="capture">Where records come from</h2>
-<p>
-GMCP names people exactly, which is why it is the only fully automatic source. Everyone who
-walks into the room and everyone who speaks gets a record; neither says anything about
-allegiance, so neither ever sets a relationship.
-</p>
-<p>The game-text listings fill in the rest:</p>
-<table>
-<thead><tr><th>Source</th><th>What it gives</th></tr></thead>
-<tbody>
-<tr><td><code>CW</code></td><td>City roster: name, rank, city.</td></tr>
-<tr><td><code>CLWHO</code></td><td>Clan membership.</td></tr>
-<tr><td><code>QW</code></td><td>Who is nearby. Has no header line, so it is read <em>backwards</em> from its terminator &mdash; the walk stops at the first line that is not a comma-separated list of capitalised words, which is what makes it safe without one.</td></tr>
-<tr><td><code>HONOURS</code></td><td>The richest single source: full name, sex, race, city, house, order, level, and more. Its header alone is a weak signature, so it only arms a candidate that the rule of dashes on the next line has to confirm.</td></tr>
-<tr><td>Guardian angel</td><td>Location and health for a named person. The most perishable and most actionable thing the database holds.</td></tr>
-</tbody>
-</table>
-<p>
-The <code>namedb.capture</code> setting switches these sources off, and <code>emset debug</code> shows what each has produced, which is how
-you tell "not implemented" from "never seen one".
-</p>
-
-<h2 id="api">The Achaea web API</h2>
-<p>
-<code>namedb/api.lua</code> reads <code>api.achaea.com/characters/&lt;name&gt;.json</code>,
-which is how <code>emset whois</code> can answer for someone never seen in play. Observed
-behaviour, from <code>docs/game/api.md</code>:
-</p>
+<h2 id="highlighting">Names in the text</h2>
+<p>Colour and weight do two different jobs, and they stack:</p>
 <ul>
-  <li><strong>Every value is a string</strong>, including the numeric ones.</li>
-  <li><strong><code>mob_kills</code> is sometimes abbreviated</strong> &mdash; <code>"451k"</code>, which <code>tonumber</code> reads as <code>451</code>. The single most dangerous field in the payload, and the reason it is stored as text.</li>
-  <li><strong>A missing character returns 403</strong>, not 404.</li>
-  <li><code>city</code>, <code>house</code> and <code>class</code> come back lowercase; <code>"(none)"</code> means absent.</li>
+  <li><strong>Colour</strong> says where someone stands relative to you: enemy, ally, or which city.</li>
+  <li><strong>Weight</strong> says there is something about them: a Dragon, a mark, infamy, or importance you set yourself.</li>
 </ul>
-<div class="callout callout-warn">
-<div class="callout-title">Self-imposed rate limiting</div>
-<p>
-The endpoint sends no rate-limit headers, so the limit is unknown and finding it
-experimentally seemed unwise. Requests are serialised through a one-per-second queue, hits
-are cached for six hours and misses for twenty-four. A <em>timeout</em> is deliberately not
-cached &mdash; that is a network problem, not an answer.
-</p>
-</div>
+<p>Only names already in the database are styled; nothing is invented from a capitalised word at the start of a sentence. Your own name is never highlighted. For an ally whose name is also a common word, <code>lua emunah.ui.names.ignore("&lt;person&gt;", true)</code> stops the highlighting and forgets nothing else.</p>
+<p>The highlighter's trigger is built from the database itself, so it fires only on lines that name somebody you know, about one line in eight in practice, rather than every line with a capital letter.</p>
+
+<h2 id="sources">Where records come from</h2>
+<p>Everyone who walks into the room and everyone who speaks gets a record, from GMCP. Neither says anything about allegiance, so neither sets a relationship. The game's own listings fill in the rest:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Listing</th><th>Gives</th></tr></thead>
+  <tbody>
+    <tr><td><code>CW</code></td><td>City roster: name, rank and city.</td></tr>
+    <tr><td><code>CLWHO</code></td><td>Clan membership.</td></tr>
+    <tr><td><code>QW</code></td><td>Who is around.</td></tr>
+    <tr><td><code>HONOURS</code></td><td>The richest source: full name, race, city, house, order, level and more.</td></tr>
+    <tr><td>Your guardian angel</td><td>Where someone is, and their health and mana, as of that moment.</td></tr>
+  </tbody>
+</table></div>
+<p><code>namedb.capture</code> switches these sources off.</p>
+
+<h2 id="api">The Achaea API</h2>
+<p><code>emset whois</code> can answer for someone you have never met, by asking Achaea's public character API. Requests go one per second, answers are kept for six hours and not-found answers for a day, and a timeout is never cached, because a network problem is not an answer. <code>namedb.autoFetch</code> turns the automatic lookups off.</p>
+
+<h2 id="presences">Presence alerts</h2>
+<p>When <code>presences.alert</code> is on, an ANGEL PRESENCES scan that finds an enemy raises a warning window naming them and where they are. It stays for <code>presences.alertFor</code> seconds, fifteen by default, or until clicked if set to 0. An enemy is anyone the database calls one: declared, or a member of a hostile organisation.</p>
 
 <h2 id="sharing">Export and import</h2>
-<p>
-<code>emunah.namedb.exportFile(path, opts)</code> writes the database out; with <code>opts.fields</code>
-writes a subset, with notes excluded because those are yours. <code>emunah.namedb.importFile(path)</code> merges
-someone else's in.
-</p>
-<p>
-Import is <strong>additive on purpose</strong>. Someone else's file is evidence about people
-you have not met, not a correction of the judgement you have already recorded about people you
-have &mdash; so your own <code>iff</code> and your own notes survive a merge intact.
-</p>
-<p>
-<code>emunah.namedb.forgetAll()</code> clears it. <code>emunah.namedb.prune(days)</code>
-drops records that are only a name; anything declared, noted, or given a single fact by hand
-survives, so it can never quietly discard judgement.
-</p>
-
-
-<footer>
-See <a href="sustenance.html">Sustenance &amp; Economy</a> next, or the <a href="commands.html#people">People commands</a> reference.
-</footer>
-
-<div class="page-nav">
-  <div><span class="dir">Back</span><a href="combat.html">&larr; Combat &amp; PvP</a></div>
-  <div class="next"><span class="dir">Next</span><a href="sustenance.html">Sustenance &amp; Economy &rarr;</a></div>
-</div>
-
-</div>
-<div class="toc">
-  <div class="toc-title">On this page</div>
-  <a href="#why">Why a database</a>
-  <a href="#standing">Standing</a>
-  <a href="#highlighting">Highlighting</a>
-  <a href="#capture">Where records come from</a>
-  <a href="#api">The web API</a>
-  <a href="#sharing">Export and import</a>
-</div>
+<pre><code>lua emunah.namedb.exportFile(path, opts)   <span class="c"># write the database out</span>
+lua emunah.namedb.importFile(path)         <span class="c"># merge someone else's in</span>
+lua emunah.namedb.prune(days)              <span class="c"># drop records that are only a name</span></code></pre>
+<p>Import adds and never overwrites: someone else's file is evidence about people you have not met, not a correction of what you have decided about people you have. Your own declarations and notes survive a merge, and pruning never removes anything you declared or wrote yourself.</p>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="pvp.html"><small>Previous</small>PvP</a>
+  <a class="next" href="sustenance.html"><small>Next</small>Upkeep and economy</a>
+</nav>
 </main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#standing">Allies and enemies</a>
+  <a href="#highlighting">Names in the text</a>
+  <a href="#sources">Where records come from</a>
+  <a href="#api">The Achaea API</a>
+  <a href="#presences">Presence alerts</a>
+  <a href="#sharing">Export and import</a>
+</aside>
 </div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
 </body>
 </html>

@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Roadmap | Emunah</title>
-<meta name="description" content="Where Emunah stands today, what is planned next, and the principles that decide what ships.">
-<link rel="canonical" href="https://emunah.pharanyx.co.uk/roadmap.html">
+<title>PvP | Emunah</title>
+<meta name="description" content="Emunah&#x27;s PvP module attacks the one player you name and no one else, tracks the afflictions you give them, and stops below its own health floor.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/pvp.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
-<meta property="og:title" content="Roadmap | Emunah">
-<meta property="og:description" content="Where Emunah stands today, what is planned next, and the principles that decide what ships.">
+<meta property="og:title" content="PvP | Emunah">
+<meta property="og:description" content="Emunah&#x27;s PvP module attacks the one player you name and no one else, tracks the afflictions you give them, and stops below its own health floor.">
 <meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -54,7 +54,7 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
-    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="pvp.html" aria-current="page">PvP</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -63,7 +63,7 @@
     <li><a href="architecture.html">Architecture</a></li>
     <li><a href="performance.html">Performance</a></li>
     <li><a href="api.html">Lua API</a></li>
-    <li><a href="roadmap.html" aria-current="page">Roadmap</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
 <main class="doc" id="main">
@@ -80,7 +80,7 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
-    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="pvp.html" aria-current="page">PvP</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -89,56 +89,45 @@
     <li><a href="architecture.html">Architecture</a></li>
     <li><a href="performance.html">Performance</a></li>
     <li><a href="api.html">Lua API</a></li>
-    <li><a href="roadmap.html" aria-current="page">Roadmap</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
 </details>
 <!-- doc:start -->
-<p class="crumb"><a href="getting-started.html">Documentation</a> / Under the hood</p>
-<h1>Roadmap</h1>
-<p class="lede">Curing, defences, the interface and hunting are complete and in daily use. What comes next is offence, and more classes.</p>
-<h2 id="today">Where it stands</h2>
-<div class="table-wrap"><table>
-  <thead><tr><th>Area</th><th>State</th></tr></thead>
-  <tbody>
-    <tr><td>Curing, healing and the rift</td><td>Complete, against denizens and players</td></tr>
-    <tr><td>Defence keep-up, pipes, riding and antitheft</td><td>Complete</td></tr>
-    <tr><td>Interface</td><td>Complete</td></tr>
-    <tr><td>Hunting: walker, kill lists, loot</td><td>Complete</td></tr>
-    <tr><td>People, names and presence alerts</td><td>Complete</td></tr>
-    <tr><td>Offence</td><td>Priest only, one attack with its openers</td></tr>
-    <tr><td>PvP</td><td>A named target, opponent affliction tracking, and Zeal verses</td></tr>
-  </tbody>
-</table></div>
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
+<h1>PvP</h1>
+<p class="lede">PvP attacks the one player you name, and nobody else. It never picks a target by itself, because in a fight against a person, attacking the wrong one is worse than attacking no one.</p>
+<pre><code>emset pvp target sarapis     <span class="c"># choose the target</span>
+emset pvp on                 <span class="c"># start attacking</span>
+emset pvp                    <span class="c"># target, their afflictions, attacks sent</span>
+emset pvp off
+emset pvp target off         <span class="c"># clear the target</span></code></pre>
 
-<h2 id="next">Planned</h2>
-<h3>Offensive sequencing</h3>
-<p>Choosing the next attack by what the opponent already has: a sequencing table shaped like the cure table, driven by the opponent's tracked afflictions.</p>
-<h3>A second class</h3>
-<p>Monk, which needs no change to the class interface. A second class is also the only way to prove that sequencing is not quietly Priest-specific, so a guide to adding classes follows it.</p>
-<h3>Breaking shields</h3>
-<p>A Priest has no general way to break a shield, so today a shielded denizen is attacked until the attempt limit gives up on it. Breaking the shield waits on a confirmed mechanic.</p>
-<h3>Judging a denizen before attacking</h3>
-<p>Using a denizen's constitution to decide whether it is worth fighting, and whether the health floor should be higher for it, once what the figures mean in play is confirmed.</p>
+<h2 id="targeting">Only the player you name</h2>
+<p>The game's list of who is in a room leaves out anyone shrouded, hidden or phased. A loop built on that list would lose an opponent the moment they concealed, or pick the wrong person outright. So a target is a name you typed, and nothing else ever sets one.</p>
+<p>Killing your target clears it and ends the session. Your own death ends it too.</p>
 
-<h2 id="principles">How things get built</h2>
-<p>These are why the roadmap is shorter than it could be.</p>
-<ul>
-  <li><strong>A wrong assertion is worse than a gap.</strong> A missing pattern does nothing. A wrong one asserts an affliction you do not have, and a balance is spent curing it. Where the exact game text or mechanic is unknown, the feature waits.</li>
-  <li><strong>Evidence over reasoning.</strong> Mechanics come from timestamped transcripts and GMCP traces, recorded in the repository alongside the code that relies on them.</li>
-  <li><strong>Every fix carries its test.</strong> Each behavioural fix comes with a test that would have caught the original report, and nothing is committed with the suite failing.</li>
-</ul>
-<p>Something missing, or something wrong? <a href="https://github.com/pharanyx-labs/Emunah/issues">Open an issue</a>, ideally with an <code>emset debug</code> log or a transcript of what happened.</p>
+<h2 id="afflictions">Afflictions before damage</h2>
+<p>Against a player who heals well, raw damage loses the race. So the attack is held until the target is carrying enough afflictions to be finished: <code>pvp.attackAtAfflictions</code>, two by default. The game does not report another player's health, so the afflictions you have given them are the signal there is.</p>
+<p>As a Priest with Zeal, Emunah recites Condemnation and Guilt at the target whenever prayer allows. Prayer is its own balance, so verses go out alongside the attack, not instead of it. <code>pvp.verses</code> turns them off.</p>
+
+<h2 id="tracking">Tracking your opponent</h2>
+<p>GMCP reports only your own afflictions. Your opponent's are read from the game text: the third-person lines anyone in the room sees when an affliction shows on someone, such as their face contorting or their body staggering. Emunah reads only those fixed lines and never guesses an affliction from the move that might have caused it. Nothing confirms when an opponent cures, so each entry ages out on a timer.</p>
+
+<h2 id="safety">Safety</h2>
+<p>PvP stops below <code>pvp.stopBelowHealth</code>, 60% by default, higher than the hunting floor on purpose. Starting PvP stops a hunt, and starting a hunt stops PvP: a player and a denizen cannot share one balance.</p>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">
-  <a href="api.html"><small>Previous</small>Lua API</a>
+  <a href="hunting.html"><small>Previous</small>Automated hunting</a>
+  <a class="next" href="people.html"><small>Next</small>People and names</a>
 </nav>
 </main>
 <aside class="toc" aria-label="On this page">
   <h4>On this page</h4>
-  <a href="#today">Where it stands</a>
-  <a href="#next">Planned</a>
-  <a href="#principles">How things get built</a>
+  <a href="#targeting">Only the player you name</a>
+  <a href="#afflictions">Afflictions before damage</a>
+  <a href="#tracking">Tracking your opponent</a>
+  <a href="#safety">Safety</a>
 </aside>
 </div>
 <!-- site:footer -->

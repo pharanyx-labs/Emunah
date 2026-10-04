@@ -91,6 +91,19 @@ There is one prefix, `emset`, plus `emhelp`. Keep it that way:
 - After changing `help.lua`, run `lua tools/build-commands-page.lua` to regenerate
   `website/commands.html`.
 
+## The website
+
+`website/` is the public site (emunah.pharanyx.co.uk), static files with no build step,
+published by `.github/workflows/pages.yml` on every push to `main` that touches it.
+- Every page carries the same header and footer between `<!-- site:header -->` and
+  `<!-- site:footer -->` markers; the suite fails if one drifts or any internal link or
+  anchor is dead. Change them on every page together.
+- `commands.html` is generated, and takes its header, menu and footer from
+  `getting-started.html`. Edit the generator, never the output.
+- Figures on the site (module count, test count, `engine.tick()` cost) are checked
+  against README, the manifest and `docs/performance.md`. Update them together.
+- Every claim about behaviour must match the code as it stands. Check before writing.
+
 ## Verify before implementing
 
 - Read the code you are about to change, not just the function named in the request.

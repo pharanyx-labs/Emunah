@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Defence maintenance | Emunah</title>
+<meta name="description" content="How Emunah raises the defences you choose and keeps them up without ever taking a balance curing needs, plus the spiritual mace, your mount and your shield.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/defences.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Defence maintenance | Emunah">
+<meta property="og:description" content="How Emunah raises the defences you choose and keeps them up without ever taking a balance curing needs, plus the spiritual mace, your mount and your shield.">
+<meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html" aria-current="page">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html" aria-current="page">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
+<h1>Defence maintenance</h1>
+<p class="lede">Choose your defences once from a clickable grid. Emunah raises whatever is missing on the balance it costs, keeps it up when it drops, and never takes a balance that curing needs.</p>
+<figure>
+  <div class="term"><img src="img/defences-panel.png" width="525" height="240" style="--w:525px" alt="Emunah's defence panel with nineteen defences up."></div>
+  <figcaption>Nineteen defences held by keep-up in a live session.</figcaption>
+</figure>
+
+<h2 id="modes">Three modes</h2>
+<p><code>emset defs</code> shows every defence Emunah knows as a grid. Click one to cycle its mode:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Mode</th><th>Means</th></tr></thead>
+  <tbody>
+    <tr><td>off</td><td>Left alone.</td></tr>
+    <tr><td>defup</td><td>Raised once, then left alone if it later drops.</td></tr>
+    <tr><td>keepup</td><td>Raised whenever it is not up.</td></tr>
+  </tbody>
+</table></div>
+<p>Turn keep-up on with <code>emset defs on</code>. The same grid switches pipe relighting and riding keep-up.</p>
+
+<h2 id="balances">Never at curing's expense</h2>
+<p>Defences go through the same queue as cures, at a lower priority than any cure, so the two can never fight over a balance. While anything curable is on you, keep-up waits: a defence raised mid-lock is usually stripped again at once. The one exception is mindseye while you cannot see, which goes ahead of the other equilibrium defences so you are never left blind.</p>
+<p>Every raise declares what it needs as well as what it spends. Perform Bliss spends equilibrium but will not go without balance either; Emunah holds a raise like that until both are there instead of sending it into a refusal.</p>
+
+<h2 id="never-wasted">Never wasted</h2>
+<ul>
+  <li><strong>Nothing is raised twice.</strong> A defence that is already up is never raised again, and a raise waiting for its balance is dropped if the defence comes back on its own.</li>
+  <li><strong>The herb has to be in hand.</strong> An eaten defence waits until the herb is in your inventory, rather than eating nothing.</li>
+  <li><strong>Three tries, then a reason.</strong> A defence that never appears after three raises is retired with a message saying so, and naming what the game is reporting instead, which is usually the defence under a different name.</li>
+  <li><strong>The game's word is final.</strong> "The elixir flows down your throat without effect" means there was nothing to do, so that defence stops at once.</li>
+</ul>
+
+<h2 id="order">The right order</h2>
+<p>Blindness and deafness as defences leave you unable to see or hear without mindseye. Emunah does not raise either until mindseye is up, and says so once. Insomnia is held while you are going to sleep, while hypersomnia prevents it, and when mana is too low to afford it.</p>
+
+<h2 id="known">What it knows</h2>
+<p>Herb, salve and elixir defences, tattoos, and the general and class skills come with their commands built in. Anything else is one command away:</p>
+<pre><code>emset defs add rebounding                 <span class="c"># a defence Emunah already knows</span>
+emset defs add mydefence &lt;command&gt;        <span class="c"># and how to raise one it does not</span>
+emset defs mode rebounding defup
+emset defs remove rebounding</code></pre>
+<p>Where a defence's name in the game differs from the thing that grants it, Emunah maps one to the other: <code>venom</code> keeps up <code>poisonresist</code>, <code>blind</code> keeps up <code>blindness</code>. A few defences never appear in the game's defence list at all, such as bliss, and those are tracked from the game's own lines.</p>
+<p>After a reload, Emunah reads a DEFENCES listing once to settle anything the defence list cannot say.</p>
+
+<h2 id="mace">The spiritual mace</h2>
+<p>For a Priest, keep-up holds the mace as well. Which command that takes depends on where the mace is:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Where it is</th><th>Emunah sends</th></tr></thead>
+  <tbody>
+    <tr><td>In your inventory, not wielded</td><td><code>wield mace</code></td></tr>
+    <tr><td>Summoned before, now elsewhere</td><td><code>call mace</code></td></tr>
+    <tr><td>Never summoned this login</td><td><code>summon mace</code>, once, waiting for it to finish</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="shield">The shield</h2>
+<p>At login Emunah checks what you are wielding, and while no shield is wielded a notice stays on the ticker until it is.</p>
+
+<h2 id="riding">Riding</h2>
+<p>Your mount is kept with you. Whenever it is in the room and you are not riding it, it is ordered to follow you, which costs nothing but needs balance and equilibrium. With riding keep-up on, you vault back onto it whenever you are off it, but only when the balance is idle: never while anything needs curing, never while hunting or PvP is using the balance, and never when the mount is not in the room.</p>
+<p>When the mount has been missing for long enough that it is not just walking in behind you, the end of your prompt says so.</p>
+<pre><code>emset riding                 <span class="c"># here or not, ridden or following, keep-up on or off</span>
+emset riding on|off          <span class="c"># vault back on automatically</span>
+emset riding.mount horse123  <span class="c"># your mount, as VAULT takes it</span></code></pre>
+
+<h2 id="upkeep">The rest of your upkeep</h2>
+<p>Pipes are kept filled and lit, and selfishness is kept up against thieves. Both are part of <a href="sustenance.html">Upkeep and economy</a>.</p>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="interface.html"><small>Previous</small>Interface</a>
+  <a class="next" href="hunting.html"><small>Next</small>Automated hunting</a>
+</nav>
+</main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#modes">Three modes</a>
+  <a href="#balances">Never at curing's expense</a>
+  <a href="#never-wasted">Never wasted</a>
+  <a href="#order">The right order</a>
+  <a href="#known">What it knows</a>
+  <a href="#mace">The spiritual mace</a>
+  <a href="#shield">The shield</a>
+  <a href="#riding">Riding</a>
+  <a href="#upkeep">The rest of your upkeep</a>
+</aside>
+</div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
+</body>
+</html>

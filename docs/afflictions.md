@@ -1,6 +1,6 @@
 # The affliction table
 
-`src/emunah/curing/afflist.lua` maps 131 afflictions to the cures that remove them, the
+`src/emunah/curing/afflist.lua` maps 133 afflictions to the cures that remove them, the
 vector each cure runs on, and the priority of each within that vector. `curing/engine.lua`
 resolves one cure per vector per tick from this data alone.
 

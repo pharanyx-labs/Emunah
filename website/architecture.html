@@ -1,247 +1,212 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Architecture — Emunah</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture | Emunah</title>
+<meta name="description" content="How Emunah is built: the module tree, one gate for every command, one queue slot per balance, the reload model, and the test discipline behind it.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/architecture.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Architecture | Emunah">
+<meta property="og:description" content="How Emunah is built: the module tree, one gate for every command, one queue slot per balance, the reload model, and the test discipline behind it.">
+<meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
 </head>
 <body>
-<div class="layout">
-<nav class="sidebar">
-  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
-  <p class="tagline">An Achaea system for Mudlet</p>
+<a class="skip" href="#main">Skip to content</a>
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
   <ul>
-    <li><a href="index.html">Overview</a></li>
-    <li><a href="getting-started.html">Getting Started</a></li>
-    <li><a href="commands.html">Command Reference</a></li>
-    <li><a href="api.html">Lua API</a></li>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
   </ul>
-  <div class="nav-group-title">How it works</div>
+  <h4>Features</h4>
   <ul>
-    <li><a href="curing.html">Curing Engine</a></li>
-    <li><a href="combat.html">Combat &amp; PvP</a></li>
-    <li><a href="people.html">People &amp; Names</a></li>
-    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="curing.html">Client-side curing</a></li>
     <li><a href="interface.html">Interface</a></li>
-    <li><a href="architecture.html" class="active">Architecture</a></li>
-    <li><a href="performance.html">Performance</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
-  <div class="nav-group-title">Project</div>
+  <h4>Under the hood</h4>
   <ul>
+    <li><a href="architecture.html" aria-current="page">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main class="with-toc">
-<div class="content">
-
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html" aria-current="page">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Under the hood</p>
 <h1>Architecture</h1>
-<p>
-Emunah lives on disk as a plain Lua module tree, loaded into Mudlet by a small bootstrap
-package rather than being bundled inside one. This page covers the module layout, the
-reload model that makes edit-and-go possible, the bugs fixed along the way, and where the
-design is structured the way it is.
-</p>
-
+<p class="lede">Emunah is a tree of plain Lua modules loaded straight from a git checkout. Four ideas carry most of the design, and each exists because of a specific failure it closed off.</p>
 <h2 id="layout">Module layout</h2>
-<div class="tree"><span class="comment">src/emunah.lua</span>              <span class="comment">bootstrap loader (manifest + reload)</span>
-<span class="comment">src/emunah/</span>
-  <span class="dir">core/</span>     util log event config timers queue act
-  <span class="dir">gmcp/</span>     init vitals status afflictions defences items skills room comm ire
-  <span class="dir">have/</span>     capabilities              <span class="comment">-- the "can I actually do this" gate</span>
-  <span class="dir">curing/</span>   afflist curelist deflist engine defkeepup detect/ (init, patterns, opponent, opponent_patterns, diag)
-  <span class="dir">ui/</span>       theme echo layout chyron vitals affpanel chat roompanel map names
-  <span class="dir">namedb/</span>   (namedb.lua) api capture  <span class="comment">-- who is a person, and what are they</span>
-  walker.lua                          <span class="comment">-- area walker</span>
-  keys.lua                            <span class="comment">-- numpad movement bindings</span>
-  denizens.lua                        <span class="comment">-- per-area kill list, targets by replica number</span>
-  ih.lua                              <span class="comment">-- linkifies the `ih` listing</span>
-  watch.lua                           <span class="comment">-- resource floors and damage spikes</span>
-  bashing.lua                         <span class="comment">-- walk -&gt; target -&gt; attack -&gt; next -&gt; move loop</span>
-  pvp.lua                             <span class="comment">-- PvP loop, opt-in target only</span>
-  loot.lua                            <span class="comment">-- pick up gold by replica number</span>
-  shop.lua                            <span class="comment">-- WARES, buying by replica number, a gold ledger</span>
-  pipes.lua                           <span class="comment">-- keeps the pipes filled and lit (the smoke vector)</span>
-  manna.lua                           <span class="comment">-- the sustenance rite, as one command</span>
-  <span class="dir">class/</span>    adapter priest            <span class="comment">-- interface + auto-detection</span>
-  help.lua                            <span class="comment">-- the command reference, as data</span>
-  commands.lua
-<span class="comment">test/</span>       mock_mudlet.lua run.lua   <span class="comment">-- 1729 behavioural tests</span>
-            bench.lua profile.lua     <span class="comment">-- per-prompt cost, and where it goes</span>
-<span class="comment">package/</span>    .mpackage build project
-<span class="comment">tools/</span>       build-xml.py syntax_check.py run_tests.py</div>
+<pre><code>src/emunah.lua            the loader: the manifest, loading and reloading
+src/emunah/
+  core/      util log event config timers queue act outgoing
+  gmcp/      init vitals status afflictions defences items skills room comm ire
+  have/      capabilities         <span class="c">-- "can I actually do this right now"</span>
+  curing/    curelist afflist deflist engine defkeepup
+             detect/  init patterns opponent opponent_patterns diag
+  ui/        theme gag echo alert layout chyron vitals affpanel chat roompanel map names
+  namedb/    api capture          <span class="c">-- with namedb.lua: who everyone is</span>
+  class/     adapter priest       <span class="c">-- the class interface, and Priest</span>
+  walker  denizens  ih  watch  bashing  pvp     <span class="c">-- hunting and PvP</span>
+  loot  shop  elist  shield  antitheft  manna  pipes  riding  keys  presences
+  help  commands                 <span class="c">-- every command, as data, and its dispatcher</span>
+test/        mock_mudlet  run  bench  profile  latency  ui_preview
+tools/       build-xml  build-trigger-package  build-commands-page  run_tests  syntax_check</code></pre>
+<p>The load order is written out in the manifest rather than inferred, because later modules read earlier ones as they load: the interface reads the theme, curing reads the affliction table.</p>
 
-<p>
-The load order in <code>src/emunah.lua</code>'s manifest is explicit, not alphabetical —
-later modules index earlier ones at load time (UI reads the theme, curing reads the
-affliction table), so order matters and is spelled out rather than inferred.
-</p>
+<h2 id="one-gate">One gate for every command</h2>
+<p>Achaea refuses commands for reasons that have nothing to do with the command: you are stunned, lying down, entangled, or the balance it needs has not come back. Those rules once lived at each call site, and whichever copy missed a new rule went on firing into refusals once per prompt.</p>
+<p><code>core/act.lua</code> is now the only place that knows them. Every automated command declares what it needs, and the gate decides when that can be met:</p>
+<pre><code>emunah.act.send("perform penitence " .. target, { standing = true, eq = true })
+emunah.act.send("order " .. id .. " follow me", { bal = true, eq = true })</code></pre>
+<p>Stun, sleep, unconsciousness and death hold everything, whatever a command declares. Prone holds only what needs you upright, so curing carries on while you are knocked down, which is exactly when it matters most.</p>
 
-<h2 id="act">One gate for every command</h2>
-<p>
-Achaea refuses commands for reasons that have nothing to do with the command itself: you
-are stunned, you are lying down, the balance it costs has not come back. Those rules used
-to live at each call site — bashing had its own copy, the curing queue had another, loot had
-a third. Every newly discovered rule then had to be added in three places, and whichever one
-was missed carried on firing into rejections once per prompt.
-</p>
-<p>
-<code>core/act.lua</code> is now the single place that knows them. Call sites declare what a
-command <em>costs</em>, never when it is allowed:
-</p>
-<pre><code>emunah.act.send("smite " .. target, { standing = true, bal = true })
-emunah.act.send("get " .. id,       { standing = true })
-emunah.act.send("stand")</code></pre>
-<p>
-Two distinctions in there are load-bearing, and both were learned the hard way:
-</p>
-<ul>
-  <li><strong>Stun is not a declarable requirement.</strong> It blocks literally every
-      command, so it is checked for all of them regardless of what they ask for.</li>
-  <li><strong>Prone is not blanket.</strong> An earlier version blocked curing while knocked
-      down too. That is both wrong — herbs and elixirs work fine lying down — and dangerous:
-      being knocked flat in a fight is precisely when refusing to heal gets you killed. Only
-      actions that genuinely need you upright declare <code>standing</code>.</li>
-</ul>
-<p>
-The one deliberate bypass is <code>keys.lua</code>. A command <em>you</em> typed goes
-straight out — you asked for it, and second-guessing a human is how a system feels broken.
-</p>
+<h2 id="one-slot">One slot per balance</h2>
+<p><code>core/queue.lua</code> is not one queue but one slot per balance. A more urgent action replaces what is waiting in its slot; a less urgent one is dropped rather than stacked, because a backlog of stale cures is worse than none. A queued action is checked again at the moment it would send, since the reason for it, or a block on it, can change while it waits.</p>
 
-<div class="callout callout-note">
-<div class="callout-title">Sent is not executed</div>
-<p>
-The subtlest balance bug in the system had nothing to do with gating. Achaea processes a
-command some time after it arrives, and until it does, <code>Char.Vitals</code> goes on
-reporting the balance that command is about to spend as available — truthfully. Two attacks
-would go out on consecutive prompts, both while the game's own prompt read
-<code>ex-</code>, and the second collected &ldquo;You must regain balance first.&rdquo; when
-the first finally landed.
-</p>
-<p>
-A flag GMCP is entitled to overwrite cannot defend against that. The guard is a timer,
-armed the moment a command leaves and re-armed with the exact figure when the game confirms
-execution and states its cost (<code>Balance used: 3.2s.</code>).
-</p>
-<p>
-How long that first, pre-confirmation guard should be is measurable rather than guessable:
-it covers exactly one send&nbsp;&rarr;&nbsp;response round trip, which is what Mudlet's
-<code>getNetworkLatency()</code> reports. A fixed guess is wrong in both directions — on a
-fast connection it throws away most of a balance, on a bad one it is not enough — so it is
-sized from the real figure with slack for jitter, and clamped so a wild reading can neither
-wedge the loop nor disable the guard.
-</p>
-</div>
-
-<div class="callout callout-warn">
-<div class="callout-title">Movement costs balance too</div>
-<p>
-Achaea volunteers a room's contents <em>before</em> the <code>Room.Info</code> saying you
-have arrived. Mid-speedwalk, that means the tracked room contents already describe the room
-in front of you — so the bashing loop would acquire a target it had not reached yet and
-attack it in transit. Confirmed live: a <code>smite</code> sent from a room containing
-nothing but a signpost, at a pig standing in the room after it.
-</p>
-<p>
-Because movement also costs balance, that stray attack then raced the mapper's next step for
-the same balance, and one of them collected &ldquo;You must regain balance first.&rdquo; The
-fix is to ask the walker whether it is between rooms rather than infer it from GMCP message
-ordering — the walker knows, and message order only hints.
-</p>
-</div>
+<h2 id="sent-is-not-executed">Sent is not executed</h2>
+<p>The game runs a command some time after it arrives, and until then it goes on reporting the balance that command is about to spend as available. Two systems reading that honestly would both send, and the second would be refused.</p>
+<p>So a balance is treated as spent from the moment something of Emunah's goes out on it until the game answers: the queue holds the slot, and any other command that needs that balance waits behind it, whatever the next GMCP update says. When the game states the cost, such as "Balance used: 3.2s.", the exact figure replaces the estimate.</p>
 
 <h2 id="reload">The reload model</h2>
-<p>
-Extend <code>package.path</code> to point at the checkout, invalidate
-<code>package.loaded</code> for every module, <code>require</code> them in order, restore
-<code>package.path</code>. The whole namespace is rebuilt from scratch on every reload — no
-stale module tables linger, because nothing survives except a short explicit list
-(event handler registry, timers, aliases, and a small scratch space modules use to persist
-settings across a reload).
-</p>
-<div class="callout callout-note">
-<div class="callout-title">Why <code>emreload</code> re-executes the loader file itself</div>
-<p>
-A naive reload would call the same in-memory <code>load()</code> function every time — but
-that function closes over the manifest as it existed when the loader was first read. Calling
-it again re-requires every module the manifest <em>already lists</em>, and silently ignores
-a module you just added to it: the new file is on disk, its manifest entry is on disk, and
-neither is in memory yet. The result looks like nothing happened, because everything that
-<em>did</em> reload looks up to date. <code>emreload</code> re-executes the loader file
-itself, rebuilding the manifest, the loader, and the namespace together in one pass.
-</p>
-</div>
+<p><code>emreload</code> pulls the latest <code>main</code>, then rebuilds the whole namespace from disk: every module is dropped and required again in manifest order. Only a short, explicit list survives: event handlers, timers, and a small scratch space modules use to carry state across a reload, such as which pipes are lit.</p>
+<p>It re-executes the loader file itself rather than calling the loader already in memory. That function was built around the manifest as it was when first read, so a module just added to the manifest would otherwise be silently skipped while everything else looked up to date.</p>
 
-<h2 id="bugs-fixed">Failure modes handled</h2>
-<p>Each of these is locked down by a test, not just fixed and forgotten:</p>
+<h2 id="failure-modes">Failure modes closed off</h2>
+<p>Each of these was a real bug, and each is pinned by a test.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Failure</th><th>What prevents it</th></tr></thead>
+  <tbody>
+    <tr><td>Event handlers stacking on every reload, so one affliction queued three cures after three reloads</td><td><code>core/event.lua</code> tracks handlers on a registry that outlives the reload and removes the previous generation first.</td></tr>
+    <tr><td>A failed module load installing its error message as the module</td><td>A failed load aborts with the file's name and rolls the whole reload back.</td></tr>
+    <tr><td>Inventory updates rebuilt from the old record, so they never landed</td><td>Updates are built from the incoming record.</td></tr>
+    <tr><td>Removing an absent room from a list deleting the last one instead</td><td>The walker checks before it removes.</td></tr>
+    <tr><td>Balance and equilibrium arriving as the strings "1" and "0", where "0" is true in Lua</td><td>Every GMCP boolean goes through one conversion.</td></tr>
+  </tbody>
+</table></div>
 
-<div class="bug">
-<h4>Handler leaks on reload</h4>
-<p>Registering event handlers at module scope means reloading stacks a new generation on top of the old one, so after three reloads a single GMCP message gets processed three times — in a curing system, that's three cures queued for one affliction. <code>core/event.lua</code> tracks handler ids on a registry that survives reload and tears the previous generation down first.</p>
-</div>
+<h2 id="evidence">Evidence before code</h2>
+<p>Every game mechanic Emunah relies on is recorded in <code>docs/game/</code> with the transcript or GMCP trace that established it: what a command costs, what it needs, the exact text that confirms or refuses it. Where the reference system and Emunah disagree on curing or balances, the reference system wins unless a timestamped transcript shows the game has changed. A plausible guess about the game is never shipped as fact.</p>
 
-<div class="bug">
-<h4><code>pcall</code> result assigned unconditionally</h4>
-<p>Assigning the <code>pcall</code> result whether or not the <code>require</code> succeeded installs the error <em>string</em> as the module — every later call into it then fails with a confusing "attempt to index a string value". Here, a failed load aborts with the offending filename and rolls the whole reload back rather than leaving a half-built namespace that looks functional.</p>
-</div>
-
-<div class="bug">
-<h4><code>Char.Items.Update</code> copying the wrong item</h4>
-<p>Rebuilding an inventory entry from the <em>existing</em> record rather than the incoming one means updates never actually land.</p>
-</div>
-
-<div class="bug">
-<h4><code>findAndRemove</code> deleting the wrong element</h4>
-<p>The ported walker logic did <code>table.remove(t, table.index_of(t, item))</code>; when the item is absent, <code>index_of</code> returns <code>nil</code>, and <code>table.remove(t, nil)</code> silently drops the <em>last</em> element instead — the walker quietly skips unrelated rooms. <code>walker.lua</code> checks before removing.</p>
-</div>
-
-<div class="bug">
-<h4>O(n²) pathfinding</h4>
-<p>The original walker pathfinds every remaining room on every move. <code>walker.lua</code> pre-ranks candidates by map coordinates and pathfinds only a bounded set.</p>
-</div>
-
-<div class="bug">
-<h4><code>Char.Vitals.bal</code> / <code>.eq</code> arrive as strings</h4>
-<p>They come over GMCP as the strings <code>"1"</code> and <code>"0"</code> — and in Lua, <code>"0"</code> is truthy. <code>if gmcp.Char.Vitals.bal then</code> is true even when you have no balance. Everything routes through a single <code>util.bool()</code> helper instead of trusting truthiness directly.</p>
-</div>
-
-<h2 id="testing">Test discipline</h2>
-<p>
-<code>test/mock_mudlet.lua</code> is deliberately strict rather than permissive: each mocked
-Geyser widget class exposes only the methods the real one actually has, and MiniConsole
-constructor fields are validated against the legal set. This isn't fussiness — two real,
-shipped bugs (<code>MiniConsole:setStyleSheet</code>, which doesn't exist on that widget
-type, and a constructor field <code>wrapWidth</code> that Geyser silently ignores instead of
-erroring on) got through review specifically because an earlier, more permissive mock
-accepted anything passed to it. A strict mock turns "silently wrong at runtime" into "fails
-the test."
-</p>
-<p>The same discipline extends to matching real Mudlet behaviour precisely — the mock's trigger and alias matchers translate the actual PCRE-regex subset those APIs take (not Lua patterns, which look similar but aren't the same language), including anchors, character classes, and capture groups, so a pattern that would silently never fire in real Mudlet fails a test here instead.</p>
-
-<p style="margin-top:24px; color:var(--text-dim); font-size:.9em;">
-Achaea, Dreams of Divine Lands is a trademark of Iron Realms Entertainment. Emunah is an
-unofficial third-party client script, not affiliated with or endorsed by Iron Realms.
-</p>
-
-<footer>
-See the <a href="roadmap.html">Roadmap</a> for what's being built next, or go back to the <a href="index.html">Overview</a>.
-</footer>
-
-<div class="page-nav">
-  <div><span class="dir">Back</span><a href="interface.html">&larr; Interface</a></div>
-  <div class="next"><span class="dir">Next</span><a href="performance.html">Performance &rarr;</a></div>
-</div>
-
-</div>
-<div class="toc">
-  <div class="toc-title">On this page</div>
-  <a href="#layout">Module layout</a>
-  <a href="#act">One gate for every command</a>
-  <a href="#reload">The reload model</a>
-  <a href="#bugs-fixed">Failure modes</a>
-  <a href="#testing">Test discipline</a>
-</div>
+<h2 id="tests">Testing</h2>
+<p>The suite of 2433 behavioural tests runs the real modules against <code>test/mock_mudlet.lua</code>, with no client involved. The mock is strict on purpose: each mocked widget has only the methods the real one has, and trigger patterns are matched as the regular expressions Mudlet actually uses. Two shipped bugs once got past a looser mock that accepted anything; a strict one turns "silently wrong in the client" into a failing test.</p>
+<p>Every behavioural fix carries a test that would have caught the original report, and the suite must be green before anything is committed. The suite also checks the documentation against the code: every command is documented, nothing documented is missing, and the figures on this site match their sources.</p>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="sustenance.html"><small>Previous</small>Upkeep and economy</a>
+  <a class="next" href="performance.html"><small>Next</small>Performance</a>
+</nav>
 </main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#layout">Module layout</a>
+  <a href="#one-gate">One gate for every command</a>
+  <a href="#one-slot">One slot per balance</a>
+  <a href="#sent-is-not-executed">Sent is not executed</a>
+  <a href="#reload">The reload model</a>
+  <a href="#failure-modes">Failure modes closed off</a>
+  <a href="#evidence">Evidence before code</a>
+  <a href="#tests">Testing</a>
+</aside>
 </div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
 </body>
 </html>
