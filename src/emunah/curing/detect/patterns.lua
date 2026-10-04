@@ -63,6 +63,34 @@ detect.define("asthma", {
    },
 })
 
+-- A PUFF BEHIND THE KELP THAT LOST. have.puffThrough() lets a smoke out behind an eat of
+-- asthma's cure; when that eat cured something else, the smoke is refused. "The puff fails
+-- for no penalty" (the Bard on the other end, 2026-10-04), so the slot AND the balance are
+-- handed back at once rather than held to the confirm timeout -- as "That pipe isn't lit."
+-- does (pipes.lua). The eat in flight is marked so it buys no second puff: until the next
+-- eat of kelp or aurum, asthma shuts smoking again.
+do
+   emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+   for _, pattern in ipairs({
+      [[^You are having difficulty breathing and cannot smoke\.$]],
+      [[^Your lungs are too constricted to smoke\.$]],
+   }) do
+      local id = tempRegexTrigger(pattern, function()
+         local queue = emunah.queue
+         if not queue.awaiting("smoke") then return end
+         local eat = queue.awaiting("herb")
+         if eat then eat.noPuff = true end
+         local action = queue.confirm("smoke")
+         emunah.have.recover("smoke")
+         local engine = emunah.curing and emunah.curing.engine
+         if action and action.tag and engine and engine.cureRefused then
+            engine.cureRefused(action.tag)
+         end
+      end)
+      if id then table.insert(emunah._persist.detectTriggers, id) end
+   end
+end
+
 detect.define("slickness", {
    reply = "^apply ",
    gain = {

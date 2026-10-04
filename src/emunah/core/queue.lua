@@ -128,8 +128,16 @@ end
 -- system's `canoutr` (setup.lua) is false only for webbed/bound/transfixed/roped/impaled
 -- or both arms crippled -- never paralysis -- and its herb gate is `sys.canoutr or
 -- can_eat_for`. Those real blockers are in afflist.blocks and have.vectorBlocked().
+--
+-- `smoke` too. Nothing ever showed a smoke refused while paralysed: it was held by analogy
+-- with the sip. [svof] check_smoke refuses only on stun, unconsciousness, sleep, asthma and
+-- mucous. Holding it put every puff behind the bloodroot -- `smoke elm` for earworm went out
+-- with the drink the instant paralysis cleared (18:48:38.91 and 19:02:01.68 on 2026-10-04),
+-- and the Bard on the other end said so: "nothing should be gating your puffs by your eats,
+-- unless you're asthmatic". If a smoke is ever refused while paralysed, the refusal is
+-- detect/patterns.lua's paralysis line, which the confirm wait times out on like any other.
 M.WHILE_PARALYSED = {
-   herb = true, moss = true, free = true, writhe = true, rift = true,
+   herb = true, moss = true, smoke = true, free = true, writhe = true, rift = true,
 }
 
 local function paralysed()

@@ -4,9 +4,13 @@
 --- your eyes already are while fighting. A vitals panel you have to look away to read is a
 --- vitals panel you check too late.
 ---
----   row 1   (title) TARGET | status: pvp, rate limit, death, what is in flight
+---   title   Combat
+---   row 1   HUNT PAUSE | TARGET | status: pvp, rate limit, death, what is in flight
 ---   row 2   HP | MP | EP | WP, each with its change since the last prompt
 ---   row 3   BAL EQ | every curing balance | CURE DEFS BASH | XP | class stats
+---
+--- HUNT and PAUSE are buttons: a click is `emset hunt` / `emset hunt off` and `emset pause`,
+--- and each is lit while what it controls is on, like the CURE / DEFS / BASH switches.
 ---
 --- The target bar is only as wide as what it says ("no target", or a name and a percentage),
 --- and the status label takes the rest of the row. A fixed 60% was mostly empty bar.
@@ -68,10 +72,20 @@ local ROW3_Y = string.format("-%dpx", ROW3_H + 2)
 local ROW2_Y = string.format("-%dpx", ROW3_H + 2 + GAP + ROW2_H)
 local ROW1_Y = string.format("-%dpx", ROW3_H + 2 + GAP + ROW2_H + GAP + ROW1_H)
 
--- Row 1 starts right of the container's title. Adjustable.Container draws its title ("Combat")
--- in the top-left corner of its own background, under its children, and a target bar from the
--- left edge cut the word off. Room for it in Mudlet's default label font, with some to spare.
-local TITLE_PX = 70
+-- Row 1 starts with the buttons, under the container's title. Adjustable.Container draws its
+-- title ("Combat") in the top-left corner of its own background, under its children; a target
+-- bar there once cut the word off. The HUD is now tall enough (layout.HUD_PX) that row 1 sits
+-- below the title, and the buttons go where the bar used to have to stay clear of, "underneath
+-- where it says combat and to the left of the target bar" (the user, 2026-10-04).
+--
+-- Wide enough for PAUSED in the HUD's font with the label's padding, and a little over.
+local BUTTON_X, BUTTON_W, BUTTON_GAP = 4, 52, 4
+local BUTTONS = {
+   { key = "hunt",  name = "emunah.button.hunt"  },
+   { key = "pause", name = "emunah.button.pause" },
+}
+-- Where the target bar starts: after the buttons.
+local TITLE_PX = BUTTON_X + #BUTTONS * (BUTTON_W + BUTTON_GAP)
 local TARGET_GAP = 6
 -- A long target description is cut to this many characters, so the bar stays a bar.
 local TARGET_NAME_MAX = 40
@@ -112,8 +126,17 @@ function M.build()
    local parent = layout.container("bottom")
    M.widgets = {}
 
-   -- Row 1: the target, and the system's own state beside it. Both are placed properly by
-   -- fitTarget() once the target's text is known.
+   -- Row 1: the buttons, the target, and the system's own state beside it. The last two are
+   -- placed properly by fitTarget() once the target's text is known.
+   for index, button in ipairs(BUTTONS) do
+      local x = BUTTON_X + (index - 1) * (BUTTON_W + BUTTON_GAP)
+      local widget = Geyser.Label:new({
+         name = button.name, x = x .. "px", y = ROW1_Y, width = BUTTON_W .. "px", height = ROW1_H,
+      }, parent)
+      widget:setClickCallback(function() M.press(button.key) end)
+      widget:setCursor("PointingHand")
+      M.widgets[button.key] = widget
+   end
    M.widgets.target = gauge("emunah.target", TITLE_PX .. "px", ROW1_Y, "100px", ROW1_H, "affliction", parent)
    M.widgets.status = label("emunah.status", "50%", ROW1_Y, "49.5%", ROW1_H, parent)
 
@@ -133,7 +156,83 @@ function M.build()
    M.update()
    M.updateTarget()
    M.updateStatus()
+   M.updateButtons()
    return true
+end
+
+-- ---------------------------------------------------------------------------
+-- the buttons
+-- ---------------------------------------------------------------------------
+
+--- Whether a hunt is running. Either half counts: `emset hunt off` stops both, so a walk on
+--- its own is still something the button can stop.
+function M.hunting()
+   local bashing, walker = emunah.bashing, emunah.walker
+   return (bashing and bashing.enabled or walker and walker.enabled) and true or false
+end
+
+--- Whether the system is paused, by `emset pause`'s own reckoning (commands.lua): stopped by
+--- QUIT, or curing or keep-up off. A click on the button then resumes, as `pp` would.
+function M.paused()
+   local act, curing = emunah.act, emunah.curing
+   if act and act.halted then return true end
+   local engine = curing and curing.engine
+   local keepup = curing and curing.defkeepup
+   return (engine ~= nil and not engine.enabled) or (keepup ~= nil and not keepup.enabled)
+end
+
+--- A click. Through the commands, so a button does exactly what typing them does.
+function M.press(key)
+   local commands = emunah.commands
+   if not commands then return end
+   if key == "hunt" then
+      commands.dispatch(M.hunting() and "hunt off" or "hunt")
+   elseif key == "pause" then
+      commands.dispatch("pause")
+   end
+   theme.later("vitals.buttons", M.updateButtons)
+end
+
+--- A button's stylesheet for a state: lit in its colour, or the grey of a switch that is off.
+local buttonStyles = {}
+
+local function buttonStyle(colourName)
+   local hit = buttonStyles[colourName]
+   if hit then return hit end
+   local colour = theme.hex(colourName)
+   hit = string.format([[
+      background-color: %s; border: 1px solid %s; border-radius: 3px;
+      font-family: "%s"; font-size: %dpt; qproperty-alignment: 'AlignCenter';
+   ]], theme.shade(colour, 0.26), theme.shade(colour, 0.7), theme.font.family, theme.font.small)
+   buttonStyles[colourName] = hit
+   return hit
+end
+
+--- Which stylesheet each button has, so a repaint that changes nothing does not restyle it.
+local buttonShown = {}
+
+local function paintButton(key, text, colourName, tip)
+   local widget = M.widgets[key]
+   if not widget then return end
+   if buttonShown[key] ~= colourName then
+      buttonShown[key] = colourName
+      widget:setStyleSheet(buttonStyle(colourName))
+      widget:setToolTip(tip)
+   end
+   theme.paintLabel(widget, "hud.button." .. key, theme.span(colourName, text, true))
+end
+
+function M.updateButtons()
+   if M.hunting() then
+      paintButton("hunt", "HUNT", "mode", "Hunting. Click to stop: emset hunt off")
+   else
+      paintButton("hunt", "HUNT", "inactive", "Click to hunt: emset hunt")
+   end
+   if M.paused() then
+      paintButton("pause", "PAUSED", "affliction", "Paused. Click to resume: emset pause")
+   else
+      paintButton("pause", "PAUSE", "inactive", "Click to pause curing and defences: emset pause")
+   end
 end
 
 -- ---------------------------------------------------------------------------
@@ -155,8 +254,9 @@ end
 --- Called by M.build(): the widgets are brand new.
 function M.forgetLights()
    gaugeShown = {}
+   buttonShown = {}
    M.targetWidth = nil
-   for _, key in ipairs({ "status", "balances", "stats", "target" }) do
+   for _, key in ipairs({ "status", "balances", "stats", "target", "button.hunt", "button.pause" }) do
       theme.forgetPainted("hud." .. key)
    end
 end
@@ -477,6 +577,16 @@ emunah.event.registerAll({
       if M.updateBalances() then theme.wakeClock() end
    end)
 end, "ui.vitals")
+
+-- The buttons: a hunt starts and stops with bashing and the walk, a pause with curing and
+-- keep-up, or with QUIT halting everything.
+emunah.event.registerAll({
+   "emunah.bashing.started", "emunah.bashing.stopped",
+   "emunah.walker.arrived", "emunah.walker.finished",
+   "emunah.curing.enabled", "emunah.curing.disabled",
+   "emunah.defkeepup.enabled", "emunah.defkeepup.disabled",
+   "emunah.halted", "emunah.resumed",
+}, function() theme.later("vitals.buttons", M.updateButtons) end, "ui.vitals")
 
 emunah.event.registerAll({
    "emunah.target",

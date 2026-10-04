@@ -220,6 +220,41 @@ M.handlers.curing = function(arg)
    end
 end
 
+--- `emset keep [<herb> <n|off|default>]`: how many of a herb the restocker keeps in hand.
+--- Bare lists what is kept. The same setting as the toggles under IR (riftlist.lua).
+M.handlers.keep = function(item, rest)
+   local engine = emunah.curing.engine
+   if item then
+      local value = rest and rest:lower() or nil
+      local count
+      if value == "off" then count = 0
+      elseif value == "default" then count = nil
+      else count = tonumber(value) end
+      if not (value == "default" or (count and count >= 0)) then
+         log.warn("Usage: emset keep <herb> <number|off|default>")
+         return
+      end
+      item = item:lower()
+      engine.setStock(item, count and math.floor(count) or nil)
+      local target = engine.stockTarget(item)
+      if target > 0 then
+         log.info("Keeping %d %s in hand.", target, item)
+      else
+         log.info("Not keeping %s in hand.", item)
+         if engine.isCureItem(item) then
+            log.warn("%s cures afflictions, and a cure waits for one in hand.", item)
+         end
+      end
+      return
+   end
+   header("Kept in hand")
+   for _, name in ipairs(engine.stocked()) do
+      local target, held = engine.stockTarget(name), emunah.have.quantity(name)
+      row(name, string.format("%d of %d", held, target), held >= target and "defence" or "warning")
+   end
+   decho("\n  " .. faint("emset keep <herb> <number|off|default>  --  IR for every herb, with toggles"))
+end
+
 --- `pp`: pause or resume curing AND defence keep-up together. A cure engine paused with
 --- keep-up still raising defences (or the reverse) is not actually the fight paused, it is
 --- half paused -- so this drives both from the curing engine's state rather than letting

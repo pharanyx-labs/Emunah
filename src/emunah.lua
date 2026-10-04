@@ -126,6 +126,10 @@ local MANIFEST = {
    -- restyles ELIST and totals its sips; needs ui.theme and outgoing (was it asked for)
    { path = "emunah.elist",              as = "elist"         },
 
+   -- restyles IR with a keep-in-hand toggle per herb; needs ui.theme, outgoing, and
+   -- curing.engine's stock targets, which the toggles set
+   { path = "emunah.riftlist",           as = "riftlist"      },
+
    -- shows WIELDED at login and keeps a chyron notice up while no shield is wielded;
    -- reads gmcp.items and writes to ui.chyron
    { path = "emunah.shield",             as = "shield"        },

@@ -676,7 +676,7 @@ function mock.installGeyser()
          "echo", "decho", "cecho", "hecho", "clear", "show", "hide",
          "setStyleSheet", "setFgColor", "setFont", "setFontSize", "setAlignment",
          "setBold", "setItalics", "setUnderline", "setBackgroundImage",
-         "setClickCallback", "setToolTip", "move", "resize",
+         "setClickCallback", "setToolTip", "setCursor", "move", "resize",
       },
       -- Geyser.Gauge
       gauge = {
@@ -754,6 +754,9 @@ function mock.installGeyser()
             self.cons.height = height or self.cons.height
             return self
          end,
+         -- Kept, so a test can click a label and read what it says on hover.
+         setClickCallback = function(_, fn) self.onClick = fn return self end,
+         setToolTip = function(_, text) self.tooltip = text return self end,
          enableScrollBar  = function() self.scrollBar = true  return self end,
          disableScrollBar = function() self.scrollBar = false return self end,
          setValue = function(_, current, max, text)

@@ -167,6 +167,14 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <p>the same as <code>emset pause</code>: one toggle for curing and defence keep-up</p>
 </div>
 <div class="cmd-block">
+<span class="cmd-syntax">emset keep</span>
+<p>the herbs kept in hand, and how many of each</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset keep &lt;herb&gt; &lt;number|off|default&gt;</span>
+<p>keep more, fewer or none of a herb in hand; IR shows every herb with a toggle</p>
+</div>
+<div class="cmd-block">
 <span class="cmd-syntax">emset prio &lt;affliction&gt; &lt;balance&gt; &lt;rank&gt;</span>
 <p>cure an affliction sooner or later on one balance; lower is sooner</p>
 </div>
@@ -195,7 +203,8 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>curing.restock</code></td><td>true</td><td>Pull consumables out of the rift as they run low.</td></tr>
 <tr><td><code>curing.restockEvery</code></td><td>1 ticks</td><td>Every prompt by default. It used to be every tenth, which made each pull ten prompts apart for no benefit &mdash; only one pull can be in flight anyway.</td></tr>
 <tr><td><code>curing.restockSalves</code></td><td>false</td><td></td></tr>
-<tr><td><code>curing.stockTarget</code></td><td>1</td><td>How many of each consumable to keep in hand.</td></tr>
+<tr><td><code>curing.stockTarget</code></td><td>1</td><td>How many of each consumable to keep in hand. Ash is kept at 2 at least: crescendo takes two in a row.</td></tr>
+<tr><td><code>curing.keep</code></td><td>(unset)</td><td>Per herb, how many to keep in hand; 0 for none. Set with <code>emset keep</code> or the toggles under IR.</td></tr>
 <tr><td><code>curing.recovery.&lt;vector&gt;</code></td><td>per vector s</td><td>Override the fallback recovery time for one vector, e.g. curing.recovery.herb.</td></tr>
 <tr><td><code>curing.antiIllusion</code></td><td>true</td><td>The reference system's anti-illusion: EmunahTriggers.xml reports wait for the prompt and a block containing an illusion is discarded whole; a refusal is believed only after a command it could answer; a herb balance back within 1.1s of eating is ignored. Ignored lines are marked (i). Off believes every line as it arrives.</td></tr>
 <tr><td><code>curing.textConfirm</code></td><td>2 s</td><td>How long an affliction reported by text waits for the server to confirm it before it is dropped as an illusion.</td></tr>

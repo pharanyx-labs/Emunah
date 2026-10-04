@@ -56,11 +56,9 @@ function M.build()
    end
 
    local parent = layout.container("right")
-   -- A few percent of top margin, not zero: right up against the container's top edge,
-   -- the console's first line sat under the container's own title bar. Reported from play
-   -- (same fix as ui/roompanel.lua's room console, for the same reason).
-   local TOP_MARGIN = 3
-   local height = "-4px"
+   -- Under the "Chat" title bar layout.build() draws, lined up with it, as a left-column
+   -- section's body sits under its bar.
+   local top, height = layout.TITLED_TOP, "-4px"
 
    -- The all-tab has to be a real member of `consoles`. EMCO:setAllTabName() rejects any
    -- name that is not already in the list, and the object then ends up with an allTabName
@@ -76,7 +74,7 @@ function M.build()
    if emco then
       local ok, console = pcall(emco.new, emco, {
          name           = "emunah.chat",
-         x = 2, y = string.format("%d%%", TOP_MARGIN), width = "-4px", height = height,
+         x = 4, y = top, width = "-8px", height = height,
          consoles       = tabs,
          allTab         = true,
          allTabName     = ALL_TAB,
@@ -117,7 +115,7 @@ function M.build()
    -- No setStyleSheet -- MiniConsole does not have it (see ui/theme.lua).
    local console = Geyser.MiniConsole:new(theme.consoleCons({
       name = "emunah.chat.plain",
-      x = 2, y = string.format("%d%%", TOP_MARGIN), width = "-4px", height = height,
+      x = 4, y = top, width = "-8px", height = height,
       scrollBar = true,
    }), parent)
    M.console = console

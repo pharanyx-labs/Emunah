@@ -35,6 +35,19 @@ local theme  = emunah.ui.theme
 local layout = emunah.ui.layout
 
 M.widget = nil
+--- The "Map" title bar, on the Geyser root like the map itself, in the top strip of its region.
+M.header = nil
+
+--- Pixels the title bar takes off the top of the map region, its gap included.
+function M.headerPx()
+   return layout.HEADER_PX + 2
+end
+
+--- The title bar sits on the window, not in a container, so nothing else hides it with the map.
+local function showHeader(visible)
+   if not M.header then return end
+   pcall(function() if visible then M.header:show() else M.header:hide() end end)
+end
 
 --- Is the Mudlet mapper available at all? A profile with no mapper support (or a headless
 --- test environment) has no Geyser.Mapper and no createMapper.
@@ -49,6 +62,7 @@ end
 
 function M.build()
    if not emunah.config.get("ui.map", true) then
+      showHeader(false)
       log.debug("Map disabled in settings; skipping.")
       return false
    end
@@ -62,14 +76,21 @@ function M.build()
 
    -- Positioned on the Geyser ROOT, not in a container: passing no parent makes x/y
    -- window-relative. A container would only put its background label on top of us.
+   --
+   -- The title bar takes the top of the region and the map the rest. Beside each other, not
+   -- overlapping: a label over the map is the thing that hid it before (see ui/layout.lua).
    local top = layout.mapTop()
-   local height = string.format("%d%%",
-      100 - layout.percentOf(layout.HEIGHT_BOTTOM) - layout.percentOf(top))
+   local height = string.format("%d%%-%dpx",
+      100 - layout.percentOf(layout.HEIGHT_BOTTOM) - layout.percentOf(top), M.headerPx())
+
+   M.header = layout.titleBar(nil, "map", "Map",
+      { x = "-" .. layout.WIDTH_RIGHT, y = top, width = layout.WIDTH_RIGHT })
+   showHeader(true)
 
    local ok, widget = pcall(function()
       return Geyser.Mapper:new({
          name = "emunah.map",
-         x = "-" .. layout.WIDTH_RIGHT, y = top,
+         x = "-" .. layout.WIDTH_RIGHT, y = string.format("%s+%dpx", top, M.headerPx()),
          width = layout.WIDTH_RIGHT, height = height,
          -- embedded is left unset on purpose: the constructor defaults it to true, which
          -- draws the map into the main window at these coordinates. Setting dockPosition
@@ -177,9 +198,9 @@ function M.pixels()
    local bottomPct = layout.percentOf(layout.HEIGHT_BOTTOM) / 100
 
    local x = math.floor(width - (width * rightPct))
-   local y = math.floor(height * topPct)
+   local y = math.floor(height * topPct) + M.headerPx()
    local w = math.floor(width * rightPct)
-   local h = math.floor(height * (1 - topPct - bottomPct))
+   local h = math.floor(height * (1 - topPct - bottomPct)) - M.headerPx()
    return x, y, w, h
 end
 
@@ -223,6 +244,8 @@ end
 --- covered by the container's background label. And it is a genuine fallback for anyone
 --- who would rather have the map in its own dock.
 function M.float()
+   -- The bar titles the map's place in the column, which a floating map has left.
+   showHeader(false)
    if M.widget then
       pcall(function() M.widget:hide() end)
       M.widget = nil
@@ -266,10 +289,12 @@ end
 function M.show()
    if not M.widget then return M.build() end
    pcall(function() M.widget:show() end)
+   showHeader(true)
    return true
 end
 
 function M.hide()
+   showHeader(false)
    if not M.widget then return false end
    pcall(function() M.widget:hide() end)
    return true

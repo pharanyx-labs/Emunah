@@ -66,7 +66,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 61 modules.
+[emunah] v0.1.0 loaded -- 62 modules.
 ```
 
 ## Capabilities
@@ -199,6 +199,7 @@ src/emunah/
   denizens.lua                        -- per-area kill list, targets by replica number
   ih.lua                              -- linkifies `ih` output
   elist.lua                           -- redraws ELIST as a table by kind
+  riftlist.lua                        -- redraws IR, with a keep-in-hand toggle per herb
   shield.lua                          -- WIELDED at login; chyron notice if no shield
   bashing.lua                         -- walk, target, attack, advance
   namedb.lua                          -- who is a person, and what are they

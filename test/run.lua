@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 61, "all 61 manifest modules loaded")
+eq(loadedModules, 62, "all 62 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -1272,7 +1272,7 @@ do
    queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
    mock.sent = {}
    mock.feed("Char.Items.List", { location = "inv", items = {} })
-   ok(table.concat(mock.sent, " | "):find("outr 1 ash", 1, true),
+   ok(table.concat(mock.sent, " | "):find("outr 2 ash", 1, true),
       "the first pull goes out as soon as the lists are known",
       table.concat(mock.sent, " | "))
 
@@ -1283,7 +1283,7 @@ do
       hp = "5000", maxhp = "5000", mp = "4800", maxmp = "5000",
       bal = "0", eq = "0",
    })
-   ok(table.concat(mock.sent, " | "):find("outr 1 ash", 1, true),
+   ok(table.concat(mock.sent, " | "):find("outr 2 ash", 1, true),
       "outr goes out with no equilibrium and no balance",
       table.concat(mock.sent, " | "))
 
@@ -1296,7 +1296,7 @@ do
       hp = "5000", maxhp = "5000", mp = "4800", maxmp = "5000",
       bal = "0", eq = "0",
    })
-   ok(table.concat(mock.sent, " | "):find("outr 1 ash", 1, true),
+   ok(table.concat(mock.sent, " | "):find("outr 2 ash", 1, true),
       "paralysis does not hold outr either", table.concat(mock.sent, " | "))
    engine.remove("paralysis")
 
@@ -1334,7 +1334,7 @@ do
    queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
    mock.sent = {}
    mock.feed("Char.Defences.Add", { name = "mindseye" })
-   ok(table.concat(mock.sent, " | "):find("outr 1 ash", 1, true),
+   ok(table.concat(mock.sent, " | "):find("outr 2 ash", 1, true),
       "sight restored pulls immediately, without waiting for equilibrium",
       table.concat(mock.sent, " | "))
 
@@ -1571,6 +1571,27 @@ mock.line("You may eat another plant or mineral.")
 ok(emunah.have.balance("herb"), "...until the game says so")
 emunah.timers.stopAll()
 
+-- PUFFS ARE NOT HELD BEHIND THE BLOODROOT. Smoking was held while paralysed by analogy with
+-- the sip; nothing showed it refused, and [svof] check_smoke never checks paralysis. Held, the
+-- earworm puff went out with the drink the instant paralysis cleared (18:48:38.91, 19:02:01.68
+-- on 2026-10-04): "nothing should be gating your puffs by your eats, unless you're asthmatic".
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+emunah.pipes.forget()
+emunah.pipes.record("lit", "pipe101", "slippery elm", 10, 1)
+engine.add("paralysis", "gmcp")
+mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+do
+   local sent = table.concat(mock.sent, " | ")
+   ok(sent:find("smoke elm", 1, true), "paralysed: earworm is smoked on this prompt, not after the bloodroot", sent)
+   eq(queue.heldBy("smoke"), nil, "paralysis does not hold the smoke balance")
+   eq(queue.heldBy("elixir"), "paralysis", "...though it still holds sips, refused in play")
+end
+emunah.pipes.forget()
+mock.feed("Char.Afflictions.List", {})
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+
 -- "THAT PIPE ISN'T LIT." (reconnect, 2026-09-28): `smoke elm` for earworm refused at
 -- 15:03:32.95, 39.12 and 55.49, landing only at 58.95. Now the refusal frees the slot and the
 -- balance (it costs nothing: no "lungs have recovered" followed any of the three), marks the
@@ -1589,7 +1610,7 @@ mock.line("That pipe isn't lit.")
 ok(emunah.have.balance("smoke"), "the refusal hands smoke balance back")
 eq(queue.awaiting("smoke"), nil, "...and frees the slot")
 ok(not emunah.have.pipe("elm"), "...and elm is not smoked until relit")
-ok(table.concat(mock.sent, " | "):find("light pipe101", 1, true),
+ok(table.concat(mock.sent, " | "):find("light pipes", 1, true),
    "...while the elm pipe is relit straight away", table.concat(mock.sent, " | "))
 mock.line("You carefully light your treasured pipe until it is smoking nicely.")
 ok(emunah.have.pipe("elm"), "once lit, elm can be smoked again")
@@ -1887,6 +1908,67 @@ queue.flush()
 ok(queue.awaiting("equilibrium") ~= nil, "perform hands in flight beside it")
 mock.line("You must regain balance first.")
 ok(queue.awaiting("herb") ~= nil, "an ambiguous refusal does not answer the eat")
+queue.reset()
+
+-- PUFF BEHIND THE KELP (the Bard on the other end, 2026-10-04: "unless you're asthmatic, and
+-- then you could in a pinch eat kelp/puff ... And if asthmatic gate it on anorexia too ... At
+-- worst the kelp/aurum cures something else like weariness and the puff fails for no
+-- penalty"). Asthma shuts smoking, but not while an eat of its cure is in flight.
+emunah.pipes.forget()
+emunah.pipes.record("lit", "pipe101", "slippery elm", 10, 1)
+fight({ { id = "2", name = "a piece of kelp", attrib = "e" } })
+engine.add("asthma", "trigger")
+engine.add("earworm", "trigger")
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+do
+   local kelp, puff = sentText():find("eat kelp", 1, true), sentText():find("smoke elm", 1, true)
+   ok(kelp and puff and kelp < puff, "asthmatic: the kelp, then the puff behind it, on one prompt", sentText())
+end
+
+-- The kelp cured something else: the puff is refused, for nothing.
+mock.sent = {}
+mock.line("Your lungs are too constricted to smoke.")
+eq(queue.awaiting("smoke"), nil, "a refused puff answers the smoke slot")
+ok(emunah.have.balance("smoke"), "...and hands the smoke balance back")
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not sentText():find("smoke elm", 1, true), "...and that eat buys no second puff", sentText())
+eq(queue.heldBy("smoke"), "asthma", "...so asthma shuts smoking again until the next eat")
+
+-- Gated on anorexia: an eat already in flight when anorexia lands is refused, so no puff.
+fight({ { id = "2", name = "a piece of kelp", attrib = "e" } })
+engine.add("asthma", "trigger")
+engine.add("earworm", "trigger")
+emunah.have.spend("smoke")
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(queue.awaiting("herb") ~= nil, "(kelp in flight)")
+engine.add("anorexia", "trigger")
+emunah.have.recover("smoke")
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not sentText():find("smoke elm", 1, true), "anorexic: no puff behind the kelp", sentText())
+
+-- Mucous is not cured by kelp, so it still shuts smoking.
+fight({ { id = "2", name = "a piece of kelp", attrib = "e" } })
+engine.add("asthma", "trigger")
+engine.add("earworm", "trigger")
+emunah.have.spend("smoke")
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+engine.add("mucous", "trigger")
+emunah.have.recover("smoke")
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(not sentText():find("smoke elm", 1, true), "mucous: no puff behind the kelp", sentText())
+eq(queue.heldBy("smoke"), "mucous", "...mucous holds it")
+
+-- Only an eat of asthma's own cure opens the lungs.
+fight()
+engine.add("asthma", "trigger")
+queue.push("herb", "eat bloodroot", { confirm = 4 })
+queue.flush()
+ok(queue.awaiting("herb") ~= nil and not emunah.have.puffThrough(),
+   "a bloodroot in flight does not let a puff through asthma")
+emunah.pipes.forget()
 queue.reset()
 
 -- CHAR.VITALS AHEAD OF A LINE. The heartbeat runs on Char.Vitals; a balance announced after
@@ -2263,8 +2345,13 @@ mock.feed("Char.Items.List", { location = "inv", items = {
 } })
 emunah.have.spend("herb")            -- herb balance busy, so the cure waits
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+-- Off for this case: every 20th prompt reconciles against the server's list, which has no
+-- paralysis here, so whether it passed depended on how many prompts earlier tests had fed.
+local reconcileEvery = emunah.config.get("curing.reconcileEvery", 20)
+emunah.config.set("curing.reconcileEvery", 0)
 engine.add("paralysis", "gmcp")
 engine.tick()
+emunah.config.set("curing.reconcileEvery", reconcileEvery)
 eq(queue.pending("herb").command, "eat bloodroot", "the cure is queued behind herb balance")
 
 engine.remove("paralysis")           -- cured by something else meanwhile
@@ -3357,6 +3444,31 @@ eq(engine.refusals["paralysis"], "out of bloodroot",
    "the reason a cure could not happen is recorded", tostring(engine.refusals["paralysis"]))
 ok(table.concat(mock.echoed, " "):find("Cannot cure paralysis"),
    "...and said once", table.concat(mock.echoed, " "))
+
+-- NOT WHILE ITS CURE IS IN FLIGHT. The one ash carried went down for crescendo, and before
+-- the restock landed the next prompt said "Cannot cure crescendo: ash is in the rift, not in
+-- hand." (19:13:36.66 eat, 36.78 warning, 37.41 "You remove 1 ash", 2026-10-04).
+do
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   mock.feed("IRE.Rift.List", { { name = "ash", amount = 160 } })
+   mock.feed("Char.Items.List", { location = "inv", items = { { id = "9", name = "some prickly ash bark", attrib = "e" } } })
+   engine.add("crescendo", "trigger")
+   mock.sent, mock.echoed = {}, {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("eat ash", 1, true), "crescendo: the ash carried is eaten",
+      table.concat(mock.sent, " | "))
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   mock.line("Your lungs have recovered enough to smoke another mineral or plant.")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.echoed, " "):find("Cannot cure crescendo", 1, true),
+      "...and, with that eat in flight, no warning that the next ash is in the rift",
+      table.concat(mock.echoed, " "))
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   mock.feed("IRE.Rift.List", {})
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   engine.add("paralysis", "gmcp")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+end
 
 -- Once per distinct reason, not once per tick: this runs on every prompt.
 mock.echoed = {}
@@ -6698,6 +6810,87 @@ do
    ok(vitals.visibleLength("<b>a&nbsp;b</b>&#8230;") == 4, "visibleLength drops tags, counts entities as one")
 end
 
+-- EVERY PANEL HAS THE SAME TITLE BAR: the accent square and its name. The left column's
+-- sections always had one; the chat and the map get theirs (the user, 2026-10-04: "on the left
+-- panels, each element has a blue square before it. repeat this over on the right, adding one
+-- for the map").
+do
+   local layout, theme = emunah.ui.layout, emunah.ui.theme
+   local square = theme.span("accent", "&#9632;")
+   for _, key in ipairs({ "room", "afflictions", "defences", "chat", "map" }) do
+      local header = mock.widgets["emunah.header." .. key]
+      ok(header and tostring(header.contents):find(square, 1, true),
+         key .. " has a title bar with the accent square", header and header.contents)
+   end
+   eq(parentName(mock.widgets["emunah.header.chat"]), "emunah.right", "the chat's bar is in the right column")
+   eq(layout.container("right").cons.titleText, "", "...in place of the container's own title")
+   local chat = mock.widgets["emunah.chat.plain"] or mock.widgets["emunah.chat"]
+   ok(chat.cons.y >= layout.TITLED_TOP, "...and the chat starts under it", chat.cons.y)
+
+   -- The map's bar is on the window like the map, in its region, and the map below it: a label
+   -- OVER the map is what hid the map once (ui/layout.lua).
+   local bar, map = mock.widgets["emunah.header.map"], mock.widgets["emunah.map"]
+   eq(bar.parent, nil, "the map's bar is on the window, not in a container")
+   eq(bar.cons.y, layout.mapTop(), "...at the top of the map region")
+   eq(map.cons.y, string.format("%s+%dpx", layout.mapTop(), layout.HEADER_PX + 2),
+      "...and the map starts below it rather than under it")
+   emunah.ui.map.setEnabled(false)
+   ok(not bar.shown, "turning the map off hides its bar")
+   emunah.ui.map.setEnabled(true)
+   ok(mock.widgets["emunah.header.map"].shown, "...and turning it on shows it again")
+end
+
+-- HUNT AND PAUSE: buttons under the "Combat" title, left of the target bar (the user,
+-- 2026-10-04). A click is the command; the button is lit while what it controls is on.
+do
+   local vitals, layout = emunah.ui.vitals, emunah.ui.layout
+   local hunt, pause = mock.widgets["emunah.button.hunt"], mock.widgets["emunah.button.pause"]
+   local target = mock.widgets["emunah.target"]
+   local function px(value) return tonumber(tostring(value):match("^(%d+)px$")) end
+   ok(hunt and pause, "the hunt and pause buttons are built")
+   eq(parentName(hunt), "emunah.bottom", "...in the combat HUD")
+   eq(hunt.cons.y, target.cons.y, "...on the target's row")
+   ok(px(hunt.cons.x) < px(pause.cons.x) and px(pause.cons.x) + px(pause.cons.width) < px(target.cons.x),
+      "...hunt, then pause, then the target bar")
+   -- Under the title, not over it: the title is a line at the top of the strip, and the rows
+   -- hang from the bottom (ROW1 is 78px up), so the strip must be taller than the rows.
+   ok(layout.HUD_PX - 82 >= 20, "row 1 starts below the container's title line", layout.HUD_PX)
+   ok(type(hunt.onClick) == "function" and type(pause.onClick) == "function", "...and both are clickable")
+
+   local sent = {}
+   local dispatch = emunah.commands.dispatch
+   emunah.commands.dispatch = function(input) sent[#sent + 1] = input end
+   local bashing, walker = emunah.bashing.enabled, emunah.walker.enabled
+   emunah.bashing.enabled, emunah.walker.enabled = false, false
+   hunt.onClick()
+   eq(sent[#sent], "hunt", "a click on HUNT starts a hunt")
+   emunah.walker.enabled = true
+   hunt.onClick()
+   eq(sent[#sent], "hunt off", "...and, while one is running (even just the walk), stops it")
+   pause.onClick()
+   eq(sent[#sent], "pause", "a click on PAUSE is `emset pause`")
+   emunah.commands.dispatch = dispatch
+
+   vitals.updateButtons()
+   ok(tostring(hunt.contents):find(emunah.ui.theme.hex("mode"), 1, true), "HUNT is lit while hunting", hunt.contents)
+   emunah.walker.enabled = false
+   vitals.updateButtons()
+   ok(tostring(hunt.contents):find(emunah.ui.theme.hex("inactive"), 1, true), "...and grey when not", hunt.contents)
+   emunah.bashing.enabled, emunah.walker.enabled = bashing, walker
+
+   local engine, keepup = emunah.curing.engine, emunah.curing.defkeepup
+   local wasCuring, wasKeepup = engine.enabled, keepup.enabled
+   engine.enabled, keepup.enabled = true, true
+   vitals.updateButtons()
+   ok(tostring(pause.contents):find(">PAUSE<", 1, true), "PAUSE reads PAUSE while running", pause.contents)
+   keepup.enabled = false
+   vitals.updateButtons()
+   ok(tostring(pause.contents):find("PAUSED", 1, true), "...PAUSED when either half is off", pause.contents)
+   ok(pause.tooltip and pause.tooltip:find("resume"), "...and says a click resumes", pause.tooltip)
+   engine.enabled, keepup.enabled = wasCuring, wasKeepup
+   vitals.updateButtons()
+end
+
 -- Affliction panel with real content.
 --
 -- Rebind through the namespace rather than reusing the `engine` local captured earlier:
@@ -7782,6 +7975,140 @@ do
    eq(elist.token("A white marble vial411725"), "vial411725", "a vial is named by its id")
    eq(select(2, elist.kind("an epidermal salve")), "salves", "epidermal is a salve")
    mock.buffer = {}
+end
+
+-- ===========================================================================
+suite("ir: redrawn as a table, with a keep-in-hand toggle per herb")
+do
+   local riftlist, engine = emunah.riftlist, emunah.curing.engine
+   local RULE = string.rep("-", 78)
+   local function plain(text) return (text:gsub("<%d+,%d+,%d+>", "")) end
+   -- The user's listing at 19:17:20.62 (2026-10-04).
+   local LISTING = {
+      "Glancing into your rift, you see:",
+      RULE,
+      "Herbs",
+      "[  158] ash                    [  983] bayberry               [  185] bellwort",
+      "[  699] bloodroot              [  250] burdock                [  914] cohosh",
+      "[  208] echinacea              [  189] elm                    [   99] ginger",
+      "[  484] ginseng                [  166] goldenseal             [  224] hawthorn",
+      "[  275] irid                   [  180] kelp                   [   96] kola",
+      "[  100] kuzu                   [  185] lobelia                [  341] myrrh gum",
+      "[  185] pear                   [  796] sileris                [  147] skullcap",
+      "[  250] slipper                [  234] valerian",
+      "Elixirs",
+      "[  800] frost                  [ 1600] health                 [  600] immunity",
+      "[  800] levitation             [ 1400] mana                   [  800] speed",
+      "[  800] venom",
+      "Salves",
+      "[  600] caloric                [  600] epidermal              [  800] mending",
+      "[ 1000] restoration",
+      "Inks",
+      "[    5] blue ink               [   10] gold ink               [    9] green ink",
+      "[   10] purple ink             [   10] red ink                [   10] yellow ink",
+      "Reagent",
+      "[  500] lumic moss",
+      RULE,
+   }
+   local function listing()
+      mock.command("ir")
+      for _, line in ipairs(LISTING) do mock.line(line) end
+      mock.prompt("H:100% M:85% E:100% W:100%  exckdb  T:  19:17:49.70-")
+      mock.advance(0)
+   end
+
+   emunah.config.set("curing.keep", nil)
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "1", name = "some prickly ash bark", attrib = "e" },
+      { id = "2", name = "a bloodroot leaf", attrib = "e" },
+   } })
+   mock.buffer, mock.echoed, mock.deletedText, mock.links = {}, {}, {}, {}
+   mock.line("H:100% M:85% E:100% W:100%  exckdb  T:  19:17:20.62-")
+   listing()
+
+   eq(#mock.deletedText, #LISTING, "the game's header, rules, titles and rows are gone")
+   local drawn = table.concat(mock.echoed, "")
+   local lines = {}
+   for line in drawn:gmatch("[^\n]+") do lines[#lines + 1] = line end
+   local widths = true
+   for _, line in ipairs(lines) do
+      if #plain(line) ~= 79 then widths = false end
+   end
+   ok(#lines > 0 and widths, "every line of the table is 79 wide", plain(drawn))
+   local text = plain(drawn)
+   local function at(needle) return text:find(needle, 1, true) end
+   ok(at("| Herb             |  Rift | Hand | Keep in hand"), "herbs get a column each", text)
+   ok(at("| ash              |   158 |    1 | [x] 2  [-] [+]"),
+      "ash: 158 in the rift, 1 in hand, kept at 2", text)
+   ok(at("| bloodroot        |   699 |    1 | [x] 1  [-] [+]"), "a cure herb is kept at 1")
+   ok(at("| myrrh gum        |   341 |"), "a two-word herb keeps its name")
+   ok(at("| ELIXIRS") and at("health 1600") and at("| REAGENT") and at("lumic moss 500"),
+      "the other sections follow, name and count")
+   ok(drawn:find(emunah.ui.theme.dc("warning") .. "   1", 1, true),
+      "one ash in hand against two kept is amber")
+
+   -- [x] on ash: kept no more, and redrawn.
+   local function linkFor(hintStart)
+      for index, link in ipairs(mock.links) do
+         if tostring(link.hint):find(hintStart, 1, true) == 1 then return index end
+      end
+   end
+   mock.echoed = {}
+   ok(mock.click(linkFor("Stop keeping ash")), "the ash box can be clicked")
+   eq(engine.stockTarget("ash"), 0, "...which stops keeping ash in hand")
+   ok(plain(table.concat(mock.echoed, "")):find("| ash              |   158 |    1 | [ ]", 1, true),
+      "...and the table is drawn again with it off", plain(table.concat(mock.echoed, "")))
+   ok(plain(table.concat(mock.echoed, "")):find("cures need it in hand", 1, true),
+      "...saying a cure herb is needed in hand")
+   mock.links = {}
+   riftlist.redraw()
+   ok(mock.click(linkFor("Keep ash in hand")), "clicked again")
+   eq(engine.stockTarget("ash"), 2, "...ash is back at its default of 2")
+
+   -- [+] and [-].
+   mock.links = {}
+   riftlist.redraw()
+   mock.click(linkFor("Keep 3"))
+   eq(engine.stockTarget("ash"), 3, "[+] keeps one more")
+   mock.links = {}
+   riftlist.redraw()
+   mock.click(linkFor("Keep 2"))
+   eq(engine.stockTarget("ash"), 2, "[-] one fewer")
+
+   -- A herb no cure needs can be added, and is then pulled.
+   ok(not engine.isCureItem("cohosh"), "(cohosh is off the cure list)")
+   mock.links = {}
+   riftlist.redraw()
+   mock.click(linkFor("Keep cohosh in hand"))
+   eq(engine.stockTarget("cohosh"), 1, "a herb nothing cures with can be kept")
+   local stocked = emunah.util.set(engine.stocked())
+   ok(stocked.cohosh, "...and the restocker keeps it")
+   engine.setStock("bloodroot", 0)
+   ok(not emunah.util.set(engine.stocked()).bloodroot, "a herb taken off is not kept")
+
+   -- A listing nobody asked for is left as it came.
+   mock.advance(riftlist.WINDOW + 1)
+   mock.echoed, mock.deletedText = {}, {}
+   for _, line in ipairs(LISTING) do mock.line(line) end
+   mock.advance(0)
+   eq(#mock.deletedText, 0, "an unasked-for IR is not hidden")
+   eq(#mock.echoed, 0, "...and nothing is drawn")
+
+   -- `emset keep`, typed.
+   emunah.commands.handlers.keep("kelp", "3")
+   eq(engine.stockTarget("kelp"), 3, "emset keep kelp 3")
+   emunah.commands.handlers.keep("kelp", "off")
+   eq(engine.stockTarget("kelp"), 0, "emset keep kelp off")
+   emunah.commands.handlers.keep("kelp", "default")
+   eq(engine.stockTarget("kelp"), 1, "emset keep kelp default")
+
+   -- Ash at 2 is a floor under the global target, not a cap.
+   emunah.config.set("curing.keep", nil)
+   eq(engine.stockTarget("ash"), 2, "ash defaults to 2")
+   emunah.config.set("curing.stockTarget", 3)
+   eq(engine.stockTarget("ash"), 3, "...and follows a higher target for everything")
+   emunah.config.set("curing.stockTarget", nil)
+   mock.buffer, mock.links = {}, {}
 end
 
 -- ===========================================================================
@@ -9211,10 +9538,13 @@ eq(emunah.have.pipe("elm"), false, "an unlit pipe of elm cannot -- it holds it, 
 eq(emunah.have.pipe("cinnabar"), false, "a herb no pipe holds cannot be smoked")
 
 -- ---------------------------------------------------------------------------
--- KEEPING THEM LIT. Two pipes are out; one command per round trip, lowest id first.
+-- KEEPING THEM LIT. Two pipes are out, and ONE `light pipes` lights both. One `light pipeNNN`
+-- each meant two relights two seconds apart (19:02:27.05 and 19:02:28.92, 2026-10-04), and the
+-- Bard watching asked "Why not at the same time?" -- the user: "we can simply 'light pipes' it
+-- seems to light them all". [svof] lightpipes does the same.
 mock.sent = {}
 pipes.keep()
-eq(table.concat(mock.sent, " | "), "light pipe408402", "an unlit pipe is lit",
+eq(table.concat(mock.sent, " | "), "light pipes", "both unlit pipes are lit with one LIGHT PIPES",
    table.concat(mock.sent, " | "))
 
 -- One command at a time on the wire: Achaea throttles fast streams, and a rate limit holds
@@ -9223,12 +9553,12 @@ mock.sent = {}
 pipes.keep()
 eq(#mock.sent, 0, "a second command waits out the wire guard", table.concat(mock.sent, " | "))
 
--- Past the wire guard the NEXT pipe goes -- not the one just commanded, which is still
--- inside its own longer guard waiting for the game to answer.
+-- Past the wire guard, nothing: both pipes were in that one command, and each is inside its
+-- own longer guard waiting for the game to answer.
 mock.advance(pipes.WIRE_GUARD + 0.01)
 mock.sent = {}
 pipes.keep()
-eq(table.concat(mock.sent, " | "), "light pipe422328", "...then the next pipe, not a repeat",
+eq(#mock.sent, 0, "...and neither is lit again while the answer is awaited",
    table.concat(mock.sent, " | "))
 
 -- Nothing to do once they are all lit.
@@ -9249,7 +9579,7 @@ mock.advance(pipes.ACTION_GUARD + 0.01)
 mock.sent = {}
 mock.line("Your pipe, containing a skullcap flower, has gone cold and dark.")
 eq(pipes.pipes["367581"].status, "out", "the announcement marks that pipe out")
-ok(table.concat(mock.sent, " | "):find("light pipe367581"),
+ok(table.concat(mock.sent, " | "):find("light pipes", 1, true),
    "...and it is relit straight away", table.concat(mock.sent, " | "))
 
 -- ---------------------------------------------------------------------------
@@ -9296,9 +9626,8 @@ for _ = 1, 3 do
    mock.advance(pipes.WIRE_GUARD + 0.01)
    pipes.keep()
 end
-eq(table.concat(mock.sent, " | "),
-   "light pipe367581 | light pipe408402 | light pipe422328",
-   "three cold pipes are each lit once, none of them twice",
+eq(table.concat(mock.sent, " | "), "light pipes",
+   "three cold pipes are lit by one command, none of them twice",
    table.concat(mock.sent, " | "))
 
 -- Without the herb in hand a refill waits rather than pulling: the restocker is fetching it.
@@ -9322,7 +9651,7 @@ end
 -- Three lights, then one PIPELIST and nothing further. Giving up is the moment our tracked
 -- state is most likely to be the thing that is wrong, so it asks once on the way out.
 eq(table.concat(mock.sent, " | "),
-   "light pipe367581 | light pipe367581 | light pipe367581 | pipelist",
+   "light pipes | light pipes | light pipes | pipelist",
    "an unresponsive pipe stops after ATTEMPTS, asking once on the way out",
    table.concat(mock.sent, " | "))
 
@@ -9331,7 +9660,7 @@ pipes.forget()
 pipelist({ "out     pipe367581   a skullcap flower              9     250" })
 mock.sent = {}
 mock.advance(pipes.CHAIN + 0.01)
-ok(table.concat(mock.sent, " | "):find("light pipe367581"),
+ok(table.concat(mock.sent, " | "):find("light pipes", 1, true),
    "a pipe that changed state is worth trying again", table.concat(mock.sent, " | "))
 
 -- ---------------------------------------------------------------------------
@@ -9363,6 +9692,9 @@ eq(#pipes.list(), 3, "...so every row after the first is still recorded")
 -- pipe until it is smoking nicely." Missing the second meant a successful LIGHT confirmed
 -- nothing, so the same pipe was lit again a moment later -- 07:34:16 then 07:34:21, answered
 -- "That pipe is already lit and burning nicely."
+--
+-- LIGHT PIPES answers for every pipe it lit, so either answer marks them all: [svof]
+-- litallpipes, on `^You light (.+)\.$` and on "You have no pipes that require lighting."
 pipes.forget()
 pipelist({
    "out     pipe367581   a skullcap flower              9     250",
@@ -9370,19 +9702,47 @@ pipelist({
 })
 mock.sent = {}
 mock.advance(pipes.CHAIN + 0.01)
-eq(table.concat(mock.sent, " | "), "light pipe367581", "the first cold pipe is lit",
+eq(table.concat(mock.sent, " | "), "light pipes", "the cold pipes are lit together",
    table.concat(mock.sent, " | "))
 
 mock.line("You use a soot-blackened tinderbox to make fire.")
-mock.line("You carefully light your treasured pipe until it is smoking nicely.")
-eq(pipes.pipes["367581"].status, "lit",
-   "the real LIGHT confirmation marks that pipe lit without waiting for a poll")
+mock.line("You light a white stone pipe.")
+eq(pipes.pipes["367581"].status, "lit", "the LIGHT PIPES answer marks the first pipe lit")
+eq(pipes.pipes["408402"].status, "lit", "...and the second, without waiting for a poll")
+ok(emunah.have.pipe("elm"), "...so elm can be smoked")
 
 mock.sent = {}
 mock.advance(pipes.CHAIN + 0.01)
-eq(table.concat(mock.sent, " | "), "light pipe408402",
-   "...so the next command is the OTHER pipe, not the same one again",
+eq(#mock.sent, 0, "...and nothing is lit again", table.concat(mock.sent, " | "))
+
+-- "You have no pipes that require lighting." (from the game, 2026-10-04): our record said a
+-- pipe was out and it was not. Everything is lit, so nothing is asked again.
+pipes.forget()
+pipelist({ "out     pipe408402   slippery elm                   9     250" })
+mock.sent = {}
+mock.advance(pipes.CHAIN + 0.01)
+eq(table.concat(mock.sent, " | "), "light pipes", "a pipe we think is out is lit",
    table.concat(mock.sent, " | "))
+mock.line("You have no pipes that require lighting.")
+eq(pipes.pipes["408402"].status, "lit", "\"no pipes that require lighting\" means it was lit")
+mock.sent = {}
+for _ = 1, 3 do mock.advance(pipes.CHAIN + 0.01) end
+eq(#mock.sent, 0, "...so it is not lit again", table.concat(mock.sent, " | "))
+
+-- The general `You light ...` is only believed straight after a LIGHT: after a fill it is
+-- about something else.
+pipes.forget()
+pipelist({ "out     pipe408402   slippery elm                   9     250" })
+pipes.lastAction = { id = "408402", kind = "fill" }
+mock.line("You light a white stone pipe.")
+eq(pipes.pipes["408402"].status, "out", "a light line after a fill does not mark the pipe lit")
+
+pipes.forget()
+pipelist({
+   "out     pipe367581   a skullcap flower              9     250",
+})
+mock.sent = {}
+mock.advance(pipes.CHAIN + 0.01)
 
 -- A puff is counted, not polled: the line names the herb, and one drag is exactly one puff.
 mock.line("You take a long drag of skullcap off your pipe.")
@@ -9393,7 +9753,7 @@ pipes.forget()
 pipelist({ "out     pipe408402   slippery elm                   9     250" })
 mock.sent = {}
 mock.advance(pipes.CHAIN + 0.01)
-eq(table.concat(mock.sent, " | "), "light pipe408402", "we think it has herb in it",
+eq(table.concat(mock.sent, " | "), "light pipes", "we think it has herb in it",
    table.concat(mock.sent, " | "))
 mock.line("There is nothing in the pipe to light.")
 eq(pipes.pipes["408402"].puffs, 0, "the refusal corrects the puff count")
@@ -9419,8 +9779,7 @@ for _ = 1, 3 do
    mock.advance(pipes.CHAIN + 0.01)
    mock.line("You carefully light your treasured pipe until it is smoking nicely.")
 end
-eq(table.concat(mock.sent, " | "),
-   "light pipe367581 | light pipe408402 | light pipe422328",
+eq(table.concat(mock.sent, " | "), "light pipes",
    "all three are lit without a single prompt to drive it",
    table.concat(mock.sent, " | "))
 
@@ -9461,7 +9820,7 @@ eq(pipes.pipes["408402"].status, "out", "...and known to still be cold")
 
 mock.sent = {}
 mock.advance(pipes.CHAIN + 0.01)
-eq(table.concat(mock.sent, " | "), "light pipe408402", "...so it is lit next",
+eq(table.concat(mock.sent, " | "), "light pipes", "...so it is lit next",
    table.concat(mock.sent, " | "))
 mock.line("You carefully light your treasured pipe until it is smoking nicely.")
 eq(pipes.pipes["408402"].status, "lit", "and the pipe is back in service")
@@ -11625,7 +11984,7 @@ ok(inBuffer("The celestial flowers of the aurora bloom and fade slowly, their rh
 -- "we're still gagging lines when we relight pipes, though. fix this".
 mock.sent, mock.echoed_sends = {}, {}
 pipes.keep()
-eq(mock.sent[1], "light pipe367581", "the first cold pipe is lit")
+eq(mock.sent[1], "light pipes", "the cold pipes are lit")
 eq(mock.echoed_sends[1], true, "...echoed, like every other keep-up command")
 mock.line("You use a soot-blackened tinderbox to make fire.")
 mock.line("You carefully light your treasured pipe until it is smoking nicely.")
@@ -11801,7 +12160,7 @@ for _, keepup in ipairs({ true, false }) do
    mock.line(gone)
    eq(pipes.pipes["367581"].status, "out", "the announcement still marks the pipe out" .. label)
    if keepup then
-      ok(tostring(table.concat(mock.sent, " | ")):find("light pipe367581", 1, true),
+      ok(tostring(table.concat(mock.sent, " | ")):find("light pipes", 1, true),
          "...and it is relit straight away", table.concat(mock.sent, " | "))
    end
    mock.advance(0)

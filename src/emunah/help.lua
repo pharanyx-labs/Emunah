@@ -83,6 +83,10 @@ M.modules = {
      summary = "pause or resume curing and defences together; after QUIT, resume everything" },
    { syntax = "pp", alias = "pp",
      summary = "the same as `emset pause`: one toggle for curing and defence keep-up" },
+   { syntax = "emset keep", handler = "keep",
+     summary = "the herbs kept in hand, and how many of each" },
+   { syntax = "emset keep <herb> <number|off|default>",
+     summary = "keep more, fewer or none of a herb in hand; IR shows every herb with a toggle" },
    { syntax = "emset prio <affliction> <balance> <rank>", handler = "prio",
      summary = "cure an affliction sooner or later on one balance; lower is sooner" },
    { syntax = "sleep", alias = "sleep",
@@ -317,7 +321,11 @@ M.settings = {
 { key = "curing.restockSalves", default = false, type = "boolean", topic = "curing",
   shipped = false },
 { key = "curing.stockTarget", default = 1, type = "number", topic = "curing", shipped = false,
-  detail = "How many of each consumable to keep in hand." },
+  detail = "How many of each consumable to keep in hand. Ash is kept at 2 at least: crescendo "
+       .. "takes two in a row." },
+{ key = "curing.keep", default = "(unset)", type = "table", topic = "curing", shipped = false,
+  detail = "Per herb, how many to keep in hand; 0 for none. Set with `emset keep` or the "
+       .. "toggles under IR." },
 { key = "curing.recovery.<vector>", default = "per vector", type = "number", unit = "s",
   topic = "curing", shipped = false,
   detail = "Override the fallback recovery time for one vector, e.g. curing.recovery.herb." },

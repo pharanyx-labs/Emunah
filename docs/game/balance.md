@@ -200,7 +200,9 @@ Frustratingly, your body won't respond to your call to action.  (perform hands)
 ```
 
 **Eating still works**, which it must — bloodroot is what cures paralysis. `core/queue.lua`
-therefore flushes only the eating vectors (plus `free` and `writhe`) while it is up.
+therefore flushes only the eating vectors (plus `smoke`, `free`, `writhe` and `rift`) while it
+is up. Smoke is let through on [svof] `check_smoke`, which never checks paralysis; no smoke
+has been seen refused while paralysed.
 
 **`TOUCH TREE` is refused while paralysed.** Confirmed live 2026-08-03 `16:14:25.08`:
 `touch tree` sent while paralysed came back `Frustratingly, your body won't respond to your

@@ -38,6 +38,35 @@ You store 10 green ink, bringing the total in the rift to 10.
 Measured turnaround for `OUTR`: **0.23s** (sent 11:48:26.14, confirmed 11:48:26.37). Neither
 costs a balance.
 
+### IR, and what is kept in hand
+
+`IR` (`INFO RIFT`, HELP RIFT) lists the rift by section between two 78-dash rules. Seen at
+19:17:20.62 on 2026-10-04 (rows trimmed):
+
+    Glancing into your rift, you see:
+    ------------------------------------------------------------------------------
+    Herbs
+    [  158] ash                    [  983] bayberry               [  185] bellwort
+    [  100] kuzu                   [  185] lobelia                [  341] myrrh gum
+    Elixirs
+    [  800] frost                  [ 1600] health                 [  600] immunity
+    Reagent
+    [  500] lumic moss
+    ------------------------------------------------------------------------------
+
+Three items to a row, each `[count] name`; a name can be two words (`myrrh gum`, `blue
+ink`). The sections seen are Herbs, Elixirs, Salves, Inks and Reagent. What a minerals
+user's section is called has not been seen.
+
+`riftlist.lua` redraws a listing you asked for as a table: one row per herb with the rift
+count, the count in hand and how many are kept there, with a click to keep it or not and to
+keep one more or one fewer; the other sections follow as `name count`. The keep column is
+the restocker's own (`engine.stockTarget`): every herb a cure calls for is kept at
+`curing.stockTarget` (1), **ash at 2** because crescendo takes two in a row ("greatly
+diminished", then "falls silent"; the second eat waited on the restock at 19:13:36.66–38.57),
+anything else only once added. `emset keep <herb> <n|off|default>` sets the same thing. A
+cure herb taken off cannot be cured with: a cure needs it in hand.
+
 ### Quitting
 
 `You grow still and begin to silently pray for preservation of your soul while you are out of
@@ -216,7 +245,7 @@ other's slot**, so neither is assumed to.
 | Command | Id form | Reply |
 |---|---|---|
 | `light pipe367581` | `pipeNNNNN` | `You use a soot-blackened tinderbox to make fire.` then **`You carefully light your treasured pipe until it is smoking nicely.`** |
-| `light pipes` | — | Lights every pipe with contents. Answers `You light a white stone pipe.` — a **different** wording from the one above |
+| `light pipes` | — | Lights every pipe with contents. Answers `You light a white stone pipe.` — a **different** wording from the one above. With nothing cold: `You have no pipes that require lighting.` (the user, 2026-10-04). **This is what keep-up sends**, once for every cold pipe, as [svof] `lightpipes` does |
 | `put skullcap in 367581` | bare `NNNNN` | `You fill your pipe with a skullcap flower.` |
 | `smoke pipe367581` | `pipeNNNNN` | `You take a long drag of skullcap off your pipe.` |
 | `smoke elm` | — | Works too: **`SMOKE` takes the herb** and resolves it to the pipe holding it. This is what every smoke cure in `curelist.lua` builds |
@@ -273,7 +302,11 @@ and valerian in the same listing. This is the one number inferred rather than re
 a named constant (`pipes.FULL_PUFFS`) and the backstop poll corrects it if it is ever wrong.
 
 None of the confirmations name the pipe, so they are attributed to whichever pipe the last
-command was about — sound only because one pipe command is in flight at a time.
+command was about — sound only because one pipe command is in flight at a time. After
+`light pipes` every answer (`You light ...`, `You have no pipes that require lighting.`)
+marks every loaded pipe lit, as [svof] `litallpipes` does. One `light pipeNNN` per pipe
+relit two pipes 1.9s apart (19:02:27.05 and 19:02:28.92, 2026-10-04), and the opponent
+watching asked "Why not at the same time?"
 
 ### Keep-up cannot be driven by the tick alone
 
