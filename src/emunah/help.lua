@@ -190,6 +190,8 @@ M.modules = {
      summary = "everything known about someone" },
    { syntax = "emset iff <person> ally|enemy|auto", handler = "iff",
      summary = "mark someone as an ally or an enemy, or go back to what their city says" },
+   { syntax = "emset hostile [city|house|order] [name] [off]", handler = "hostile",
+     summary = "mark a whole organisation hostile (everyone in it is an enemy), or list them" },
   } },
 
 { id = "interface", title = "Interface", summary = "the panels, chat tabs and map",
@@ -396,6 +398,11 @@ M.settings = {
 { key = "namedb.autoFetch", default = true, type = "boolean", topic = "people",
   shipped = true, detail = "Look names up against the Achaea web API automatically." },
 { key = "names.enabled", default = true, type = "boolean", topic = "people", shipped = true },
+{ key = "presences.alert", default = false, type = "boolean", topic = "people", shipped = true,
+  detail = "Pop up a warning window when ANGEL PRESENCES senses an enemy nearby." },
+{ key = "presences.alertFor", default = 15, type = "number", unit = "s", topic = "people",
+  shipped = true, detail = "How long the presence warning stays up without a click. 0 keeps "
+       .. "it until clicked." },
 { key = "names.cityTint", default = true, type = "boolean", topic = "people", shipped = true },
 }
 

@@ -77,7 +77,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 53, "all 53 manifest modules loaded")
+eq(loadedModules, 55, "all 55 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -11469,6 +11469,106 @@ if handle then
    ok(xml:find("textIllusion", 1, true), "...and svof's illusion catchers")
 end
 reset()
+end)()
+
+suite("angel presences: a warning window for hostiles nearby")
+
+-- Its own function: the main chunk is at Lua 5.1's 200-local limit.
+;(function()
+   -- Verbatim from play, 2026-10-03. The first scan carries a Mudlet mapping script's
+   -- "(2098, ...) (Targossas)" tail; the second was taken with every script off. Both break
+   -- lines where the game did: a sense line can end at "a mana of", its figure on the next.
+   if not Geyser then mock.installGeyser() end
+   local ndb, presences, alert = emunah.namedb, emunah.presences, emunah.ui.alert
+   local withTail = {
+      "You bid your guardian angel to seek out life presences nearby.",
+      "Your guardian angel senses Thelek at Fish Street, on a health of 13144 and a mana of 3674.  (2098, ",
+      "2097, 2171, ...) (Targossas)",
+      "Your guardian angel senses Zex at A stone chamber, on a health of 7032 and a mana of 5904.  (40461) ",
+      "(Targossas)",
+      "Your guardian angel senses Puxi at Fish Street, on a health of 7032 and a mana of 5904.  (2098, ",
+      "2097, 2171, ...) (Targossas)",
+      "Your guardian angel senses Erishka at Lustrarium of Abeyance, on a health of 9407 and a mana of ",
+      "7233.  (67287)  (Targossas)",
+      "Your guardian angel senses Delfini at Overlooking the gardens, on a health of 1150 and a mana of ",
+      "1150.  (36553, 23059) (Tasur'ke, Targossas)",
+      "Equilibrium used: 2.50s.",
+   }
+   local plain = {
+      "You bid your guardian angel to seek out life presences nearby.",
+      "Your guardian angel senses Thelek at Fish Street, on a health of 13144 and a mana of 3674.",
+      "Your guardian angel senses Erishka at Lustrarium of Abeyance, on a health of 9407 and a mana of ",
+      "7233.",
+      "Equilibrium used: 2.50s.",
+   }
+   local function scan(lines)
+      for _, line in ipairs(lines) do mock.line(line) end
+      mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   end
+
+   emunah.commands.handlers.hostile("city", "mhaldor")
+   emunah.commands.handlers.hostile("city", "ashtan")
+   ok(ndb.hostile.city.mhaldor and ndb.hostile.city.ashtan, "`emset hostile city <name>` marks a city hostile")
+   ndb.set("Zex", "city", "Mhaldor")
+   ndb.set("Puxi", "city", "Ashtan")
+   for _, name in ipairs({ "Thelek", "Erishka", "Delfini" }) do ndb.set(name, "city", "Targossas") end
+   emunah.config.set("presences.alert", true)
+   mock.echoed = {}
+
+   scan(withTail)
+   eq(#presences.hostiles(), 2, "two hostiles among eight sensed", #presences.hostiles())
+   ok(alert.isOpen("presences"), "the warning window opens")
+   local window = tostring(mock.widgets["emunah.alert.presences"].contents)
+   ok(window:find("Zex", 1, true) and window:find("Mhaldor", 1, true) and window:find("A stone chamber", 1, true),
+      "it names Zex, why he is hostile, and where", window)
+   ok(window:find("Puxi", 1, true) and window:find("Ashtan", 1, true), "...and Puxi of Ashtan")
+   ok(not window:find("Thelek", 1, true), "...and no one who is not hostile")
+   ok(not window:find("2098", 1, true) and not window:find("Targossas", 1, true),
+      "the mapping script's tail is not read")
+   ok(table.concat(mock.echoed, " "):find("Hostile nearby", 1, true), "it is said in the scrollback too")
+
+   -- The wrapped line still counts: Erishka's sighting is recorded though her mana wrapped.
+   local erishka = ndb.get("Erishka")
+   ok(erishka and erishka.sensed and erishka.sensed.health == 9407,
+      "a sense line that breaks before its mana figure is still recorded")
+
+   -- The same hostiles on the next scan: updated in place, not raised again.
+   mock.echoed = {}
+   scan(withTail)
+   ok(not table.concat(mock.echoed, " "):find("Hostile nearby", 1, true),
+      "the same hostiles on the next scan do not warn again")
+   ok(alert.isOpen("presences"), "...while the window stays up")
+
+   -- No hostiles in a scan: the window closes, and the next arrival warns afresh.
+   scan(plain)
+   ok(not alert.isOpen("presences"), "a scan with no hostiles closes the window")
+   scan(withTail)
+   ok(alert.isOpen("presences"), "...and their return opens it again")
+
+   -- Closes by itself after presences.alertFor seconds.
+   mock.advance(presences.ALERT_FOR + 0.1)
+   ok(not alert.isOpen("presences"), "the window closes by itself after its time")
+
+   -- Someone never seen before: the alert waits for the web API to say where they are from.
+   scan(plain)
+   scan({ "Your guardian angel senses Vorth at Fish Street, on a health of 5000 and a mana of 4000." })
+   ok(not alert.isOpen("presences"), "an unknown person raises nothing yet")
+   emunah.namedb.api.apply({ name = "Vorth", city = "Mhaldor" })
+   ok(alert.isOpen("presences"), "...and the alert opens when the lookup says Mhaldor")
+   alert.close("presences")
+
+   -- Off unless enabled.
+   scan(plain)
+   emunah.config.set("presences.alert", false)
+   scan(withTail)
+   ok(not alert.isOpen("presences"), "with presences.alert off, nothing pops up")
+
+   emunah.commands.handlers.hostile("city", "mhaldor off")
+   ok(not ndb.hostile.city.mhaldor, "`emset hostile city mhaldor off` unmarks it")
+   ndb.setHostile("city", "ashtan", false)
+   for _, name in ipairs({ "Zex", "Puxi", "Thelek", "Erishka", "Delfini", "Vorth" }) do ndb.forget(name) end
+   raiseEvent("sysDisconnectionEvent")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 end)()
 
 suite("docs stay in sync with the code, and with each other")

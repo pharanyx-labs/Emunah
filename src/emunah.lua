@@ -86,6 +86,7 @@ local MANIFEST = {
    -- ui
    { path = "emunah.ui.theme",           as = "ui.theme"      },
    { path = "emunah.ui.echo",            as = "ui.echo"       },
+   { path = "emunah.ui.alert",           as = "ui.alert"      },
    { path = "emunah.ui.layout",          as = "ui.layout"     },
    { path = "emunah.ui.chyron",          as = "ui.chyron"     },
    { path = "emunah.ui.vitals",          as = "ui.vitals"     },
@@ -139,6 +140,9 @@ local MANIFEST = {
    -- name highlighting. Out of the ui block above on purpose: it renders the database, so
    -- it has to follow it.
    { path = "emunah.ui.names",           as = "ui.names"      },
+
+   -- the angel's presences, judged against the database: needs namedb and the alert window
+   { path = "emunah.presences",          as = "presences"     },
 
    -- class adapter (interface + detection; loads emunah/class/<class>.lua when known)
    { path = "emunah.class.adapter",      as = "class"         },

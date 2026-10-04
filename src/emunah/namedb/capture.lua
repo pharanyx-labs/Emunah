@@ -370,7 +370,11 @@ local HONOURS_LINES = {
 --- and its continuation carries a parenthesised list of numbers and a city name that is NOT
 --- to be read -- see docs/game/help/who-listings.txt. Anchoring here means the continuation
 --- cannot match this pattern at all, whatever it happens to contain.
-local ANGEL = [[^Your guardian angel senses ([A-Z][a-z]+) at (.+?), on a health of (\d+) and a mana of (\d+)\.]]
+---
+--- The mana figure is OPTIONAL. In play the line breaks right after "a mana of" (2026-10-03,
+--- with every script off: "...on a health of 9407 and a mana of" / "7233."), and requiring
+--- the number lost the whole sighting -- name, room and health -- for want of the mana.
+local ANGEL = [[^Your guardian angel senses ([A-Z][a-z]+) at (.+?), on a health of (\d+) and a mana of\s*(\d*)]]
 
 -- ---------------------------------------------------------------------------
 -- handling a line
@@ -510,7 +514,9 @@ function M.sensed(name, where, health, mana)
    person.seen = util.now()
    M.enrich(name)
    ndb().save()
-   emunah.event.raise("emunah.namedb.sensed", name, person.sensed)
+   -- event.raise() adds the "emunah." itself; this used to pass it too, and so raised
+   -- "emunah.emunah.namedb.sensed", which nothing could listen for.
+   emunah.event.raise("namedb.sensed", name, person.sensed)
 end
 
 -- ---------------------------------------------------------------------------

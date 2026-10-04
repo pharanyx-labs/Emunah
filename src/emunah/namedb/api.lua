@@ -520,6 +520,9 @@ function M.apply(data)
 
    person.api = { at = util.now(), ok = true }
    ndb.save()
+   -- A city, house or order may have just become known, and with it whether they are an
+   -- enemy. presences.lua re-judges the latest angel scan on this.
+   emunah.event.raise("namedb.updated", person.name)
    return person, written
 end
 
