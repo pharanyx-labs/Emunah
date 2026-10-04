@@ -5796,6 +5796,35 @@ eq(defkeepup.mode("shield"), "keepup", "clicking again selects keepup")
 mock.click(shieldLink)
 eq(defkeepup.mode("shield"), nil, "and a third click switches it off")
 
+-- THE DOT IS THE SECTION (the user, 2026-10-04): one click, a solid yellow dot under
+-- "raised once", whatever the defence is doing; a second, solid green under "kept up". It
+-- followed "is it up" before, so a defence just clicked into keep-up read red, and a
+-- raised-once one already done (bliss) grey.
+do
+   local theme = emunah.ui.theme
+   local DOT = "\226\151\143"
+   local function shieldText()
+      mock.links = {}
+      emunah.commands.handlers.defs()
+      for index, link in ipairs(mock.links) do
+         if link.text:find("shield", 1, true) then return link.text, index end
+      end
+   end
+   local _, index = shieldText()
+   mock.click(index)
+   local shown = shieldText()
+   ok(shown:find(theme.dc("warning") .. DOT, 1, true),
+      "raised once: a solid yellow dot, though shield is down", shown)
+   _, index = shieldText()
+   mock.click(index)
+   shown = shieldText()
+   ok(shown:find(theme.dc("defence") .. DOT, 1, true),
+      "kept up: a solid green dot, though shield is still down", shown)
+   ok(shown:find(theme.dc("affliction") .. "shield", 1, true),
+      "...and the name says it is down", shown)
+   defkeepup.setMode("shield", nil)
+end
+
 -- "i don't see the pipe relight toggle when i type emset defs". Pipe keep-up is its own
 -- module, but the grid is where it was looked for, so it carries the same switch.
 do

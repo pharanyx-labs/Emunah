@@ -260,7 +260,8 @@ end
 --- sitting wanted-but-unraisable looks identical to one that is merely down.
 ---
 ---   section   kept up / raised once / not raised   -- what you asked for
----   dot       green up, red wanted but down, amber waiting on another, dim neither
+---   dot       the section again: green kept up, yellow raised once, dim not raised
+---   name      red wanted but down, amber waiting on another defence
 ---   "-"       no command known; the tooltip says how to give it one
 ---
 --- Clicking re-renders rather than editing in place: Mudlet's main console has no
@@ -270,11 +271,13 @@ local function defencesGrid()
    local keepup = emunah.curing.defkeepup
    local names  = keepup.known()
 
-   -- THE SECTION IS THE MODE, THE DOT IS THE TRUTH. Grouping by what you asked for --
-   -- kept up, raised once, not asked for -- says what a toggle means without a legend
-   -- under the grid (removed at the user's request, 2026-10-04), and the dot beside each
-   -- name says what is actually up: green up, red wanted but down, amber waiting on
-   -- something else, dim neither.
+   -- THE SECTION AND THE DOT ARE THE MODE, THE NAME IS THE TRUTH. Grouped by what you
+   -- asked for -- kept up, raised once, not raised -- so a toggle needs no legend (removed
+   -- at the user's request, 2026-10-04). The dot is solid and coloured by the section:
+   -- green kept up, yellow raised once (the user, 2026-10-04 -- a dot that followed "is it
+   -- up" read as red on a defence just clicked into keep-up, and grey on a raised-once one
+   -- already done, like bliss). Whether a wanted defence is actually down shows in its
+   -- NAME: red down, amber waiting on another defence.
    local sections = { keepup = {}, defup = {}, off = {} }
    local up, down = 0, 0
    for _, name in ipairs(names) do
@@ -298,14 +301,19 @@ local function defencesGrid()
    end
 
    local COLUMNS, WIDTH = 3, 20
-   local DOT, OPEN, NONE = "\226\151\143", "\226\151\139", "\194\183"
+   local DOT, NONE = "\226\151\143", "\194\183"
 
+   local function text(t) return theme().dc("text") .. t end
    local function mark(state)
-      if not state.raisable then return faint("-"), faint end
-      if state.up then return theme().dc("defence") .. DOT, function(t) return theme().dc("text") .. t end end
-      if state.mode and state.blockedBy then return theme().dc("warning") .. OPEN, dim end
-      if state.mode == "defup" and state.satisfied then return dim(OPEN), dim end
-      if state.mode then return theme().dc("affliction") .. OPEN, function(t) return theme().dc("text") .. t end end
+      if not state.raisable then return faint("-"), dim end
+      local paint = text
+      if state.mode and not state.up and not (state.mode == "defup" and state.satisfied) then
+         paint = state.blockedBy and function(t) return theme().dc("warning") .. t end
+            or function(t) return theme().dc("affliction") .. t end
+      end
+      if state.mode == "keepup" then return theme().dc("defence") .. DOT, paint end
+      if state.mode == "defup" then return theme().dc("warning") .. DOT, paint end
+      if state.up then return dim(DOT), text end
       return faint(NONE), dim
    end
 
