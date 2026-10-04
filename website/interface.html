@@ -1,186 +1,251 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Interface — Emunah</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interface | Emunah</title>
+<meta name="description" content="Emunah&#x27;s interface: the room, afflictions and defences panels, the combat HUD and its balance strip, chat tabs, the map, and names highlighted in the game text.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/interface.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Interface | Emunah">
+<meta property="og:description" content="Emunah&#x27;s interface: the room, afflictions and defences panels, the combat HUD and its balance strip, chat tabs, the map, and names highlighted in the game text.">
+<meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
 </head>
 <body>
-<div class="layout">
-<nav class="sidebar">
-  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
-  <p class="tagline">An Achaea system for Mudlet</p>
+<a class="skip" href="#main">Skip to content</a>
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
   <ul>
-    <li><a href="index.html">Overview</a></li>
-    <li><a href="getting-started.html">Getting Started</a></li>
-    <li><a href="commands.html">Command Reference</a></li>
-    <li><a href="api.html">Lua API</a></li>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
   </ul>
-  <div class="nav-group-title">How it works</div>
+  <h4>Features</h4>
   <ul>
-    <li><a href="curing.html">Curing Engine</a></li>
-    <li><a href="combat.html">Combat &amp; PvP</a></li>
-    <li><a href="people.html">People &amp; Names</a></li>
-    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
-    <li><a href="interface.html" class="active">Interface</a></li>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html" aria-current="page">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
     <li><a href="architecture.html">Architecture</a></li>
     <li><a href="performance.html">Performance</a></li>
-  </ul>
-  <div class="nav-group-title">Project</div>
-  <ul>
+    <li><a href="api.html">Lua API</a></li>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main class="with-toc">
-<div class="content">
-
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html" aria-current="page">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
 <h1>Interface</h1>
-<p class="lede">
-In a MUD the scrolling text is the interface. Everything here is chrome, and chrome that
-draws the eye away from the text is actively harmful during a fight.
-</p>
+<p class="lede">In a text game the scrolling text is the interface, so Emunah's panels sit around it and never over it. They draw from the same state the curing engine acts on, so what you see is what Emunah is about to do.</p>
+<figure>
+  <div class="term" style="padding:10px"><img src="img/emunah-in-mudlet.jpg" width="1920" height="1080" alt="Mudlet with Emunah's interface: room, afflictions and defences on the left, the game text in the centre, chat and the map on the right, and the combat HUD along the bottom."></div>
+  <figcaption>Everything about you on the left, everyone else on the right, and the combat HUD directly under the last line of text, where you are already looking.</figcaption>
+</figure>
 
 <h2 id="layout">Layout</h2>
-<p>
-Three Adjustable containers &mdash; left, right and bottom &mdash; plus a thin strip along
-the top. The game console keeps the middle. Everything about you is on one side; everyone
-else (chat, the map) on the other; the combat HUD sits directly under the last line of text,
-above the prompt, where you are already looking.
-</p>
-<div class="tree">  <span class="dir">top</span>      chyron (scrolling announcements)
-  <span class="dir">left</span>     everything about you, as three titled sections:
-           room          <span class="comment">-- where, who, denizens, items</span>
-           afflictions   <span class="comment">-- each with its cure and what is happening to it</span>
-           defences      <span class="comment">-- what keep-up is owed, then what is up</span>
-  <span class="dir">right</span>    chat                  <span class="comment">-- the whole column</span>
-           map
-  <span class="dir">bottom</span>   combat HUD: target and status, resource gauges, balance strip</div>
-<pre><code>emset ui                  # toggle the whole interface
-emset ui rebuild          # recreate the containers
-emset ui reset            # discard saved geometry
-emset ui show             # un-hide -- the fix for "it has gone invisible"</code></pre>
+<div class="table-wrap"><table>
+  <thead><tr><th>Where</th><th>What</th></tr></thead>
+  <tbody>
+    <tr><td>Left</td><td>The room, your afflictions and your defences, one above the other.</td></tr>
+    <tr><td>Right</td><td>Chat in tabs, and the map beneath it.</td></tr>
+    <tr><td>Bottom</td><td>The combat HUD: target, vitals and the balance strip.</td></tr>
+    <tr><td>Top</td><td>A scrolling ticker for anything you must not miss.</td></tr>
+  </tbody>
+</table></div>
+<p>The left column divides its height by what each section actually holds, so a crowded room or a long defence list is shown in full. When it cannot all fit, defences go to more columns and short item names pair up before anything scrolls. The game text's borders follow the panels, so a panel you resize by hand never covers a line of text.</p>
 
-<div class="bug">
-<h4>The interface used to go permanently invisible</h4>
-<p>
-Rebuilding hides the previous generation of containers.
-<code>Adjustable.Container:new</code> inherits <code>hidden</code> from a same-named
-container, autoSave writes it to disk, and autoLoad restores it. So after one reload the UI
-was built correctly and then immediately hidden, permanently, with no error anywhere.
-</p>
-<p>
-New containers are now explicitly shown after a rebuild, and saved state that says "hidden"
-does not win. Both are asserted in the test suite.
-</p>
-</div>
-
-<h2 id="panels">Panels</h2>
-<p>
-<strong>The left column is sized to its content.</strong> Each section reports how many lines
-it has and the column is divided by that, in pixels, so a crowded room or a long defence
-list is shown in full. When it all cannot fit, the defences go to three columns, then room
-items two to a line (only items whose names fit; nothing is cut short), and only then does
-the room panel scroll. The console's borders are measured from where the panels actually
-are, so a panel resized by hand never covers game text.
-</p>
-<table>
-<thead><tr><th>Panel</th><th>Shows</th></tr></thead>
-<tbody>
-<tr><td><strong>Room</strong></td><td>Name, area, number, exits and shop/bank details; then <em>PEOPLE</em>, <em>MOBILES</em> and <em>ITEMS</em>, each under its own coloured heading with a count, mobiles marked with a dot and items with a square. People are coloured by the same policy the highlighter uses. Identical items collapse to one row with a multiplier. Each denizen is clickable: a filled dot means the hunting loop will attack it, a hollow one that it will not, and a click toggles it.</td></tr>
-<tr><td><strong>Afflictions</strong></td><td>In curing order. Each row shows the affliction, what will cure it, and what is happening about it: <em>curing</em> (sent, unanswered), <em>next</em> (goes out on this prompt), a countdown (its balance is recovering), <em>&#10005; anorexia</em> (locked, and by what), or the engine's own reason for refusing it ("bloodroot is in the rift, not in hand"). Above the rows, pills for any state that holds every command (stunned, asleep, prone). Below them, one line per lock: "anorexia shuts herb, sip, purgative, moss".</td></tr>
-<tr><td><strong>Defences</strong></td><td>A two-column list: what keep-up is owed first (amber, or dim while keep-up is off), then what is up. The title bar carries the count of each.</td></tr>
-<tr><td><strong>Combat HUD</strong></td><td>Row one: the target's health bar, and pills for what is switched on (curing, keep-up, bashing, PvP and its target, rate limiting) beside the commands sent and not yet answered. Row two: health, mana, endurance and willpower, each with its percentage and its change since the last prompt. Row three: the balance strip, then XP and class stats.</td></tr>
-<tr><td><strong>Balance strip</strong></td><td>One cell per balance: BAL and EQ, then herb, salve, sip, purgative, smoke, focus, moss and tree. Green with a tick when ready; blue with an arrow while a command on it is unanswered; grey with the seconds left while it recovers; red with a cross when an affliction or paralysis holds it; dim when there is nothing to use. It applies exactly the rules the queue does, so it can't show something as ready that the system won't send.</td></tr>
-<tr><td><strong>Chat</strong></td><td>Captured channels, tabbed. Capture and rendering are separate modules and fail independently.</td></tr>
-</tbody>
-</table>
-<p>
-Affliction colour carries the <em>source</em>: server-confirmed afflictions are solid,
-trigger-detected ones dimmer. They have genuinely different reliability and hiding that would
-make a desync impossible to spot.
-</p>
-
-<h2 id="chyron">The chyron</h2>
-<p>
-A scrolling ticker in the top strip, for things that must not be missed. Up to three messages
-are held at once and all of them scroll continuously on a loop &mdash; the way a TV chyron
-actually moves, not a slideshow that pauses on each message in turn.
-</p>
-<pre><code>lua emunah.ui.chyron.send("text")
-lua emunah.ui.chyron.clear()</code></pre>
-<p>
-Anything in the codebase pushes to it with the same call.
-</p>
-
-<h2 id="echo">Banners and labels</h2>
-<p>
-<code>ui/echo.lua</code> provides the one-off announcements: a boxed centred banner in the
-main console, a highlighted line framed by a short colour gradient, and small floating labels
-anchored over the game console.
-</p>
-<p>
-The <code>** PAUSED **</code> label is the worked example. Curing and defence keep-up are both
-independently pausable, and <strong>a system silently doing nothing is exactly the failure
-mode a banner like this exists to make impossible to miss</strong>. It is persistent &mdash;
-no duration &mdash; and stays up for as long as either is off.
-</p>
-
-<h2 id="theme">Theme</h2>
-<p>
-One place for every colour, font and border, so panels stay consistent and a retheme is a
-single-file change. A dark, low-saturation base with a small number of saturated accents
-reserved for information that <em>changes</em>: health, balance, afflictions.
-</p>
-<p>
-Colours are given as hex strings for Qt stylesheets and as RGB triples for the echo
-functions, derived from the same source. Note that <code>Geyser.MiniConsole</code> has no
-<code>setStyleSheet</code> &mdash; that is a Label and Gauge method, and calling it on a
-console is a hard error. A console's background comes from the <code>color</code> field of its
-constructor instead.
-</p>
-
-<h2 id="cost">What the interface costs</h2>
-<p>
-Mudlet runs every installed package in one Lua state on the UI thread, so a panel repaint is
-time the whole client is not drawing, not reading input, and not sending. Two rules, both
-enforced by the test suite:
-</p>
+<h2 id="room">Room</h2>
+<p>Where you are, with the room's number, exits and any shop or bank. Then three groups, each with a count:</p>
 <ul>
-  <li><strong>A panel draws once per repaint, not once per row.</strong> The defence grid used to emit a separate Qt rich-text parse per cell &mdash; thirty-odd of them.</li>
-  <li><strong>A panel whose rendered content is unchanged does not draw at all.</strong> A restock pulling five herbs fires five item events, none of which change what the room shows.</li>
-<li><strong>Nothing is drawn before the cure is sent.</strong> Panels paint once the packet has been handled, coalesced: two afflictions in one packet paint the panel once.</li>
-<li><strong>Countdowns tick slowly, and only while something counts.</strong> Every 0.2&nbsp;s by default (<code>emset ui.refresh</code>, 0 to turn them off), stopping as soon as every balance is back.</li>
+  <li><strong>People</strong>, coloured the same way names are coloured in the game text.</li>
+  <li><strong>Mobiles</strong>, each one clickable. A filled dot means the hunt will attack it and a hollow one means it will not; a click adds or removes that kind from the area's kill list.</li>
+  <li><strong>Items</strong>, with identical items collapsed into one row and a count.</li>
 </ul>
-<p>
-<code>lua5.1 test/ui_preview.lua out.html</code> renders the interface from the real panel
-code in a scripted fight, for a look at a change without Mudlet.
-</p>
-<p>
-See <a href="performance.html">Performance</a> for the measurements.
-</p>
+<p>The game leaves out anyone shrouded, hidden or phased, so the people list is everyone the game admits to, not necessarily everyone there.</p>
 
+<h2 id="afflictions">Afflictions</h2>
+<p>Afflictions are listed in curing order, and each row answers what Emunah is doing about it:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>The row says</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>curing</code></td><td>The cure has been sent and the game has not answered yet.</td></tr>
+    <tr><td><code>next</code></td><td>Everything is ready; it goes out on this prompt.</td></tr>
+    <tr><td><code>1.4s</code></td><td>Its balance is recovering, and this is how long is left.</td></tr>
+    <tr><td><code>× paralysis</code></td><td>Its only way is shut by another affliction, named.</td></tr>
+    <tr><td>a reason</td><td>Why Emunah refused it, such as "in the rift", so a refusal never looks like a hang.</td></tr>
+  </tbody>
+</table></div>
+<p>A filled dot means the server reports the affliction; a hollow one means only the game text has, and it is waiting for the server to confirm it. Above the rows, any state that holds every command (stunned, asleep, prone, unconscious) shows as a pill. Below them, one line per lock reads off what is shut and by what.</p>
 
-<footer>
-See <a href="architecture.html">Architecture</a> next, or <a href="performance.html">Performance</a> for what the panels cost.
-</footer>
+<h2 id="defences">Defences</h2>
+<p>What keep-up is still owed comes first, then everything that is up, with a count of each in the title. See <a href="defences.html">Defence maintenance</a>.</p>
 
-<div class="page-nav">
-  <div><span class="dir">Back</span><a href="sustenance.html">&larr; Sustenance &amp; Economy</a></div>
-  <div class="next"><span class="dir">Next</span><a href="architecture.html">Architecture &rarr;</a></div>
-</div>
+<h2 id="hud">The combat HUD</h2>
+<figure>
+  <div class="term" style="padding:12px"><img src="img/combat-hud.png" width="800" height="94" alt="The left half of the combat HUD: the target bar, the health gauge with the damage just taken, the mana gauge, and the first cells of the balance strip."></div>
+  <figcaption>The left half of the HUD in a scripted fight, drawn by Emunah's own code.</figcaption>
+</figure>
+<p>Three rows, directly above the command line:</p>
+<ol>
+  <li><strong>Target and status.</strong> Your target's health bar, then what is switched on (curing, keep-up, hunting, PvP and its target) and the commands sent and not yet answered.</li>
+  <li><strong>Vitals.</strong> Health, mana, endurance and willpower, each with its percentage and its change since the last prompt.</li>
+  <li><strong>Balances.</strong> The balance strip, then experience and your class's own figures, such as devotion for a Priest.</li>
+</ol>
 
-</div>
-<div class="toc">
-  <div class="toc-title">On this page</div>
-  <a href="#layout">Layout</a>
-  <a href="#panels">Panels</a>
-  <a href="#chyron">The chyron</a>
-  <a href="#echo">Banners and labels</a>
-  <a href="#theme">Theme</a>
-  <a href="#cost">What it costs</a>
-</div>
+<h2 id="balance-strip">The balance strip</h2>
+<p>One cell for balance and equilibrium, then one for each curing balance: herb, salve, sip, purgative, smoke, focus, moss and tree.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>The cell</th><th>Means</th></tr></thead>
+  <tbody>
+    <tr><td>Green, with a tick</td><td>Ready.</td></tr>
+    <tr><td>Blue, with an arrow</td><td>A command was sent on it and the game has not answered.</td></tr>
+    <tr><td>Grey, with seconds</td><td>Recovering. The game's own figure where it states one.</td></tr>
+    <tr><td>Red, with a cross</td><td>Shut by an affliction, or by paralysis.</td></tr>
+    <tr><td>Dim</td><td>Nothing to use, such as the tree cell with no tree tattoo.</td></tr>
+  </tbody>
+</table></div>
+<p>The strip applies exactly the rules the queue does, so it cannot show a balance as ready that Emunah would not send on.</p>
+
+<h2 id="chat">Chat, map and ticker</h2>
+<p>Channels are captured into tabs: tells, city, house, market, says and the rest, configurable with <code>ui.chatTabs</code>. Capture and display are separate, so one failing never takes the other with it. The map is Mudlet's own, embedded below the chat; <code>emset ui map off</code> hides it.</p>
+<p>The ticker across the top scrolls continuously, up to three messages at once, for notices that must not scroll away, such as having no shield wielded. A persistent label in the game window says when curing or keep-up is paused, so a system quietly doing nothing is impossible to miss.</p>
+
+<h2 id="names">Names in the text</h2>
+<p>Known people are coloured where they appear in the game text, by what they are to you: an ally, an enemy, or a citizen of a given city. Weight carries the rest, such as a Dragon or someone you marked as important, so both can be read at a glance. Your own name is never highlighted. See <a href="people.html">People and names</a>.</p>
+
+<h2 id="keys">Keys</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>Key</th><th>Does</th></tr></thead>
+  <tbody>
+    <tr><td>Numpad</td><td>Movement in all eight directions, 0 and . for in and out, &minus; and + for up and down, and 5 to look, with or without Num Lock. <code>keys.numpad</code> turns it off.</td></tr>
+    <tr><td><kbd>Ctrl</kbd> + <kbd>F5</kbd></td><td>Reload Emunah.</td></tr>
+    <tr><td><kbd>F11</kbd></td><td>Start hunting.</td></tr>
+    <tr><td><kbd>F12</kbd></td><td>Stop hunting and retreat three rooms the way you came.</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="cost">What it costs</h2>
+<p>Mudlet runs every package on one thread, so a repaint is time the client is not reading or sending. Emunah's panels paint once, after each packet has been handled, never before a cure has been sent, and not at all when nothing they show has changed. Countdowns redraw every 0.2 seconds only while something is counting (<code>ui.refresh</code>). See <a href="performance.html">Performance</a> for the measurements.</p>
+<pre><code>emset ui                <span class="c"># whether the panels and the map are on</span>
+emset ui rebuild        <span class="c"># rebuild every panel; fixes one that is missing or stuck</span>
+emset ui map on|off</code></pre>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="curing.html"><small>Previous</small>Client-side curing</a>
+  <a class="next" href="defences.html"><small>Next</small>Defence maintenance</a>
+</nav>
 </main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#layout">Layout</a>
+  <a href="#room">Room</a>
+  <a href="#afflictions">Afflictions</a>
+  <a href="#defences">Defences</a>
+  <a href="#hud">The combat HUD</a>
+  <a href="#balance-strip">The balance strip</a>
+  <a href="#chat">Chat, map and ticker</a>
+  <a href="#names">Names in the text</a>
+  <a href="#keys">Keys</a>
+  <a href="#cost">What it costs</a>
+</aside>
 </div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
 </body>
 </html>

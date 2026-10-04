@@ -1,334 +1,244 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Curing Engine — Emunah</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Client-side curing | Emunah</title>
+<meta name="description" content="How Emunah cures afflictions in the client: one cure per balance, locks cured around, healing on its own thresholds, and illusions ignored.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/curing.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Client-side curing | Emunah">
+<meta property="og:description" content="How Emunah cures afflictions in the client: one cure per balance, locks cured around, healing on its own thresholds, and illusions ignored.">
+<meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
 </head>
 <body>
-<div class="layout">
-<nav class="sidebar">
-  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
-  <p class="tagline">An Achaea system for Mudlet</p>
+<a class="skip" href="#main">Skip to content</a>
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
   <ul>
-    <li><a href="index.html">Overview</a></li>
-    <li><a href="getting-started.html">Getting Started</a></li>
-    <li><a href="commands.html">Command Reference</a></li>
-    <li><a href="api.html">Lua API</a></li>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
   </ul>
-  <div class="nav-group-title">How it works</div>
+  <h4>Features</h4>
   <ul>
-    <li><a href="curing.html" class="active">Curing Engine</a></li>
-    <li><a href="combat.html">Combat &amp; PvP</a></li>
-    <li><a href="people.html">People &amp; Names</a></li>
-    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="curing.html" aria-current="page">Client-side curing</a></li>
     <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
     <li><a href="architecture.html">Architecture</a></li>
     <li><a href="performance.html">Performance</a></li>
-  </ul>
-  <div class="nav-group-title">Project</div>
-  <ul>
+    <li><a href="api.html">Lua API</a></li>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main class="with-toc">
-<div class="content">
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html" aria-current="page">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
+<h1>Client-side curing</h1>
+<p class="lede">Emunah tracks every affliction you have and cures each one on the balance that can cure it, the moment that balance is back. Achaea's server-side curing stays off, and every rule Emunah follows is one you can read and change.</p>
+<figure>
+  <div class="term"><img src="img/afflictions-lock.png" width="438" height="243" style="--w:438px" alt="Emunah's affliction panel mid-lock: anorexia, stupidity, asthma, paralysis and clumsiness, each with its cure and the affliction blocking it."></div>
+  <figcaption>The affliction panel during a lock, drawn by Emunah's own code. Each row shows the affliction, its cure, and what that cure is waiting on.</figcaption>
+</figure>
 
-<h1>Curing Engine</h1>
-<p>
-Achaea combat runs on afflictions — negative status effects that stack up and have to be
-cured with the right herb, salve, elixir, or action before they compound into something
-worse. Emunah's curing engine tracks what's afflicting you and queues the right cure
-automatically, once per game tick, one cure per resource in flight at a time.
-</p>
+<h2 id="balances">One cure per balance</h2>
+<p>Achaea gates each kind of cure behind its own balance. Eating a herb, applying a salve and sipping an elixir can all happen in the same second; two herbs cannot. So there is no single priority list in Emunah. Each balance picks its own most urgent cure, every prompt, and sends it as soon as it is chosen.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Balance</th><th>Cures with</th></tr></thead>
+  <tbody>
+    <tr><td>Herb</td><td>Eating plants, or their minerals in minerals mode.</td></tr>
+    <tr><td>Salve</td><td>Applying salves, to the body part each one needs.</td></tr>
+    <tr><td>Sip</td><td>Health and mana elixirs, and tonics.</td></tr>
+    <tr><td>Purgative</td><td>The affliction-curing elixirs: immunity, frost, venom, speed and levitation.</td></tr>
+    <tr><td>Smoke</td><td>A lit pipe. <a href="sustenance.html#pipes">Pipes</a> keeps them filled and lit.</td></tr>
+    <tr><td>Focus</td><td>FOCUS, for mental afflictions, held back when mana is low.</td></tr>
+    <tr><td>Moss</td><td>Irid moss and potash.</td></tr>
+    <tr><td>Tree</td><td>Touching the tree tattoo, when you have one.</td></tr>
+  </tbody>
+</table></div>
+<p>Some cures spend no curing balance at all and go out alongside the others: COMPOSE for fear, CONCENTRATE, CLOT for bleeding above a threshold, and WRITHE for entanglement. WRITHE is sent once per entanglement and never repeated while it is under way, because a second one makes it take longer.</p>
+<p>The ranking within each balance follows the reference system's. <code>emset prio &lt;affliction&gt; &lt;balance&gt; &lt;rank&gt;</code> moves any affliction up or down on any one balance; lower is sooner.</p>
 
-<h2 id="vectors">Vectors and per-vector priority</h2>
-<p>
-A <strong>vector</strong> is a resource that gates a cure. Eating a herb, applying a salve,
-smoking a pipe, sipping an elixir, and focusing your mind all draw on <em>separate</em>
-balances in Achaea — you can do all of them in the same second. Two herbs, on the other
-hand, cannot happen at once; eating uses up the one "herb" balance regardless of which herb
-it is.
-</p>
-<p>
-This is the single most important design decision in the engine: <strong>there is no global
-priority list.</strong> If there were, the most urgent affliction would hog the tick even
-while waiting on salve balance, and three herb cures that could have gone out simultaneously
-in that same second would wait behind it. Achaea combat is decided largely on that
-throughput.
-So each vector is resolved independently, against its own ranking, every tick:
-</p>
-<div class="flow">
-  <div class="step">herb</div><div class="step">salve</div><div class="step">smoke</div>
-  <div class="step">elixir</div><div class="step">focus</div><div class="step">tree</div>
-</div>
-<p>Six cures can be in flight simultaneously — one per vector — each fighting for its own balance, not anyone else's.</p>
-
-<h2 id="afflist">The affliction table</h2>
-<p>
-<code>src/emunah/curing/afflist.lua</code> holds 131 afflictions, each with:
-</p>
-<ul>
-<li>one or more cure <strong>options</strong>, in preference order — a vector, an item, its Alchemist mineral equivalent, and (for salves) a body location</li>
-<li>a <strong>priority</strong> per vector: an integer rank, 1 = most urgent for that vector specifically</li>
-</ul>
-<pre><code>paralysis = {
-   cures    = { { vector = "herb", item = "bloodroot", alt = "magnesium" } },
-   priority = { herb = 6 },
-},
-
-anorexia = {
-   cures    = { { vector = "salve", item = "epidermal", alt = "sensory", location = "body" },
-                { vector = "focus" } },
-   priority = { salve = 1, focus = 2 },
-},</code></pre>
-<p>
-<code>alt</code> is the Alchemist mineral equivalent, used automatically when
-<code>curing.method</code> is set to <code>minerals</code> instead of <code>herbs</code> —
-the herb ↔ mineral mapping lives in exactly one place per entry.
-</p>
-
-<h3 id="blocking">Blocking afflictions — the classic lock</h3>
-<p>Three afflictions each shut down an entire vector, and each is cured by a vector one of the other two blocks:</p>
-<table>
-<thead><tr><th>Affliction</th><th>Blocks</th><th>Cured by</th></tr></thead>
-<tbody>
-<tr><td><code>anorexia</code></td><td>eating (herb)</td><td>apply epidermal, <em>or</em> <code>FOCUS</code></td></tr>
-<tr><td><code>slickness</code></td><td>applying (salve)</td><td>smoke valerian, or eat bloodroot</td></tr>
-<tr><td><code>asthma</code></td><td>smoking (smoke)</td><td>eat kelp</td></tr>
-</tbody>
-</table>
-<p>
-With all three up, every item vector is shut and <code>FOCUS</code> is the only way out —
-which is exactly why <code>focus</code> ranks anorexia <em>second</em> in its own priority
-list. The engine consults this table before ever queuing a cure, so it won't queue
-<code>eat kelp</code> while anorexic and then sit there wondering why nothing is happening.
-</p>
-
-<h2 id="engine">How a tick resolves</h2>
-<p>Once per game prompt (<code>Char.Vitals</code>, which Achaea sends every time), the engine runs through this sequence:</p>
-<ol>
-<li><strong>Reconcile</strong> tracked afflictions against the server's own list (periodically, not every tick — see <a href="#detection">Detection</a> for what "reconcile" means here).</li>
-<li><strong>Writhes first.</strong> Bound, webbed, roped, and similar movement-locks aren't cured by items — the cure is repeated <code>WRITHE</code>, and while active most other actions are refused anyway, so this always goes first, unconditionally.</li>
-<li><strong>Healing.</strong> Not an affliction, but it outranks everything on the vectors it uses — there is no value in curing stupidity at 8% health. See <a href="#healing">Healing</a> below.</li>
-<li><strong>For each vector independently</strong> (herb, salve, smoke, elixir, focus, tree): pick the lowest-ranked tracked affliction that vector can cure, confirm you can actually perform that cure right now (item on hand, defence not blocking it, mana available for focus, a lit pipe for smoking), and queue the command.</li>
-<li><strong>Flush the queue</strong> — send at most one command per vector that's actually free right now.</li>
-</ol>
-
-<h3>The capability gate</h3>
-<p>
-A resolved cure still has to pass <code>have.cure()</code> before it's queued: is the item
-actually in inventory or the Rift, is the vector currently blocked by another affliction, is
-there mana for <code>FOCUS</code>, is a pipe loaded for smoking. This is the layer that keeps
-the engine from confidently sending a cure command for an item you ran out of three fights
-ago.
-</p>
+<h2 id="locks">Locks</h2>
+<p>Some afflictions shut whole balances. Sending into a shut balance wastes a round trip, so Emunah checks every block before it chooses a cure, and cures through the balance that is still open.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Affliction</th><th>Shuts</th><th>Cured through</th></tr></thead>
+  <tbody>
+    <tr><td>Anorexia</td><td>Herb, sip, purgative and moss</td><td>An epidermal salve, or FOCUS</td></tr>
+    <tr><td>Slickness</td><td>Salve</td><td>Smoking valerian, or eating bloodroot</td></tr>
+    <tr><td>Asthma</td><td>Smoke</td><td>Eating kelp</td></tr>
+    <tr><td>Paralysis</td><td>Everything except eating</td><td>Eating bloodroot</td></tr>
+    <tr><td>Impatience</td><td>Focus</td><td>Eating goldenseal</td></tr>
+  </tbody>
+</table></div>
+<p>A block can land after a cure has been queued, so the queue asks again at the moment it would send. Stun, sleep and unconsciousness hold everything; prone holds only what needs you upright, so you keep eating and sipping on the ground.</p>
 
 <h2 id="healing">Healing</h2>
-<p>
-Four healing sources draw on three independent balances, so most of them do not compete with
-each other and several can be in flight simultaneously. Each has its own threshold, and the
-defaults descend so that cheaper, renewable sources engage before finite ones.
-</p>
-<table>
-<thead><tr><th>Source</th><th>Balance</th><th>Setting</th><th>Default</th></tr></thead>
-<tbody>
-<tr><td><code>drink mana</code></td><td>Sip</td><td><code>curing.manaThreshold</code></td><td>85%</td></tr>
-<tr><td><code>drink health</code></td><td>Sip</td><td><code>curing.healthThreshold</code></td><td>80%</td></tr>
-<tr><td><code>eat irid</code></td><td>Moss</td><td><code>curing.iridThreshold</code></td><td>68%</td></tr>
-<tr><td><code>perform hands</code></td><td>Equilibrium</td><td><code>curing.handsThreshold</code></td><td>50%</td></tr>
-</tbody>
-</table>
-<p>
-Health and mana are the exception: both are elixirs and share one sip balance, so they
-compete, and health always takes priority. Irid moss restores both bars on a balance nothing
-else uses. <code>perform hands</code> spends equilibrium, which makes it the one healing
-source that competes with attacking.
-</p>
-<div class="callout callout-note">
-<div class="callout-title">A command the game cannot perform still costs time</div>
-<p>
-Asking for a fluid no vial contains produces <code>What is it that you wish to drink?</code>
-— nothing is drunk and no balance is spent, but the send still occupies the elixir vector
-until its confirmation times out. Because health and mana share that vector, an impossible
-mana sip repeated on a loop stops health sipping entirely. Emunah frees the vector on that
-reply and stops requesting the fluid for two minutes, logging what needs refilling.
-</p>
-</div>
+<p>Four sources, three balances, and each engages at its own threshold. Healing outranks curing on the balances it uses: there is nothing to gain from curing stupidity at 8% health.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Source</th><th>Balance</th><th>Default</th></tr></thead>
+  <tbody>
+    <tr><td>Drink mana</td><td>Sip</td><td>below 85%</td></tr>
+    <tr><td>Drink health</td><td>Sip, ahead of mana</td><td>below 80%</td></tr>
+    <tr><td>Eat irid moss</td><td>Moss</td><td>below 68%, health or mana</td></tr>
+    <tr><td>Perform Hands</td><td>Equilibrium</td><td>below 50%</td></tr>
+  </tbody>
+</table></div>
+<p>Perform Hands is set low on purpose: it costs the equilibrium your attacks need. When a vial runs dry, Emunah stops asking for that fluid for a while and tells you what needs refilling, rather than tying up the sip balance with a drink that cannot happen.</p>
 
-<h2 id="rift">Rift management</h2>
-<p>
-Curatives live in the Rift and must be withdrawn before they can be used, and
-<code>OUTR</code> has a round trip — withdrawing a herb at the moment an affliction lands
-produces a cure that arrives too late. Emunah keeps three of each curative in inventory,
-withdrawing one item at a time as stock falls.
-</p>
-<p>
-The ceiling matters as much as the floor. Inventory is lost on death and the Rift is not, so
-anything above the target is risk carried for no benefit; surplus is returned automatically.
-Stock is checked when inventory is listed rather than only on a prompt, so a reload restores
-correct levels immediately rather than at the next combat round.
-</p>
+<h2 id="detection">Knowing what you have</h2>
+<p>Afflictions come from GMCP, and GMCP reports them reliably, in player combat as well as against denizens, with two exceptions:</p>
+<ul>
+  <li><strong>Loki</strong> hides what you have. Emunah sends DIAG when the list is in doubt, which reports the truth for a second of equilibrium.</li>
+  <li><strong>Blackout</strong> stops updates altogether. Emunah stops trusting a frozen list and catches up the moment it lifts.</li>
+</ul>
+<p>Recklessness is a third case of a different kind: it reports your health and mana as full whatever they are. While it is up, Emunah heals on every source rather than trust a figure that reads 100% while you die, and cures the recklessness itself early.</p>
+<p>With <code>EmunahTriggers.xml</code> installed, the game's own text adds to GMCP. A trigger sees an affliction the instant its line prints, ahead of the next GMCP update, and a cure line frees its balance at once instead of waiting out a timer.</p>
 
-<h2 id="defkeepup">Defence keep-up</h2>
-<p>
-A second, much simpler system restores defences that have dropped, using the same action
-queue as curing so the two never fight over a balance. It's simpler because
-<code>Char.Defences</code> is <em>genuinely</em> complete — the game tells you exactly which
-defences you have, always. No trigger layer, no reconciliation, no ambiguity. Compare that
-to afflictions, below.
-</p>
-<p>
-Keep-up always runs at a fixed low priority — any cure outranks it. And it defers entirely
-while the engine is tracking any affliction: re-raising a defence mid-lock usually just gets
-it stripped again immediately, so it waits until you're clear.
-</p>
-<pre><code>emset defs add rebounding
-emset defs on</code></pre>
+<h2 id="illusions">Illusions</h2>
+<p>Text can be faked; GMCP cannot. So everything that comes from text is checked the way the reference system checks it:</p>
+<ul>
+  <li>Text reports wait for the prompt that ends their block.</li>
+  <li>One illusion in a block discards the whole block.</li>
+  <li>A cure line only counts while that cure is actually in flight.</li>
+  <li>An affliction reported by text is dropped unless the server confirms it within about two seconds.</li>
+</ul>
+<p>Emunah's own lines get the same treatment with or without the trigger package: a refusal only counts after a command it could be answering, and a herb balance that comes back implausibly fast is ignored. Anything ignored is marked <code>(i)</code> on its line, so you can see it was caught.</p>
 
-<h2 id="detection">Detection: GMCP and triggers</h2>
-<p>
-This is the part worth understanding before trusting the engine in a real fight, especially PvP.
-</p>
-<p>Affliction state comes from two independent sources:</p>
-<table>
-<thead><tr><th>Source</th><th>Reliability</th></tr></thead>
-<tbody>
-<tr>
-  <td><strong>GMCP</strong> (<code>Char.Afflictions</code>)</td>
-  <td>Authoritative, including in PvP, with exactly two exceptions: <code>loki</code> and <code>blackout</code>. This is the opposite of the assumption the system was built under, and correcting it changed what the trigger corpus is <em>for</em>.</td>
-</tr>
-<tr>
-  <td><strong><code>DIAG</code></strong></td>
-  <td>What answers <code>loki</code>. Sent when the list is in doubt, and parsed by <code>curing/detect/diag.lua</code>. Under loki the list the engine would resolve against is the thing in question, so establishing what is real comes before resolving any cure.</td>
-</tr>
-<tr>
-  <td><strong>Triggers</strong> (game text)</td>
-  <td>Confirmation, not substitution. Cure-side patterns free a vector the moment the game says a cure landed, rather than waiting out the fallback timer — which is a round trip saved on every cure.</td>
-</tr>
-</tbody>
-</table>
+<h2 id="defences-on-purpose">Defences held on purpose</h2>
+<p>Some defences look like afflictions to the game. If you are deliberately blind or deaf, GMCP reports blindness or deafness, and a naive engine would cure it and then do it again every time keep-up restored the defence. Emunah knows which afflictions are defences you are holding, and leaves them alone for exactly as long as the defence is up.</p>
 
-<div class="callout callout-warn">
-<div class="callout-title">Three exceptions, and only three</div>
-<p>
-<code>loki</code> hides afflictions from <code>Char.Afflictions</code>; <code>DIAG</code>
-reports them anyway, and <code>curing/detect/diag.lua</code> reconciles the answer.
-<code>blackout</code> suppresses the feed entirely for its duration — nothing sees through
-it, and the response is to survive it rather than to cure through it.
-<code>recklessness</code> is the subtle one: it does not hide anything, it lies about
-vitals, reporting health and mana at maximum. Any healing decision made from vitals is
-wrong while it is up.
-</p>
-<p>
-Everything else in the affliction list can be believed. See
-<code>docs/game/defences.md</code> &mdash; "Where GMCP stops being authoritative" &mdash;
-for the evidence.
-</p>
-</div>
+<h2 id="rift">Cures in hand</h2>
+<p>Cures live in the rift, and pulling one out takes a round trip. A herb pulled at the moment you need it arrives too late. Emunah keeps one of each curative in your inventory, pulling the next as soon as one is used, and puts any surplus back: inventory is lost on death and the rift is not.</p>
+<p>Pulls go one at a time, never while you are entangled, and still while you are paralysed, because the bloodroot that cures paralysis may be in the rift.</p>
 
-<h3>Defences held on purpose</h3>
-<p>
-<code>curing/deflist.lua</code> answers a question the cure table cannot: which afflictions
-are actually a <em>defence</em>. <code>blindness</code> and <code>deafness</code> are the
-worked examples — the game reports the resulting state as an affliction, so a naive engine
-sees <code>blindness</code> and reaches for epidermal while you are deliberately blind, then
-does it again every time keep-up restores the defence.
-</p>
-<p>
-The guard is gated on <code>Char.Defences</code> actually reporting the defence, so it lapses
-the instant the defence does: a real blinding, with no <code>blind</code> defence up, cures
-normally. It also consults defence keep-up directly, because <code>Char.Defences</code> can
-lag the affliction message on login — watched live, the engine spent a whole tick chasing
-epidermal for a defence held on purpose, because the only source consulted had not answered
-yet.
-</p>
+<h2 id="sleep">Sleep</h2>
+<p>Emunah wakes you from a sleep you did not choose. For one you do choose, type <code>sleep</code>: it relaxes insomnia, sends SLEEP, and holds both the wake and insomnia until you are up.</p>
 
-
-<div class="callout callout-warn">
-<div class="callout-title">Why the shipped trigger set is small on purpose</div>
-<p>
-Achaea's ~200 affliction onset messages aren't published anywhere transcribable. Writing
-patterns for all of them from memory or guesswork would produce a table that <em>looks</em>
-complete and is quietly wrong in places — and a wrong pattern is strictly worse than a
-missing one. It asserts an affliction you don't actually have, and the engine burns a real
-balance curing something that isn't there, in the middle of a fight, for a reason invisible
-in any log.
-</p>
-<p>
-So the shipped corpus (<code>src/emunah/curing/detect/patterns.lua</code>) contains only
-patterns that are <strong>structurally certain</strong> — Achaea's own rejection messages
-("You are afflicted with anorexia and cannot eat anything."), which are stable, generic, and
-say exactly what's wrong. Everything else grows from evidence, not assumption.
-</p>
-</div>
-
-<h3>Growing the corpus from evidence</h3>
-<pre><code>lua emunah.curing.detect.startLearning()   -- log candidate lines while you fight
--- ... fight, or spar in the arena ...
-lua emunah.curing.detect.stopLearning()
-lua display(emunah.curing.detect.coverage())</code></pre>
-<p>
-Learn mode logs lines matching Achaea's typical affliction-message shape
-("You ..." / "Your ...", short, present tense) to <code>emunah-learn.txt</code>. After the
-fight, read the file, and add exactly what you saw:
-</p>
-<pre><code>detect.define("paralysis", {
-   gain = { [[^Your muscles seize up completely\.$]] },
-   cure = { [[^Your muscles unlock and you can move again\.$]] },
-})</code></pre>
-<p>
-A <code>gain</code> pattern asserts the affliction the moment it's seen. A <code>cure</code>
-pattern retracts it <em>and</em> immediately confirms whichever vector was waiting on it —
-without that, the vector stays blocked until a fallback timer lapses, which costs roughly a
-full extra cure's worth of time per affliction. Patterns are always anchored with
-<code>^</code> and <code>$</code>; an unanchored pattern will match the same words quoted
-back at you in a tell.
-</p>
-
-<h3>How the two sources reconcile</h3>
-<p>
-GMCP is authoritative for <em>removing</em> a tracked affliction — if the server's list no
-longer mentions it, it's gone. But addition only ever <em>corroborates</em>: an affliction
-detected by a trigger survives even when GMCP hasn't (yet, or ever) reported it, because in
-PvP it frequently won't. This asymmetry is what lets trigger-detected state actually mean
-something instead of being overwritten by an incomplete server list every reconcile pass.
-</p>
-
-<h2 id="provenance">How the cure data is verified</h2>
-<p>
-The affliction/cure mappings, herb&harr;mineral equivalents, salve locations, and &mdash;
-critically &mdash; the per-vector priority ordering are checked against Achaea's own
-<em>A Lesson in Herbs</em>, and independently cross-checked a second time against Achaea's
-official help pages and a second affliction dictionary (documented in full in the repo's
-<code>docs/afflictions.md</code>, including a handful of flagged discrepancies still
-awaiting in-game verification).
-</p>
-
-<footer>
-See <a href="combat.html">Combat &amp; PvP</a> next, or the <a href="commands.html#curing">Curing commands</a> reference.
-</footer>
-
-<div class="page-nav">
-  <div><span class="dir">Back</span><a href="api.html">&larr; Lua API</a></div>
-  <div class="next"><span class="dir">Next</span><a href="combat.html">Combat &amp; PvP &rarr;</a></div>
-</div>
-
-</div>
-<div class="toc">
-  <div class="toc-title">On this page</div>
-  <a href="#vectors">Vectors</a>
-  <a href="#afflist">The affliction table</a>
-  <a href="#blocking">Blocking afflictions</a>
-  <a href="#engine">How a tick resolves</a>
-  <a href="#healing">Healing</a>
-  <a href="#rift">Rift management</a>
-  <a href="#defkeepup">Defence keep-up</a>
-  <a href="#detection">Detection</a>
-  <a href="#provenance">Data provenance</a>
-</div>
+<h2 id="commands">Commands</h2>
+<pre><code>emset curing                       <span class="c"># on or off, and everything being tracked</span>
+emset curing on|off
+emset prio paralysis herb 1        <span class="c"># cure paralysis first on the herb balance</span>
+emset curing.method minerals       <span class="c"># cure with minerals instead of herbs</span>
+pp                                 <span class="c"># pause or resume curing and defences together</span></code></pre>
+<p>Every curing setting is listed in the <a href="commands.html#curing">command reference</a>.</p>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="commands.html"><small>Previous</small>Commands</a>
+  <a class="next" href="interface.html"><small>Next</small>Interface</a>
+</nav>
 </main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#balances">One cure per balance</a>
+  <a href="#locks">Locks</a>
+  <a href="#healing">Healing</a>
+  <a href="#detection">Knowing what you have</a>
+  <a href="#illusions">Illusions</a>
+  <a href="#defences-on-purpose">Defences held on purpose</a>
+  <a href="#rift">Cures in hand</a>
+  <a href="#sleep">Sleep</a>
+  <a href="#commands">Commands</a>
+</aside>
 </div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
 </body>
 </html>

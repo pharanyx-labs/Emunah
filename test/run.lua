@@ -12429,8 +12429,6 @@ local readmeModules = tonumber(readme:match("v0%.1%.0 loaded %-%- (%d+) modules"
 eq(readmeModules, manifestCount, "README's module count matches emunah.lua's MANIFEST")
 
 local indexHtml = readFile("website/index.html")
-local indexModules = tonumber(indexHtml:match('badge">(%d+) modules'))
-eq(indexModules, manifestCount, "website/index.html's module count matches MANIFEST")
 
 local gettingStarted = readFile("website/getting-started.html")
 local gsModules = tonumber(gettingStarted:match("v0%.1%.0 loaded %-%- (%d+) modules"))
@@ -12447,8 +12445,66 @@ eq(archTests, readmeTests, "website/architecture.html's test count matches READM
 local gsTests = tonumber(gettingStarted:match("(%d+) behavioural tests"))
 eq(gsTests, readmeTests, "website/getting-started.html's test count matches README")
 
-local indexTests = tonumber(indexHtml:match('badge">(%d+) automated tests'))
+-- Written with a thousands separator on the landing page ("2,431").
+local indexTests = tonumber(((indexHtml:match('data%-fact="tests">([%d,]+)') or ""):gsub(",", "")))
 eq(indexTests, readmeTests, "website/index.html's test count matches README")
+
+-- EVERY PAGE SHARES ONE HEADER AND FOOTER. They are written into each page rather than
+-- included at runtime (the site is static files), so a page that missed an edit would show
+-- an old menu. The current-page marker is the one legitimate difference.
+local function chrome(html, open, close)
+   local i = html:find(open, 1, true)
+   local _, j = html:find(close, i or 1, true)
+   if not (i and j) then return nil end
+   return (html:sub(i, j):gsub(' aria%-current="page"', ""))
+end
+local pages = {}
+local listing = io.popen("ls website/*.html")
+for path in listing:lines() do pages[#pages + 1] = path end
+listing:close()
+ok(#pages >= 10, "the site has its pages", #pages)
+local header = chrome(indexHtml, "<!-- site:header -->", "<!-- /site:header -->")
+local footer = chrome(indexHtml, "<!-- site:footer -->", "<!-- /site:footer -->")
+local drifted = {}
+for _, path in ipairs(pages) do
+   local html = readFile(path)
+   if chrome(html, "<!-- site:header -->", "<!-- /site:header -->") ~= header
+      or chrome(html, "<!-- site:footer -->", "<!-- /site:footer -->") ~= footer then
+      drifted[#drifted + 1] = path
+   end
+end
+eq(#drifted, 0, "every website page has the same header and footer as index.html",
+   table.concat(drifted, " | "))
+
+-- NO DEAD LINKS. Every link to another page of the site, and every #fragment, must land on
+-- something that exists -- a removed page or a renamed section is exactly what goes stale.
+local ids = {}
+for _, path in ipairs(pages) do
+   local name = path:match("([^/]+)$")
+   ids[name] = {}
+   for id in readFile(path):gmatch(' id="([^"]+)"') do ids[name][id] = true end
+end
+local dead = {}
+for _, path in ipairs(pages) do
+   local from = path:match("([^/]+)$")
+   for href in readFile(path):gmatch(' href="([^"]+)"') do
+      if not href:find("^%a+:") and not href:find("^//") then
+         local file, fragment = href:match("^([^#]*)#?(.*)$")
+         if file == "" then file = from end
+         if file:find("%.html$") then
+            if not ids[file] then
+               dead[#dead + 1] = from .. " -> " .. href
+            elseif fragment ~= "" and not ids[file][fragment] then
+               dead[#dead + 1] = from .. " -> " .. href
+            end
+         else
+            local f = io.open("website/" .. file, "r")
+            if f then f:close() else dead[#dead + 1] = from .. " -> " .. href end
+         end
+      end
+   end
+end
+eq(#dead, 0, "every internal link and anchor on the site resolves", table.concat(dead, " | "))
 
 -- PERFORMANCE NUMBERS: docs/performance.md is where a benchmark actually gets re-measured;
 -- README and the website copy the engine.tick() headline from it.

@@ -1,258 +1,223 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Performance — Emunah</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Performance | Emunah</title>
+<meta name="description" content="What Emunah costs on every prompt and every line, how it was measured, and the rules that keep it fast.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/performance.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Performance | Emunah">
+<meta property="og:description" content="What Emunah costs on every prompt and every line, how it was measured, and the rules that keep it fast.">
+<meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
 </head>
 <body>
-<div class="layout">
-<nav class="sidebar">
-  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
-  <p class="tagline">An Achaea system for Mudlet</p>
+<a class="skip" href="#main">Skip to content</a>
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
   <ul>
-    <li><a href="index.html">Overview</a></li>
-    <li><a href="getting-started.html">Getting Started</a></li>
-    <li><a href="commands.html">Command Reference</a></li>
-    <li><a href="api.html">Lua API</a></li>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
   </ul>
-  <div class="nav-group-title">How it works</div>
+  <h4>Features</h4>
   <ul>
-    <li><a href="curing.html">Curing Engine</a></li>
-    <li><a href="combat.html">Combat &amp; PvP</a></li>
-    <li><a href="people.html">People &amp; Names</a></li>
-    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="curing.html">Client-side curing</a></li>
     <li><a href="interface.html">Interface</a></li>
-    <li><a href="architecture.html">Architecture</a></li>
-    <li><a href="performance.html" class="active">Performance</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
-  <div class="nav-group-title">Project</div>
+  <h4>Under the hood</h4>
   <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html" aria-current="page">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main class="with-toc">
-<div class="content">
-
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html" aria-current="page">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Under the hood</p>
 <h1>Performance</h1>
-<p>
-Achaea combat is decided on round trips. A cure that resolves after the prompt it was
-needed on is a cure that did not happen. Mudlet runs every installed package in a single
-Lua state on the UI thread, so time spent here is time the whole client is not drawing, not
-reading input, and not sending.
-</p>
-<p>
-This page records what the hot paths are, what was wrong with them, and how to measure
-whether a change made things better. It is not a style guide. Everything below was measured,
-not reasoned about — see <code>docs/performance.md</code> in the repository for the source
-this page is generated from.
-</p>
+<p class="lede">Achaea combat is decided on round trips, and Mudlet runs every package on one thread. Time Emunah spends is time the client is not drawing, reading or sending, so every hot path is measured, not assumed.</p>
+<h2 id="paths">The paths that matter</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>Path</th><th>Runs on</th><th>Whose cost</th></tr></thead>
+  <tbody>
+    <tr><td>Trigger matching</td><td>Every line of game text</td><td>Mudlet's own, in C++</td></tr>
+    <tr><td>Trigger callbacks</td><td>Every line a pattern matched</td><td>Emunah's</td></tr>
+    <tr><td><code>engine.tick()</code></td><td>Every prompt</td><td>Emunah's</td></tr>
+    <tr><td>Panel repaints</td><td>Every prompt, and every item, affliction and defence change</td><td>Emunah's, and Qt's</td></tr>
+  </tbody>
+</table></div>
+<p>A trigger whose pattern matches nearly every line is a per-line Lua handler in all but name. Emunah once had five of them.</p>
 
-<h2 id="paths">The four paths that matter</h2>
+<h2 id="now">What it costs now</h2>
+<p>Measured with <code>test/bench.lua</code> under a realistic lock: eight afflictions across every balance, herbs in hand, and health and mana below all four healing thresholds. A run on 4 October 2026 measured <code>engine.tick()</code> at 67.0 µs.</p>
+<h3>The first pass</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th></th><th>Before</th><th>After</th></tr></thead>
+  <tbody>
+    <tr><td><code>engine.tick()</code></td><td>124.1 µs</td><td><strong>79.0 µs</strong></td></tr>
+    <tr><td><code>afflist.priority(aff, vector)</code></td><td>0.58 µs</td><td><strong>0.28 µs</strong></td></tr>
+    <tr><td><code>afflist.curesVia(aff, vector)</code></td><td>0.22 µs</td><td><strong>0.09 µs</strong></td></tr>
+    <tr><td><code>have.cure(option)</code></td><td>1.60 µs</td><td><strong>0.87 µs</strong></td></tr>
+    <tr><td>Ticker scroll step (12.5 Hz)</td><td>47.6 µs, 4171 B</td><td><strong>1.7 µs, 424 B</strong></td></tr>
+    <tr><td>Lines that run the name highlighter</td><td>88%</td><td><strong>12%</strong></td></tr>
+  </tbody>
+</table></div>
+<h3>Time to send, 3 October 2026</h3>
+<p>The second pass measured the time from a packet arriving to the cure leaving, and moved every repaint after the send.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Packet</th><th>Before</th><th>After</th></tr></thead>
+  <tbody>
+    <tr><td>An affliction lands</td><td>158 µs, 10 draws before the send</td><td><strong>85 µs, none</strong></td></tr>
+    <tr><td>Herb balance returns, then <code>Char.Vitals</code></td><td>96 µs, 5 draws</td><td><strong>52 µs, none</strong></td></tr>
+    <tr><td><code>engine.tick()</code></td><td>79.0 µs, 2056 B</td><td><strong>67.5 µs, 2000 B</strong></td></tr>
+    <tr><td><code>engine.has()</code></td><td>0.17 µs</td><td><strong>0.10 µs</strong></td></tr>
+  </tbody>
+</table></div>
 
-<table>
-<thead><tr><th>Path</th><th>Fires on</th><th>Cost</th></tr></thead>
-<tbody>
-<tr><td>Trigger matching</td><td>Every line of game output</td><td>Mudlet C++ PCRE — free to us</td></tr>
-<tr><td>Trigger <strong>callbacks</strong></td><td>Every line whose pattern matched</td><td>All of it ours</td></tr>
-<tr><td><code>engine.tick()</code></td><td>Every prompt (<code>Char.Vitals</code>)</td><td>All of it ours</td></tr>
-<tr><td>UI repaints</td><td>Every prompt, and every item/affliction/defence event</td><td>All of it ours, and Qt's</td></tr>
-</tbody>
-</table>
-
-<div class="callout callout-warn">
-  <div class="callout-title">This page used to say the per-line path needed no attention</div>
-  <p>
-  It asserted: &ldquo;there is no Lua handler on <code>sysDataReceived</code> and there must
-  not be one.&rdquo; Literally true, and it missed the point. <strong>A
-  <code>tempRegexTrigger</code> whose pattern matches every line is a per-line Lua handler
-  with extra steps</strong> — Mudlet still runs the callback in Lua once the C++ matcher
-  fires. There were five such triggers; see the name-highlighter finding below.
-  </p>
-</div>
-
-<h2 id="cost">What it costs now</h2>
-<p>
-Measured with <code>test/bench.lua</code> under a realistic lock: eight afflictions tracked
-across every vector, herbs in hand, health and mana below all four healing thresholds.
-</p>
-
-<table>
-<thead><tr><th></th><th>Before</th><th>After</th></tr></thead>
-<tbody>
-<tr><td><code>engine.tick()</code></td><td>124.1 µs</td><td><strong>79.0 µs</strong></td></tr>
-<tr><td><code>afflist.priority(aff, vector)</code></td><td>0.58 µs</td><td><strong>0.28 µs</strong></td></tr>
-<tr><td><code>afflist.curesVia(aff, vector)</code></td><td>0.22 µs</td><td><strong>0.09 µs</strong></td></tr>
-<tr><td><code>have.cure(option)</code></td><td>1.60 µs</td><td><strong>0.87 µs</strong></td></tr>
-<tr><td>Chyron scroll step (12.5&nbsp;Hz)</td><td>47.6 µs, 4171 B</td><td><strong>1.7 µs, 424 B</strong></td></tr>
-<tr><td>Highlighter callbacks per line</td><td>88% of lines</td><td><strong>12% of lines</strong></td></tr>
-</tbody>
-</table>
-
-<p>
-The line and chyron rows are the ones that were invisible to per-tick benchmarking before —
-and between them they are worth more than the tick itself.
-</p>
-
-<div class="callout callout-note">
-  <div class="callout-title">A note on the byte column</div>
-  <p>
-  Earlier measurements quoted figures like &ldquo;292 bytes per tick.&rdquo; Those were wrong
-  — not by a little. The collector was running during the measured loop, so the delta was
-  &ldquo;allocated minus whatever happened to be collected,&rdquo; which varied between 194
-  and 732 bytes per call across consecutive runs of identical code. The collector is now
-  stopped for the measured loop; the honest figure for a tick is <strong>2037 bytes</strong>,
-  not 292. Do not compare a byte figure measured with the collector running against one
-  measured without it.
-  </p>
-</div>
-
-<h2 id="wrong">What was wrong</h2>
-<p>Ordered by what it was actually costing.</p>
-
-<h3>1. The name highlighter ran on nearly every line</h3>
-<p>
-<code>ui/names.lua</code> registered <code>[A-Z][a-z]</code> — &ldquo;contains a capitalised
-word&rdquo; — reasoning that it was the cheapest possible pre-filter. True, and the
-conclusion was still wrong, because <strong>the pre-filter did not filter</strong>: in
-Achaea, nearly every line of room description, combat text and channel output contains a
-capitalised word. Measured over eight representative lines it matched 88% of them, and each
-match ran a name-table walk costing roughly 21 µs at a populated roster.
-</p>
-<p>
-The trigger is now built from the roster itself — one alternation regex, rebuilt only when
-the name database changes — and the callback now fires on 12% of lines: the lines that
-actually name somebody.
-</p>
-
-<h3>2. The chyron allocated ~140 strings a second</h3>
-<p>
-<code>ui/chyron.lua</code> re-rendered at 12.5&nbsp;Hz for as long as any message was up,
-independent of prompts and invisible to every tick benchmark — rebuilding the scroll and
-walking it one character at a time on every step. None of that depends on the scroll
-position. The reel is now compiled once per message change into a byte-offset index and a
-per-glyph colour; a step is one <code>sub()</code> call and one concatenation.
-</p>
-
-<h3>3. Re-normalising names that were already normalised</h3>
-<p>
-The curing engine lowercases a tracked name once, on the way in — and several lookup
-functions then lowercased it again on every read, about 164 times per prompt. Each of them
-now tries the bare key first and normalises only on a miss.
-</p>
-
-<h3>4. Asking vector-independent questions once per vector</h3>
-<p>
-The resolve loop ran once per balance vector and re-asked three vector-independent questions
-about the same tracked afflictions each time. They are now asked once per tick and the
-per-vector loop reads the cached answer — cutting one of them from 53 calls a prompt to 8.
-</p>
-
-<h3>5. Panels repainting when nothing had changed, one row at a time</h3>
-<p>
-No panel used a dirty flag, and each issued one draw call per row rather than one for the
-whole panel. Panels now build their entire body and issue a single draw call, skip the draw
-entirely when the body is byte-identical to what is displayed, and restyle only the specific
-elements that changed.
-</p>
-
-<h3>6. Smaller things, each real</h3>
-<ul>
-  <li>A hex-colour helper parsed and reformatted on every call instead of once at load.</li>
-  <li>A rift lookup fell back to a linear scan on the common query shape instead of an alias
-      index.</li>
-  <li>A defence-block check walked a nested table instead of a reverse index built once.</li>
-  <li>A capture buffer shifted its whole contents on every line instead of using a ring
-      cursor.</li>
-  <li>Vitals parsing allocated fresh tables on every prompt instead of filling in place.</li>
-  <li>An item-attribute parser ran fourteen string searches per item per repaint instead of
-      caching the result.</li>
-</ul>
+<h2 id="found">What was found</h2>
+<h3>The name highlighter ran on nearly every line</h3>
+<p>Its trigger matched any capitalised word, on the reasoning that this was the cheapest possible filter. It was cheap, but it did not filter: nearly every line of Achaea's text has a capitalised word, so 88% of lines ran a full roster scan. The trigger is now built from the roster itself and rebuilt when the roster changes, and it fires on the 12% of lines that actually name somebody.</p>
+<h3>The ticker allocated about 140 strings a second</h3>
+<p>It rebuilt its whole reel at 12.5 Hz, invisible to every per-prompt benchmark. The reel is now compiled once per message change, and each step is one substring and one join.</p>
+<h3>Panels drew before the cure went out</h3>
+<p>The vitals strip painted before the engine ran, and the affliction panel painted inside the affliction update. Every panel now paints once, after the packet has been handled, coalesced so two afflictions in one packet paint the panel once.</p>
+<h3>Questions asked more often than their answers changed</h3>
+<p>Priorities were re-read 56 times a prompt, names were lowercased again on every read, and per-balance loops re-asked questions that did not depend on the balance. Each is now asked once per prompt, against data that is invalidated when it changes, never on a timer.</p>
 
 <h2 id="measuring">Measuring</h2>
-<pre><code>lua test/bench.lua [iterations]     # wall time and bytes per call
-lua test/profile.lua [iterations]   # sampling profiler, hottest lines
-lua test/run.lua                    # includes the draw-call budget assertions</code></pre>
-
-<p>Four traps, all of which produced confidently wrong numbers before they were noticed:</p>
-
-<div class="callout callout-warn">
-  <div class="callout-title">os.clock is stubbed</div>
-  <p>
-  The test mock replaces it with a manually-advanced clock so cooldown maths is
-  deterministic. Timing against it measures the fake clock, not wall time — use the mock's
-  real-clock escape hatch for benchmarking.
-  </p>
-</div>
-
-<div class="callout callout-warn">
-  <div class="callout-title">The profiler's own timings are meaningless</div>
-  <p>
-  A sampling hook at a fixed instruction interval dominates the wall clock. Its
-  <em>relative</em> sample counts are what to read; take absolute figures from
-  <code>bench.lua</code>, which runs unhooked.
-  </p>
-</div>
-
-<div class="callout callout-warn">
-  <div class="callout-title">The collector must be stopped to measure allocation</div>
-  <p>
-  See the byte-column note above. <code>bench()</code> does this automatically; anything
-  measuring bytes by hand must too.
-  </p>
-</div>
-
-<div class="callout callout-warn">
-  <div class="callout-title">Per-line and UI costs cannot be timed through the mock</div>
-  <p>
-  The test mock matches triggers and issues draws in ways that are nothing like Mudlet's real
-  cost. Both are measured as <strong>counts</strong> instead — how many callbacks a line
-  provokes, how many draw calls a repaint issues — since the count is what transfers to
-  Mudlet even though the time does not.
-  </p>
-</div>
+<pre><code>lua5.1 test/bench.lua [iterations]     <span class="c"># time and bytes per call</span>
+lua5.1 test/profile.lua [iterations]   <span class="c"># sampling profiler: the hottest lines</span>
+lua5.1 test/run.lua                    <span class="c"># includes the draw-count budgets</span></code></pre>
+<p>Four traps each produced confident, wrong numbers before they were noticed:</p>
+<ul>
+  <li>The test mock replaces the clock so cooldowns are deterministic; timing against it measures the fake clock.</li>
+  <li>The profiler's absolute times are dominated by its own hook. Read its relative counts and take times from <code>bench.lua</code>.</li>
+  <li>Allocation must be measured with the garbage collector stopped, or the figure is whatever happened not to be collected.</li>
+  <li>Per-line and repaint costs cannot be timed through the mock, so they are counted instead: callbacks per line, draw calls per repaint.</li>
+</ul>
 
 <h2 id="rules">Rules for changes</h2>
 <ul>
-  <li><strong>A trigger pattern that matches most lines is a per-line Lua handler.</strong>
-      Before adding a <code>tempRegexTrigger</code>, ask what fraction of real output it
-      matches. If the answer is &ldquo;most,&rdquo; narrow it or drive it from data.</li>
-  <li><strong>Nothing per-line in Lua that a pattern could have excluded.</strong></li>
-  <li><strong>Cache against a generation, not a timestamp.</strong> A time-based cache in a
-      curing system is a stale-state bug waiting for a fight to expose it. Bump a counter at
-      the mutation site.</li>
-  <li><strong>Every memo needs an invalidation test</strong>, written to prime the cache
-      first.</li>
-  <li><strong>Prefer a shared read-only constant to a fresh empty table</strong>, and never
-      hand one to something that mutates.</li>
-  <li><strong>A panel draws once, or not at all.</strong> One draw call per repaint, none
-      when the rendered body is unchanged.</li>
-  <li><strong>Measure before and after, and check the metric is real.</strong> Most of the
-      traps above were found by a number that looked plausible.</li>
+  <li>Before adding a trigger, ask what fraction of real text it matches. If the answer is "most", narrow it or build it from data.</li>
+  <li>Cache against a counter bumped where the data changes, never against a clock.</li>
+  <li>Every cache has a test that fills it first and then proves it is invalidated.</li>
+  <li>A panel draws once per repaint, or not at all when nothing it shows has changed.</li>
+  <li>Measure before and after, and check that the number is real.</li>
 </ul>
-
-<footer>
-Everything on this page was measured, not reasoned about. The benchmark and profiler live in
-<code>test/bench.lua</code> and <code>test/profile.lua</code>; the draw-call budget is asserted
-in <code>test/run.lua</code>.
-</footer>
-
-<div class="page-nav">
-  <div><span class="dir">Back</span><a href="architecture.html">&larr; Architecture</a></div>
-  <div class="next"><span class="dir">Next</span><a href="roadmap.html">Roadmap &rarr;</a></div>
-</div>
-
-</div>
-<div class="toc">
-  <div class="toc-title">On this page</div>
-  <a href="#paths">The four paths</a>
-  <a href="#cost">What it costs now</a>
-  <a href="#wrong">What was wrong</a>
+<p>The full record, with every measurement, is <code>docs/performance.md</code> in the repository.</p>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="architecture.html"><small>Previous</small>Architecture</a>
+  <a class="next" href="api.html"><small>Next</small>Lua API</a>
+</nav>
+</main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#paths">The paths that matter</a>
+  <a href="#now">What it costs now</a>
+  <a href="#found">What was found</a>
   <a href="#measuring">Measuring</a>
   <a href="#rules">Rules for changes</a>
+</aside>
 </div>
-</main>
-</div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
 </body>
 </html>

@@ -1,203 +1,246 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Getting Started — Emunah</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started | Emunah</title>
+<meta name="description" content="Install Emunah in Mudlet, switch on curing, defences and hunting, and keep it up to date.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/getting-started.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Getting started | Emunah">
+<meta property="og:description" content="Install Emunah in Mudlet, switch on curing, defences and hunting, and keep it up to date.">
+<meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
 </head>
 <body>
-<div class="layout">
-<nav class="sidebar">
-  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
-  <p class="tagline">An Achaea system for Mudlet</p>
+<a class="skip" href="#main">Skip to content</a>
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
   <ul>
-    <li><a href="index.html">Overview</a></li>
-    <li><a href="getting-started.html" class="active">Getting Started</a></li>
-    <li><a href="commands.html">Command Reference</a></li>
-    <li><a href="api.html">Lua API</a></li>
+    <li><a href="getting-started.html" aria-current="page">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
   </ul>
-  <div class="nav-group-title">How it works</div>
+  <h4>Features</h4>
   <ul>
-    <li><a href="curing.html">Curing Engine</a></li>
-    <li><a href="combat.html">Combat &amp; PvP</a></li>
-    <li><a href="people.html">People &amp; Names</a></li>
-    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="curing.html">Client-side curing</a></li>
     <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
     <li><a href="architecture.html">Architecture</a></li>
     <li><a href="performance.html">Performance</a></li>
-  </ul>
-  <div class="nav-group-title">Project</div>
-  <ul>
+    <li><a href="api.html">Lua API</a></li>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main>
-<div class="content">
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html" aria-current="page">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Start</p>
+<h1>Getting started</h1>
+<p class="lede">Emunah runs straight from a git checkout. Install it once, switch on the parts you want, and every update after that is one command in the client.</p>
+<h2 id="requirements">Requirements</h2>
+<ul>
+  <li>Mudlet 4.10 or later.</li>
+  <li>An Achaea character, with Achaea's own server-side curing turned off. Emunah does the curing in the client and the two should not compete.</li>
+  <li>git, to clone the repository and to update it.</li>
+  <li>Optional: the MDK package, for tabbed chat. Without it, chat shows in a single window.</li>
+</ul>
+<p>Curing, defences and the interface work for any class. Hunting and PvP need a class module to know how to attack, and today that is Priest.</p>
 
-<h1>Getting Started</h1>
-<p>Three steps: clone the repo, import the package into Mudlet, point the bootstrap at your checkout. Nothing gets copied into your Mudlet profile — Emunah runs directly from the git checkout.</p>
-
-<div class="callout callout-note">
-<div class="callout-title">Prerequisites</div>
-<p><a href="https://www.mudlet.org" target="_blank" rel="noopener">Mudlet</a> installed, a Mudlet profile connected to Achaea, and <code>git</code> available on the command line.</p>
-</div>
-
-<h2>Install</h2>
-
-<div class="step">
-  <div class="step-num">1</div>
-  <div class="step-body">
-    <h3>Clone the repo somewhere outside your Mudlet profile</h3>
+<h2 id="install">Install</h2>
+<h3>1. Clone the repository</h3>
+<p>Put it anywhere outside your Mudlet profile directory.</p>
 <pre><code>git clone https://github.com/pharanyx-labs/Emunah.git ~/src/Emunah</code></pre>
-    <div class="callout callout-warn">
-      <div class="callout-title">Do not put this inside your profile directory named "Emunah"</div>
-      <p>
-      Mudlet's package manager <strong>deletes a package's own directory</strong> on
-      uninstall or reinstall, and it follows symlinks — pointing or symlinking your working
-      checkout there will delete it. If you want the checkout inside the profile directory
-      anyway, name it <code>EmunahSrc</code> instead: the bootstrap looks for that name too,
-      and the package manager never touches it.
-      </p>
-    </div>
-  </div>
+<div class="note warn">
+  <span class="title">Do not put the checkout in your profile directory as <code>Emunah</code></span>
+  <p>Mudlet's package manager deletes a package's own directory when it uninstalls or reinstalls it, and it follows symlinks. A checkout there, or a symlink to one, would be deleted. If you want the checkout inside the profile anyway, name it <code>EmunahSrc</code>: Emunah looks for that name too, and the package manager never touches it.</p>
 </div>
 
-<div class="step">
-  <div class="step-num">2</div>
-  <div class="step-body">
-    <h3>Import <code>Emunah.xml</code></h3>
-    <p>In Mudlet: <strong>Package Manager &rarr; Install</strong>, and select <code>Emunah.xml</code> from the repo root. This installs the small bootstrap script that loads everything else from your checkout — it is not the system itself.</p>
-  </div>
-</div>
+<h3>2. Install the package</h3>
+<p>In Mudlet, open <strong>Package Manager</strong>, choose <strong>Install</strong>, and select <code>Emunah.xml</code> from the root of the checkout. It is a small loader that runs everything else from the checkout, not the system itself.</p>
+<p>Optionally install <code>EmunahTriggers.xml</code> the same way. It adds 659 of the reference system's lines: afflictions gained and cured, stun, prone, sleep and unconsciousness, and its illusion catchers. Emunah applies the reference system's anti-illusion to every one of them. Without it, curing still runs from GMCP, which reports nearly every affliction.</p>
 
-<div class="step">
-  <div class="step-num">3</div>
-  <div class="step-body">
-    <h3>Point the bootstrap at your checkout</h3>
-    <p>Run this once — Mudlet remembers it per profile:</p>
+<h3>3. Point the loader at the checkout</h3>
+<p>Run this once in Mudlet's input line. It is saved per profile.</p>
 <pre><code>lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()</code></pre>
-    <p>You should see:</p>
+<p>A successful load says:</p>
 <pre><code>[emunah] v0.1.0 loaded -- 61 modules.</code></pre>
-    <p>That's it — Emunah is running. Try <code>emunah</code> in Mudlet's command line to see the full command list.</p>
-  </div>
-</div>
 
-<h2>First steps</h2>
-<table>
-<thead><tr><th>Command</th><th>What it shows you</th></tr></thead>
-<tbody>
-<tr><td><code>emunah</code></td><td>the full command list</td></tr>
-<tr><td><code>emset status</code></td><td>character, class, curing state, tracked afflictions, skills indexed, inventory count</td></tr>
-<tr><td><code>emset ui show</code></td><td>turns the interface on if it isn't already — vitals strip, affliction panel, chat, room panel, map</td></tr>
-</tbody>
-</table>
+<h2 id="first-steps">First steps</h2>
+<p>Everything is one prefix, <code>emset</code>, and one help command, <code>emhelp</code>.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Type</th><th>To see</th></tr></thead>
+  <tbody>
+    <tr><td><code>emhelp</code></td><td>Every module, what it does, and whether it is on.</td></tr>
+    <tr><td><code>emhelp curing</code></td><td>One module: its commands, and every setting with its current value. Click a setting to change it.</td></tr>
+    <tr><td><code>emset</code></td><td>Status: curing, defences, safety floors, and what is being tracked.</td></tr>
+    <tr><td><code>emset ui</code></td><td>Whether the panels and the map are on.</td></tr>
+  </tbody>
+</table></div>
+<p>The <a href="commands.html">command reference</a> lists every command and setting, generated from the same table <code>emhelp</code> reads.</p>
 
-<p>See the full <a href="commands.html">Command Reference</a> for everything else.</p>
+<h2 id="switching-on">Switching things on</h2>
+<p>Nothing acts until you turn it on. Curing and defence keep-up are off on a fresh install, and so is everything that moves or attacks.</p>
+<pre><code>emset curing on      <span class="c"># cure afflictions and heal</span>
+emset defs           <span class="c"># the defence grid: click each to cycle off, defup, keepup</span>
+emset defs on        <span class="c"># keep the chosen defences up</span>
+emset hunt           <span class="c"># walk the area and bash it (F11); emset hunt off to stop</span>
+pp                   <span class="c"># pause or resume curing and defences together</span></code></pre>
+<p>When you want to sleep, type <code>sleep</code> rather than the game's own command: Emunah relaxes insomnia first, and does not wake you or raise insomnia again until you are up.</p>
 
-<h2>Settings</h2>
-<p>
-Settings persist per Mudlet profile in <code>emunah-config.lua</code> (in your Mudlet home
-directory), so two characters in the same Mudlet installation keep separate priorities,
-defence lists, and UI layout without any extra work. Read or write any setting directly
-with <code>emset &lt;setting&gt; &lt;value&gt;</code> — see the <a href="commands.html#using">Command Reference</a>
-section of the command reference.
-</p>
-<div class="callout callout-note">
-<div class="callout-title">Nothing runs until it is enabled</div>
-<p>The curing engine and defence keep-up never auto-enable on a fresh install; they are turned on explicitly with <code>emset curing on</code> and <code>emset defs on</code>. The same applies to the walker, hunting and PvP.</p>
-</div>
+<h2 id="settings">Settings</h2>
+<p>Settings are saved per Mudlet profile, in <code>emunah-config.lua</code> in your Mudlet home directory, so two characters keep separate defences, priorities and layouts. Read or change any of them by name:</p>
+<pre><code>emset curing.method             <span class="c"># show it</span>
+emset curing.method minerals    <span class="c"># change it</span></code></pre>
+<p>The ones most worth reviewing first are the healing thresholds. Each source engages at its own level, and the defaults leave the finite and contested ones for last.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><code>curing.manaThreshold</code></td><td>85%</td><td>Sip mana below this. Shares the sip balance with health, which goes first.</td></tr>
+    <tr><td><code>curing.healthThreshold</code></td><td>80%</td><td>Sip health below this.</td></tr>
+    <tr><td><code>curing.iridThreshold</code></td><td>68%</td><td>Eat irid moss below this, for health or mana, on its own balance.</td></tr>
+    <tr><td><code>curing.handsThreshold</code></td><td>50%</td><td>Perform Hands below this. It costs equilibrium, which attacking also spends.</td></tr>
+  </tbody>
+</table></div>
+<p>When a shipped default turns out to be wrong, a migration corrects the stored value the next time Emunah loads. Your own changes are kept.</p>
 
-<h3>Healing thresholds</h3>
-<p>
-The settings most worth reviewing are the healing thresholds. Four sources draw on three
-independent balances, so they overlap rather than compete, and each engages at its own
-percentage.
-</p>
-<table>
-<thead><tr><th>Setting</th><th>Default</th><th>Balance</th></tr></thead>
-<tbody>
-<tr><td><code>curing.manaThreshold</code></td><td>85%</td><td>Sip — shared with health, which takes priority</td></tr>
-<tr><td><code>curing.healthThreshold</code></td><td>80%</td><td>Sip</td></tr>
-<tr><td><code>curing.iridThreshold</code></td><td>68%</td><td>Moss</td></tr>
-<tr><td><code>curing.handsThreshold</code></td><td>50%</td><td>Equilibrium</td></tr>
-</tbody>
-</table>
-<pre><code>emset curing.healthThreshold 75</code></pre>
-<p>
-The configuration file carries a schema version. When a shipped default is found to be
-wrong, a migration corrects the stored value on load — a stored setting otherwise outlives
-the fix for it, since only absent keys take a new default.
-</p>
+<h2 id="updating">Updating</h2>
+<p><code>emreload</code> brings the checkout up to date with <code>main</code> on GitHub, then reloads every module from disk without losing state. It only fast-forwards: a checkout on another branch, or one with local edits in the way, is left alone and Emunah says so. <code>emset reload</code> does the same thing, and <code>emreload</code> still works when the command module itself failed to load.</p>
+<pre><code>emreload                       <span class="c"># update and reload</span>
+emset system.update false      <span class="c"># reload what is on disk, without pulling</span></code></pre>
 
-<h2>Development loop</h2>
-<p>
-Edit any file under <code>src/</code> in a real text editor, then run <code>emreload</code>
-in Mudlet. The whole module tree — core, GMCP tracking, curing, UI, walker, everything — is
-torn down and rebuilt from what's on disk, including a brand-new file you just added to the
-loader's manifest. No re-importing a package, no restarting Mudlet.
-</p>
+<h2 id="developing">Developing</h2>
+<p>Edit any file under <code>src/</code> and run <code>emreload</code>. There is nothing to reimport and no client to restart, and a new module added to the manifest is picked up on the same reload.</p>
+<p>The suite of 2433 behavioural tests runs the real modules against a simulated Mudlet, with no client involved:</p>
+<pre><code>lua5.1 test/run.lua             <span class="c"># the test suite</span>
+lua5.1 test/bench.lua           <span class="c"># per-prompt cost, in microseconds and bytes</span>
+lua5.1 test/ui_preview.lua      <span class="c"># render the panels in a scripted fight, as HTML</span></code></pre>
+<p>With no Lua installed, <code>python3 tools/run_tests.py .</code> runs the suite through a Python shim.</p>
 
-<h3>Running the test suite</h3>
-<p>Emunah ships with 1729 behavioural tests that run the real modules against a Mudlet mock — no live client needed:</p>
-<pre><code># with a Lua interpreter installed:
-lua test/run.lua
-
-# or, with none installed, via a Python + lupa shim:
-python3 tools/run_tests.py .</code></pre>
-
-<h3>Building the distributable package</h3>
-<pre><code># Emunah.xml -- no toolchain needed
-python3 tools/build-xml.py
-
-# a .mpackage bundle -- needs the muddler build tool and a JVM
-cd package &amp;&amp; muddle</code></pre>
-
-<h2>Troubleshooting</h2>
-<table>
-<thead><tr><th>Symptom</th><th>Cause &amp; fix</th></tr></thead>
-<tbody>
-<tr>
-  <td><code>Cannot find the Emunah source at ...</code></td>
-  <td><code>EMUNAH_ROOT</code> is wrong, unset, or the checkout moved. Re-run step 3 with the correct path, or set <code>EMUNAH_ROOT</code> again before <code>emreload</code>.</td>
-</tr>
-<tr>
-  <td><code>No class module loaded -- nothing knows how to attack.</code></td>
-  <td>
-  <code>emset bash on</code> / <code>emset hunt</code> / <code>emset pvp on</code> all
-  refuse to start without a recognised class. Right now that's Priest only — see
-  <a href="combat.html#classes">Class Support</a>. The class is auto-detected from
-  <code>Char.Status</code> once you log in, so this usually means you haven't logged your
-  character in yet this session, or you're playing a class Emunah doesn't have an offence
-  module for.
-  </td>
-</tr>
-<tr>
-  <td>The map/UI panel is missing or the wrong size</td>
-  <td><code>emset ui map</code> with no argument runs a full diagnostic (Geyser present? mapper widget built? map database populated?) rather than toggling anything.</td>
-</tr>
-<tr>
-  <td>A setting doesn't seem to take effect</td>
-  <td>Check it actually saved: <code>emset &lt;setting&gt;</code> with no value reads the current value back. Booleans and numbers are coerced automatically; anything else is stored as a string.</td>
-</tr>
-<tr>
-  <td>Reloading after adding a new file does nothing</td>
-  <td>Use <code>emreload</code> (which re-reads the loader file and its module manifest), not a plain re-<code>require</code> — see <a href="architecture.html#reload">the reload model</a> for why this distinction matters.</td>
-</tr>
-</tbody>
-</table>
-
-<footer>
-Emunah is an unofficial, third-party Mudlet script for Achaea, not affiliated with or endorsed by Iron Realms Entertainment.
-</footer>
-
-<div class="page-nav">
-  <div><span class="dir">Back</span><a href="index.html">&larr; Overview</a></div>
-  <div class="next"><span class="dir">Next</span><a href="commands.html">Command Reference &rarr;</a></div>
-</div>
-
-</div>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>What you see</th><th>What it means</th></tr></thead>
+  <tbody>
+    <tr><td><code>Cannot find the Emunah source at ...</code></td><td><code>EMUNAH_ROOT</code> is unset or wrong, or the checkout moved. Run step 3 again with the right path.</td></tr>
+    <tr><td><code>No class module loaded -- nothing knows how to attack.</code></td><td>Hunting and PvP need a class module, and the class is read when you log in. Log the character in first. Priest is the class supported today.</td></tr>
+    <tr><td>A panel is missing, stuck, or the wrong size</td><td><code>emset ui rebuild</code> rebuilds every panel from scratch.</td></tr>
+    <tr><td>Something is not happening and you cannot tell why</td><td><code>emset debug</code> prints every command Emunah sends, and every one it holds back with the reason: stunned, prone, no balance, and so on.</td></tr>
+    <tr><td>A setting does not seem to take effect</td><td><code>emset &lt;setting&gt;</code> with no value reads back what is stored.</td></tr>
+  </tbody>
+</table></div>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a class="next" href="commands.html"><small>Next</small>Commands</a>
+</nav>
 </main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#requirements">Requirements</a>
+  <a href="#install">Install</a>
+  <a href="#first-steps">First steps</a>
+  <a href="#switching-on">Switching things on</a>
+  <a href="#settings">Settings</a>
+  <a href="#updating">Updating</a>
+  <a href="#developing">Developing</a>
+  <a href="#troubleshooting">Troubleshooting</a>
+</aside>
 </div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
 </body>
 </html>

@@ -1,252 +1,281 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Command Reference — Emunah</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commands | Emunah</title>
+<meta name="description" content="Every Emunah command and setting, module by module: the same reference emhelp shows in the client.">
+<link rel="canonical" href="https://emunah.pharanyx.co.uk/commands.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Commands | Emunah">
+<meta property="og:description" content="Every Emunah command and setting, module by module: the same reference emhelp shows in the client.">
+<meta property="og:image" content="https://emunah.pharanyx.co.uk/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
 </head>
 <body>
-<div class="layout">
-<nav class="sidebar">
-  <div class="brand"><span class="glyph">&gt;</span><span class="brand-name">emunah</span></div>
-  <p class="tagline">An Achaea system for Mudlet</p>
+<a class="skip" href="#main">Skip to content</a>
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html">Documentation</a>
+      <a href="commands.html" aria-current="page">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
   <ul>
-    <li><a href="index.html">Overview</a></li>
-    <li><a href="getting-started.html">Getting Started</a></li>
-    <li><a href="commands.html" class="active">Command Reference</a></li>
-    <li><a href="api.html">Lua API</a></li>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html" aria-current="page">Commands</a></li>
   </ul>
-  <div class="nav-group-title">How it works</div>
+  <h4>Features</h4>
   <ul>
-    <li><a href="curing.html">Curing Engine</a></li>
-    <li><a href="combat.html">Combat &amp; PvP</a></li>
-    <li><a href="people.html">People &amp; Names</a></li>
-    <li><a href="sustenance.html">Sustenance &amp; Economy</a></li>
+    <li><a href="curing.html">Client-side curing</a></li>
     <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
     <li><a href="architecture.html">Architecture</a></li>
     <li><a href="performance.html">Performance</a></li>
-  </ul>
-  <div class="nav-group-title">Project</div>
-  <ul>
+    <li><a href="api.html">Lua API</a></li>
     <li><a href="roadmap.html">Roadmap</a></li>
   </ul>
 </nav>
-<main class="with-toc ref">
-<div class="content">
-
-<h1>Command Reference</h1>
-<p class="lede">
-Everything Emunah does, one module at a time &mdash; the same text <code>emhelp</code> shows in
-the client.
-</p>
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html" aria-current="page">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Start</p>
+<h1>Commands</h1>
+<p class="lede">Everything Emunah does, one module at a time: the same text <code>emhelp</code> shows in the client, generated from the same table.</p>
 
 <h2 id="using">Using it</h2>
-<pre><code>emhelp                        # the modules, and whether each is on
-emhelp curing                 # one module: what it does, its commands, its settings
-emset                         # status
-emset curing on               # a command
-emset curing.method minerals  # a setting</code></pre>
-<p>
-There is one prefix, <code>emset</code>. Every setting can be set by name with
-<code>emset &lt;setting&gt; &lt;value&gt;</code>; in the client, <code>emhelp &lt;module&gt;</code>
-lists them with their current values, and clicking one changes it. The only words outside
-<code>emset</code> are <code>emhelp</code>, <code>emreload</code> (which works even if the
-command module failed to load) and <code>sleep</code> (which is the game's SLEEP, marked as
-yours so Emunah does not wake you out of it).
-</p>
-
+<pre><code>emhelp                        <span class="c"># every module, and whether each is on</span>
+emhelp curing                 <span class="c"># one module: its commands and every setting</span>
+emset                         <span class="c"># status</span>
+emset curing on               <span class="c"># a command</span>
+emset curing.method minerals  <span class="c"># a setting</span></code></pre>
+<p>There is one prefix, <code>emset</code>, and every setting can be set by name with <code>emset &lt;setting&gt; &lt;value&gt;</code>. In the client, <code>emhelp &lt;module&gt;</code> lists each setting with its current value, and clicking one changes it. The few words outside <code>emset</code> are listed under the module they belong to.</p>
 
 <h2 id="system">System</h2>
-<p>Emunah runs off GMCP: vitals, afflictions, defences, inventory and the room arrive from the game and everything else reacts to them once per prompt. Every command goes through one gate that knows when the game would refuse it -- stunned, asleep, unconscious, dead, off balance, prone, paralysed, entangled -- and holds it rather than wasting it. Death pauses everything until you are alive again. Settings are saved per profile.</p>
-
+<p>Emunah runs off GMCP: vitals, afflictions, defences, inventory and the room arrive from the game and everything else reacts to them once per prompt. Every command goes through one gate that knows when the game would refuse it &mdash; stunned, asleep, unconscious, dead, off balance, prone, paralysed, entangled &mdash; and holds it rather than wasting it. Death pauses everything until you are alive again. Settings are saved per profile.</p>
 <div class="cmd-block">
 <span class="cmd-syntax">emset</span>
 <p>status: curing, defences, safety floors, what is tracked</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset &lt;setting&gt; [value]</span>
 <p>show or change any setting, e.g. <code>emset curing.method minerals</code></p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emhelp [module]</span>
 <p>this help: the modules, or one module's commands and settings</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset reload</span>
 <p>update from GitHub's main (unless <code>system.update</code> is off), then reload Emunah from disk, keeping its state</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emreload</span>
 <p>the same, and still works if the command module failed to load</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset debug</span>
 <p>debug log: every command sent, and every command held with the reason</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset debug gmcp</span>
 <p>trace every GMCP message in and out</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset debug queue|timers|handlers</span>
 <p>dump the action queue, the timers or the event handlers</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>logLevel</code></td><td>info</td><td>debug, info, warn or error. <code>emset debug</code> toggles between info and debug.</td></tr>
 <tr><td><code>system.update</code></td><td>true</td><td>Pull main (fast-forward only) before every reload. Off, a reload loads what is on disk.</td></tr>
 <tr><td><code>schema</code></td><td>11</td><td>Config format version. Managed by the migrations; do not set this by hand.</td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="curing">Curing</h2>
 <p>Tracks your afflictions from GMCP (and from EmunahTriggers.xml, with the reference system's anti-illusion) and cures them on the right balance: herbs, salves, elixirs, moss, smoking, FOCUS, the tree tattoo, COMPOSE, CONCENTRATE, CLOT and WRITHE. One cure per balance at a time, never inside a balance, never while something blocks it (anorexia, slickness, asthma, paralysis...). Follows the reference system's rules for what to cure first and when not to. Sips health and mana, eats moss, keeps cures pulled from the rift into your inventory, and wakes you from a sleep you did not choose.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset curing</span>
 <p>on or off, and every affliction being tracked</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset curing on|off</span>
 <p>switch curing on or off</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset pause</span>
 <p>pause or resume curing and defences together; after QUIT, resume everything</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">pp</span>
 <p>the same as <code>emset pause</code>: one toggle for curing and defence keep-up</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset prio &lt;affliction&gt; &lt;balance&gt; &lt;rank&gt;</span>
 <p>cure an affliction sooner or later on one balance; lower is sooner</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">sleep</span>
 <p>RELAX INSOMNIA if it is up, then SLEEP, marked as yours: Emunah neither wakes you nor raises insomnia until you are up</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>curing.enabled</code></td><td>false</td><td>Off by default, deliberately. Curing is opt-in.</td></tr>
 <tr><td><code>curing.method</code></td><td>herbs</td><td>herbs or minerals. Changes which item every cure resolves to.</td></tr>
-<tr><td><code>curing.confirmWait</code></td><td>2.0 s</td><td>How long a sent cure holds its vector waiting for the game to confirm it, before the vector is re-armed.</td></tr>
+<tr><td><code>curing.confirmWait</code></td><td>2 s</td><td>How long a sent cure holds its vector waiting for the game to confirm it, before the vector is re-armed.</td></tr>
 <tr><td><code>curing.reconcileEvery</code></td><td>20 ticks</td><td>How often the tracked list is reconciled against Char.Afflictions wholesale.</td></tr>
 <tr><td><code>curing.healthThreshold</code></td><td>80 %</td><td>Sip health below this.</td></tr>
 <tr><td><code>curing.manaThreshold</code></td><td>85 %</td><td></td></tr>
 <tr><td><code>curing.iridThreshold</code></td><td>68 %</td><td>Eat irid moss below this, on health or mana.</td></tr>
 <tr><td><code>curing.handsThreshold</code></td><td>50 %</td><td>PERFORM HANDS below this. Costs equilibrium, which attacking also spends, so this is set low on purpose.</td></tr>
 <tr><td><code>curing.irid</code></td><td>true</td><td></td></tr>
-<tr><td><code>curing.diag</code></td><td>true</td><td>Send DIAG when the affliction list is in doubt -- which is what answers <code>loki</code>, the one affliction GMCP does not report honestly.</td></tr>
+<tr><td><code>curing.diag</code></td><td>true</td><td>Send DIAG when the affliction list is in doubt &mdash; which is what answers <code>loki</code>, the one affliction GMCP does not report honestly.</td></tr>
 <tr><td><code>curing.clotThreshold</code></td><td>30</td><td>Bleeding above this is clotted.</td></tr>
 <tr><td><code>curing.focusGuilt</code></td><td>false</td><td></td></tr>
-<tr><td><code>curing.elixirConfirm</code></td><td>7.0 s</td><td></td></tr>
-<tr><td><code>curing.mossConfirm</code></td><td>9.0 s</td><td></td></tr>
+<tr><td><code>curing.elixirConfirm</code></td><td>7 s</td><td></td></tr>
+<tr><td><code>curing.mossConfirm</code></td><td>9 s</td><td></td></tr>
 <tr><td><code>curing.riftConfirm</code></td><td>1.5 s</td><td></td></tr>
 <tr><td><code>curing.restock</code></td><td>true</td><td>Pull consumables out of the rift as they run low.</td></tr>
-<tr><td><code>curing.restockEvery</code></td><td>1 ticks</td><td>Every prompt by default. It used to be every tenth, which made each pull ten prompts apart for no benefit -- only one pull can be in flight anyway.</td></tr>
+<tr><td><code>curing.restockEvery</code></td><td>1 ticks</td><td>Every prompt by default. It used to be every tenth, which made each pull ten prompts apart for no benefit &mdash; only one pull can be in flight anyway.</td></tr>
 <tr><td><code>curing.restockSalves</code></td><td>false</td><td></td></tr>
 <tr><td><code>curing.stockTarget</code></td><td>1</td><td>How many of each consumable to keep in hand.</td></tr>
 <tr><td><code>curing.recovery.&lt;vector&gt;</code></td><td>per vector s</td><td>Override the fallback recovery time for one vector, e.g. curing.recovery.herb.</td></tr>
 <tr><td><code>curing.antiIllusion</code></td><td>true</td><td>The reference system's anti-illusion: EmunahTriggers.xml reports wait for the prompt and a block containing an illusion is discarded whole; a refusal is believed only after a command it could answer; a herb balance back within 1.1s of eating is ignored. Ignored lines are marked (i). Off believes every line as it arrives.</td></tr>
-<tr><td><code>curing.textConfirm</code></td><td>2.0 s</td><td>How long an affliction reported by text waits for the server to confirm it before it is dropped as an illusion.</td></tr>
+<tr><td><code>curing.textConfirm</code></td><td>2 s</td><td>How long an affliction reported by text waits for the server to confirm it before it is dropped as an illusion.</td></tr>
 <tr><td><code>curing.focusMinMana</code></td><td>35 % of max</td><td>FOCUS is held at or below this mana (the reference system's <code>manause</code>).</td></tr>
 <tr><td><code>priorities</code></td><td>{}</td><td>Per-affliction, per-vector rank overrides. Written by <code>emset prio</code>.</td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="defences">Defences</h2>
 <p>Raises the defences you choose and keeps them up. Each one is off, defup (raise it once) or keepup (raise it whenever it drops). Knows the command for the herb, salve, elixir and skill defences; tattoos and anything else can be taught. Never raises a defence that is already up, and never spends the balance while curing needs it.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset defs</span>
 <p>the defence grid: click to cycle off / defup / keepup, and pipe relight on / off</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset defs on|off</span>
 <p>switch defence keep-up on or off</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset defs add &lt;name&gt; [command]</span>
 <p>keep a defence up, with the command that raises it if it is not known</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset defs remove &lt;name&gt;</span>
 <p>stop keeping a defence up</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset defs mode &lt;name&gt; defup|keepup|off</span>
 <p>raise it once, keep it up, or leave it alone</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>shield.watch</code></td><td>true</td><td>A notice on the chyron while no shield is wielded. Settles on the next inventory change. WIELDED is shown at login either way.</td></tr>
 <tr><td><code>defences.enabled</code></td><td>false</td><td></td></tr>
 <tr><td><code>defences.keepup</code></td><td>{}</td><td>name -&gt; "defup" or "keepup". Written by the defence grid.</td></tr>
 <tr><td><code>defences.commands</code></td><td>{}</td><td>name -&gt; the command that raises it, for defences we ship no command for.</td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="pipes">Pipes</h2>
 <p>Keeps your pipes filled and lit so smoking cures are always ready: refills an empty pipe with the herb it holds, relights one that has gone out, and reads PIPELIST now and then to stay honest. PIPELIST and refills are hidden; a relight is shown. Also toggled from the <code>emset defs</code> grid.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset pipes</span>
 <p>each pipe: lit or out, what it holds, puffs left</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset pipes on|off</span>
 <p>switch pipe upkeep on or off</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset pipes now</span>
 <p>send PIPELIST now, and show it</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>pipes.enabled</code></td><td>true</td><td></td></tr>
 <tr><td><code>pipes.assign</code></td><td>(unset)</td><td>Which herb goes in which pipe.</td></tr>
 <tr><td><code>pipes.poll</code></td><td>0 s</td><td>Re-check every pipe this often with PIPELIST. 0 (the default) asks only when the pipes are not known, e.g. after login or a reload.</td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="riding">Riding</h2>
-<p>Keeps your mount with you: whenever it is in the room and you are not riding it, it is ordered to follow you (free). With keep-up on, you vault back onto it whenever you are off it -- but only when the balance is idle: never while anything needs curing, never while bashing or PvP is running, never while it is not in the room. (Not knowing whether you are already riding is no bar: the game refuses a vault onto a horse you are on for free.) While it is not with you, the end of your prompt says so. Also toggled from the <code>emset defs</code> grid.</p>
-
+<p>Keeps your mount with you: whenever it is in the room and you are not riding it, it is ordered to follow you (free). With keep-up on, you vault back onto it whenever you are off it &mdash; but only when the balance is idle: never while anything needs curing, never while bashing or PvP is running, never while it is not in the room. (Not knowing whether you are already riding is no bar: the game refuses a vault onto a horse you are on for free.) While it is not with you, the end of your prompt says so. Also toggled from the <code>emset defs</code> grid.</p>
 <div class="cmd-block">
 <span class="cmd-syntax">emset riding</span>
 <p>the mount: here or not, ridden or following, keep-up on or off</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset riding on|off</span>
 <p>switch riding keep-up (vaulting back on) on or off</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>riding.keepup</code></td><td>false</td><td>Vault back onto the mount whenever you are off it and the balance is idle.</td></tr>
 <tr><td><code>riding.mount</code></td><td>horse368644</td><td>The mount, as VAULT takes it. Its number is how the room list and ORDER name it.</td></tr>
 <tr><td><code>riding.follow</code></td><td>true</td><td>Order the mount to follow you whenever it is here and not ridden, and warn on the prompt while it is not with you.</td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="manna">Manna</h2>
 <p>Performs the manna rite: the three commands, with the waits between them, done for you once each is possible.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset manna</span>
 <p>perform the manna rite</p>
@@ -254,50 +283,44 @@ yours so Emunah does not wake you out of it).
 
 <h2 id="hunting">Hunting</h2>
 <p>Bashing and walking. Bashing attacks the denizens in the room, one at a time by replica number, on the balance and equilibrium your attack uses. The walker explores an area room by room. <code>hunt</code> runs both: clear a room, move on. Stops itself when health drops below its floor, when a player arrives, or when damage comes in too fast.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset hunt [off]</span>
 <p>walk and bash together; <code>off</code> stops both. F11 starts it</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset hunt retreat</span>
 <p>stop both, go back three rooms the way you came, and stay there. F12</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset bash</span>
 <p>bashing: target, kills, damage, whether it is running</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset bash on|off</span>
 <p>the same as <code>emset hunt</code> / <code>emset hunt off</code>: bash, and walk the area</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset bash attack &lt;command&gt;</span>
 <p>the attack, sent as <code>&lt;command&gt; &lt;replica&gt;</code></p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset walk</span>
 <p>the walker: area, rooms left, visited</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset walk start|stop</span>
 <p>explore the current area, or stop</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>walker.avoid</code></td><td>{}</td><td></td></tr>
 <tr><td><code>walker.auto</code></td><td>true</td><td></td></tr>
 <tr><td><code>walker.stepDelay</code></td><td>0.6 s</td><td>0.1 to 30.</td></tr>
 <tr><td><code>walker.returnToStart</code></td><td>true</td><td>Toggled in-session by <code>emset walk return</code>; not persisted.</td></tr>
 <tr><td><code>walker.stopBelowHealth</code></td><td>40 %</td><td></td></tr>
 <tr><td><code>walker.stopOnPlayer</code></td><td>false</td><td></td></tr>
-<tr><td><code>walker.transitTimeout</code></td><td>8.0 s</td><td></td></tr>
+<tr><td><code>walker.transitTimeout</code></td><td>8 s</td><td></td></tr>
 <tr><td><code>bashing.attack</code></td><td>angel sear</td><td></td></tr>
 <tr><td><code>bashing.balance</code></td><td>both</td><td>What the attack REQUIRES: eq, bal or both.</td></tr>
 <tr><td><code>bashing.consumes</code></td><td>eq</td><td>What the attack SPENDS: eq or bal. Not the same question as <code>balance</code>.</td></tr>
@@ -318,56 +341,51 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>watch.mana</code></td><td>10 %</td><td></td></tr>
 <tr><td><code>watch.resource</code></td><td>10 %</td><td></td></tr>
 <tr><td><code>denizens.autoRecord</code></td><td>true</td><td></td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="pvp">PvP</h2>
 <p>Attacks the player you name, and only that player: it never picks a target by itself. Tracks the afflictions you have given them. Stops below its health floor.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset pvp</span>
 <p>target, their afflictions, attacks sent</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset pvp on|off</span>
 <p>start or stop attacking the target</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset pvp target &lt;name&gt;|off</span>
 <p>choose the target, or clear it</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>pvp.stopBelowHealth</code></td><td>60 %</td><td>Higher than the bashing floor on purpose.</td></tr>
 <tr><td><code>pvp.verses</code></td><td>true</td><td>Recite Zeal verses to apply afflictions.</td></tr>
 <tr><td><code>pvp.attackAtAfflictions</code></td><td>2</td><td>Switch from afflicting to damage at this many stacked.</td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="loot">Loot &amp; shop</h2>
 <p>Picks up gold from the room after a kill and stows it. Shop purchases above a set price ask before buying.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset loot</span>
 <p>whether gold pickup is on, and how much has been picked up</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset loot on|off</span>
 <p>switch gold pickup on or off</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset loot now</span>
 <p>sweep the room now</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">buy [qty] &lt;number&gt;</span>
 <p>buy by the number from WARES, e.g. buy 50 476321; gold comes from the pack</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>loot.gold</code></td><td>true</td><td></td></tr>
 <tr><td><code>loot.aloneOnly</code></td><td>true</td><td>Only lift gold with nobody else in the room.</td></tr>
 <tr><td><code>loot.ownKillsOnly</code></td><td>false</td><td></td></tr>
@@ -376,79 +394,73 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>pack.id</code></td><td>backpack452292</td><td>The one pack, by replica number: gold is stowed in it, purchases are paid from it, and antitheft keeps it worn and closed.</td></tr>
 <tr><td><code>pack.capacity</code></td><td>50 items</td><td>How many items the pack holds. A pack inside it counts as one.</td></tr>
 <tr><td><code>shop.confirmAbove</code></td><td>(unset) gp</td><td>Purchases above this price ask for confirmation.</td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="antitheft">Antitheft</h2>
 <p>Keeps selfishness up (it is on the defences grid, <code>emset defs</code>), cures generosity early, puts named valuables in the pack, and raises an alert when an item leaves your inventory or pack with nothing you sent to explain it, or when selfishness is stripped. An enemy entering the room puts everything away at once.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset antitheft</span>
 <p>status: selfishness, the pack and what is kept in it</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset antitheft on|off</span>
 <p>switch it on (selfishness joins keep-up) or off (it leaves)</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset antitheft now</span>
 <p>put loose gold and valuables in the pack now</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>antitheft.enabled</code></td><td>true</td><td></td></tr>
 <tr><td><code>antitheft.alarm</code></td><td>true</td><td>Alert when an item leaves inventory or the pack unexplained.</td></tr>
 <tr><td><code>antitheft.sweep</code></td><td>(none)</td><td>Comma-separated words from item names to keep in the pack, e.g. "sigil, key". Never curatives: those must stay loose to be eaten.</td></tr>
 <tr><td><code>antitheft.goldGrace</code></td><td>5 s</td><td>Loose gold older than this is reported and put away. 0 is off.</td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="people">People</h2>
 <p>A database of everyone you have seen: city, house, class, and whether they are an ally or an enemy, filled from WHO lists, HONOURS and the Achaea web API. Names are highlighted in the game text by what they are to you.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset whois &lt;person&gt;</span>
 <p>everything known about someone</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset iff &lt;person&gt; ally|enemy|auto</span>
 <p>mark someone as an ally or an enemy, or go back to what their city says</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset hostile [city|house|order] [name] [off]</span>
 <p>mark a whole organisation hostile (everyone in it is an enemy), or list them</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>namedb.capture</code></td><td>true</td><td></td></tr>
 <tr><td><code>namedb.autoFetch</code></td><td>true</td><td>Look names up against the Achaea web API automatically.</td></tr>
 <tr><td><code>names.enabled</code></td><td>true</td><td></td></tr>
 <tr><td><code>presences.alert</code></td><td>false</td><td>Pop up a warning window when ANGEL PRESENCES senses an enemy nearby.</td></tr>
 <tr><td><code>presences.alertFor</code></td><td>15 s</td><td>How long the presence warning stays up without a click. 0 keeps it until clicked.</td></tr>
 <tr><td><code>names.cityTint</code></td><td>true</td><td></td></tr>
-</tbody></table>
+</tbody></table></div>
 
 <h2 id="interface">Interface</h2>
 <p>The panels around the game text: vitals, afflictions, defences, chat tabs, the room and its people, your target, and the map.</p>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset ui</span>
 <p>whether the panels and the map are on</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset ui rebuild</span>
 <p>rebuild the panels; also fixes one that is missing or stuck</p>
 </div>
-
 <div class="cmd-block">
 <span class="cmd-syntax">emset ui map on|off</span>
 <p>show or hide the map</p>
 </div>
 
-<table><thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>ui.enabled</code></td><td>true</td><td>Whether the panel interface is built at all.</td></tr>
 <tr><td><code>ui.map</code></td><td>true</td><td></td></tr>
 <tr><td><code>ui.mapHeight</code></td><td>42 % of window</td><td>Clamped to 10-70.</td></tr>
@@ -456,21 +468,16 @@ yours so Emunah does not wake you out of it).
 <tr><td><code>ui.chatTabs</code></td><td>Tells, City, House, Market, Says, Misc</td><td></td></tr>
 <tr><td><code>ui.refresh</code></td><td>0.2 s</td><td>How often balance countdowns redraw while one is running. 0 turns the live countdowns off.</td></tr>
 <tr><td><code>keys.numpad</code></td><td>true</td><td></td></tr>
-</tbody></table>
-
-<footer>
-Generated from <code>src/emunah/help.lua</code> by <code>tools/build-commands-page.lua</code>.
-See <a href="curing.html">Curing Engine</a> for what the curing commands are driving.
-</footer>
-
-<div class="page-nav">
-  <div><span class="dir">Back</span><a href="getting-started.html">&larr; Getting Started</a></div>
-  <div class="next"><span class="dir">Next</span><a href="api.html">Lua API &rarr;</a></div>
-</div>
-
-</div>
-<div class="toc">
-  <div class="toc-title">On this page</div>
+</tbody></table></div>
+<p>Generated from <code>src/emunah/help.lua</code> by <code>tools/build-commands-page.lua</code>.</p>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="getting-started.html"><small>Previous</small>Getting started</a>
+  <a class="next" href="curing.html"><small>Next</small>Client-side curing</a>
+</nav>
+</main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
   <a href="#using">Using it</a>
   <a href="#system">System</a>
   <a href="#curing">Curing</a>
@@ -484,8 +491,45 @@ See <a href="curing.html">Curing Engine</a> for what the curing commands are dri
   <a href="#antitheft">Antitheft</a>
   <a href="#people">People</a>
   <a href="#interface">Interface</a>
+</aside>
 </div>
-</main>
-</div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="interface.html">Interface</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
 </body>
 </html>
