@@ -1,4 +1,4 @@
-# Publishes website/ to GitHub Pages (emunah.pharanyx.co.uk) whenever it changes on main.
+# Publishes website/ to GitHub Pages (pharanyx-labs.github.io/Emunah) whenever it changes on main.
 #
 # The site is static files with no build step, so this uploads the directory as it is.
 # website/commands.html is generated from src/emunah/help.lua by
