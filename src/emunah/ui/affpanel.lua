@@ -67,12 +67,16 @@ function M.build()
    return true
 end
 
---- Most urgent cure vector for an affliction, and its rank.
+--- Most urgent cure vector for an affliction, and its rank -- the engine's own, situational
+--- rules included (curing/situations.lua), so the rows read in the order cures go out.
 local function urgency(name)
    local afflist = emunah.curing.afflist
+   local situations = emunah.curing.situations
+   if situations and situations.held(name) then return nil, nil end
    local bestVector, bestRank
    for _, vector in ipairs(afflist.vectorsFor(name)) do
       local rank = afflist.priority(name, vector)
+      if rank and situations then rank = situations.rank(name, vector) or rank end
       if rank and (not bestRank or rank < bestRank) then
          bestVector, bestRank = vector, rank
       end
@@ -93,7 +97,9 @@ local function cureText(name, vector)
 end
 
 --- Status cell for one affliction, and whether it is counting down.
-local function status(name, vector)
+--- @param place number|nil this row's place among the rows waiting on the same vector: the
+---   balance is one, so only the first shows the countdown, and the rest their place in line
+local function status(name, vector, place)
    local engine = emunah.curing.engine
    local queue  = emunah.queue
    local have   = emunah.have
@@ -106,6 +112,10 @@ local function status(name, vector)
       return theme.span("defence", "next"), false
    end
 
+   local situations = emunah.curing.situations
+   local heldBy = situations and situations.held(name)
+   if heldBy then return theme.span("textDim", "held: " .. theme.esc(heldBy)), false end
+
    if not vector then return theme.span("textDim", "no cure"), false end
 
    local flight = queue.awaiting(vector)
@@ -117,8 +127,20 @@ local function status(name, vector)
    local refusal = engine and engine.refusals and engine.refusals[name]
    if refusal then return theme.span("warning", theme.esc(refusal)), false end
 
-   local left = emunah.timers.remaining("cure." .. vector)
-   if left > 0 then return theme.span("textDim", string.format("%s %.1fs", VECTOR_NAME[vector] or vector, left)), true end
+   -- When the balance is EXPECTED back (have.expectedIn), not when the fallback net would
+   -- give up waiting for it. Once per vector: every herb row showing the same "herb 2.4s"
+   -- read as ten timers when there is one balance.
+   local left = have.expectedIn(vector)
+   if left then
+      local label = VECTOR_NAME[vector] or vector
+      if place and place > 1 then
+         return theme.span("textDim", string.format("%s #%d", label, place)), false
+      end
+      if left > 0 then
+         return theme.span("textDim", string.format("%s %.1fs", label, left)), true
+      end
+      return theme.span("textDim", label .. " due"), true
+   end
    if flight then return theme.span("textDim", VECTOR_NAME[vector] .. " busy"), false end
 
    if not engine.enabled then return theme.span("textDim", "curing off"), false end
@@ -169,6 +191,8 @@ local function lockLine()
 end
 
 local rows, html = {}, {}
+--- vector -> rows painted so far that wait on it. Reused across repaints.
+local placed = {}
 
 --- Repaint the afflictions section. Returns whether anything on it is counting.
 local function updateAfflictions()
@@ -210,13 +234,19 @@ local function updateAfflictions()
    if count > 0 then
       n = n + 1
       html[n] = '<table width="100%" cellspacing="0" cellpadding="1">'
+      for vector in pairs(placed) do placed[vector] = nil end
       for index = 1, count do
          local row = rows[index]
          -- Only a report from the imported trigger package is on probation.
          local confirmed = row.source ~= "text"
          local dot = confirmed and "&#9679;" or "&#9675;"
          local cure = cureText(row.name, row.vector)
-         local state, counting = status(row.name, row.vector)
+         local place
+         if row.vector then
+            placed[row.vector] = (placed[row.vector] or 0) + 1
+            place = placed[row.vector]
+         end
+         local state, counting = status(row.name, row.vector, place)
          live = live or counting
          n = n + 1
          html[n] = string.format(

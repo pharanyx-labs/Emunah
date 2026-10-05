@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 62, "all 62 manifest modules loaded")
+eq(loadedModules, 64, "all 64 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -444,8 +444,8 @@ ok(afflist.priority("anorexia", "focus") ~= nil, "anorexia is also focusable (th
 eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss,elixir,purgative",
    "anorexia blocks eating, and sipping, and purgatives (svof check_sip, check_purgative)")
 eq(table.concat(afflist.blockedVectors("mucous"), ","), "smoke", "mucous blocks smoking (svof)")
-eq(table.concat(afflist.blockedVectors("inquisition"), ","), "focus",
-   "inquisition blocks focusing (svof)")
+eq(table.concat(afflist.blockedVectors("inquisition"), ","), "focus,salve",
+   "inquisition blocks focusing (svof) and every salve (the casting Priest, 2026-10-05)")
 for _, name in ipairs({ "paralysis", "numbedleftarm", "numbedrightarm" }) do
    eq(table.concat(afflist.blockedVectors(name), ","), "tree",
       name .. " blocks touching the tree (svof touchtree)")
@@ -6948,6 +6948,34 @@ ok(pcall(emunah.ui.affpanel.update), "affliction panel renders tracked afflictio
 ok(tostring(mock.widgets["emunah.panel.afflictions"].contents):find("paralysis"),
    "affliction panel shows the affliction")
 
+-- THE HERB COUNTDOWN is when the balance is expected, shown once. At 07:33:35.10 on
+-- 2026-10-05 every herb row read "herb 2.4s" -- the 3.5s fallback net, nine times over --
+-- and the real "You may eat another plant or mineral." came at 35.94.
+do
+   local have = emunah.have
+   engine.clear()
+   emunah.timers.stopAll()
+   have.measured.herb = 1.6
+   engine.add("weariness", "gmcp"); engine.add("clumsiness", "gmcp"); engine.add("guilt", "gmcp")
+   emunah.timers.stopAll()
+   have.spend("herb")
+   mock.advance(0.8)
+   emunah.ui.theme.forgetPainted()
+   emunah.ui.affpanel.update()
+   local panel = mock.widgets["emunah.panel.afflictions"]
+   local body = panel and tostring(panel.contents) or ""
+   local _, countdowns = body:gsub("herb %d+%.%ds", "")
+   eq(countdowns, 1, "one herb countdown on the panel, not one per row")
+   ok(body:find("herb 0.8s", 1, true), "...counting to the measured 1.6s, not the 3.5s net", body)
+   ok(body:find("herb #2", 1, true) and body:find("herb #3", 1, true),
+      "...and the other herb rows show their place in line", body)
+   emunah.timers.stopAll()
+   have.measured.herb = nil
+   engine.clear()
+   engine.add("paralysis", "gmcp")
+   engine.add("anorexia", "trigger")
+end
+
 -- Blindness/deafness held on purpose (blind/deaf under keep-up) is not something to cure --
 -- engine.curableCount() and resolve() already skip it for that reason, and the panel has to
 -- agree or it flags a defence working as intended as a problem needing attention.
@@ -11168,6 +11196,14 @@ eq(arrows, 2, "reloads do not stack the trace wrapper", sentTrace)
 -- distinguishes "arrived and empty" from "never arrived".
 eq(emunah.log.summarise({ 1, 2, 3 }), "[3]", "an array summarises to its length")
 eq(emunah.log.summarise({}), "{}", "an empty table is visibly empty")
+-- Char.Afflictions.Remove / Char.Defences.Remove are arrays of bare names, nearly always one
+-- long: "[1]" told an arena log nothing about WHICH affliction the server removed
+-- (2026-10-05 07:33:38.04). Short name lists print in full; anything else keeps its length.
+eq(emunah.log.summarise({ "paralysis" }), "[paralysis]", "a removed affliction is named")
+eq(emunah.log.summarise({ "asthma", "clumsiness" }), "[asthma, clumsiness]",
+   "several removed names are all named")
+eq(emunah.log.summarise({ { id = "1" }, { id = "2" } }), "[2]",
+   "an array of objects (an item list) still reports its length")
 ok(emunah.log.summarise({ location = "room" }):find('location="room"'),
    "a small table shows its keys", emunah.log.summarise({ location = "room" }))
 
@@ -13557,6 +13593,390 @@ suite("pp, insomnia by the skill, and relaxing it for a chosen sleep")
    queue.reset(); emunah.timers.stopAll()
    if wasEngine then engine.start(true) else engine.stop(true) end
    if wasKeepup then keepup.start(true) else keepup.stop(true) end
+end)()
+
+-- ===========================================================================
+suite("an arena loss to a Priest: situational curing, confirmations, and quieter logs")
+
+-- All from one log: an arena fight against a Priest, 2026-10-05 07:33:12-07:33:38, lost with
+-- guilt and spiritburn never once eaten. See curing/situations.lua.
+;(function()
+local engine     = emunah.curing.engine
+local queue      = emunah.queue
+local situations = emunah.curing.situations
+local defkeepup  = emunah.curing.defkeepup
+local vitals     = emunah.gmcp.vitals
+
+local HERBS = {
+   { id = "1", name = "a piece of kelp", attrib = "e" },
+   { id = "2", name = "a bloodroot leaf", attrib = "e" },
+   { id = "3", name = "a lobelia seed", attrib = "e" },
+   { id = "4", name = "a bellwort flower", attrib = "e" },
+}
+
+local function fight(hp)
+   engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   engine.enabled = true
+   emunah.pvp.enabled, emunah.bashing.enabled = false, false
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Defences.List", {})
+   mock.feed("Char.Items.List", { location = "inv", items = HERBS })
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
+                              bal = "1", eq = "1" })
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   mock.sent = {}
+end
+local function tick(hp)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = tostring(hp or 3000), maxhp = "3000", mp = "3000",
+                              maxmp = "3000", bal = "1", eq = "1" })
+   return table.concat(mock.sent, " | ")
+end
+local function herbSent(sent)
+   return sent:match("eat (%a+)")
+end
+
+-- INQUISITION: guilt and spiritburn go ahead of weariness and justice while it is up.
+fight()
+engine.add("weariness", "gmcp"); engine.add("guilt", "gmcp")
+eq(herbSent(tick()), "kelp", "without inquisition, weariness (33) is eaten before guilt (59)")
+fight()
+engine.add("weariness", "gmcp"); engine.add("guilt", "gmcp"); engine.add("inquisition", "gmcp")
+eq(herbSent(tick()), "lobelia",
+   "07:33:19.64 -- under inquisition, guilt is eaten first: it is one of inquisition's keys")
+fight()
+engine.add("spiritburn", "gmcp"); engine.add("clumsiness", "gmcp"); engine.add("inquisition", "gmcp")
+eq(herbSent(tick()), "lobelia", "...and so is spiritburn, ahead of clumsiness (19)")
+
+-- PARALYSIS HOLDING THE HEALING: bloodroot ahead of asthma's kelp at low health.
+fight()
+engine.add("asthma", "gmcp"); engine.add("paralysis", "gmcp")
+eq(herbSent(tick(3000)), "kelp", "at full health asthma (4) goes before paralysis (6)")
+fight()
+engine.add("asthma", "gmcp"); engine.add("paralysis", "gmcp")
+eq(herbSent(tick(547)), "bloodroot",
+   "07:33:37.12 -- at 18% health, paralysis (holding the sip and hands) goes first")
+
+-- RE-APPLIED WEARINESS ranks last while it keeps coming back.
+fight()
+engine.add("weariness", "gmcp"); engine.add("guilt", "gmcp")
+eq(herbSent(tick()), "kelp", "fresh weariness is cured at its own rank")
+engine.remove("weariness")
+mock.advance(1.6)
+engine.add("weariness", "gmcp")
+ok(situations.recurring("weariness"), "weariness back 1.6s after its cure is being re-applied")
+queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+eq(herbSent(tick()), "lobelia", "...and guilt now goes ahead of it")
+mock.advance(situations.RULES[4].when.hold + 1)
+queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+eq(situations.recurring("weariness"), false, "the hold lapses once it stops coming back")
+fight()
+engine.add("weariness", "gmcp")
+eq(herbSent(tick()), "kelp", "on its own it is still eaten: ranked last, never held")
+
+-- JUSTICE is held while nothing is attacking.
+fight()
+engine.add("justice", "gmcp")
+eq(herbSent(tick()), nil, "07:33:19.65 -- no bellwort for justice while not attacking")
+emunah.pvp.enabled = true
+queue.reset(); emunah.timers.stopAll()
+eq(herbSent(tick()), "bellwort", "...and it is cured the moment PvP is running")
+emunah.pvp.enabled = false
+
+-- INQUISITION BLOCKS CURING BURNING (the Priest's own account): no salve, no tree.
+fight()
+mock.feed("Char.Defences.List", { { name = "tree" } })
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "9", name = "some mending salve", attrib = "e" } } })
+engine.add("ablaze", "gmcp")
+ok(tick():find("apply mending", 1, true), "burning alone is salved")
+fight()
+mock.feed("Char.Defences.List", { { name = "tree" } })
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "9", name = "some mending salve", attrib = "e" } } })
+engine.add("burning", "gmcp"); engine.add("inquisition", "gmcp")
+local sent = tick()
+ok(not sent:find("apply mending", 1, true), "under inquisition the salve is held", sent)
+eq(emunah.have.vectorBlocked("salve"), "inquisition",
+   "...because inquisition shuts every salve, not only burning's")
+mock.advance(engine.TREE_DWELL + 0.5)
+queue.reset()
+sent = tick()
+ok(not sent:find("touch tree", 1, true),
+   "...and the tree is not spent on it: it takes burning out of its pool", sent)
+mock.feed("Char.Defences.List", {})
+
+-- EVERY SALVE FAILS UNDER INQUISITION (the user's ruling on the Priest's tell, 2026-10-05).
+fight()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "8", name = "an epidermal salve", attrib = "e" } } })
+engine.add("itching", "gmcp")
+ok(tick():find("apply epidermal", 1, true), "itching alone is salved")
+fight()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "8", name = "an epidermal salve", attrib = "e" } } })
+engine.add("itching", "gmcp"); engine.add("inquisition", "gmcp")
+sent = tick()
+ok(not sent:find("apply", 1, true), "under inquisition no salve goes out, for anything", sent)
+
+-- THE TREE IS NOT OWED TO AN AFFLICTION ANOTHER ROUTE CAN CURE. Masochism's focus is shut by
+-- inquisition, its lobelia is in hand.
+fight()
+mock.feed("Char.Defences.List", { { name = "tree" } })
+engine.add("masochism", "gmcp"); engine.add("inquisition", "gmcp")
+engine.add("asthma", "gmcp")
+tick()
+mock.advance(engine.TREE_DWELL + 0.5)
+queue.reset()
+sent = tick()
+ok(not sent:find("touch tree", 1, true),
+   "a refusal on focus does not spend the tree while lobelia can cure it", sent)
+-- Whether the herb pass happens to look at masochism at all depends on what else is ranked
+-- ahead of it, so the question the tree asks is checked directly as well.
+ok(engine.curableSomehow("masochism"), "masochism is curable somehow: lobelia, with focus shut")
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+eq(engine.curableSomehow("masochism"), false, "...and not once the lobelia is gone too")
+mock.feed("Char.Defences.List", {})
+
+-- "CANNOT CURE" ONCE PER VECTOR AND REASON, not on every prompt.
+fight()
+mock.echoed = {}
+engine.add("masochism", "gmcp"); engine.add("inquisition", "gmcp")
+engine.add("clumsiness", "gmcp")
+for _ = 1, 4 do tick() end
+local _, said = table.concat(mock.echoed, "\n"):gsub("Cannot cure masochism", "")
+eq(said, 1, "07:33:34.80 on -- the focus refusal for masochism is reported once, not per prompt")
+
+-- "RESOLVED" and the unknown-affliction line, at debug level.
+emunah.log.setLevel("debug")
+fight()
+mock.echoed = {}
+engine.add("justice", "gmcp")
+emunah.pvp.enabled = true
+emunah.timers.start("cure.herb", 10)   -- herb balance down: the same choice every prompt
+for _ = 1, 4 do tick() end
+local _, resolved = table.concat(mock.echoed, "\n"):gsub("Resolved justice", "")
+eq(resolved, 1, "\"Resolved justice -> eat bellwort\" is said once while it stays the choice")
+emunah.pvp.enabled = false
+mock.echoed = {}
+engine.add("inquisition", "gmcp")
+ok(not table.concat(mock.echoed, " "):find("unknown affliction", 1, true),
+   "07:33:19.64 -- inquisition is not 'unknown': it has no cure on purpose",
+   table.concat(mock.echoed, " "))
+emunah.log.setLevel("info")
+
+-- A DEFENCE APPEARING CONFIRMS THE RAISE IN FLIGHT. Every defence raised used to time out
+-- into "No confirmation ... re-arming" (twelve, 07:33:39-07:33:54).
+fight()
+defkeepup.resetBudget()
+mock.feed("Char.Defences.List", {})
+defkeepup.setMode("frost", "keepup")
+tick()
+local flight = queue.awaiting("purgative")
+ok(flight and flight.tag == "def:temperance", "drink frost is in flight for temperance",
+   flight and flight.tag)
+mock.feed("Char.Defences.Add", { name = "temperance", desc = "" })
+eq(queue.awaiting("purgative"), nil, "Char.Defences.Add answers it -- no confirm timeout")
+defkeepup.setMode("frost", nil)
+defkeepup.resetBudget()
+
+-- STALE VITALS: the arena-defeat burst. Many defences lost before one Char.Vitals is the
+-- character being reset, and the last vitals (489 of 3000) no longer describe it.
+fight()
+local names = {}
+for index = 1, vitals.RESET_BURST + 1 do names[index] = { name = "def" .. index } end
+mock.feed("Char.Defences.List", names)
+tick(489)
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+for index = 1, vitals.RESET_BURST + 1 do
+   mock.feed("Char.Defences.Remove", { "def" .. index })
+end
+ok(vitals.stale(), "a burst of lost defences marks the vitals stale")
+engine.tick(); queue.flush()
+local burst = table.concat(mock.sent, " | ")
+ok(not burst:find("perform hands", 1, true) and not burst:find("drink health", 1, true),
+   "07:33:38 -- no hands and no sip on the vitals the defeat left behind", burst)
+tick(3000)
+eq(vitals.stale(), false, "the next Char.Vitals ends it")
+-- One strip is a fight, not a reset: healing goes on.
+fight()
+mock.feed("Char.Defences.List", { { name = "def1" } })
+tick(489)
+queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+mock.feed("Char.Defences.Remove", { "def1" })
+engine.tick(); queue.flush()
+ok(table.concat(mock.sent, " | "):find("drink health", 1, true),
+   "a single lost defence does not hold healing", table.concat(mock.sent, " | "))
+
+-- THE PANEL'S HERB COUNTDOWN is when the balance is expected, shown once. At 07:33:35.10
+-- every herb row read "herb 2.4s" -- the 3.5s fallback net, nine times over -- and the real
+-- "You may eat another plant or mineral." came at 35.94.
+fight()
+local have = emunah.have
+have.measured.herb = nil
+have.spend("herb")
+mock.advance(1.6)
+have.announced("herb")
+ok(math.abs((have.measured.herb or 0) - 1.6) < 0.01, "the announced balance trains the estimate",
+   tostring(have.measured.herb))
+have.spend("herb")
+mock.advance(5)
+have.announced("herb")
+ok(math.abs(have.measured.herb - 1.6) < 0.01,
+   "...but a gap longer than the net is an unanswered send, not a balance")
+have.recover("herb")
+
+emunah.timers.stopAll()
+
+fight()
+engine.enabled = false
+end)()
+
+
+-- ===========================================================================
+suite("tools/fight-report.lua reads a pasted fight")
+
+do
+   local report = dofile("tools/fight-report.lua")
+   local fight = report.parse({
+      "You may eat another plant or mineral.",
+      "H:100% M:98% E:100% W:99%  exckdb  T:  07:33:15.68-",
+      "[emunah] Sent [herb] eat lobelia (tenderskin)",
+      "[gmcp] << Char.Afflictions.Add {cure=\"EAT KELP\" desc=\"Weariness increases the rate at which you use ",
+      "endurance.\" name=\"weariness\"}",
+      "Health lost: 756 (physical blunt).",
+      "H:74% M:98% E:100% W:99%  exckdb  T:  07:33:15.78-",
+      "[emunah] Cannot cure masochism: focus is blocked by inquisition.",
+      "You may eat another plant or mineral.",
+      "H:74% M:98% E:100% W:99%  exckdb  T:  07:33:17.52-",
+      "[emunah] Cannot cure masochism: focus is blocked by inquisition.",
+      "[emunah] Sent [herb] eat kelp (weariness)",
+      "You have been slain by Anzerloi.",
+      "H:16% M:100% E:100% W:99%  xckb  T:  07:33:38.33-",
+   })
+   eq(fight.damageTotal, 756, "damage is summed from Health lost lines")
+   eq(fight.sends["herb: eat kelp (weariness)"], 1, "sends are counted by balance and reason")
+   eq(fight.gained.weariness, 1, "a wrapped Char.Afflictions.Add is still read")
+   eq(fight.held["Cannot cure masochism: focus is blocked by inquisition."].count, 2,
+      "a repeated refusal is one entry, counted")
+   eq(fight.died, 38.33 + 7 * 3600 + 33 * 60, "the death is placed at its prompt")
+   ok(report.render(fight):find("herb (2)", 1, true), "the report renders", report.render(fight))
+end
+
+-- ===========================================================================
+suite("conf/: settings in files, and `emset ownprios` for your own ranks")
+
+;(function()
+local conf   = emunah.conf
+local config = emunah.config
+local engine = emunah.curing.engine
+local queue  = emunah.queue
+
+-- THE SHIPPED FILES CHANGE NOTHING, and every line in them works once uncommented.
+conf.apply()
+eq(#conf.problems, 0, "the shipped conf/ files read without a problem", table.concat(conf.problems, "; "))
+eq(next(config.overlay), nil, "...and pin nothing: every line ships commented")
+local texts, lines = {}, 0
+for _, file in ipairs(conf.FILES) do
+   if not conf.PRIOS[file] then
+      local handle = io.open(conf.dir() .. "/" .. file .. ".conf", "r")
+      ok(handle ~= nil, "conf/" .. file .. ".conf ships")
+      if handle then
+         local uncommented = {}
+         for line in handle:lines() do
+            local setting = line:match("^# ([%w%.]+ = .*)$")
+            if setting then
+               uncommented[#uncommented + 1] = setting
+               lines = lines + 1
+            end
+         end
+         handle:close()
+         texts[file] = table.concat(uncommented, "\n")
+      end
+   end
+end
+conf.apply(texts)
+eq(#conf.problems, 0, "every setting shown in conf/ is a real one, of the right type",
+   table.concat(conf.problems, "; "))
+eq(conf.summary.settings, lines, "...and each one is pinned when uncommented")
+conf.apply({})
+
+-- A PINNED SETTING WINS, and `emset` on it says so.
+conf.apply({ healing = "# comment\ncuring.healthThreshold = 70   # %" })
+eq(config.get("curing.healthThreshold"), 70, "healing.conf pins the health-sip threshold")
+eq(conf.source("curing.healthThreshold"), "healing.conf:2", "...and says where")
+mock.echoed = {}
+emunah.commands.dispatch("curing.healthThreshold 60")
+ok(table.concat(mock.echoed, " "):find("healing.conf:2", 1, true),
+   "emset on a pinned setting says where it is pinned", table.concat(mock.echoed, " "))
+eq(config.get("curing.healthThreshold"), 70, "...and the file's value stays in force")
+config.set("curing.healthThreshold", 80)
+conf.apply({})
+eq(config.get("curing.healthThreshold"), 80, "unpinned, the saved value is back")
+
+-- A LINE THAT CANNOT BE USED IS REPORTED, with its place.
+conf.apply({
+   healing    = "nonsense\ncuring.healthThreshold = high\ncuring.nosuch = 1",
+   priorities = "weariness.salve = 3\nnotreal.herb = 2",
+   situations = "no-such-rule = off",
+})
+eq(#conf.problems, 6, "each unusable line is a problem", table.concat(conf.problems, "; "))
+ok(table.concat(conf.problems, "; "):find("healing.conf:2", 1, true), "...named by file and line")
+conf.apply({})
+
+-- OWNPRIOS: priorities.conf and situations.conf only while it is on.
+local function fight()
+   engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+   engine.enabled = true
+   emunah.pvp.enabled, emunah.bashing.enabled = false, false
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "1", name = "a piece of kelp", attrib = "e" },
+      { id = "2", name = "a bloodroot leaf", attrib = "e" },
+      { id = "4", name = "a bellwort flower", attrib = "e" },
+   } })
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+end
+local function eaten()
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
+                              bal = "1", eq = "1" })
+   return table.concat(mock.sent, " | "):match("eat (%a+)")
+end
+local mine = {
+   priorities = "weariness.herb = 1",
+   situations = "justice-not-attacking = off",
+}
+
+config.set("curing.ownprios", false)
+conf.apply(mine)
+fight(); engine.add("paralysis", "gmcp"); engine.add("weariness", "gmcp")
+eq(eaten(), "bloodroot", "ownprios off: priorities.conf is ignored")
+fight(); engine.add("justice", "gmcp")
+eq(eaten(), nil, "...and so is situations.conf: justice is still held")
+
+config.set("curing.ownprios", true)
+conf.apply(mine)
+fight(); engine.add("paralysis", "gmcp"); engine.add("weariness", "gmcp")
+eq(eaten(), "kelp", "ownprios on: weariness.herb = 1 puts kelp first")
+fight(); engine.add("justice", "gmcp")
+eq(eaten(), "bellwort", "...and a rule switched off in situations.conf is off")
+
+-- `emset prio` writes the SAVED ranks, never the file's into the profile.
+emunah.commands.dispatch("prio clumsiness herb 12")
+eq((config.stored("priorities").weariness or {}).herb, nil,
+   "emset prio does not save priorities.conf's ranks as if typed")
+eq(config.get("priorities").clumsiness.herb, 12, "...and its own rank is in force alongside")
+local saved = config.stored("priorities")
+saved.clumsiness = nil
+config.set("priorities", saved)
+
+config.set("curing.ownprios", false)
+conf.apply()
+eq(#emunah.curing.situations.rules, #emunah.curing.situations.RULES,
+   "ownprios off: every shipped rule is back")
+engine.clear(); queue.reset(); emunah.timers.stopAll()
+engine.enabled = false
 end)()
 
 io.write("\n", string.rep("-", 60), "\n")

@@ -382,8 +382,23 @@ local function route(path)
    return node, key
 end
 
+--- Values pinned by conf/*.conf (emunah/conf.lua), keyed by dotted path. They win over the
+--- saved setting: a file the user edits is the statement of intent, and a stored value
+--- that silently outranked it would make the file a lie. Rebuilt by conf.lua on every load
+--- and every reload; empty unless a file sets something.
+M.overlay = {}
+
 --- Read a dotted setting: config.get("curing.confirmWait")
 function M.get(path, fallback)
+   local pinned = M.overlay[path]
+   if pinned ~= nil then return pinned end
+   return M.stored(path, fallback)
+end
+
+--- The SAVED value, ignoring conf/*.conf. For anything that reads a setting in order to
+--- write it back (`emset prio` adds to `priorities`), which must not save a file's values
+--- into the profile as if they had been typed.
+function M.stored(path, fallback)
    -- Only string paths are memoised; anything else is rare enough not to be worth a key.
    if type(path) ~= "string" then
       local node = M.data

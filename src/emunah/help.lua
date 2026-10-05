@@ -89,6 +89,9 @@ M.modules = {
      summary = "keep more, fewer or none of a herb in hand; IR shows every herb with a toggle" },
    { syntax = "emset prio <affliction> <balance> <rank>", handler = "prio",
      summary = "cure an affliction sooner or later on one balance; lower is sooner" },
+   { syntax = "emset ownprios [on|off]", handler = "ownprios",
+     summary = "use your own ranks and situational rules from conf/priorities.conf and "
+        .. "conf/situations.conf, or go back to the shipped ones" },
    { syntax = "sleep", alias = "sleep",
      summary = "RELAX INSOMNIA if it is up, then SLEEP, marked as yours: Emunah neither "
         .. "wakes you nor raises insomnia until you are up" },
@@ -299,6 +302,8 @@ M.settings = {
   shipped = true, detail = "PERFORM HANDS below this. Costs equilibrium, which attacking "
        .. "also spends, so this is set low on purpose." },
 { key = "curing.irid", default = true, type = "boolean", topic = "curing", shipped = false },
+{ key = "curing.ownprios", default = false, type = "boolean", topic = "curing", shipped = false,
+  detail = "Use conf/priorities.conf and conf/situations.conf. Set with `emset ownprios`." },
 { key = "curing.diag", default = true, type = "boolean", topic = "curing", shipped = false,
   detail = "Send DIAG when the affliction list is in doubt -- which is what answers `loki`, "
        .. "the one affliction GMCP does not report honestly." },

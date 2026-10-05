@@ -182,6 +182,21 @@ failed eats may have landed inside herb balance (`The plant has no effect.`, see
 
 Substantive corrections to the data, most recent first.
 
+**Situational ranks on top of svof's (2026-10-05).** An arena loss to a Priest
+(07:33:12–07:33:38) showed what fixed ranks cost. Weariness, re-applied every round, took 6 of
+13 herb eats, and guilt (59) and spiritburn (61) were never eaten, so inquisition held focus and
+the hellsight cure shut to the end. `curing/situations.lua` now re-ranks or holds cures while a
+situation lasts:
+- guilt and spiritburn come first under inquisition;
+- the tree isn't spent on burning under inquisition (and `afflist.blocks` now shuts every salve
+  under it, alongside focus);
+- paralysis goes ahead of asthma below the sip threshold;
+- weariness drops to last when it is re-applied within seconds;
+- justice is held while nothing is attacking.
+
+The table in `docs/game/curing.md` (*Situational rules*) gives the evidence for each. `afflist.lua`'s
+own ranks are unchanged.
+
 **The affliction-healing elixirs moved to their own balance (2026-10-03).** `voyria`
 (immunity), `frost`, `venom`, `speed` and `levitation` cure on `purgative`, not `elixir`.
 svof gates them with `check_purgative` on `bals.purgative`, independently of the health/mana

@@ -457,8 +457,25 @@ function M.resetBudget(name)
 end
 
 -- A defence appearing is proof the command works, whatever it took to get there.
+--
+-- AND IT ANSWERS THE RAISE IN FLIGHT. Nothing did: every defence raised was followed, two
+-- seconds later, by "No confirmation for [...] -- re-arming." -- twelve of them in one
+-- defup after an arena defeat (2026-10-05 07:33:39-07:33:54: insomnia, levitation, cloak,
+-- kola, vigilance, inspiration, venom, skullcap, mindseye, echinacea, frost, nightsight),
+-- each one holding its slot for the whole confirm window after the game had already said
+-- yes. Only the queue SLOT is freed here, never the balance: the balance has its own
+-- announcement (see engine.lua's affliction.removed handler for the same split).
 event.register("emunah.defence.added", function(_, name)
-   M.resetBudget(tostring(name or ""):lower())
+   name = tostring(name or ""):lower()
+   M.resetBudget(name)
+   local tag = "def:" .. name
+   for _, vector in ipairs(queue.VECTORS) do
+      local action = queue.awaiting(vector)
+      if action and action.tag == tag then
+         queue.confirm(vector)
+         break
+      end
+   end
 end, "curing.defkeepup")
 
 --- Which switched-on defences are currently missing AND still want raising.

@@ -43,6 +43,7 @@ local have     = emunah.have
 local afflist  = emunah.curing.afflist
 local deflist  = emunah.curing.deflist
 local curelist = emunah.curing.curelist
+local situations = emunah.curing.situations
 
 --- affliction name -> { since, source }
 M.tracked = {}
@@ -57,7 +58,33 @@ M.tracked = {}
 M.refusals = {}
 
 --- Reasons already logged, so a refusal is reported when it changes rather than per tick.
+---
+--- vector -> affliction -> reason. PER VECTOR, because an affliction with two cure routes
+--- was reported on every prompt: masochism is cured by lobelia OR focus, the herb pass found
+--- lobelia usable and cleared the record, and the focus pass then found focus shut by
+--- inquisition and, seeing no record, said so again. "Cannot cure masochism: focus is
+--- blocked by inquisition." printed on every prompt from 07:33:34.80 to the end of an arena
+--- fight (2026-10-05) -- forty-odd copies of one fact.
 local reported = {}
+
+local function reportedOn(vector)
+   local byName = reported[vector]
+   if not byName then
+      byName = {}
+      reported[vector] = byName
+   end
+   return byName
+end
+
+--- The cure each vector last logged as resolved. "Resolved X -> Y" is logged when the choice
+--- CHANGES, not on every prompt: the same arena log repeated "Resolved justice -> eat
+--- bellwort" on each of a dozen prompts while herb balance was down, burying the lines that
+--- said anything new. vector -> affliction, vector -> command.
+local lastResolved, lastCommand = {}, {}
+
+--- Afflictions a situational rule holds outright (curing/situations.lua), already logged,
+--- so a hold is said once per affliction rather than per tick.
+local heldReported = {}
 
 --- How long to wait after sending a cure before sending another for the SAME affliction.
 ---
@@ -124,13 +151,22 @@ function M.add(name, source)
    if name == "" then return false end
    if M.tracked[name] then return false end
 
-   M.tracked[name] = { since = emunah.util.now(), source = source or "manual" }
+   local now = emunah.util.now()
+   M.tracked[name] = { since = now, source = source or "manual" }
 
+   -- Not for an affliction known to have NO cure (afflist.wearsOff -- inquisition, mucous),
+   -- nor for a defence held on purpose that the server also lists as an affliction
+   -- (insomnia, blindness): neither is something afflist has failed to hear of. Both were
+   -- announced as unknown in the arena log of 2026-10-05 (07:33:19.64 inquisition,
+   -- 07:33:39.41 insomnia).
    if not afflist.known(name) and not afflist.isWrithe(name)
-      and not afflist.isState(name) then
+      and not afflist.isState(name) and not afflist.wearsOff[name]
+      and not deflist.deliberate(name) then
       -- Worth saying out loud: an affliction we cannot cure will sit in state forever.
       log.debug("Tracking unknown affliction %q (no cure defined).", name)
    end
+
+   situations.onAfflicted(name, now)
 
    event.raise("affliction.tracked", name, source)
    return true
@@ -186,8 +222,10 @@ function M.remove(name)
    if not M.tracked[name] then return false end
    M.tracked[name] = nil
    M.refusals[name] = nil
-   reported[name] = nil
+   for _, byName in pairs(reported) do byName[name] = nil end
    curing[name] = nil
+   heldReported[name] = nil
+   situations.onCured(name)
    -- The server-cure resend pace (M.SERVER_CURE_RETRY) is for a cure the game keeps
    -- refusing, and a refused affliction stays tracked. One that has gone was answered, and
    -- the next one of the same name is a new affliction: at 14:18:45.68 SMOKE ELM cured
@@ -213,6 +251,9 @@ function M.clear()
    -- would otherwise suppress the first report of the same reason next time round.
    M.refusals = {}
    reported = {}
+   lastResolved, lastCommand = {}, {}
+   heldReported = {}
+   situations.reset()
    -- Clearing tracked state ends the bout: a loki tracked after this is a new one.
    diagSent = false
    curing = {}
@@ -358,11 +399,17 @@ local curableRanks = {}
 local NO_OVERRIDES = {}
 local overrides = NO_OVERRIDES
 
+--- Reused rank tables for afflictions a situational rule has re-ranked, one per name.
+local situational = {}
+
 --- Split M.tracked into those two sets. Call once per tick, after anything that can change
 --- what is tracked and before the vector loop reads them.
 local function classify()
    curableCount, unknownCount = 0, 0
    overrides = emunah.config.get("priorities", NO_OVERRIDES)
+
+   -- Once per tick, before anything below asks it about a single affliction.
+   situations.evaluate(M.tracked)
 
    for name in pairs(M.tracked) do
       -- NEVER CURE A DEFENCE THE CHARACTER IS HOLDING ON PURPOSE.
@@ -379,11 +426,34 @@ local function classify()
       -- a real blinding, with no `blind` defence up, cures normally. The epidermal refusal
       -- in have.cure() stays for a DIFFERENT affliction (anorexia) that would strip the
       -- defence as a side effect. This skip is what stops the warning for blind itself.
-      if not deflist.deliberate(name) then
+      local heldBy = situations.holding and situations.held(name)
+      if heldBy then
+         if heldReported[name] ~= heldBy then
+            heldReported[name] = heldBy
+            log.debug("Holding %s: %s.", name, heldBy)
+         end
+      elseif not deflist.deliberate(name) then
          if afflist.known(name) then
             curableCount = curableCount + 1
             curable[curableCount] = name
-            curableRanks[curableCount] = next(overrides) == nil and afflist.ranks(name)
+            if situations.reranking and situations.reranks(name) then
+               -- A rule's rank wins over afflist's and over a user override, but only on
+               -- a vector that already cures this affliction: a rule can reorder the
+               -- cures, never invent one.
+               local ranks = situational[name]
+               if not ranks then
+                  ranks = {}
+                  situational[name] = ranks
+               end
+               for _, vector in ipairs(M.VECTORS) do
+                  local rank = afflist.priority(name, vector, overrides)
+                  if rank ~= nil then rank = situations.rank(name, vector) or rank end
+                  ranks[vector] = rank
+               end
+               curableRanks[curableCount] = ranks
+            else
+               curableRanks[curableCount] = next(overrides) == nil and afflist.ranks(name)
+            end
          -- afflist.isState() excludes `prone`, `stunned`, `sleeping`: those already have a
          -- dedicated response in curing/detect (STAND, wait, WAKE), driven off the same GMCP
          -- flag through emunah.affliction.added, not off this loop at all. Without this
@@ -404,6 +474,7 @@ end
 --- @return table|nil option, string|nil affliction
 local function resolve(vector)
    local bestOption, bestAffliction, bestRank
+   local said = reportedOn(vector)
 
    for index = 1, curableCount do
       local name = curable[index]
@@ -418,19 +489,24 @@ local function resolve(vector)
             -- had taken the one ash carried, and the restock behind it had not landed
             -- (19:13:36.66 eat, 36.78 warning, 37.41 "You remove 1 ash", 2026-10-04).
             local usable, reason = false, nil
-            if not cureInFlight(name) then usable, reason = have.cure(option) end
+            local heldBy = situations.holding and situations.held(name, vector)
+            if heldBy then
+               reason = ("%s is held: %s"):format(vector, heldBy)
+            elseif not cureInFlight(name) then
+               usable, reason = have.cure(option)
+            end
             if usable then
                bestOption, bestAffliction, bestRank = option, name, rank
                M.refusals[name] = nil
-               reported[name] = nil
+               said[name] = nil
                break
             elseif reason then
                M.refusals[name] = reason
                -- Once per distinct reason, not once per tick: this runs on every prompt,
                -- and an affliction nothing can cure would otherwise fill the log with the
                -- same line several times a second.
-               if reported[name] ~= reason then
-                  reported[name] = reason
+               if said[name] ~= reason then
+                  said[name] = reason
                   log.warn("Cannot cure %s: %s.", name, reason)
                end
             end
@@ -594,6 +670,11 @@ end
 --- produce that. Over-healing costs consumables; under-healing costs the character, and the
 --- window is short because recklessness is itself a high-priority cure.
 local function healthPercent(vitals, resource)
+   -- A reset burst (vitals.stale) reads as full, not as unknown: the Char.Vitals behind it
+   -- is milliseconds away and will say so, where acting now spends a balance on a body
+   -- that is already healed. Every healing push and every heal's valid() reads this, so a
+   -- heal already queued is dropped rather than sent.
+   if vitals.stale and vitals.stale() then return 100 end
    if not vitals.trusted(resource) then return 0 end
    return vitals.percent[resource]
 end
@@ -1094,6 +1175,23 @@ end
 --- gap of a second and a half.
 M.TREE_DWELL = 2.0
 
+--- Does any cure route for this affliction work right now, balance aside?
+---
+--- M.refusals keeps the LAST refusal a vector gave, and an affliction with two routes can
+--- be refused by one while the other is fine: masochism's focus shut by inquisition, its
+--- lobelia in hand (2026-10-05 07:33:34.80 on). Without this, the tree was owed to it as
+--- "nothing can cure" once TREE_DWELL passed. Asked only once a refusal has dwelt that long.
+function M.curableSomehow(name)
+   for _, vector in ipairs(afflist.vectorsFor(name)) do
+      if not situations.held(name, vector) then
+         for _, option in ipairs(afflist.curesVia(name, vector)) do
+            if have.cure(option) then return true end
+         end
+      end
+   end
+   return false
+end
+
 local function queueTree()
    if emunah.config.get("curing.tree", true) == false then return end
    if queue.pending("tree") or queue.awaiting("tree") then return end
@@ -1111,7 +1209,8 @@ local function queueTree()
 
    local now = util.now()
    for name, record in pairs(M.tracked) do
-      if M.refusals[name] and (now - record.since) >= M.TREE_DWELL then
+      if M.refusals[name] and (now - record.since) >= M.TREE_DWELL
+         and not situations.held(name, "tree") and not M.curableSomehow(name) then
          queue.push("tree", "touch tree", {
             priority = 0,
             tag      = "tree:" .. name,
@@ -1402,8 +1501,14 @@ function M.tick()
             -- focus. And the first cure of the tick no longer waits for six more vectors to
             -- be resolved behind it. (Before the debug line, too: see act.send().)
             queue.flushVector(vector)
-            log.debug("Resolved %s -> %s (%s, p%s)", affliction, command, item or "-", tostring(rank))
+            if lastResolved[vector] ~= affliction or lastCommand[vector] ~= command then
+               lastResolved[vector], lastCommand[vector] = affliction, command
+               log.debug("Resolved %s -> %s (%s, p%s)", affliction, command, item or "-",
+                  tostring(rank))
+            end
          end
+      else
+         lastResolved[vector], lastCommand[vector] = nil, nil
       end
 
       -- The server-suggested fallback above, or a cure pushed on an earlier tick that is

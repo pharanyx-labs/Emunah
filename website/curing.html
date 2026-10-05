@@ -119,6 +119,8 @@
 </table></div>
 <p>Some cures spend no curing balance at all and go out alongside the others: COMPOSE for fear, CONCENTRATE, CLOT for bleeding above a threshold, and WRITHE for entanglement. WRITHE is sent once per entanglement and never repeated while it is under way, because a second one makes it take longer.</p>
 <p>The ranking within each balance follows the reference system's. <code>emset prio &lt;affliction&gt; &lt;balance&gt; &lt;rank&gt;</code> moves any affliction up or down on any one balance; lower is sooner.</p>
+<p>A fixed ranking is wrong in particular fights, so a few situational rules move a cure while a situation lasts. Under inquisition, guilt and spiritburn are eaten first, because clearing them is what ends it, and the tree is not spent on burning, which it will not cure. Paralysis goes ahead of asthma when it is holding your sip at low health. Weariness that comes back within seconds of every cure drops to last on the herb balance. Justice is left alone while you are not attacking, because it only reflects your own attacks. Each rule is backed by evidence, listed in the source.</p>
+<p>To use your own ranks and rule changes, put them in <code>conf/priorities.conf</code> and <code>conf/situations.conf</code> in the checkout and turn them on with <code>emset ownprios on</code>. <code>emset ownprios off</code> goes back to the shipped ones without touching the files. The other files in <code>conf/</code> can pin any setting, such as the healing thresholds in <code>healing.conf</code>.</p>
 
 <h2 id="locks">Locks</h2>
 <p>Some afflictions shut whole balances. Sending into a shut balance wastes a round trip, so Emunah checks every block before it chooses a cure, and cures through the balance that is still open.</p>
@@ -130,6 +132,7 @@
     <tr><td>Asthma</td><td>Smoke</td><td>Eating kelp</td></tr>
     <tr><td>Paralysis</td><td>Everything except eating</td><td>Eating bloodroot</td></tr>
     <tr><td>Impatience</td><td>Focus</td><td>Eating goldenseal</td></tr>
+    <tr><td>Inquisition</td><td>Focus and salve</td><td>Ends once guilt and spiritburn are cured and you are standing</td></tr>
   </tbody>
 </table></div>
 <p>A block can land after a cure has been queued, so the queue asks again at the moment it would send. Stun, sleep and unconsciousness hold everything; prone holds only what needs you upright, so you keep eating and sipping on the ground.</p>
