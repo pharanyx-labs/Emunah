@@ -444,8 +444,8 @@ ok(afflist.priority("anorexia", "focus") ~= nil, "anorexia is also focusable (th
 eq(table.concat(afflist.blockedVectors("anorexia"), ","), "herb,moss,elixir,purgative",
    "anorexia blocks eating, and sipping, and purgatives (svof check_sip, check_purgative)")
 eq(table.concat(afflist.blockedVectors("mucous"), ","), "smoke", "mucous blocks smoking (svof)")
-eq(table.concat(afflist.blockedVectors("inquisition"), ","), "focus",
-   "inquisition blocks focusing (svof)")
+eq(table.concat(afflist.blockedVectors("inquisition"), ","), "focus,salve",
+   "inquisition blocks focusing (svof) and every salve (the casting Priest, 2026-10-05)")
 for _, name in ipairs({ "paralysis", "numbedleftarm", "numbedrightarm" }) do
    eq(table.concat(afflist.blockedVectors(name), ","), "tree",
       name .. " blocks touching the tree (svof touchtree)")
@@ -13697,12 +13697,27 @@ mock.feed("Char.Items.List", { location = "inv", items = {
 engine.add("burning", "gmcp"); engine.add("inquisition", "gmcp")
 local sent = tick()
 ok(not sent:find("apply mending", 1, true), "under inquisition the salve is held", sent)
+eq(emunah.have.vectorBlocked("salve"), "inquisition",
+   "...because inquisition shuts every salve, not only burning's")
 mock.advance(engine.TREE_DWELL + 0.5)
 queue.reset()
 sent = tick()
 ok(not sent:find("touch tree", 1, true),
    "...and the tree is not spent on it: it takes burning out of its pool", sent)
 mock.feed("Char.Defences.List", {})
+
+-- EVERY SALVE FAILS UNDER INQUISITION (the user's ruling on the Priest's tell, 2026-10-05).
+fight()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "8", name = "an epidermal salve", attrib = "e" } } })
+engine.add("itching", "gmcp")
+ok(tick():find("apply epidermal", 1, true), "itching alone is salved")
+fight()
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "8", name = "an epidermal salve", attrib = "e" } } })
+engine.add("itching", "gmcp"); engine.add("inquisition", "gmcp")
+sent = tick()
+ok(not sent:find("apply", 1, true), "under inquisition no salve goes out, for anything", sent)
 
 -- THE TREE IS NOT OWED TO AN AFFLICTION ANOTHER ROUTE CAN CURE. Masochism's focus is shut by
 -- inquisition, its lobelia is in hand.

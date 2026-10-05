@@ -44,16 +44,16 @@ M.RULES = {
       rank = { guilt = { herb = 7.5 }, spiritburn = { herb = 7.5 } },
    },
 
-   -- INQUISITION BLOCKS CURING BURNING. From the Priest who cast it, by tell (07:51:40-ish,
+   -- INQUISITION BLOCKS CURING BURNING. From the Priest who cast it, by tell (07:51:40,
    -- relayed by the user): "Also inquisition blocks curing of burning. Salves will fail, tree
-   -- will take them out of its pool of possible cures if inquisition is there." Read narrowly
-   -- -- the salve FOR BURNING fails, and the tree will not pick burning -- until the wider
-   -- reading (every salve fails) is confirmed. Holding the salve keeps a mending from being
-   -- wasted; holding the tree keeps touch tree from being spent on something it skips.
+   -- will take them out of its pool of possible cures if inquisition is there." Every salve
+   -- failing is a whole-vector block, so it lives in afflist.blocks (the user's ruling, the
+   -- same day). What is left here is the tree: with burning's only cure shut, the engine would
+   -- otherwise touch the tree for it once the refusal had dwelt, and the tree skips it.
    {
       id   = "inquisition-burning",
       when = { has = { "inquisition" } },
-      hold = { ablaze = { salve = true, tree = true } },
+      hold = { ablaze = { tree = true } },
       why  = "inquisition",
    },
 

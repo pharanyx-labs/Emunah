@@ -188,7 +188,8 @@ Substantive corrections to the data, most recent first.
 the hellsight cure shut to the end. `curing/situations.lua` now re-ranks or holds cures while a
 situation lasts:
 - guilt and spiritburn come first under inquisition;
-- burning isn't salved or left to the tree under inquisition;
+- the tree isn't spent on burning under inquisition (and `afflist.blocks` now shuts every salve
+  under it, alongside focus);
 - paralysis goes ahead of asthma below the sip threshold;
 - weariness drops to last when it is re-applied within seconds;
 - justice is held while nothing is attacking.

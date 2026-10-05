@@ -130,7 +130,7 @@ block can land while a cure waits for its balance.
 | eat moss / potash | anorexia | `afflist.blocks` | [svof check_moss] |
 | sip elixir | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_sip]; [play] for paralysis |
 | drink purgative | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_purgative]; paralysis by analogy with the sip |
-| apply salve | slickness; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_salve]; [play] for paralysis |
+| apply salve | slickness; inquisition; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_salve]; [play] for paralysis; [player] for inquisition (*Situational rules*) |
 | smoke | asthma (except right behind an `eat kelp`/`eat aurum` in flight, not anorexic: *Puff behind the kelp* below), mucous. **Not** paralysis | `afflist.blocks` | [svof check_smoke]; no play evidence of a refusal. Held for paralysis until 2026-10-04, which put the earworm puff behind the bloodroot (18:48:38.91, 19:02:01.68) |
 | `outr` (rift) | webbed, bound, transfixed, roped, impaled; both arms crippled. **Not** paralysis, equilibrium, balance, prone, or blindness | `afflist.blocks`, `have.vectorBlocked` | [svof canoutr]; [play] 14:26:06–14:27:20 on 2026-09-28, where holding it for paralysis deadlocked the bloodroot pull. 17:31:34.08–17:31:37.10: the first pull waited out mindseye's equilibrium because the rift list was still behind the login refresh |
 | focus | impatience, inquisition, willpower ≤ 75, mana ≤ 35% (svof `manause`, `curing.focusMinMana`); paralysis | `afflist.blocks`, `have.vectorBlocked` | [svof check_focus] |
@@ -366,7 +366,7 @@ not svof's: svof has no equivalent for any of them.
 | Rule | While | Effect | Evidence |
 |---|---|---|---|
 | `inquisition-unlock` | inquisition | guilt, spiritburn → herb 7.5 (from 59/61) | [gmcp] 07:33:19.64: inquisition "cures once the victim has rid themselves of both guilt and spiritburn afflictions, and is no longer prone"; [player] the casting Priest by tell, 07:50:06: "Inquisition is cured when you clear all of - guilt, spiritburn, prone." |
-| `inquisition-burning` | inquisition | burning (`ablaze`): salve and tree held | [player] same Priest, 07:51:40 and after: "inquisition blocks curing of burning. Salves will fail, tree will take them out of its pool of possible cures if inquisition is there." Read narrowly (the salve *for burning*). Whether every salve fails is unconfirmed |
+| `inquisition-burning` | inquisition | burning (`ablaze`): tree held | [player] same Priest, 07:51:40 and after: "inquisition blocks curing of burning. Salves will fail, tree will take them out of its pool of possible cures if inquisition is there." **Every** salve fails (the user's ruling, 2026-10-05), so that half is a vector block, `afflist.blocks.inquisition = { focus, salve }`, not a rule |
 | `paralysis-holds-healing` | paralysis, health below `curing.healthThreshold` | paralysis → herb 3.5 (ahead of asthma's 4) | [play] 07:33:37.12: paralysis and asthma at 18%; kelp first, elixir (37.26) and equilibrium (38.33) unusable until death |
 | `weariness-reapplied` | weariness back within 6s of its cure | weariness → herb 69 (last) until 15s pass without it returning | [play] sin of sloth re-applied it 0.4–4s after each cure (14.18→15.78, 17.78→19.64, 21.44→25.50, 27.00→27.42, 28.80→29.33) |
 | `justice-not-attacking` | neither PvP nor bashing running | justice held outright | [gmcp] 07:33:15.78: "any damaging attack by you against the afflictor … partially returned to you" |

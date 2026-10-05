@@ -57,7 +57,11 @@ M.blocks = {
    -- The reference system's check_focus refuses on `inquisition` (a Priest affliction: "The words echo ...
    -- in your mind, interrupting your concentration."). It ends once guilt, spiritburn and
    -- prone are all gone; curing/situations.lua moves the first two up while it holds.
-   inquisition = { "focus" },
+   -- `salve` too: every salve fails under it. The casting Priest by tell (07:51:40,
+   -- 2026-10-05): "Salves will fail, tree will take them out of its pool of possible cures
+   -- if inquisition is there", and the user's ruling on it the same day: every salve, not
+   -- only the one for burning.
+   inquisition = { "focus", "salve" },
    -- TOUCH TREE. The reference system's touchtree isadvisable refuses on paralysis, on any of these
    -- entanglements, and on EITHER arm being numb -- a numb arm cannot reach the tattoo the
    -- way a broken one cannot (both-arms-broken is have.bothArmsBroken(), not a table
