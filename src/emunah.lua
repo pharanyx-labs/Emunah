@@ -84,6 +84,9 @@ local MANIFEST = {
    -- purpose. Pure data over afflist and have. Ahead of the engine, which asks it whether
    -- an affliction is one the character wants.
    { path = "emunah.curing.deflist",     as = "curing.deflist" },
+   -- situational curing rules: re-rank or hold a cure while a situation holds. Over
+   -- afflist; read by the engine once per tick.
+   { path = "emunah.curing.situations",  as = "curing.situations" },
 
    -- ui
    { path = "emunah.ui.theme",           as = "ui.theme"      },
@@ -182,6 +185,10 @@ local MANIFEST = {
    -- the command reference. Ahead of commands.lua, which renders it; it reads config and
    -- keys at RENDER time rather than load time, so it only needs theme to be present.
    { path = "emunah.help",               as = "help"          },
+
+   -- conf/*.conf: settings pinned in files, and the user's own cure ranks behind `emset
+   -- ownprios`. After help, which it validates every key against.
+   { path = "emunah.conf",               as = "conf"          },
 
    -- user-facing aliases. Last, so `emunah status` can report on everything above it.
    { path = "emunah.commands",           as = "commands"      },

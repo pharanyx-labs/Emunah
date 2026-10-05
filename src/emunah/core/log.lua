@@ -115,7 +115,23 @@ local function summarise(value, depth)
    if depth >= 2 then return "{...}" end
 
    -- Arrays report their length; that is the interesting part of an item or affliction list.
-   if #value > 0 then return ("[%d]"):format(#value) end
+   -- Except a short array of bare names -- Char.Afflictions.Remove, Char.Defences.Remove --
+   -- where the length is always [1] and the name is the whole message. Traced as [1], an
+   -- arena fight (2026-10-05 07:33:38.04) could not say whether a kelp had cured asthma or
+   -- clumsiness: the text said one, and the trace that should have settled it said nothing.
+   local length = #value
+   if length > 0 then
+      if length <= 8 then
+         local names = {}
+         for index = 1, length do
+            local entry = value[index]
+            if type(entry) ~= "string" then names = nil break end
+            names[index] = entry
+         end
+         if names then return "[" .. table.concat(names, ", ") .. "]" end
+      end
+      return ("[%d]"):format(length)
+   end
 
    local parts, n = {}, 0
    for k, v in pairs(value) do

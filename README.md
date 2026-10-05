@@ -66,7 +66,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 62 modules.
+[emunah] v0.1.0 loaded -- 64 modules.
 ```
 
 ## Capabilities
@@ -192,7 +192,7 @@ src/emunah/
   core/     util log event config timers queue
   gmcp/     init vitals status afflictions defences items skills room comm ire
   have/     capabilities              -- the "is this possible" gate
-  curing/   afflist curelist deflist engine defkeepup detect/ (init, patterns, opponent, diag)
+  curing/   afflist curelist deflist situations engine defkeepup detect/ (init, patterns, opponent, diag)
   ui/       theme gag layout vitals affpanel chat roompanel map
   walker.lua                          -- area walker
   keys.lua                            -- numpad movement bindings
@@ -213,6 +213,7 @@ test/       mock_mudlet.lua run.lua   -- 2433 behavioural tests
             bench.lua profile.lua     -- per-prompt cost, and where it goes
 package/    .mpackage build project
 tools/      build-xml.py syntax_check.py run_tests.py
+            fight-report.lua          -- a pasted fight log, summarised
 ```
 
 A full tick under an eight-affliction lock costs **79.0 µs**, down from 124.1 µs, and the
@@ -244,6 +245,14 @@ bytes allocated per call; `profile.lua` is a sampling profiler that names the ho
 ```sh
 lua test/bench.lua      # engine.tick() and the queries under it
 lua test/profile.lua    # where the time actually goes
+```
+
+A fight log pasted to a file (`emset debug`, `emset debug gmcp`, and `*s` in the prompt)
+summarises into damage by type, what each curing balance was spent on, how long each sat
+idle after the game announced it, and every cure held or refused:
+
+```sh
+lua tools/fight-report.lua fight.log
 ```
 
 Build the distributable package:

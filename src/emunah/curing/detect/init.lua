@@ -814,6 +814,7 @@ function M.balance(vector, spec)
          -- second stall into a seven second one: health sipping simply stopped for stretches
          -- of a fight. The game telling us the balance is back IS the confirmation.
          emunah.queue.confirm(vector)
+         emunah.have.announced(vector)
          emunah.have.recover(vector)
          emunah.event.raise("balance.recovered", vector)
       end)

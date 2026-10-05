@@ -223,10 +223,49 @@ function M.balance(vector)
    return emunah.timers.ready("cure." .. tostring(vector))
 end
 
+--- WHEN EACH BALANCE ACTUALLY COMES BACK, measured, for showing -- never for sending.
+---
+--- The `cure.<vector>` timer is a safety net for a missed announcement, deliberately long
+--- (herb 3.5s: curelist.lua has the bloodroot it cost at 1.8). Shown as a countdown it read
+--- as a prediction, and a wrong one: at 07:33:35.10 on 2026-10-05 every herb row of the
+--- affliction panel said "herb 2.4s", and "You may eat another plant or mineral." came at
+--- 35.94, 0.8s later. svof's own note on the herb balance: "normally at 1.6". This is the
+--- send-to-announcement time the game has been giving, smoothed, so the panel can say when
+--- the balance is expected rather than when the net would give up on it.
+M.spentAt, M.measured = {}, {}
+
 --- Mark a vector as spent, starting its fallback recovery timer.
 function M.spend(vector)
    local recovery = emunah.curing.curelist.recovery(vector)
    emunah.timers.start("cure." .. tostring(vector), recovery)
+   M.spentAt[vector] = util.now()
+end
+
+--- The game has announced this balance back. Only the announcement trains the estimate: a
+--- rejection that frees the vector ("What do you want to eat?") says nothing about how long
+--- the balance takes.
+function M.announced(vector)
+   local at = M.spentAt[vector]
+   M.spentAt[vector] = nil
+   if not at then return end
+   local took = util.now() - at
+   local net = emunah.curing.curelist.recovery(vector)
+   -- Inside the net only: a longer gap is a send that was never answered, not a balance.
+   if took <= 0 or (net and took > net) then return end
+   local before = M.measured[vector]
+   M.measured[vector] = before and (before * 0.7 + took * 0.3) or took
+end
+
+--- Seconds until this vector's balance is EXPECTED back: the measured time where there is
+--- one, the fallback timer otherwise. 0 once the expected moment has passed while the game
+--- has still not said so. nil when the vector is not recovering at all.
+function M.expectedIn(vector)
+   local left = emunah.timers.remaining("cure." .. tostring(vector))
+   if left <= 0 then return nil end
+   local at, took = M.spentAt[vector], M.measured[vector]
+   if not (at and took) then return left end
+   local expected = took - (util.now() - at)
+   return expected > 0 and expected or 0
 end
 
 --- Mark a vector as recovered ahead of its timer, on trigger confirmation.

@@ -731,12 +731,41 @@ M.handlers.prio = function(affliction, rest)
       log.warn("Usage: emset prio <affliction> <vector> <rank>")
       return
    end
-   local priorities = emunah.config.get("priorities", {})
+   -- The saved table, not a conf/priorities.conf overlay: this writes it back.
+   local priorities = emunah.config.stored("priorities", {})
    priorities[affliction:lower()] = priorities[affliction:lower()] or {}
    priorities[affliction:lower()][vector] = tonumber(rank)
    emunah.config.set("priorities", priorities)
    emunah.config.save()
+   -- While ownprios is on, the ranks in force are this table merged with priorities.conf,
+   -- built when the files were read: build it again, or the new rank waits for a reload.
+   if emunah.conf then emunah.conf.apply() end
    log.info("%s via %s is now priority %s", affliction, vector, rank)
+end
+
+--- `emset ownprios [on|off]`: the switch for conf/priorities.conf and conf/situations.conf.
+M.handlers.ownprios = function(arg)
+   local conf = emunah.conf
+   if arg == "on" or arg == "off" then
+      conf.setOwnPrios(arg == "on")
+   elseif arg then
+      log.warn("Usage: emset ownprios on|off")
+      return
+   end
+   local summary = conf.summary
+   header("Own priorities")
+   row("ownprios", flag(summary.ownprios))
+   row("priorities.conf", ("%d rank%s"):format(summary.priorities,
+      summary.priorities == 1 and "" or "s"))
+   row("situations.conf", ("%d change%s"):format(summary.situations,
+      summary.situations == 1 and "" or "s"))
+   local rules = {}
+   for _, rule in ipairs(emunah.curing.situations.rules) do rules[#rules + 1] = rule.id end
+   row("rules in use", #rules > 0 and table.concat(rules, ", ") or "none")
+   if #conf.problems > 0 then
+      row("problems", ("%d -- see the warnings above"):format(#conf.problems))
+   end
+   decho("\n  " .. faint("edit conf/priorities.conf and conf/situations.conf, then emreload"))
 end
 
 M.handlers.walk = function(arg)
@@ -1023,6 +1052,15 @@ function M.setting(key, value)
    else value = value:match('^"(.*)"$') or value:match("^'(.*)'$") or value end
    emunah.config.set(key, value)
    emunah.config.save()
+   -- A setting pinned in conf/*.conf goes on reading the file's value; saying "set" would
+   -- be a lie the user only finds out about in a fight.
+   local pinned = emunah.conf and emunah.conf.source(documented.key)
+   if pinned then
+      log.warn("%s is saved as %s, but %s pins it to %s -- that is what is in force. Edit "
+         .. "or comment out the line there, then emreload.", key, tostring(value), pinned,
+         tostring(emunah.config.get(documented.key)))
+      return
+   end
    log.info("%s = %s", key, tostring(value))
 end
 

@@ -55,7 +55,8 @@ M.blocks = {
    -- is "Your lungs are too clogged with mucous for you to attempt smoking."
    mucous    = { "smoke" },
    -- The reference system's check_focus refuses on `inquisition` (a Priest affliction: "The words echo ...
-   -- in your mind, interrupting your concentration.").
+   -- in your mind, interrupting your concentration."). It ends once guilt, spiritburn and
+   -- prone are all gone; curing/situations.lua moves the first two up while it holds.
    inquisition = { "focus" },
    -- TOUCH TREE. The reference system's touchtree isadvisable refuses on paralysis, on any of these
    -- entanglements, and on EITHER arm being numb -- a numb arm cannot reach the tattoo the

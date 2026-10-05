@@ -114,6 +114,9 @@ local function onVitals()
    local v = gmcp.Char.Vitals
    if type(v) ~= "table" then return end
 
+   -- Fresh numbers: whatever burst came before them is answered. See M.stale().
+   M.lostSinceVitals = 0
+
    -- In a game session. Char.Vitals is only sent once a character is in; see M.live().
    emunah._persist = emunah._persist or {}
    emunah._persist.inSession = true
@@ -278,6 +281,29 @@ function M.trusted(resource)
    end
    return true
 end
+
+--- STALE: THE CHARACTER WAS RESET UNDER THESE NUMBERS. An arena defeat arrives as one GMCP
+--- burst -- every defence and affliction removed, one Char.Defences.Remove at a time -- and
+--- the Char.Vitals with the restored health comes only after it. In between, the last
+--- Char.Vitals still says 489 of 3000, and the removals free the vectors paralysis was
+--- holding: `perform hands` and `drink health` went out at 07:33:38.33-ish on 2026-10-05,
+--- landed at 07:33:39.40 on a character already back at full, and spent equilibrium and a
+--- sip the defup that followed was waiting on.
+---
+--- No single line marks the defeat before the vitals do ("You have been slain by" prints
+--- after the burst). Many defences lost before one Char.Vitals does: a strip in a fight
+--- takes one or two, and that burst took sixteen. While it holds, healing reads the numbers
+--- as stale and waits the few milliseconds for the Char.Vitals behind them.
+M.RESET_BURST = 5
+M.lostSinceVitals = 0
+
+function M.stale()
+   return M.lostSinceVitals >= M.RESET_BURST
+end
+
+event.register("emunah.defence.lost", function()
+   M.lostSinceVitals = M.lostSinceVitals + 1
+end, "gmcp.vitals")
 
 --- Health below a percentage -- the standard guard for fleeing and for emergency cures.
 ---

@@ -179,6 +179,10 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <p>cure an affliction sooner or later on one balance; lower is sooner</p>
 </div>
 <div class="cmd-block">
+<span class="cmd-syntax">emset ownprios [on|off]</span>
+<p>use your own ranks and situational rules from conf/priorities.conf and conf/situations.conf, or go back to the shipped ones</p>
+</div>
+<div class="cmd-block">
 <span class="cmd-syntax">sleep</span>
 <p>RELAX INSOMNIA if it is up, then SLEEP, marked as yours: Emunah neither wakes you nor raises insomnia until you are up</p>
 </div>
@@ -194,6 +198,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>curing.iridThreshold</code></td><td>68 %</td><td>Eat irid moss below this, on health or mana.</td></tr>
 <tr><td><code>curing.handsThreshold</code></td><td>50 %</td><td>PERFORM HANDS below this. Costs equilibrium, which attacking also spends, so this is set low on purpose.</td></tr>
 <tr><td><code>curing.irid</code></td><td>true</td><td></td></tr>
+<tr><td><code>curing.ownprios</code></td><td>false</td><td>Use conf/priorities.conf and conf/situations.conf. Set with <code>emset ownprios</code>.</td></tr>
 <tr><td><code>curing.diag</code></td><td>true</td><td>Send DIAG when the affliction list is in doubt &mdash; which is what answers <code>loki</code>, the one affliction GMCP does not report honestly.</td></tr>
 <tr><td><code>curing.clotThreshold</code></td><td>30</td><td>Bleeding above this is clotted.</td></tr>
 <tr><td><code>curing.focusGuilt</code></td><td>false</td><td></td></tr>
