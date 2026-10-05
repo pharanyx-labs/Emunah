@@ -8,7 +8,7 @@ that state.
 The module tree lives on disk as plain Lua and reloads with a single command, so development
 happens in a normal editor with no package reimport in the loop.
 
-Documentation: **[emunah.pharanyx.co.uk](https://emunah.pharanyx.co.uk)**, built from
+Documentation: **[pharanyx-labs.github.io/Emunah](https://pharanyx-labs.github.io/Emunah/)**, built from
 `website/`.
 
 ```

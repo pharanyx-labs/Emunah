@@ -93,7 +93,7 @@ There is one prefix, `emset`, plus `emhelp`. Keep it that way:
 
 ## The website
 
-`website/` is the public site (emunah.pharanyx.co.uk), static files with no build step,
+`website/` is the public site (pharanyx-labs.github.io/Emunah), static files with no build step,
 published by `.github/workflows/pages.yml` on every push to `main` that touches it.
 - Every page carries the same header and footer between `<!-- site:header -->` and
   `<!-- site:footer -->` markers; the suite fails if one drifts or any internal link or
