@@ -99,7 +99,11 @@ end
 --- Our own creatures, which carry the `m` attribute like any denizen but are not one: the
 --- guardian angel (`attrib="m"`, id 318870, the same in the 10:09:48 and 11:52:12 traces of
 --- 2026-10-04) by name, and the mount (`attrib="mx"`) by its replica number.
-M.COMPANIONS = { ["a guardian angel"] = true }
+---
+--- The pegasus is the user's too (2026-10-05). It goes everywhere with them: by then the
+--- kill list had recorded "an alabaster pegasus" in 13 of 24 areas, and in Forest Watch at
+--- 07:16:07 it kept a cleared room "alive" and the gold stayed on the floor.
+M.COMPANIONS = { ["a guardian angel"] = true, ["an alabaster pegasus"] = true }
 
 local function companion(item)
    if M.COMPANIONS[tostring(item.name or ""):lower()] then return true end

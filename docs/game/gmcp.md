@@ -138,7 +138,9 @@ A tiny pile of sovereigns spills from the corpse.
 The guardian angel (`attrib="m" id="318870" name="a guardian angel"`) and the mount
 (`attrib="mx" id="368644" name="a heavy horse"`) carry `m` like any denizen.
 `denizens.here()` leaves them out by name and replica number; counted, they made every room
-"alive" and gold was never picked up. What `x` means is not established.
+"alive" and gold was never picked up. What `x` means is not established. The user's
+pegasus (`an alabaster pegasus`, theirs per the user 2026-10-05) is left out by name the
+same way; its attributes have not been captured.
 
 The pickup sends `get gold`, the user's command, which takes every pile in the room (the
 user, 2026-10-04), so one goes out per room.

@@ -298,7 +298,19 @@ local function roomClear()
    end
    M.lootHold = nil
 
-   if M.movedFrom == here then return end
+   if M.movedFrom == here then
+      -- ASKED ONCE AND STILL HERE, with the walker waiting on nothing: the request was lost.
+      -- One ask per room is only safe if every ask is answered, and one was not. A step
+      -- held for equilibrium after the last kill had its retry cancelled, and the hunt
+      -- stood still for good (the 07:16:07 stall in Forest Watch, 2026-10-05; see
+      -- walker.lua's onRoom). Asking again only while the walker is idle cannot restart a
+      -- speedwalk, since one in progress is never idle.
+      if not (walker.idle and walker.idle()) then return end
+      log.debug("Still in room %s with the walker idle -- asking it to move again.",
+         tostring(here))
+      event.raise("walker.move")
+      return
+   end
    M.movedFrom = here
 
    M.stats.rooms = M.stats.rooms + 1

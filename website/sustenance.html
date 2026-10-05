@@ -124,7 +124,7 @@ emset shop.confirmAbove 5000   <span class="c"># ask before any purchase over 5,
 <p>ELIST is redrawn as a table, one row per fluid, so you can see at a glance which vials are running low.</p>
 
 <h2 id="loot">Loot</h2>
-<p>When the last denizen in the room is down, Emunah sends <code>get gold</code>, which takes every pile in the room, and puts the gold in your pack once it is in your hands. Your guardian angel and your mount do not count as anything alive.</p>
+<p>When the last denizen in the room is down, Emunah sends <code>get gold</code>, which takes every pile in the room, and puts the gold in your pack once it is in your hands. Denizens that are not on the kill list do not hold it up, and nor do your guardian angel, your mount and your pegasus.</p>
 <pre><code>emset loot               <span class="c"># on or off, and how much has been picked up</span>
 emset loot on|off
 emset loot now           <span class="c"># sweep the room now</span></code></pre>
@@ -133,7 +133,7 @@ emset loot now           <span class="c"># sweep the room now</span></code></pre
   <tbody>
     <tr><td><code>loot.gold</code></td><td>true</td><td>Pick gold up at all.</td></tr>
     <tr><td><code>loot.aloneOnly</code></td><td>true</td><td>Only with nobody else in the room.</td></tr>
-    <tr><td><code>loot.noDenizens</code></td><td>true</td><td>Not while anything is still alive.</td></tr>
+    <tr><td><code>loot.noDenizens</code></td><td>true</td><td>Not while anything on the kill list is still in the room.</td></tr>
     <tr><td><code>loot.ownKillsOnly</code></td><td>false</td><td>Only gold from your own kills.</td></tr>
     <tr><td><code>loot.holdTyped</code></td><td>30 s</td><td>Gold you take out of the pack yourself stays in hand this long before it goes back.</td></tr>
     <tr><td><code>pack.id</code></td><td>your pack</td><td>The one pack, by its number: gold goes in, purchases are paid from it.</td></tr>

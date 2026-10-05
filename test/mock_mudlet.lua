@@ -455,8 +455,13 @@ function mock.install(homeDir)
       end
       table.sort(due, function(a, b) return a.id < b.id end)
       for _, entry in ipairs(due) do
-         mock.timers[entry.id] = nil
-         entry.fn()
+         -- Killed by a timer that fired before it in this same batch: Mudlet would not run
+         -- it, so neither does this. Running it let the walker's dead retry clear the live
+         -- one's handle, and that orphan then stepped for code that should have stalled.
+         if mock.timers[entry.id] then
+            mock.timers[entry.id] = nil
+            entry.fn()
+         end
       end
       return #due
    end

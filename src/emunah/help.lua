@@ -428,7 +428,7 @@ M.settings = {
 { key = "loot.ownKillsOnly", default = false, type = "boolean", topic = "loot",
   shipped = false },
 { key = "loot.noDenizens", default = true, type = "boolean", topic = "loot",
-  shipped = false, detail = "Do not stop to loot while something is still alive." },
+  shipped = false, detail = "Do not stop to loot while anything on the kill list is still in the room." },
 { key = "loot.holdTyped", default = 30, type = "number", unit = "s", topic = "loot",
   shipped = false, detail = "Gold you take out of the pack yourself (get ... gold) is left in "
        .. "hand this long before it goes back. 0 puts it straight back." },

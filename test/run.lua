@@ -9026,6 +9026,8 @@ emunah.config.set("loot.gold", true)
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 mock.sent = {}
+-- On the kill list: only what we would fight holds the gold (see the Forest Watch case below).
+den2.add("a pixie warrior", nil, true)
 mock.feed("Char.Items.List", {
    location = "room",
    items = {
@@ -9056,6 +9058,7 @@ ok(table.concat(mock.sent, " | "):find("get gold"),
 -- -- the guardian angel and the horse -- until the walker left without it.
 emunah.config.set("riding.mount", "horse368644")
 emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
+den2.add("an apathetic gnoll sentinel", nil, true)
 mock.feed("Char.Items.List", {
    location = "room",
    items = {
@@ -9075,6 +9078,37 @@ eq(#emunah.denizens.here(), 0, "the angel and the horse are not denizens")
 ok(not emunah.watch.inCombat(), "nor are we in combat with them")
 mock.line("You have slain an apathetic gnoll sentinel, retrieving the corpse.")
 eq(table.concat(mock.sent, " | "), "get gold", "the last one dead: GET GOLD")
+
+-- ONLY THE KILL LIST HOLDS THE GOLD. Forest Watch, 07:16:07 (2026-10-05): the last buckawn
+-- swordsman died and the sovereigns stayed on the floor, because the user's pegasus counted
+-- as something alive. The pegasus is a companion (the user's, 2026-10-05), and a denizen we
+-- never attack does not hold the gold either -- only one we would fight does.
+emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
+mock.feed("Char.Items.List", {
+   location = "room",
+   items = {
+      { attrib = "mx", id = "368644", name = "a heavy horse" },
+      { attrib = "m", id = "318870", name = "a guardian angel" },
+      { attrib = "m", id = "418001", name = "an alabaster pegasus" },
+      { attrib = "m", id = "418002", name = "a magnificent elk" },
+      { attrib = "m", id = "138953", name = "a buckawn swordsman" },
+   },
+})
+-- Recorded by that list (new kinds as unwanted), so the kill list can be set now.
+den2.setWanted("a buckawn swordsman", true)
+den2.setWanted("a magnificent elk", false)
+eq(#emunah.denizens.findByName("an alabaster pegasus"), 0, "the pegasus is not a denizen")
+mock.sent = {}
+mock.feed("Char.Items.Add", { location = "room",
+   item = { attrib = "t", icon = "coin", id = "418003", name = "some gold sovereigns" } })
+eq(#mock.sent, 0, "not while the swordsman, on the kill list, still stands",
+   table.concat(mock.sent, " | "))
+mock.feed("Char.Items.Remove", { location = "room",
+   item = { attrib = "mdt", icon = "deadbody", id = "138953",
+            name = "the corpse of a buckawn swordsman" } })
+mock.line("You have slain a buckawn swordsman, retrieving the corpse.")
+eq(table.concat(mock.sent, " | "), "get gold",
+   "the swordsman dead: GET GOLD, with the pegasus and an unwanted elk still here")
 
 -- Two piles: GET GOLD takes every pile in the room (the user, 2026-10-04), so one goes.
 emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
@@ -11511,6 +11545,83 @@ do
    bash.stop("test")
    emunah.walker.stop("test", true)   -- emergency: no walk home to leave in flight
    emunah.event.kill("test.loot")
+end
+
+-- ===========================================================================
+-- A STEP HELD AFTER THE LAST KILL MUST STILL GO.
+--
+-- Forest Watch, 2026-10-05: the last swordsman died at 07:16:07, and the hunt stood in the
+-- cleared room until the user typed LOOK at 07:16:31. The step out needs equilibrium, which
+-- the kill had just spent, so it was held on a retry timer. A Room.Info for the room we
+-- were already in killed that timer, and bashing had already asked once for the room, so
+-- nobody asked again.
+do
+   mock.installMap(20)
+   bash.stop("test")
+   emunah.walker.stop("test", true)
+   -- The gold hold is a separate test above; this is the step alone. Keep-up is off too:
+   -- nothing here confirms a defence, so it would hold equilibrium for the whole test.
+   emunah.config.set("loot.gold", false)
+   local keepup = emunah.curing.defkeepup
+   local keepupWas = keepup.enabled
+   keepup.stop(true)
+
+   local function setup(room, id)
+      emunah.queue.reset()      -- nothing of an earlier test's left in flight on equilibrium
+      mock.feed("Room.Info", { num = room, name = "Step room", area = "Test", exits = { e = room + 1 } })
+      mock.feed("Char.Items.List", {
+         location = "room",
+         items = { { id = id, name = "a pixie", attrib = "m" } },
+      })
+      mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+      den2.setWanted("a pixie", true)
+      emunah.walker.start()
+      bash.start()
+      -- The kill: the pixie leaves, and equilibrium is spent.
+      mock.sent = {}
+      mock.feed("Char.Items.Remove", { location = "room", item = { id = id } })
+      mock.feed("Char.Vitals", { bal = "1", eq = "0" })
+   end
+
+   -- The mock map is a line, so the nearest room left may be either side.
+   local function stepped()
+      return emunah.util.contains(mock.sent, "e") or emunah.util.contains(mock.sent, "w")
+   end
+
+   setup(5, "80101")
+   eq(#mock.sent, 0, "the step out is held while equilibrium is spent", table.concat(mock.sent, " | "))
+   ok(emunah.walker.stepTimer ~= nil, "...on the walker's retry timer")
+
+   mock.feed("Room.Info", { num = 5, name = "Step room", area = "Test", exits = { e = 6 } })
+   ok(emunah.walker.stepTimer ~= nil, "a Room.Info for the same room does not cancel it")
+
+   local function prompts()
+      for _ = 1, 10 do
+         mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+         mock.advance(0.5)
+      end
+   end
+   prompts()
+   ok(stepped(), "equilibrium back: the step goes out",
+      table.concat(mock.sent, " | "))
+
+   -- THE BACKSTOP. Whatever loses the request next, a clear room with an idle walker is
+   -- asked again on the next prompt rather than left standing for good.
+   bash.stop("test")
+   emunah.walker.stop("test", true)
+   setup(10, "80102")
+   ok(emunah.walker.stepTimer ~= nil, "held again")
+   killTimer(emunah.walker.stepTimer)
+   emunah.walker.stepTimer = nil       -- the request is lost, however it happened
+   ok(emunah.walker.idle(), "the walker is idle with the room still to leave")
+   prompts()
+   ok(stepped(), "bashing asks again, and the step goes out",
+      table.concat(mock.sent, " | "))
+
+   bash.stop("test")
+   emunah.walker.stop("test", true)
+   emunah.config.set("loot.gold", true)
+   if keepupWas then keepup.start(true) end
 end
 
 end)()
