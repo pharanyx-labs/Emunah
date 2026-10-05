@@ -321,6 +321,7 @@ function M.start(rooms)
    M.paused    = false
    M.area      = area
    M.startRoom = current
+   M.lastRoom  = current   -- see onRoom: a Room.Info for this room is not a move
    M.visited   = {}
    M.transitSince = nil
    M.lastStepAt = nil
@@ -501,6 +502,13 @@ function M.move()
    return true
 end
 
+--- Running, and waiting on nothing: no step timer pending and nothing in transit. Every path
+--- through move() that does not stop the walk leaves one or the other set, so a consumer
+--- that asked to move and still finds this true has had the request lost.
+function M.idle()
+   return M.enabled and not M.paused and M.stepTimer == nil and M.nextRoom == nil
+end
+
 function M.pause()
    if not M.enabled then return false end
    cancelStep()
@@ -605,6 +613,18 @@ local function onRoom(_, roomNumber)
       -- A consumer can act here and raise emunah.walker.move when finished.
       event.raise("walker.arrived", current)
    end
+
+   -- A CLAIMED WALKER'S TIMER IS A STEP WAITING ON A BALANCE, and only a real move may
+   -- cancel it. Room.Info also arrives for the room we are already in (a LOOK sends one),
+   -- and scheduleNext() killed the timer and, claimed, never re-armed it. The step held for
+   -- equilibrium after the last kill was dropped, bashing had already asked once for this
+   -- room, and the hunt stood still for good. That is the suite's reproduction of the stall
+   -- in Forest Watch after the 07:16:07 kill (2026-10-05). The transcript itself does not
+   -- show which Room.Info did it. A real move still cancels the timer, so a retry cannot
+   -- walk us out of a room nobody has looked at.
+   local moved = current ~= M.lastRoom
+   M.lastRoom = current
+   if M.claimedBy and not moved then return end
 
    -- Step again shortly. Rescheduling on EVERY room change (not just arrival at the
    -- target) is deliberate: a speedwalk crossing several rooms keeps pushing the timer

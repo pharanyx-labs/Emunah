@@ -77,13 +77,17 @@ local function alone()
    return not room or room.playerCount() == 0
 end
 
---- Nothing alive in the room either.
+--- Nothing left on the kill list in the room either.
 ---
---- Asked for directly -- gold is taken only when there are no denizens and no players -- and
---- it is also the right rule mechanically. GET costs balance AND equilibrium, which is
---- precisely what a fight needs, and gold appears at the moment a kill has just spent both.
---- Stopping to pick it up while something else is still swinging trades an attack for a pile
---- that is not going anywhere.
+--- GET costs balance AND equilibrium, which is precisely what a fight needs, and gold
+--- appears at the moment a kill has just spent both. Stopping to pick it up while something
+--- else is still to be fought trades an attack for a pile that is not going anywhere.
+---
+--- ONLY WHAT WE WOULD FIGHT COUNTS (the user, 2026-10-05: once everything on the kill list
+--- is dead, take the gold). It used to be any denizen at all, and a creature we never attack
+--- -- an elk, a shopkeeper -- then held the gold for as long as it stood there. A wanted
+--- denizen we gave up on (bashing's maxAttempts) still counts: it is alive and may be
+--- hitting us.
 ---
 --- denizens.here() excludes corpses, which matters more here than anywhere else it is used:
 --- the corpse the gold just spilled out of is in the room by definition, and counting it
@@ -92,7 +96,10 @@ local function clear()
    if emunah.config.get("loot.noDenizens", true) == false then return true end
    local denizens = emunah.denizens
    if not denizens then return true end
-   return #denizens.here() == 0
+   for _, denizen in ipairs(denizens.here()) do
+      if denizens.wanted(denizen.name) then return false end
+   end
+   return true
 end
 
 --- Does this item look like money?
@@ -115,7 +122,8 @@ function M.take(id, name)
       return false
    end
    if not clear() then
-      log.debug("Not picking up %s -- something is still alive here.", tostring(name or id))
+      log.debug("Not picking up %s -- something on the kill list is still here.",
+         tostring(name or id))
       return false
    end
    if not credited() then
@@ -172,9 +180,10 @@ function M.pending()
    -- them, so none of them is worth waiting on.
    --
    -- clear() belongs here even though the caller only asks when it has nothing left to
-   -- attack, and it is the deadlock that matters: a denizen that is NOT on the kill list
-   -- leaves the room unattackable and un-clear at the same time, so take() would refuse
-   -- forever while the hunt sat there waiting for a pile it was never going to lift.
+   -- attack, and it is the deadlock that matters: a wanted denizen bashing has given up on
+   -- (maxAttempts) leaves the room unattackable and un-clear at the same time, so take()
+   -- would refuse forever while the hunt sat there waiting for a pile it was never going
+   -- to lift.
    if not alone() then return false end
    if not clear() then return false end
    if not credited() then return false end
