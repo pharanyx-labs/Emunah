@@ -460,7 +460,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 </tbody></table></div>
 
 <h2 id="map">Map</h2>
-<p>The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. Emunah checks for a new version when it loads and every hour, shows what changed, and loads it, waiting for a walk to end first. Rooms you lock or weight are kept outside the map and put back after every update. As you walk, rooms whose name, environment, indoors/outdoors or area disagree with GMCP are corrected. While the mmp package is running it keeps updating the map itself, and Emunah leaves it to it.</p>
+<p>Walks you anywhere on the map one confirmed step at a time, through the same checks as every other command, so it waits out stun, sleep, paralysis or a lost balance instead of walking into them. Re-plans when you end up off the route or the game refuses an exit; double-clicking a room on the map walks there too. The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. Emunah checks for a new version when it loads and every hour, shows what changed, and loads it, waiting for a walk to end first. Rooms you lock or weight are kept outside the map and put back after every update. As you walk, rooms whose name, environment, indoors/outdoors or area disagree with GMCP are corrected. While the mmp package is running it keeps updating the map itself, and Emunah leaves it to it.</p>
 <div class="cmd-block">
 <span class="cmd-syntax">emset map</span>
 <p>the map's version, the last check, and what your overlay holds</p>
@@ -473,12 +473,49 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <span class="cmd-syntax">emset map load</span>
 <p>load a downloaded map that did not load (open the map window first)</p>
 </div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset goto &lt;room|feature|area&gt;</span>
+<p>walk there: a room number, the nearest room with a feature, or an area</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset goto back</span>
+<p>walk back to where the last walk started</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset goto stop|pause|resume</span>
+<p>stop the walk, or pause it and pick it up again from wherever you are</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset path &lt;to&gt; [from]</span>
+<p>the route between two rooms, without walking it</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map lock|unlock &lt;room&gt; [exit]</span>
+<p>keep a room, or one of its exits, out of every route</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map lockarea|unlockarea &lt;area&gt;</span>
+<p>keep a whole area out of every route</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map weight &lt;room&gt; &lt;n&gt;</span>
+<p>make routes avoid a room unless it saves more than n steps; 1 clears it</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map feature [add|remove &lt;name&gt; [room]]</span>
+<p>list the map's features, or mark a room (here by default) as one</p>
+</div>
 
 <div class="table-wrap"><table>
 <thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>map.autoupdate</code></td><td>true</td><td>Check for a new crowdmap on load and every map.checkEvery minutes.</td></tr>
 <tr><td><code>map.checkEvery</code></td><td>60 min</td><td>At least 5.</td></tr>
 <tr><td><code>map.changelog</code></td><td>true</td><td>Show the crowdmap's changelog entries since the last update.</td></tr>
+<tr><td><code>map.stepGap</code></td><td>0.5 s</td><td>The least time between two steps. Faster draws the game's "Now now, don't be so hasty!".</td></tr>
+<tr><td><code>map.retryAfter</code></td><td>3 s</td><td>Send a step again when no arrival has followed it in this long; twice, then the walk stops.</td></tr>
+<tr><td><code>map.showSteps</code></td><td>true</td><td>Show how many steps are left after each one.</td></tr>
+<tr><td><code>map.waterwalk</code></td><td>true</td><td>Off makes routes avoid water rooms where land is not much longer.</td></tr>
+<tr><td><code>map.wormholes</code></td><td>false</td><td>Let routes use wormholes. Off keeps them out, as mmp does by default.</td></tr>
 <tr><td><code>map.gmcpSync</code></td><td>true</td><td>Correct a room's name, environment, indoors/outdoors and area from GMCP as you walk.</td></tr>
 </tbody></table></div>
 

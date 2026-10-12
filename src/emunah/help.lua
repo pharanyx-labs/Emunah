@@ -239,7 +239,11 @@ M.modules = {
 
 { id = "map", title = "Map", summary = "keeps the crowdmap current, with your own changes kept on it",
   state = function() return config("map.autoupdate", true) end,
-  does = "The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. "
+  does = "Walks you anywhere on the map one confirmed step at a time, through the same "
+      .. "checks as every other command, so it waits out stun, sleep, paralysis or a lost "
+      .. "balance instead of walking into them. Re-plans when you end up off the route or "
+      .. "the game refuses an exit; double-clicking a room on the map walks there too. "
+      .. "The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. "
       .. "Emunah checks for a new version when it loads and every hour, shows what changed, "
       .. "and loads it, waiting for a walk to end first. Rooms you lock or weight are kept "
       .. "outside the map and put back after every update. As you walk, rooms whose name, "
@@ -252,6 +256,22 @@ M.modules = {
      summary = "check for a new crowdmap now" },
    { syntax = "emset map load",
      summary = "load a downloaded map that did not load (open the map window first)" },
+   { syntax = "emset goto <room|feature|area>", handler = "goto",
+     summary = "walk there: a room number, the nearest room with a feature, or an area" },
+   { syntax = "emset goto back",
+     summary = "walk back to where the last walk started" },
+   { syntax = "emset goto stop|pause|resume",
+     summary = "stop the walk, or pause it and pick it up again from wherever you are" },
+   { syntax = "emset path <to> [from]", handler = "path",
+     summary = "the route between two rooms, without walking it" },
+   { syntax = "emset map lock|unlock <room> [exit]",
+     summary = "keep a room, or one of its exits, out of every route" },
+   { syntax = "emset map lockarea|unlockarea <area>",
+     summary = "keep a whole area out of every route" },
+   { syntax = "emset map weight <room> <n>",
+     summary = "make routes avoid a room unless it saves more than n steps; 1 clears it" },
+   { syntax = "emset map feature [add|remove <name> [room]]",
+     summary = "list the map's features, or mark a room (here by default) as one" },
   } },
 
 { id = "interface", title = "Interface", summary = "the panels, chat tabs and map",
@@ -383,6 +403,18 @@ M.settings = {
   shipped = false, detail = "At least 5." },
 { key = "map.changelog", default = true, type = "boolean", topic = "map", shipped = false,
   detail = "Show the crowdmap's changelog entries since the last update." },
+{ key = "map.stepGap", default = 0.5, type = "number", unit = "s", topic = "map",
+  shipped = false, detail = "The least time between two steps. Faster draws the game's "
+     .. "\"Now now, don't be so hasty!\"." },
+{ key = "map.retryAfter", default = 3, type = "number", unit = "s", topic = "map",
+  shipped = false, detail = "Send a step again when no arrival has followed it in this long; "
+     .. "twice, then the walk stops." },
+{ key = "map.showSteps", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Show how many steps are left after each one." },
+{ key = "map.waterwalk", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Off makes routes avoid water rooms where land is not much longer." },
+{ key = "map.wormholes", default = false, type = "boolean", topic = "map", shipped = false,
+  detail = "Let routes use wormholes. Off keeps them out, as mmp does by default." },
 { key = "map.gmcpSync", default = true, type = "boolean", topic = "map", shipped = false,
   detail = "Correct a room's name, environment, indoors/outdoors and area from GMCP as you "
      .. "walk." },

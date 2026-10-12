@@ -702,6 +702,9 @@ function mock.installMapApi()
       r.exitWeights[dir] = weight
    end
    function _G.getExitWeights(id) local r = room(id) return r and r.exitWeights or {} end
+   mock.mapUserData = {}
+   function _G.getMapUserData(key) return mock.mapUserData[key] or "" end
+   function _G.setMapUserData(key, value) mock.mapUserData[key] = tostring(value) return true end
    if not rawget(_G, "getAreaTable") then _G.getAreaTable = function() return {} end end
    if not rawget(_G, "getAreaRooms") then _G.getAreaRooms = function() return {} end end
 
@@ -1044,19 +1047,80 @@ function mock.installMap(count)
    --- Rooms sit in a line with id == x, so a path is the run of ids between them. Real
    --- Mudlet fills BOTH speedWalkDir and speedWalkPath; the walker reads the latter to take
    --- a single step rather than speedwalking a whole route, so the mock has to supply it.
+   --- Rooms sit in a line with id == x, joined east-west, unless a test gives a room its
+   --- own `exits` ({ [short dir] = id }) or `specials` ({ [command] = id }). Breadth-first,
+   --- honouring locked rooms, locked exits and locked special exits the way Mudlet's
+   --- getPath does, so a test of routing around a lock means something. Weights are not
+   --- modelled. Real Mudlet fills BOTH speedWalkDir and speedWalkPath; the walker reads the
+   --- latter to take a single step, so the mock supplies both.
+   function mock.exitsOf(id)
+      local room = mock.map.rooms[id]
+      if not room then return {} end
+      if room.exits then return room.exits end
+      local out = {}
+      if mock.map.rooms[id + 1] then out.e = id + 1 end
+      if mock.map.rooms[id - 1] then out.w = id - 1 end
+      return out
+   end
+
    function _G.getPath(from, to)
-      local a, b = mock.map.rooms[tonumber(from)], mock.map.rooms[tonumber(to)]
+      from, to = tonumber(from), tonumber(to)
       _G.speedWalkDir, _G.speedWalkPath = {}, {}
-      if not (a and b) then return false end
-      local forward = b.x >= a.x
-      local steps = math.abs(b.x - a.x)
-      for step = 1, steps do
-         _G.speedWalkDir[step] = forward and "e" or "w"
-         _G.speedWalkPath[step] = a.x + (forward and step or -step)
-      end
       mock.map.lastPathfind = (mock.map.lastPathfind or 0) + 1
-      mock.map.pathTo = tonumber(to)
-      return true
+      mock.map.pathTo = to
+      local rooms = mock.map.rooms
+      if not (rooms[from] and rooms[to]) then return false end
+      if from == to then return true end
+      local previous, queue, head = { [from] = false }, { from }, 1
+      while queue[head] do
+         local id = queue[head]; head = head + 1
+         local room = rooms[id]
+         local links = {}
+         for dir, target in pairs(mock.exitsOf(id)) do
+            if not (room.exitLocks and room.exitLocks[dir]) then links[#links + 1] = { dir, target } end
+         end
+         for command, target in pairs(room.specials or {}) do
+            if not (room.specialLocks and room.specialLocks[command]) then
+               links[#links + 1] = { command, target }
+            end
+         end
+         table.sort(links, function(a, b) return a[1] < b[1] end)
+         for _, link in ipairs(links) do
+            local target = link[2]
+            if previous[target] == nil and rooms[target] and not rooms[target].locked then
+               previous[target] = { id, link[1] }
+               if target == to then
+                  local dirs, path, at = {}, {}, to
+                  while previous[at] do
+                     table.insert(dirs, 1, previous[at][2])
+                     table.insert(path, 1, at)
+                     at = previous[at][1]
+                  end
+                  _G.speedWalkDir, _G.speedWalkPath = dirs, path
+                  return true
+               end
+               queue[#queue + 1] = target
+            end
+         end
+      end
+      return false
+   end
+
+   local LONG = { n = "north", s = "south", e = "east", w = "west", ne = "northeast",
+                  nw = "northwest", se = "southeast", sw = "southwest", u = "up", d = "down" }
+   function _G.getRoomExits(id)
+      local out = {}
+      for dir, target in pairs(mock.exitsOf(tonumber(id))) do out[LONG[dir] or dir] = target end
+      return out
+   end
+   function _G.getAreaTableSwap() return { [1] = "Test Area" } end
+   function _G.searchRoomUserData(key, value)
+      local out = {}
+      for id, room in pairs(mock.map.rooms) do
+         if room.userdata and room.userdata[key] == value then out[#out + 1] = id end
+      end
+      table.sort(out)
+      return out
    end
 
    function _G.getAreaTable() return { ["Test Area"] = 1 } end

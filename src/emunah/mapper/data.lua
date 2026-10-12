@@ -105,8 +105,11 @@ M.ENV = {
 ---   lockArea    [area name] = true            lock every room in the area; by name, because
 ---                                             area ids are the map's and can change
 ---                                             between crowdmap versions, names do not
+---   feature     [name] = { [room] = true }    your own map features, in the map's storage
+---                                             (see route.lua) so the crowdmap's are found
+---                                             alongside them
 local KINDS = { lockRoom = true, lockExit = true, roomWeight = true, exitWeight = true,
-                lockArea = true }
+                lockArea = true, feature = true }
 
 local function emptyStore()
    local overlay = {}
@@ -196,6 +199,36 @@ local function put(kind, key, sub, value, on)
    elseif kind == "lockArea" then
       -- getAreaRooms() is 0-indexed in Mudlet; pairs, never ipairs.
       for _, room in pairs(areaRooms(key) or {}) do lockRoom(room, on) end
+   elseif kind == "feature" then
+      if on then
+         M.defineFeature(key)
+         setRoomUserData(sub, "feature-" .. key, "true")
+      else
+         clearRoomUserDataItem(sub, "feature-" .. key)
+      end
+   end
+end
+
+--- JSON text to a table, or nil. yajl when Mudlet has it; otherwise the fallback decoder
+--- namedb/api.lua already carries for the same gap (resolved at call time: it loads later).
+function M.decode(text)
+   if not text or text == "" then return nil end
+   if type(yajl) == "table" and type(yajl.to_value) == "function" then
+      local ok, value = pcall(yajl.to_value, text)
+      return ok and value or nil
+   end
+   local api = emunah.namedb and emunah.namedb.api
+   return api and api.decode(text) or nil
+end
+
+--- [mmp] Make sure the map's feature list names a feature: map user data "mapFeatures",
+--- JSON of name -> room character.
+function M.defineFeature(name)
+   local features = M.decode(getMapUserData("mapFeatures"))
+   if type(features) ~= "table" then features = {} end
+   if features[name] == nil then
+      features[name] = ""
+      setMapUserData("mapFeatures", yajl.to_string(features))
    end
 end
 
@@ -211,6 +244,11 @@ function M.apply()
          if kind == "lockArea" then
             if areaRooms(key) then put(kind, key, nil, nil, true) applied = applied + 1
             else skipped = skipped + 1 end
+         elseif kind == "feature" then
+            for room in pairs(value) do
+               if exists(room) then put(kind, key, tonumber(room), nil, true) applied = applied + 1
+               else skipped = skipped + 1 end
+            end
          elseif not exists(key) then
             skipped = skipped + 1
          elseif type(value) == "table" then
@@ -229,6 +267,7 @@ end
 --- remember("lockExit", 1234, "north")   remember("lockArea", "Mhaldor")
 function M.remember(kind, key, sub, value)
    assert(KINDS[kind], "unknown overlay kind " .. tostring(kind))
+   M.store.overlay[kind] = M.store.overlay[kind] or {}
    local entries = M.store.overlay[kind]
    if value == nil then value = true end
    if sub ~= nil then
@@ -239,11 +278,13 @@ function M.remember(kind, key, sub, value)
    end
    put(kind, key, sub, value, true)
    M.save()
+   event.raise("map.changed", kind)
 end
 
 --- Remove an overlay entry and take it off the map.
 function M.forget(kind, key, sub)
    assert(KINDS[kind], "unknown overlay kind " .. tostring(kind))
+   M.store.overlay[kind] = M.store.overlay[kind] or {}
    local entries = M.store.overlay[kind]
    if entries[key] == nil then return false end
    if sub ~= nil then
@@ -259,6 +300,7 @@ function M.forget(kind, key, sub)
    -- Putting the rest back settles both.
    M.apply()
    M.save()
+   event.raise("map.changed", kind)
    return true
 end
 

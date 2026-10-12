@@ -113,6 +113,8 @@ local MANIFEST = {
    -- the crowdmap: updates, the overlay kept across them, and GMCP corrections. Needs
    -- gmcp.room's "room" event and timers; asks the walker (below) at run time only.
    { path = "emunah.mapper.data",        as = "mapper.data"   },
+   -- going places: routes, stepping, areas and features. Over mapper.data and act.
+   { path = "emunah.mapper.route",       as = "mapper.route"  },
 
    -- area walker: needs gmcp.room for position and config for its avoid list
    { path = "emunah.walker",             as = "walker"        },
