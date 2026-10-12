@@ -8,11 +8,10 @@
 --- Four decisions worth keeping
 --- ----------------------------
 ---
---- 1. NO MAPPER-SCRIPT DEPENDENCY. Reading `mmp.currentroom` and calling `mmp.gotoRoom()`
----    only works with the IRE mapper package installed. We already track the room number
----    from Room.Info (gmcp/room.lua), and Mudlet has built-in speedwalking, so the walker
----    works on a bare profile. mmp is used when present because its arrival events are
----    more reliable, but it is not required.
+--- 1. EMUNAH'S OWN MAPPER, NEVER mmp. Position comes from Room.Info (gmcp/room.lua);
+---    routes, distances and travel from mapper/route.lua, which walks through act.send one
+---    confirmed step at a time. mmp is no longer consulted even when it is installed: its
+---    gotoRoom speedwalked past every gate, and it was the last thing tying the hunt to it.
 ---
 --- 2. REMOVAL CHECKS FIRST. The obvious one-liner is:
 ---        table.remove(targetTable, table.index_of(targetTable, item))
@@ -155,11 +154,11 @@ end
 -- room helpers
 -- ---------------------------------------------------------------------------
 
---- Where are we? Prefers our own GMCP tracking, falls back to the mapper.
+--- Where are we? Our own GMCP tracking, or the map widget's idea of it before the first
+--- Room.Info.
 function M.currentRoom()
    local room = emunah.gmcp.room
    if room and room.num then return tonumber(room.num) end
-   if mmp and mmp.currentroom then return tonumber(mmp.currentroom) end
    if getPlayerRoom then
       local ok, id = pcall(getPlayerRoom)
       if ok and id then return tonumber(id) end
@@ -192,11 +191,10 @@ local function coordDistance(from, to)
    return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
---- Number of steps to walk from `from` to `to`, or nil if unreachable.
+--- Number of steps to walk from `from` to `to`, or nil if unreachable. Through the
+--- router's cache: closestRoom() asks this for the same few candidates on every move.
 local function pathLength(from, to)
-   local ok, reachable = pcall(getPath, from, to)
-   if not ok or not reachable then return nil end
-   return table.size(speedWalkDir or {})
+   return emunah.mapper.route.distance(from, to)
 end
 
 --- Nearest remaining room by actual path length.
@@ -243,29 +241,26 @@ end
 ---
 --- Used to take a SINGLE step instead of speedwalking a whole route -- see M.move() for
 --- why that distinction decides whether a hunt kills anything at all.
+---
+--- Only a step that is ONE command comes back. A special exit can be several ("pull vine"
+--- then "e") or a translated script with waits (mapper/route.lua's plan()); sent raw it
+--- would go out as "script: sendAll(...)". Those come back as the room alone, and the
+--- router takes that one hop.
 local function firstStep(id)
+   local route = emunah.mapper.route
    local from = M.currentRoom()
    if not from then return nil end
-   local ok, reachable = pcall(getPath, from, id)
-   if not (ok and reachable) then return nil end
-   local direction = speedWalkDir and speedWalkDir[1]
-   local room      = speedWalkPath and tonumber(speedWalkPath[1])
-   if not direction then return nil end
-   return room or tonumber(id), direction
+   local dirs, rooms = route.path(from, id)
+   if not dirs or not dirs[1] then return nil end
+   local plan = route.plan(dirs[1])
+   local room = rooms[1] or tonumber(id)
+   if plan and #plan == 1 and plan[1].send then return room, plan[1].send end
+   return room, nil
 end
 
-local function goTo(id)
-   if mmp and mmp.gotoRoom then
-      mmp.gotoRoom(id)
-      return true
-   end
-   local from = M.currentRoom()
-   if not from then return false end
-   local ok, reachable = pcall(getPath, from, id)
-   if not (ok and reachable) then return false end
-   -- Mudlet's built-in speedwalk consumes the getPath results.
-   local walked = pcall(doSpeedWalk)
-   return walked
+--- Walk to a room through the router. Quiet: the area walk hops room to room.
+local function goTo(id, label)
+   return emunah.mapper.route.go(id, label, { quiet = label == nil })
 end
 
 -- ---------------------------------------------------------------------------
@@ -346,11 +341,23 @@ function M.start(rooms)
    return true
 end
 
+--- Is the router walking on the walker's behalf right now?
+local function routing()
+   local walk = emunah.mapper.route.walk
+   return walk ~= nil and M.nextRoom ~= nil and walk.target == tonumber(M.nextRoom)
+end
+
 function M.stop(reason, emergency)
    if not M.enabled then return false end
 
+   -- The router walks a hop for us on its own; a stop -- above all an emergency one, at
+   -- low health -- has to stop that too, or the hop carries on after the walk has ended.
+   -- Disabled FIRST: stopping the router raises emunah.map.stopped, and onFailedPath
+   -- would otherwise take it for a failed hop and choose the next room mid-stop.
+   local hop = routing()
    cancelStep()
    M.enabled = false
+   if hop then emunah.mapper.route.stop(reason or "walk stopped") end
    M.paused  = false
    M.nextRoom = nil
    M.transitSince = nil
@@ -371,7 +378,7 @@ function M.stop(reason, emergency)
    -- the walk home undid it.
    if not emergency and M.config.returnToStart and M.startRoom and M.stats.visited > 0
       and M.currentRoom() ~= M.startRoom then
-      goTo(M.startRoom)
+      goTo(M.startRoom, "where the walk started")
    end
    return true
 end
@@ -409,6 +416,11 @@ function M.move()
    -- refuses (water, closed doors, locked gates, tolls) is common enough that the walker
    -- has to be able to abandon one.
    if M.nextRoom and M.transitSince then
+      -- The router is still on its way there: it gives up by itself (resends, re-plans)
+      -- and says so through emunah.map.stopped, so a long route is not abandoned here
+      -- merely for taking longer than transitTimeout.
+      local walk = emunah.mapper.route.walk
+      if walk and walk.target == tonumber(M.nextRoom) then return false end
       local elapsed = util.now() - M.transitSince
       local timeout = tonumber(emunah.config.get("walker.transitTimeout", M.config.transitTimeout))
          or M.config.transitTimeout
@@ -463,6 +475,16 @@ function M.move()
       end
 
       local room, direction = firstStep(target)
+      if room and not direction then
+         -- A special exit that is more than one command: one hop through the router, which
+         -- sends its parts through the gate and knows when it has arrived.
+         M.nextRoom = room
+         M.transitSince = util.now()
+         M.lastStepAt = util.now()
+         if goTo(room) then return true end
+         M.nextRoom, M.transitSince = nil, nil
+         room = nil
+      end
       if room then
          -- Movement costs BOTH balance and equilibrium -- confirmed by the player, and
          -- recorded in docs/game/balance.md so this does not get re-litigated. It makes
@@ -473,7 +495,7 @@ function M.move()
          -- Retry rather than treat it as departed -- marking nextRoom on a step that never
          -- left would put the walker in transit having not moved, and bashing's transit
          -- gate would sit out the wait too.
-         if not emunah.act.send(direction, { standing = true, bal = true, eq = true }) then
+         if not emunah.act.send(direction, emunah.mapper.route.NEEDS) then
             cancelStep()
             M.stepTimer = tempTimer(stepDelay(), function()
                M.stepTimer = nil
@@ -511,6 +533,7 @@ end
 
 function M.pause()
    if not M.enabled then return false end
+   if routing() then emunah.mapper.route.pause() end
    cancelStep()
    M.paused = true
    log.info("Walker paused.")
@@ -545,6 +568,7 @@ function M.resume()
    if not M.enabled or not M.paused then return false end
    M.paused = false
    log.info("Walker resumed.")
+   if routing() and emunah.mapper.route.paused then emunah.mapper.route.resume() end
    M.move()
    return true
 end
@@ -633,10 +657,12 @@ local function onRoom(_, roomNumber)
    scheduleNext()
 end
 
---- The mapper failed to path somewhere. Drop that room and carry on rather than stalling.
-local function onFailedPath()
+--- The router could not get somewhere -- no route, or it gave up on the way. Drop that
+--- room and carry on rather than stalling. Only for the room we sent it to: a `goto` typed
+--- during a walk is not ours to count.
+local function onFailedPath(_, target)
    if not M.enabled then return end
-   if M.nextRoom then
+   if M.nextRoom and tonumber(target) == tonumber(M.nextRoom) then
       remove(M.remaining, M.nextRoom)
       M.stats.failed = M.stats.failed + 1
       M.nextRoom = nil
@@ -677,13 +703,17 @@ function M.retreat(steps)
    end
    log.info("Retreating to room %s, %d room(s) back the way you came.",
       tostring(target), math.min(steps, #M.trail - 1))
-   return goTo(target)
+   return goTo(target, ("room %d, back the way you came"):format(target))
 end
 event.register("emunah.walker.move", function() M.move() end, "walker")
 event.register("emunah.walker.stop", function() M.stop("requested") end, "walker")
 
--- Honour the IRE mapper's failure event when that package is installed.
-event.register("mmapper failed path", onFailedPath, "walker")
+event.register("emunah.map.failed", onFailedPath, "walker")
+event.register("emunah.map.stopped", function(_, target, reason)
+   -- A new destination replacing ours is a hand-over, not a failure.
+   if reason == "a new destination" then return end
+   onFailedPath(_, target)
+end, "walker")
 
 event.register("sysDisconnectionEvent", function()
    if M.enabled then M.stop("disconnected") end

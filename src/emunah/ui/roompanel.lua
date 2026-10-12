@@ -199,6 +199,24 @@ function M.update()
 
    plain(string.format("%s%s\n", theme.dc("textBright"), room.name or "unknown"))
 
+   -- A walk under way: where to, steps left, roughly how long, and a stop link. Not for the
+   -- area walker's hops (quiet), which change every few seconds and say nothing useful.
+   local route = emunah.mapper and emunah.mapper.route
+   local walk = route and route.walk
+   if walk and not walk.quiet then
+      local left, seconds = route.eta()
+      plain(string.format("%s%s\226\134\146 %s%s  %s%d step%s%s  ",
+         theme.dc(route.paused and "warning" or "accent"), route.paused and "paused " or "",
+         theme.dc("text"), walk.label, theme.dc("balance"), left, left == 1 and "" or "s",
+         route.paused and "" or (theme.dc("textDim") .. " ~" .. emunah.util.duration(seconds))))
+      if route.paused then
+         link(theme.dc("accent") .. "go", "emunah.commands.carryOn()", "Carry on walking")
+      else
+         link(theme.dc("textDim") .. "stop", "emunah.commands.stopWalking()", "Stop, keeping the route")
+      end
+      plain("\n")
+   end
+
    local where = {}
    if room.num then where[#where + 1] = theme.dc("textDim") .. "#" .. room.num end
    if room.hasDetail("shop") or room.hasDetail("bank") then
@@ -351,6 +369,10 @@ emunah.event.registerAll({
    "emunah.items.added",
    "emunah.items.removed",
    "emunah.items.updated",
+   -- A walk starting, stopping or arriving changes the line under the room name.
+   "emunah.map.walking",
+   "emunah.map.stopped",
+   "emunah.map.arrived",
 }, function() theme.later("roompanel", M.update) end, "ui.roompanel")   -- after the packet: theme.later()
 
 emunah.event.register("emunah.ui.built", function() M.build() end, "ui.roompanel")

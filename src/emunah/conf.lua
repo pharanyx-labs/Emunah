@@ -27,7 +27,7 @@ local config = emunah.config
 --- The files read, in order. A key set in two files: the later one wins, and both are
 --- reported.
 M.FILES = {
-   "system", "interface", "healing", "curing", "defences", "hunting", "pvp", "loot",
+   "system", "interface", "map", "healing", "curing", "defences", "hunting", "pvp", "loot",
    "antitheft", "pipes", "riding", "people", "priorities", "situations",
 }
 

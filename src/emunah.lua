@@ -101,6 +101,8 @@ local MANIFEST = {
    { path = "emunah.ui.chat",            as = "ui.chat"       },
    { path = "emunah.ui.roompanel",       as = "ui.roompanel"  },
    { path = "emunah.ui.map",             as = "ui.map"        },
+   -- the room's area on the end of the room-name line; needs theme, reads raw Room.Info
+   { path = "emunah.ui.roomarea",        as = "ui.roomarea"   },
 
    -- curing behaviour (the data half is loaded above)
    { path = "emunah.curing.engine",      as = "curing.engine" },
@@ -109,6 +111,23 @@ local MANIFEST = {
    -- reads DIAG's answer; needs afflist to normalise names and the engine to reconcile
    { path = "emunah.curing.detect.diag",     as = "curing.diag" },
    { path = "emunah.curing.defkeepup",   as = "curing.defkeepup" },
+
+   -- the crowdmap: updates, the overlay kept across them, and GMCP corrections. Needs
+   -- gmcp.room's "room" event and timers; asks the walker (below) at run time only.
+   { path = "emunah.mapper.data",        as = "mapper.data"   },
+   -- going places: routes, stepping, areas and features. Over mapper.data and act.
+   { path = "emunah.mapper.route",       as = "mapper.route"  },
+   -- what the map knows: room details, area and room lists, numbers for a named room
+   { path = "emunah.mapper.info",        as = "mapper.info"   },
+   -- mmp's locator lines, generated (tools/build-mapper-lines.py), then what they do: rooms
+   -- as links, last-known locations, people lit on the map
+   { path = "emunah.mapper.lines",       as = "mapper.lines"  },
+   { path = "emunah.mapper.locate",      as = "mapper.locate" },
+   -- what the game says when a step does not simply happen (swim, doors, walls...)
+   { path = "emunah.mapper.moves",       as = "mapper.moves"  },
+   -- walking under attack: a big hit walks you out of the area, an enemy marks the prompt,
+   -- F12 walks to the safe room
+   { path = "emunah.mapper.guard",       as = "mapper.guard"  },
 
    -- area walker: needs gmcp.room for position and config for its avoid list
    { path = "emunah.walker",             as = "walker"        },

@@ -126,11 +126,22 @@ function mock.install(homeDir)
    function _G.getLineNumber() return mock.cursor or #mock.buffer end
    function _G.getLineCount() return #mock.buffer end
    function _G.moveCursor(window, x, y)
-      if type(window) ~= "string" then y = x end
+      if type(window) ~= "string" then x, y = window, x end
       mock.cursor = y
+      mock.cursorX = x
       return true
    end
-   function _G.moveCursorEnd() mock.cursor = nil return true end
+   function _G.moveCursorEnd() mock.cursor = nil mock.cursorX = nil return true end
+   --- Insert at the cursor, as Mudlet's dinsertText does: into the buffer line, at the
+   --- column moveCursor() chose. Colour tags are dropped; the buffer holds plain text.
+   function _G.dinsertText(text)
+      local index = mock.cursor or #mock.buffer
+      local line = mock.buffer[index]
+      if line == nil then return end
+      local plain = tostring(text):gsub("<%d+,%d+,%d+>", ""):gsub("<r>", "")
+      local at = mock.cursorX or #line
+      mock.buffer[index] = line:sub(1, at) .. plain .. line:sub(at + 1)
+   end
    function _G.deleteLine()
       mock.deletedLines = mock.deletedLines + 1
       local line = mock.cursor or #mock.buffer
@@ -203,6 +214,14 @@ function mock.install(homeDir)
          end
          if not mock.cursor or mock.cursor == lineNo or lineNo == #mock.buffer then
             mock.currentLine = newText
+         end
+      elseif selection.at then
+         -- Part of the line, as selectString/selectSection chose it: the rest stays.
+         local current = mock.currentLine
+         mock.currentLine = current:sub(1, selection.at - 1) .. newText
+            .. current:sub(selection.at + #selection.text)
+         if mock.buffer and #mock.buffer > 0 and mock.buffer[#mock.buffer] == current then
+            mock.buffer[#mock.buffer] = mock.currentLine
          end
       end
       selection = nil
@@ -630,6 +649,102 @@ function mock.install(homeDir)
    local realClock = os.clock
    os.clock = function() return mock.clock end
    mock.realClock = realClock
+
+   mock.installMapApi()
+end
+
+--- Mudlet's map API, over mock.map. Real Mudlet always has these, map or no map, so the
+--- mock does too: without a map every room is simply missing. mock.installMap() fills the
+--- rooms and replaces the pathfinding half.
+---
+--- Locks and weights are stored on the room so a test can see what the overlay put back
+--- after a loadMap(), which in real Mudlet replaces every room and with it every lock.
+function mock.installMapApi()
+   mock.loadedMaps = {}
+   mock.loadMapResult = true
+
+   local function room(id) return mock.map and mock.map.rooms[tonumber(id)] end
+
+   function _G.roomExists(id) return room(id) ~= nil end
+   function _G.getRoomName(id)
+      local r = room(id)
+      return r and (r.name or ("Room " .. id)) or nil
+   end
+   function _G.setRoomName(id, name) local r = room(id) if r then r.name = name end end
+   function _G.getRoomEnv(id) local r = room(id) return r and (r.env or -1) or nil end
+   function _G.setRoomEnv(id, env) local r = room(id) if r then r.env = env end end
+   function _G.getRoomChar(id) local r = room(id) return r and (r.char or "") or nil end
+   function _G.setRoomChar(id, char) local r = room(id) if r then r.char = char end end
+   function _G.getRoomUserData(id, key)
+      local r = room(id)
+      return r and r.userdata and r.userdata[key] or ""
+   end
+   function _G.setRoomUserData(id, key, value)
+      local r = room(id)
+      if not r then return false end
+      r.userdata = r.userdata or {}
+      r.userdata[key] = tostring(value)
+      return true
+   end
+   function _G.clearRoomUserDataItem(id, key)
+      local r = room(id)
+      if r and r.userdata then r.userdata[key] = nil end
+   end
+   function _G.lockRoom(id, lock) local r = room(id) if r then r.locked = lock and true or nil end end
+   function _G.roomLocked(id) local r = room(id) return r ~= nil and r.locked == true end
+   -- Mudlet takes a direction short or long ("n" or "north") and means the same exit;
+   -- stored short here, as getPath's speedWalkDir names it.
+   local SHORT = { north = "n", south = "s", east = "e", west = "w", northeast = "ne",
+                   northwest = "nw", southeast = "se", southwest = "sw", up = "u", down = "d" }
+   local function short(dir) dir = tostring(dir):lower() return SHORT[dir] or dir end
+   function _G.lockExit(id, dir, lock)
+      local r = room(id)
+      if not r then return end
+      r.exitLocks = r.exitLocks or {}
+      r.exitLocks[short(dir)] = lock and true or nil
+   end
+   function _G.hasExitLock(id, dir)
+      local r = room(id)
+      return r ~= nil and r.exitLocks ~= nil and r.exitLocks[short(dir)] == true
+   end
+   function _G.getSpecialExitsSwap(id)
+      local r = room(id)
+      return r and r.specials or {}
+   end
+   function _G.lockSpecialExit(from, to, command, lock)
+      local r = room(from)
+      if not r then return end
+      r.specialLocks = r.specialLocks or {}
+      r.specialLocks[command] = lock and true or nil
+   end
+   function _G.setRoomWeight(id, weight) local r = room(id) if r then r.weight = weight end end
+   function _G.getRoomWeight(id) local r = room(id) return r and (r.weight or 1) or nil end
+   function _G.setExitWeight(id, dir, weight)
+      local r = room(id)
+      if not r then return end
+      r.exitWeights = r.exitWeights or {}
+      r.exitWeights[dir] = weight
+   end
+   function _G.getExitWeights(id) local r = room(id) return r and r.exitWeights or {} end
+   mock.highlighted = {}
+   function _G.highlightRoom(id) mock.highlighted[tonumber(id)] = true return true end
+   function _G.unHighlightRoom(id) mock.highlighted[tonumber(id)] = nil return true end
+   mock.mapUserData = {}
+   function _G.getMapUserData(key) return mock.mapUserData[key] or "" end
+   function _G.setMapUserData(key, value) mock.mapUserData[key] = tostring(value) return true end
+   if not rawget(_G, "getAreaTable") then _G.getAreaTable = function() return {} end end
+   if not rawget(_G, "getAreaRooms") then _G.getAreaRooms = function() return {} end end
+
+   --- Records the path, and by default "loads" it by clearing every lock and weight, the
+   --- way a fresh map file would arrive without them.
+   function _G.loadMap(path)
+      mock.loadedMaps[#mock.loadedMaps + 1] = path
+      if not mock.loadMapResult then return false end
+      for _, r in pairs(mock.map and mock.map.rooms or {}) do
+         r.locked, r.exitLocks, r.specialLocks, r.weight, r.exitWeights = nil, nil, nil, nil, nil
+      end
+      return true
+   end
 end
 
 -- ---------------------------------------------------------------------------
@@ -959,29 +1074,88 @@ function mock.installMap(count)
    --- Rooms sit in a line with id == x, so a path is the run of ids between them. Real
    --- Mudlet fills BOTH speedWalkDir and speedWalkPath; the walker reads the latter to take
    --- a single step rather than speedwalking a whole route, so the mock has to supply it.
+   --- Rooms sit in a line with id == x, joined east-west, unless a test gives a room its
+   --- own `exits` ({ [short dir] = id }) or `specials` ({ [command] = id }). Breadth-first,
+   --- honouring locked rooms, locked exits and locked special exits the way Mudlet's
+   --- getPath does, so a test of routing around a lock means something. Weights are not
+   --- modelled. Real Mudlet fills BOTH speedWalkDir and speedWalkPath; the walker reads the
+   --- latter to take a single step, so the mock supplies both.
+   function mock.exitsOf(id)
+      local room = mock.map.rooms[id]
+      if not room then return {} end
+      if room.exits then return room.exits end
+      local out = {}
+      if mock.map.rooms[id + 1] then out.e = id + 1 end
+      if mock.map.rooms[id - 1] then out.w = id - 1 end
+      return out
+   end
+
    function _G.getPath(from, to)
-      local a, b = mock.map.rooms[tonumber(from)], mock.map.rooms[tonumber(to)]
+      from, to = tonumber(from), tonumber(to)
       _G.speedWalkDir, _G.speedWalkPath = {}, {}
-      if not (a and b) then return false end
-      local forward = b.x >= a.x
-      local steps = math.abs(b.x - a.x)
-      for step = 1, steps do
-         _G.speedWalkDir[step] = forward and "e" or "w"
-         _G.speedWalkPath[step] = a.x + (forward and step or -step)
-      end
       mock.map.lastPathfind = (mock.map.lastPathfind or 0) + 1
-      mock.map.pathTo = tonumber(to)
-      return true
+      mock.map.pathTo = to
+      local rooms = mock.map.rooms
+      if not (rooms[from] and rooms[to]) then return false end
+      if from == to then return true end
+      local previous, queue, head = { [from] = false }, { from }, 1
+      while queue[head] do
+         local id = queue[head]; head = head + 1
+         local room = rooms[id]
+         local links = {}
+         for dir, target in pairs(mock.exitsOf(id)) do
+            if not (room.exitLocks and room.exitLocks[dir]) then links[#links + 1] = { dir, target } end
+         end
+         for command, target in pairs(room.specials or {}) do
+            if not (room.specialLocks and room.specialLocks[command]) then
+               links[#links + 1] = { command, target }
+            end
+         end
+         table.sort(links, function(a, b) return a[1] < b[1] end)
+         for _, link in ipairs(links) do
+            local target = link[2]
+            if previous[target] == nil and rooms[target] and not rooms[target].locked then
+               previous[target] = { id, link[1] }
+               if target == to then
+                  local dirs, path, at = {}, {}, to
+                  while previous[at] do
+                     table.insert(dirs, 1, previous[at][2])
+                     table.insert(path, 1, at)
+                     at = previous[at][1]
+                  end
+                  _G.speedWalkDir, _G.speedWalkPath = dirs, path
+                  return true
+               end
+               queue[#queue + 1] = target
+            end
+         end
+      end
+      return false
+   end
+
+   local LONG = { n = "north", s = "south", e = "east", w = "west", ne = "northeast",
+                  nw = "northwest", se = "southeast", sw = "southwest", u = "up", d = "down" }
+   function _G.getRoomExits(id)
+      local out = {}
+      for dir, target in pairs(mock.exitsOf(tonumber(id))) do out[LONG[dir] or dir] = target end
+      return out
+   end
+   function _G.getAreaTableSwap() return { [1] = "Test Area" } end
+   function _G.getRoomAreaName(area) return getAreaTableSwap()[tonumber(area)] end
+   function _G.searchRoomUserData(key, value)
+      local out = {}
+      for id, room in pairs(mock.map.rooms) do
+         if room.userdata and room.userdata[key] == value then out[#out + 1] = id end
+      end
+      table.sort(out)
+      return out
    end
 
    function _G.getAreaTable() return { ["Test Area"] = 1 } end
    function _G.getRooms()
       local out = {}
-      for id in pairs(mock.map.rooms) do out[id] = "Room " .. id end
+      for id, room in pairs(mock.map.rooms) do out[id] = room.name or ("Room " .. id) end
       return out
-   end
-   function _G.getRoomName(id)
-      return mock.map.rooms[tonumber(id)] and ("Room " .. id) or nil
    end
 
    -- Records WHERE the walk was headed (the last getPath's destination), so a test can
@@ -1116,7 +1290,15 @@ local function toLuaPatterns(regex)
    local hit = patternCache[regex]
    if hit then return hit end
 
-   local before, branches, after = regex:match("^(.-)%((.-)%)(.*)$")
+   -- The alternation group, wherever it is: a non-capturing (?:a|b) anywhere in the regex
+   -- (mmp's alertness line has two capturing groups before it), else the first group.
+   local before, branches, after
+   local s, e = regex:find("%(%?:[^()]*|[^()]*%)")
+   if s then
+      before, branches, after = regex:sub(1, s - 1), regex:sub(s + 1, e - 1), regex:sub(e + 1)
+   else
+      before, branches, after = regex:match("^(.-)%((.-)%)(.*)$")
+   end
    if not branches or not branches:find("|", 1, true) then
       hit = { toLuaPattern(regex) }
       patternCache[regex] = hit

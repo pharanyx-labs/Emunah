@@ -25,7 +25,12 @@ Before writing code that depends on how the game behaves:
    logic is more credible than Emunah's own** (the user's ruling). Where they disagree,
    change Emunah to match unless a timestamped transcript shows svof is wrong for today's
    game (it dates from 2021). Cite it as `[svof]` in `docs/game/`.
-3. **If it is not in either, ask.** One question costs the user a paste. A wrong guess costs a
+   For mapping and movement (doors, swimming, ferries, wormholes, sewers, flying, locator
+   lines), the IRE Mudlet Mapper is the equivalent reference, by the user's ruling
+   (2026-10-12): its game lines and command syntax are in the profile's
+   `map downloads/mudlet-mapper.xml`. Cite it as `[mmp]`. Its syntax for a command still
+   needs the command's HELP before Emunah sends it (cost, requirements, rejection lines).
+3. **If it is not in any of these, ask.** One question costs the user a paste. A wrong guess costs a
    play session, a bug report, and a round trip — and tends to surface as a *worse* bug than
    the one being fixed.
 4. **Never infer a command's existence or syntax.** If the exact string is not in
@@ -64,6 +69,10 @@ declared. Answer these from `docs/game/`, not from memory, for every new or chan
    everything they should in `act.blocked`. Death pauses Emunah completely by the user's
    rule. Don't add a command that bypasses `act.send` or the queue.
 
+`src/emunah/mapper/lines.lua` is generated from mmp's locator triggers by
+`tools/build-mapper-lines.py` (patterns verbatim from mmp; what each capture means is
+declared in the generator). Same rule: change the generator and regenerate.
+
 `EmunahTriggers.xml` is generated from svof's trigger set by
 `tools/build-trigger-package.py`. Change the generator and regenerate; never hand-edit the
 XML. Its triggers may only call `detect.text*`. Anti-illusion is svof's, in four layers
@@ -86,8 +95,11 @@ There is one prefix, `emset`, plus `emhelp`. Keep it that way:
   and `emhelp <module>` pick it up with no command code.
 - Don't add bare aliases or a second prefix. `sleep` (relaxes insomnia and marks a
   voluntary sleep), `emreload` (works when commands fail to load), `buy [qty] <number>` (the
-  user's request; it only catches a digits-only item, which the game refuses anyway) and
-  `pp` (the user's request: pause/resume curing and defences) are the only exceptions.
+  user's request; it only catches a digits-only item, which the game refuses anyway), `pp`
+  (the user's request: pause/resume curing and defences), `goto`, `rf` and `rl` (the
+  user's request: walking, room search and room details, the words mmp taught them), and `stop` and `go` (the
+  user's request: pause a walk keeping its route, and carry on; both pass to the game when
+  there is no walk) are the only exceptions.
 - After changing `help.lua`, run `lua tools/build-commands-page.lua` to regenerate
   `website/commands.html`.
 

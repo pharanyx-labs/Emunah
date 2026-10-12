@@ -299,11 +299,11 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <p>Bashing and walking. Bashing attacks the denizens in the room, one at a time by replica number, on the balance and equilibrium your attack uses. The walker explores an area room by room. <code>hunt</code> runs both: clear a room, move on. Stops itself when health drops below its floor, when a player arrives, or when damage comes in too fast.</p>
 <div class="cmd-block">
 <span class="cmd-syntax">emset hunt [off]</span>
-<p>walk and bash together; <code>off</code> stops both. F11 starts it</p>
+<p>walk and bash together; <code>off</code> stops both. F11 toggles it</p>
 </div>
 <div class="cmd-block">
 <span class="cmd-syntax">emset hunt retreat</span>
-<p>stop both, go back three rooms the way you came, and stay there. F12</p>
+<p>stop both, go back three rooms the way you came, and stay there</p>
 </div>
 <div class="cmd-block">
 <span class="cmd-syntax">emset bash</span>
@@ -459,8 +459,125 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>names.enemyLinks</code></td><td>true</td><td>An enemy's name in the game text is a link: click it for their record, as <code>emset whois</code>.</td></tr>
 </tbody></table></div>
 
+<h2 id="map">Map</h2>
+<p>Walks you anywhere on the map one confirmed step at a time, through the same checks as every other command, so it waits out stun, sleep, paralysis or a lost balance instead of walking into them. Re-plans when you end up off the route or the game refuses an exit; double-clicking a room on the map walks there too. Swims, opens and unlocks doors, goes round a door that will not open, waits out rubble and ferries, and gallops straight runs while mounted. Locator lines &mdash; farsee, mindsense, the angel, alertness and the rest &mdash; get the room numbers they name as links, and who was where is remembered. The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. Emunah checks for a new version when it loads and every hour, shows what changed, and loads it, waiting for a walk to end first. Rooms you lock or weight are kept outside the map and put back after every update. As you walk, rooms whose name, environment, indoors/outdoors or area disagree with GMCP are corrected. While the mmp package is running it keeps updating the map itself, and Emunah leaves it to it.</p>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map</span>
+<p>the map's version, the last check, and what your overlay holds</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map update</span>
+<p>check for a new crowdmap now</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map load</span>
+<p>load a downloaded map that did not load (open the map window first)</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset goto &lt;room|feature|area|room name&gt;</span>
+<p>walk there: a room number, the nearest room with a feature, an area, or the nearest room with that name</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">goto &lt;where&gt;</span>
+<p>the same as <code>emset goto</code>: goto bank, goto 1234, goto fish street</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">stop</span>
+<p>stop walking and remember the route (a goto, else the area walk); with nothing walking it goes to the game</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">go</span>
+<p>carry on along the remembered route from wherever you are; with nothing paused it goes to the game</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">rf &lt;text&gt;</span>
+<p>find rooms whose name contains the text, by area; click a number to walk there</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset flee</span>
+<p>stop any hunt and walk to the safe room, map.safeRoom (2096). F12</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset goto back</span>
+<p>walk back to where the last walk started</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset goto stop|pause|resume</span>
+<p>stop the walk, or pause it and pick it up again from wherever you are</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset room [number]</span>
+<p>everything the map holds about a room (here by default): exits, special exits as Emunah reads them, locks, weights, features, distance</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">rl [number]</span>
+<p>the same as <code>emset room</code></p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset areas [text]</span>
+<p>every area with its room count, or those whose name contains the text</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset rooms &lt;area&gt;</span>
+<p>an area's rooms by number; click one to walk there</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset where [person]</span>
+<p>where people were last located, newest first; <code>goto &lt;person&gt;</code> walks there</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map size small|big|biggest</span>
+<p>the map at 30%, 50% or 70% of the window's height</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map locators</span>
+<p>apply a change to map.locators now, and say which are on</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset path &lt;to&gt; [from]</span>
+<p>the route between two rooms, without walking it</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map lock|unlock &lt;room&gt; [exit]</span>
+<p>keep a room, or one of its exits, out of every route</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map lockarea|unlockarea &lt;area&gt;</span>
+<p>keep a whole area out of every route</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map weight &lt;room&gt; &lt;n&gt;</span>
+<p>make routes avoid a room unless it saves more than n steps; 1 clears it</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map feature [add|remove &lt;name&gt; [room]]</span>
+<p>list the map's features, or mark a room (here by default) as one</p>
+</div>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>map.autoupdate</code></td><td>true</td><td>Check for a new crowdmap on load and every map.checkEvery minutes.</td></tr>
+<tr><td><code>map.checkEvery</code></td><td>60 min</td><td>At least 5.</td></tr>
+<tr><td><code>map.changelog</code></td><td>true</td><td>Show the crowdmap's changelog entries since the last update.</td></tr>
+<tr><td><code>map.stepGap</code></td><td>0.5 s</td><td>The least time between two steps. Faster draws the game's "Now now, don't be so hasty!".</td></tr>
+<tr><td><code>map.retryAfter</code></td><td>3 s</td><td>Send a step again when no arrival has followed it in this long; twice, then the walk stops.</td></tr>
+<tr><td><code>map.showSteps</code></td><td>true</td><td>Show where a walk is going and the steps left at the end of the prompt, then that it arrived.</td></tr>
+<tr><td><code>map.waterwalk</code></td><td>true</td><td>Off makes routes avoid water rooms where land is not much longer.</td></tr>
+<tr><td><code>map.wormholes</code></td><td>false</td><td>Let routes use wormholes. Off keeps them out, as mmp does by default.</td></tr>
+<tr><td><code>map.gallop</code></td><td>true</td><td>While mounted, gallop straight runs of two to eleven rooms (HELP GALLOP). A gallop that gets nowhere is not sent again; the walk carries on on foot.</td></tr>
+<tr><td><code>map.shackle</code></td><td>true</td><td>While the density defence is up, take the shackle off for a walk and wear it again when the walk ends, as mmp does.</td></tr>
+<tr><td><code>map.sewers</code></td><td>true</td><td>Let routes go through sewer grates. Off keeps them out (mmp's locksewers).</td></tr>
+<tr><td><code>map.safeRoom</code></td><td>2096</td><td>Where F12 walks you, stopping any hunt first.</td></tr>
+<tr><td><code>map.bigHit</code></td><td>33 %</td><td>During a goto walk, losing more than this much health in one blow raises a warning and walks you out of the area.</td></tr>
+<tr><td><code>map.enemyMark</code></td><td>true</td><td>During a goto walk, a red * in brackets on the prompt while an enemy is in the room.</td></tr>
+<tr><td><code>map.drawRoute</code></td><td>true</td><td>Light a walk's route on the map, the destination brightest, clearing each room as it is passed.</td></tr>
+<tr><td><code>map.locators</code></td><td>farsee, view, mindsense, allsight, alertness, angel, shrines, shop, who</td><td>Which of mmp's locator lines get room numbers: farsee, view, mindsense, allsight, alertness, angel, shrines, shop, who. <code>emset map locators</code> applies a change.</td></tr>
+<tr><td><code>map.trackFor</code></td><td>5 min</td><td>How long a located person's room stays lit on the map; 0 never lights it.</td></tr>
+<tr><td><code>map.gmcpSync</code></td><td>true</td><td>Correct a room's name, environment, indoors/outdoors and area from GMCP as you walk.</td></tr>
+</tbody></table></div>
+
 <h2 id="interface">Interface</h2>
-<p>The panels around the game text: vitals, afflictions, defences, chat tabs, the room and its people, your target, and the map.</p>
+<p>The panels around the game text: vitals, afflictions, defences, chat tabs, the room and its people, your target, and the map. The room's area is shown at the end of the room-name line.</p>
 <div class="cmd-block">
 <span class="cmd-syntax">emset ui</span>
 <p>whether the panels and the map are on</p>
@@ -480,6 +597,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>ui.map</code></td><td>true</td><td></td></tr>
 <tr><td><code>ui.mapHeight</code></td><td>42 % of window</td><td>Clamped to 10-70.</td></tr>
 <tr><td><code>ui.mapFloat</code></td><td>false</td><td>Detaches the map into its own window. <code>emset ui rebuild</code> after changing it.</td></tr>
+<tr><td><code>ui.roomArea</code></td><td>true</td><td>Show the room's area at the end of the room-name line, from GMCP.</td></tr>
 <tr><td><code>ui.chatTabs</code></td><td>Tells, City, House, Market, Says, Misc</td><td></td></tr>
 <tr><td><code>ui.refresh</code></td><td>0.2 s</td><td>How often balance countdowns redraw while one is running. 0 turns the live countdowns off.</td></tr>
 <tr><td><code>keys.numpad</code></td><td>true</td><td></td></tr>
@@ -505,6 +623,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
   <a href="#loot">Loot &amp; shop</a>
   <a href="#antitheft">Antitheft</a>
   <a href="#people">People</a>
+  <a href="#map">Map</a>
   <a href="#interface">Interface</a>
 </aside>
 </div>

@@ -69,11 +69,17 @@ end
 M.ACTIONS = {
    { name = "reload",   modifier = "Control", key = "F5",
      fn = function() emunahReload() end },
-   { name = "hunt on",  modifier = "None",     key = "F11",
-     fn = function() emunah.commands.dispatch("hunt") end },
-   -- Stop, then back three rooms the way you came, then stay (2026-09-28).
-   { name = "hunt retreat", modifier = "None", key = "F12",
-     fn = function() emunah.commands.dispatch("hunt retreat") end },
+   -- One key for the hunt both ways (the user, 2026-10-12): on when it is off, off when on.
+   { name = "hunt toggle", modifier = "None",  key = "F11",
+     fn = function()
+        local running = (emunah.bashing and emunah.bashing.enabled)
+           or (emunah.walker and emunah.walker.enabled)
+        emunah.commands.dispatch(running and "hunt off" or "hunt")
+     end },
+   -- The escape route (the user, 2026-10-12): stop any hunt and walk to map.safeRoom, 2096.
+   -- It replaced F12's three-rooms-back retreat, which `emset hunt retreat` still does.
+   { name = "safe room", modifier = "None",    key = "F12",
+     fn = function() emunah.mapper.guard.flee() end },
 }
 
 local function actionRegistry()
@@ -125,6 +131,12 @@ function M.go(command)
       if emunah.walker and emunah.walker.enabled then
          emunah.walker.stop("manual movement")
          stopped[#stopped + 1] = "the walk"
+      end
+      -- A `goto` under way steers too, and would undo the keypress at its next step.
+      local route = emunah.mapper and emunah.mapper.route
+      if route and route.walk then
+         route.stop("manual movement")
+         stopped[#stopped + 1] = "the goto"
       end
       if #stopped > 0 then
          emunah.log.info("Stopped %s -- you moved manually (%s).",
@@ -229,7 +241,7 @@ function M.build()
    return true
 end
 
---- Install the action keys (Ctrl+F5 reload, F11 hunt on, F12 hunt retreat).
+--- Install the action keys (Ctrl+F5 reload, F11 hunt on/off, F12 walk to the safe room).
 ---
 --- Deliberately independent of `keys.numpad`: that setting is specifically about the
 --- numpad, and a function key has no bearing on it -- turning numpad movement off must not

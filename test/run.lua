@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 64, "all 64 manifest modules loaded")
+eq(loadedModules, 72, "all 72 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -7522,17 +7522,22 @@ ok(stuckOn ~= nil, "walker is heading somewhere")
 local failedBefore = walker.stats.failed
 
 -- Repeated move() calls while travelling must NOT re-issue the walk.
-local walksBefore = #mock.map.walkedTo
-for _ = 1, 5 do walker.move() end
-eq(#mock.map.walkedTo, walksBefore,
-   "move() while already travelling does not restart the speedwalk",
-   #mock.map.walkedTo - walksBefore)
+do
+   local hop = emunah.mapper.route.walk
+   ok(hop ~= nil and hop.target == stuckOn, "the hop is walked by the router")
+   for _ = 1, 5 do walker.move() end
+   eq(emunah.mapper.route.walk, hop, "move() while already travelling does not restart the walk")
+end
 
--- ...but once the timeout passes with no arrival, the room is abandoned.
-mock.advance(10.0)
-walker.move()
+-- ...but once the router gives up on it -- two resends, no arrival -- the room is
+-- abandoned. The router counts on ticks, the walker on the router's word.
+for _ = 1, 4 do
+   mock.advance(4.0)
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
+                              bal = "1", eq = "1" })
+end
 ok(walker.stats.failed > failedBefore,
-   "an unreachable room is given up on after the transit timeout")
+   "an unreachable room is given up on once the router stops trying")
 ok(not emunah.util.contains(walker.remaining, stuckOn),
    "the unreachable room is dropped from the walk list")
 walker.stop("test")
@@ -8836,11 +8841,13 @@ ok(#mock.sent > 0, "...and the step is retried once balance returns",
 -- Unclaimed, a plain walk still speedwalks -- that is what you want with nothing to fight.
 bash.stop("test")
 emunah.walker.release("bashing")
-mock.map.walkedTo = {}
 emunah.walker.nextRoom = nil
 emunah.walker.lastStepAt = nil
 emunah.walker.move()
-ok(#mock.map.walkedTo > 0, "an unpaced walker still speedwalks the whole route")
+ok(emunah.mapper.route.walk ~= nil
+   and emunah.mapper.route.walk.target == emunah.walker.nextRoom,
+   "an unpaced walker still walks the whole route, through the router")
+emunah.mapper.route.stop("test")
 
 -- Restore the fight for the assertions below.
 emunah.walker.stop("test")
@@ -9251,7 +9258,6 @@ bash.start()
 ok(emunah.walker.enabled and bash.enabled, "hunting")
 
 -- Health collapses far enough to trip the flat floor.
-mock.map.walkedTo = {}
 mock.feed("Char.Vitals", { hp = "400", maxhp = "4000" })
 ok(not bash.enabled, "bashing stops on a safety condition")
 ok(not emunah.walker.enabled, "...and the walk stops too, rather than wandering off hurt")
@@ -9260,8 +9266,7 @@ eq(emunah.walker.claimedBy, nil, "...and the walker is not left claimed by a dea
 -- ...and does NOT walk home. Returning to start is right after a completed walk and
 -- actively harmful after an emergency: confirmed live, a safety stop at 44% health while
 -- bleeding 90 a tick immediately speedwalked three rooms back across the area.
-eq(#mock.map.walkedTo, 0, "an emergency stop does not speedwalk home",
-   tostring(#mock.map.walkedTo))
+eq(emunah.mapper.route.walk, nil, "an emergency stop does not walk home, and stops any hop under way")
 
 -- A deliberate stop still just hands pacing back, so `emunah walk` alone keeps working.
 mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
@@ -11094,9 +11099,9 @@ eq(emunah.keys.count(), keysBefore, "rebuilding does not stack duplicate binding
 ok(pcall(emunah.commands.dispatch, "keys"), "emunah keys reports status")
 
 -- ===========================================================================
--- Action keys: Ctrl+F5 reload, F11 hunt on, F12 hunt off. Independent of keys.numpad and of
+-- Action keys: Ctrl+F5 reload, F11 hunt on/off, F12 to the safe room. Independent of keys.numpad and of
 -- the Keypad modifier -- see keys.buildActions(). Own registry, own count().
-eq(emunah.keys.actionCount(), 3, "reload, hunt on, hunt off all bound")
+eq(emunah.keys.actionCount(), 3, "reload, the hunt toggle and the safe room all bound")
 
 -- Scoped: Lua 5.1 caps a function at 200 active locals, and this file is one chunk.
 do
@@ -11114,8 +11119,8 @@ end
 ok(not mock.press(mudlet.keymodifier.None, mudlet.key.F5),
    "plain F5 (no Control modifier) is NOT bound -- only Ctrl+F5 is")
 
--- F11 starts the hunt (walk + bash together); F12 stops both. The keys just dispatch
--- `emunah hunt` / `emunah hunt off`, so this is really exercising that command.
+-- F11 starts the hunt (walk + bash together). The key just dispatches `emset hunt`, so this
+-- is really exercising that command.
 mock.feed("Room.Info", { num = 1, name = "Room 1", area = "Test", exits = { e = 2 } })
 mock.feed("Char.Items.List", {
    location = "room",
@@ -11126,23 +11131,43 @@ ok(not emunah.walker.enabled and not emunah.bashing.enabled, "hunt is off to sta
 mock.press(mudlet.keymodifier.None, mudlet.key.F11)
 ok(emunah.walker.enabled and emunah.bashing.enabled, "F11 starts the hunt")
 
--- F12 (2026-09-28): stop, go back three rooms the way you came, and stay there.
+-- `emset hunt retreat` (2026-09-28, once F12): stop, go back three rooms the way you came,
+-- and stay there.
 mock.feed("Room.Info", { num = 2, name = "Room 2", area = "Test", exits = { w = 1, e = 3 } })
 mock.feed("Room.Info", { num = 3, name = "Room 3", area = "Test", exits = { w = 2, e = 4 } })
 mock.feed("Room.Info", { num = 4, name = "Room 4", area = "Test", exits = { w = 3, e = 5 } })
 mock.feed("Room.Info", { num = 5, name = "Room 5", area = "Test", exits = { w = 4 } })
-mock.map.walkedTo = {}
-mock.press(mudlet.keymodifier.None, mudlet.key.F12)
-ok(not emunah.walker.enabled and not emunah.bashing.enabled, "F12 stops the hunt")
-eq(mock.map.walkedTo[#mock.map.walkedTo], 2, "...and walks back to the room three rooms ago")
-eq(#mock.map.walkedTo, 1, "...and nowhere else: not back to where the walk started")
+emunah.commands.dispatch("hunt retreat")
+ok(not emunah.walker.enabled and not emunah.bashing.enabled, "hunt retreat stops the hunt")
+do
+   local back = emunah.mapper.route.walk
+   eq(back and back.target, 2, "...and walks back to the room three rooms ago")
+   ok(back and back.label:find("back the way you came", 1, true),
+      "...and nowhere else: not back to where the walk started")
+   emunah.mapper.route.stop("test")
+end
 
 -- Standing where the trail began: nowhere to go, and it says so.
 emunah.walker.trail = { 7 }
 mock.echoed = {}
-mock.press(mudlet.keymodifier.None, mudlet.key.F12)
+emunah.commands.dispatch("hunt retreat")
 ok(table.concat(mock.echoed, " "):find("Nowhere behind you", 1, true),
-   "F12 with no trail says so", table.concat(mock.echoed, " "))
+   "hunt retreat with no trail says so", table.concat(mock.echoed, " "))
+
+-- F11 BOTH WAYS, F12 TO THE SAFE ROOM (the user, 2026-10-12).
+mock.feed("Room.Info", { num = 1, name = "Room 1", area = "Test", exits = { e = 2 } })
+mock.press(mudlet.keymodifier.None, mudlet.key.F11)
+ok(emunah.walker.enabled and emunah.bashing.enabled, "F11 starts the hunt")
+mock.press(mudlet.keymodifier.None, mudlet.key.F11)
+ok(not emunah.walker.enabled and not emunah.bashing.enabled, "F11 again stops it")
+mock.press(mudlet.keymodifier.None, mudlet.key.F11)
+emunah.config.set("map.safeRoom", 6)
+mock.press(mudlet.keymodifier.None, mudlet.key.F12)
+ok(not emunah.walker.enabled and not emunah.bashing.enabled, "F12 stops a hunt")
+eq(emunah.mapper.route.walk and emunah.mapper.route.walk.target, 6, "...and walks to the safe room")
+emunah.mapper.route.stop("test")
+emunah.config.set("map.safeRoom", nil)
+eq(emunah.config.get("map.safeRoom", 2096), 2096, "the safe room is 2096 unless set")
 
 -- `emset bash on` walks the area too (2026-09-28), and `bash off` stops both.
 emunah.commands.dispatch("bash on")
@@ -13977,6 +14002,1440 @@ eq(#emunah.curing.situations.rules, #emunah.curing.situations.RULES,
    "ownprios off: every shipped rule is back")
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 engine.enabled = false
+end)()
+
+-- ===========================================================================
+suite("map: the crowdmap kept current, your overlay kept across updates, rooms fixed from GMCP")
+
+-- Replaces the map-data half of mmp. The URLs, the changelog format, the environment ids
+-- and the room-name rules are mmp's; see the header of src/emunah/mapper/data.lua.
+;(function()
+local data   = emunah.mapper.data
+local config = emunah.config
+local walker = emunah.walker
+local URL    = data.URL
+
+local function said(text)
+   return table.concat(mock.echoed, "\n"):find(text, 1, true) ~= nil
+end
+local function requested(url)
+   for _, request in ipairs(mock.requests) do
+      if request.url == url then return true end
+   end
+   return false
+end
+local loadedEvents = {}
+registerAnonymousEventHandler("emunah.map.loaded", function(_, version)
+   loadedEvents[#loadedEvents + 1] = version
+end)
+
+local function fresh(version, changes)
+   emunah.timers.stopAll()
+   mock.requests, mock.loadedMaps, mock.echoed = {}, {}, {}
+   mock.loadMapResult = true
+   walker.enabled = false
+   data.busy, data.incoming, data.pending = nil, nil, nil
+   data.store = { version = version, changes = changes, overlay = {
+      lockRoom = {}, lockExit = {}, roomWeight = {}, exitWeight = {}, lockArea = {} } }
+end
+
+mock.installMap(10)
+
+-- THE WHOLE UPDATE: version, changelog, map, load.
+fresh("485", 2)
+mock.serve(URL.version, "486\n")
+mock.serve(URL.changelog, "changelog = {\n\t[[First]],\n\t[[Second]],\n\t[[Added the\nWestern Ithmia]]\n}\n")
+mock.serve(URL.map, "MAPDATA")
+ok(data.check(true), "emset map update asks for the version")
+ok(requested(URL.version), "...from the published crowdmap")
+mock.respond()
+ok(requested(URL.changelog), "a newer version fetches the changelog")
+mock.respond()
+ok(said("Added the Western Ithmia"), "the entry past the two seen last time is shown")
+ok(not said("Second"), "...and the ones already seen are not")
+eq(data.store.changes, 3, "...and the count seen is remembered")
+ok(requested(URL.map), "then the map itself")
+mock.respond()
+eq(mock.loadedMaps[1], data.FILE.map, "the downloaded map is loaded into Mudlet")
+eq(data.store.version, "486", "...and its version recorded")
+eq(loadedEvents[#loadedEvents], "486", "...and emunah.map.loaded is raised with it")
+eq(data.busy, nil, "...and nothing is left waiting")
+eq(io.open(data.FILE.map, "r"), nil, "the downloaded file is removed once loaded")
+eq(emunah.timers.active("map.check"), true, "the next automatic check is armed")
+
+-- ALREADY CURRENT: no map is downloaded, and asking says so.
+fresh("486", 3)
+data.check(true)
+mock.respond()
+ok(not requested(URL.map) and #mock.loadedMaps == 0, "a current map is not downloaded again")
+ok(said("current (version 486)"), "...and asking says it is current")
+
+-- A version.txt that is not a version -- an error page -- must not start a download.
+fresh("486", 3)
+mock.serve(URL.version, "<html>\n<body>404</body>\n</html>")
+data.check(false)
+mock.respond()
+ok(not requested(URL.changelog) and not requested(URL.map), "a garbled version.txt downloads nothing")
+eq(data.busy, nil, "...and the checker is free again")
+mock.serve(URL.version, "486\n")
+
+-- A FAILED OR LOST DOWNLOAD frees the checker rather than wedging it until a reload.
+fresh("485", 3)
+mock.serve(URL.version, nil)
+data.check(false)
+mock.respond()   -- no canned body: delivered as a download error
+eq(data.busy, nil, "a failed download frees the checker")
+fresh("485", 3)
+data.check(false)
+mock.requests = {}   -- the answer never comes
+mock.advance(data.TIMEOUT.version + 1)
+eq(data.busy, nil, "...and so does one that never answers")
+mock.serve(URL.version, "486\n")
+
+-- CHANGELOG OFF goes straight to the map.
+fresh("485", 3)
+config.set("map.changelog", false)
+data.check(false)
+mock.respond()
+ok(requested(URL.map) and not requested(URL.changelog), "map.changelog off skips the changelog")
+mock.respond()
+config.set("map.changelog", true)
+
+-- NOT MID-WALK: the map waits for the walk to end, then loads.
+fresh("485", 3)
+walker.enabled = true
+data.check(false)
+mock.respond(); mock.respond(); mock.respond()
+eq(#mock.loadedMaps, 0, "a map that arrives mid-walk is not loaded under the route")
+eq(data.pending, data.FILE.map, "...it waits")
+walker.enabled = false
+raiseEvent("emunah.walker.finished", 3, "done")
+eq(#mock.loadedMaps, 1, "...and loads when the walk finishes")
+eq(data.store.version, "486", "...with the version it was downloaded as")
+
+-- A LOAD MAPPER REFUSES keeps the file, and `emset map load` tries again.
+fresh("485", 3)
+mock.loadMapResult = false
+data.check(false)
+mock.respond(); mock.respond(); mock.respond()
+eq(data.store.version, "485", "a refused load does not record the new version")
+ok(said("emset map load"), "...and says how to retry")
+mock.loadMapResult = true
+emunah.commands.dispatch("map load")
+eq(data.store.version, "486", "emset map load loads it")
+
+-- WHILE mmp IS RUNNING it does the updating, so we do not download the map twice.
+fresh("485", 3)
+_G.mmp = { checkforupdate = function() end }
+eq(data.check(true), false, "with mmp running, no check is made")
+eq(#mock.requests, 0, "...nothing is downloaded")
+ok(said("mmp is running"), "...and asking says why")
+_G.mmp = nil
+
+-- THE CHANGELOG IS READ, NEVER RUN. mmp executes it; a pattern match is enough.
+local entries = data.parseChangelog("os.exit(1)\nchangelog = { [[one]], [[two\nlines]] }")
+eq(#entries, 2, "the changelog's entries are read without running it")
+eq(entries[2], "two\nlines", "...multi-line entries intact")
+
+-- ADOPTING mmp's MARKER, so switching over does not re-download the loaded map.
+local marker = data.MMP_MARKER
+data.MMP_MARKER = os.tmpname()
+local function mark(text)
+   local file = io.open(data.MMP_MARKER, "w"); file:write(text); file:close()
+end
+mark('{"version":"486","identity":"published:achaea"}')
+eq(data.mmpVersion(), "486", "mmp's marker gives the version it loaded")
+mark('{"version":"0f3a","identity":"game:achaea"}')
+eq(data.mmpVersion(), nil, "...but not when it was the game's own map")
+mark("471\n")
+eq(data.mmpVersion(), "471", "...and an old bare marker still reads")
+os.remove(data.MMP_MARKER)
+data.MMP_MARKER = marker
+
+-- THE OVERLAY SURVIVES A LOAD: loadMap() wipes locks and weights; they come back.
+fresh("485", 3)
+local rooms = mock.map.rooms
+data.remember("lockRoom", 3)
+data.remember("lockExit", 4, "north")
+data.remember("roomWeight", 5, nil, 20)
+rooms[6].specials = { ["enter portal"] = 9 }
+data.remember("lockExit", 6, "enter portal")
+eq(rooms[3].locked, true, "a remembered lock is put on the map at once")
+eq(rooms[6].specialLocks and rooms[6].specialLocks["enter portal"], true,
+   "a special exit is locked as a special exit")
+data.check(false)
+mock.respond(); mock.respond(); mock.respond()
+eq(#mock.loadedMaps, 1, "(the new map loaded)")
+eq(rooms[3].locked, true, "a locked room is locked again after the update")
+eq(hasExitLock(4, "north"), true, "...a locked exit")
+eq(rooms[5].weight, 20, "...a weight")
+eq(rooms[6].specialLocks and rooms[6].specialLocks["enter portal"], true, "...a special exit")
+ok(data.forget("lockRoom", 3) and rooms[3].locked == nil, "forgetting unlocks it")
+eq(data.forget("lockRoom", 3), false, "...and forgetting it twice is a no-op")
+data.forget("lockExit", 4, "north"); data.forget("roomWeight", 5); data.forget("lockExit", 6, "enter portal")
+eq(rooms[5].weight, 1, "a forgotten weight goes back to 1")
+data.remember("lockRoom", 999)
+local _, skipped = data.apply()
+eq(skipped, 1, "an overlay room the map does not have is skipped, not an error")
+data.forget("lockRoom", 999)
+data.remember("lockArea", "Test Area")
+ok(rooms[1].locked and rooms[10].locked, "an area lock locks every room in it")
+data.remember("lockRoom", 2)
+data.forget("lockArea", "Test Area")
+ok(not rooms[1].locked and not rooms[10].locked, "...and unlocking it frees them")
+eq(rooms[2].locked, true, "...but not a room that is locked on its own as well")
+data.remember("lockArea", "Test Area")
+data.forget("lockRoom", 2)
+eq(rooms[2].locked, true, "unlocking a room inside a locked area leaves it locked")
+data.forget("lockArea", "Test Area")
+
+-- ROOMS CORRECTED FROM GMCP as you walk, on the fields GMCP states outright.
+eq(data.cleanName("Flying above Main Street (road)."), "Main Street",
+   "the crowdmap's name: no 'Flying above', no period, no '(road)'")
+eq(data.cleanName("The ruins of a temple (indoors)"), "a temple", "...nor '(indoors)'")
+mock.feed("Room.Info", { num = 3, name = "A dusty road.", area = "the Western Ithmia",
+   environment = "Road", details = { "indoors" }, exits = {} })
+eq(getRoomName(3), "A dusty road", "Room.Info renames a mapped room")
+eq(getRoomEnv(3), 12, "...sets the crowdmap's environment id for Road")
+eq(getRoomUserData(3, "indoors"), "y", "...marks it indoors")
+eq(getRoomUserData(3, "Game Area"), "the Western Ithmia", "...and records the game's area")
+mock.feed("Room.Info", { num = 3, name = "A dusty road", area = "the Western Ithmia",
+   environment = "Road", details = { "wilderness" }, exits = {} })
+eq(getRoomUserData(3, "indoors"), "", "no 'indoors' detail clears indoors")
+eq(getRoomUserData(3, "outdoors"), "y", "...and marks it outdoors")
+eq(getRoomChar(3), "W", "a wilderness room gets the W mark")
+config.set("map.gmcpSync", false)
+mock.feed("Room.Info", { num = 3, name = "Somewhere else", exits = {} })
+eq(getRoomName(3), "A dusty road", "map.gmcpSync off leaves the map alone")
+config.set("map.gmcpSync", true)
+eq(#data.sync(999, { name = "Nowhere" }), 0, "a room not on the map is not created")
+
+-- emset map renders.
+mock.echoed = {}
+emunah.commands.dispatch("map")
+ok(said("version"), "emset map shows the map's version")
+
+fresh("486", 3)
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: walking one confirmed step at a time, through the gate, around what the game refuses")
+
+;(function()
+local route  = emunah.mapper.route
+local data   = emunah.mapper.data
+local config = emunah.config
+local act    = emunah.act
+
+local function vitals(bal, eq)
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
+                              bal = bal or "1", eq = eq or "1" })
+end
+local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+local function last() return mock.sent[#mock.sent] end
+local arrived, stopped = {}, {}
+registerAnonymousEventHandler("emunah.map.arrived", function(_, t) arrived[#arrived + 1] = t end)
+registerAnonymousEventHandler("emunah.map.stopped", function(_, t, why) stopped[#stopped + 1] = why end)
+
+local function reset(rooms)
+   route.stop("test"); emunah.timers.stopAll()
+   mock.installMap(rooms or 10)
+   act.halted, act.backoffUntil = nil, nil
+   mock.feed("Char.Afflictions.List", {})
+   vitals()
+   at(1)
+   route.invalidate()
+   mock.sent, mock.echoed = {}, {}
+end
+
+-- ONE STEP, THEN THE NEXT WHEN IT ARRIVES.
+reset()
+ok(route.go(5), "a walk to room 5 starts")
+eq(last(), "e", "...with the first step")
+eq(#mock.sent, 1, "...and only the first: nothing is sent ahead of an arrival")
+at(2)
+eq(#mock.sent, 1, "an arrival right after a step waits out map.stepGap")
+mock.advance(0.5)
+eq(last(), "e", "...then the next step goes")
+eq(#mock.sent, 2, "(two steps so far)")
+at(2)
+mock.advance(1)
+eq(#mock.sent, 2, "Room.Info's duplicate for the same room sends nothing")
+
+-- HELD BY THE GATE, AND RELEASED BY THE TICK THAT FREES IT -- no polling timer.
+mock.advance(1)
+vitals("0", "1")
+at(3)
+mock.advance(1)
+eq(#mock.sent, 2, "no balance: the step is held, not sent")
+vitals("1", "1")
+eq(last(), "e", "...and goes out on the tick that brings balance back")
+eq(#mock.sent, 3, "(three steps)")
+mock.advance(1)
+mock.feed("Char.Afflictions.List", { { name = "paralysis" } })
+at(4)
+mock.advance(1); vitals()
+eq(#mock.sent, 3, "paralysed: held, through act.blocked like every other command")
+mock.feed("Char.Afflictions.List", {}); vitals()
+eq(#mock.sent, 4, "...and sent once it is cured")
+at(5)
+eq(arrived[#arrived], 5, "arriving raises emunah.map.arrived")
+eq(route.walk, nil, "...and ends the walk")
+
+-- ON THE PROMPT, not a line of its own (the user, 2026-10-12: "(0 left)" sat under the
+-- command, and "Arrived at" on a line of its own).
+do
+   reset()
+   route.go(4)
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   local tag = table.concat(mock.echoed, "")
+   ok(tag:find("room 4", 1, true) and tag:find("3", 1, true) and tag:find("left", 1, true),
+      "the prompt ends with where the walk is going and the steps left", tag)
+   mock.echoed = {}
+   at(2); mock.advance(0.5); at(3); mock.advance(0.5); at(4)
+   ok(not table.concat(mock.echoed, "\n"):find("Arrived", 1, true), "arriving is not a line of its own")
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   ok(table.concat(mock.echoed, ""):find("arrived: room 4", 1, true), "...it is on the next prompt")
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   eq(#mock.echoed, 0, "...once")
+   route.go(1); route.pause()
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   ok(table.concat(mock.echoed, ""):find("paused", 1, true), "a stopped walk says so on the prompt")
+   route.stop("test")
+   emunah.config.set("map.showSteps", false)
+   route.go(4)
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   eq(#mock.echoed, 0, "map.showSteps off: nothing on the prompt")
+   emunah.config.set("map.showSteps", true)
+   route.stop("test")
+end
+
+-- NO PROMPT, NO FREEZE (the user, 2026-10-12: after "Now now, don't be so hasty!" the walk
+-- froze until a new prompt). Nothing below feeds a tick: time alone must move the walk on.
+do
+   reset()
+   act.rateLimited()
+   route.go(4)
+   eq(#mock.sent, 0, "a step held by the rate-limit backoff is not sent")
+   mock.advance(act.BACKOFF + 0.2)
+   eq(last(), "e", "...and goes out when the backoff lapses, with no prompt in between")
+   mock.sent = {}
+   mock.line("Now now, don't be so hasty!")     -- the step just sent was refused
+   mock.advance(5)
+   eq(last(), "e", "a step the game refused is sent again with no prompt in between")
+   route.stop("test")
+end
+
+-- SKIPPING AHEAD on the route is fine; leaving it re-plans from where we are.
+reset()
+route.go(8)
+at(3)     -- two rooms in one go, still on the route
+mock.advance(1)
+eq(route.walk.i, 3, "arriving further along the route carries on from there")
+at(2)     -- pushed back off the route
+mock.advance(1)
+eq(route.walk.origin, 2, "being moved off the route re-plans from where we are")
+eq(last(), "e", "...and carries on")
+for _ = 1, route.REROUTES + 1 do at(9); mock.advance(1); at(1); mock.advance(1) end
+eq(route.walk, nil, "a walk that keeps leaving its route gives up")
+ok(stopped[#stopped]:find("left the route"), "...and says why", stopped[#stopped])
+
+-- A STEP WITH NO ARRIVAL is sent again, twice, then the walk stops.
+reset()
+route.go(3)
+mock.sent = {}
+mock.advance(3.5); vitals()
+eq(last(), "e", "no arrival after map.retryAfter: the step is sent again")
+mock.advance(3.5); vitals()
+mock.advance(3.5); vitals()
+eq(#mock.sent, 2, "...twice")
+eq(route.walk, nil, "...then the walk stops")
+ok(stopped[#stopped]:find("no arrival"), "...saying so", stopped[#stopped])
+
+-- Room.WrongDir: lock that exit and go round.
+reset()
+local rooms = mock.map.rooms
+rooms[1].exits = { e = 2, n = 6 }
+rooms[6].exits = { e = 2 }
+rooms[2].exits = { e = 3, w = 1 }
+route.invalidate()
+route.go(3)
+eq(last(), "e", "(the short way first)")
+mock.feed("Room.WrongDir", "e")
+eq(rooms[1].exitLocks and rooms[1].exitLocks.e, true, "the refused exit is locked")
+mock.advance(1)
+eq(last(), "n", "...and the walk goes round it")
+mock.sent = {}
+mock.feed("Room.WrongDir", "w")
+eq(#mock.sent, 0, "a wrong direction that is not our step is left alone")
+route.stop("test")
+
+-- SCRIPT EXITS: read, never run.
+local function shape(plan)
+   if not plan then return "nil" end
+   local out = {}
+   for _, item in ipairs(plan) do out[#out + 1] = item.send or ("wait " .. item.wait) end
+   return table.concat(out, " | ")
+end
+eq(shape(route.plan("worm warp")), "worm warp", "an ordinary special exit is its command")
+eq(shape(route.plan('script: sendAll("pull vine", "e")')), "pull vine | e", "sendAll: each command")
+eq(shape(route.plan("script: sendAll('get rope from pile','up')")), "get rope from pile | up",
+   "...in either quote")
+eq(shape(route.plan('script: send("say Letum") mmp.customwalkdelay(4)')), "say Letum | wait 4",
+   "send and customwalkdelay")
+eq(shape(route.plan('script: send("push rocks") mmp.customwalkdelay(3) tempTimer(3, [[east]])')),
+   "push rocks | wait 3 | east", "a delayed command waits once, not twice")
+eq(shape(route.plan('script: send("turn jar") mmp.customwalkdelay(6) tempTimer(6, [[send("down")]])')),
+   "turn jar | wait 6 | down", "...also when it is itself a send()")
+eq(shape(route.plan('0script: send("touch horn") mmp.customwalkdelay(2)')), "touch horn | wait 2",
+   "an old lock-state prefix is ignored")
+eq(route.plan('script: send("enter whirlpool") if tempWhirlTrigger then killTrigger(tempWhirlTrigger) end'),
+   nil, "anything else is not read")
+eq(route.plan('script: sendAll(("turn figure here", "push figure here", "d")'), nil,
+   "...including the crowdmap's malformed sendAll((")
+
+reset()
+rooms = mock.map.rooms
+rooms[1].specials = { ['script: sendAll("pull vine", "e")'] = 3 }
+route.invalidate()
+route.go(3)
+eq(last(), "pull vine", "a script exit on the route sends its first command")
+eq(#mock.sent, 1, "...one at a time")
+mock.advance(0.5)
+eq(last(), "e", "...then the next, through the gate")
+at(3)
+eq(arrived[#arrived], 3, "...and arrives")
+
+reset()
+rooms = mock.map.rooms
+local whirl = 'script: send("enter whirlpool") if x then killTrigger(x) end'
+rooms[1].specials = { [whirl] = 3 }
+route.invalidate()
+route.go(3)
+eq(rooms[1].specialLocks and rooms[1].specialLocks[whirl], true,
+   "a script exit we cannot read is locked out of routing")
+eq(last(), "e", "...and the walk goes the other way")
+ok(not table.concat(mock.sent, "|"):find("whirlpool"), "...without ever sending any of it")
+
+reset()
+rooms = mock.map.rooms
+rooms[1].specials = { ['script: send("say Letum") mmp.customwalkdelay(4)'] = 3 }
+route.invalidate()
+route.go(3)
+eq(last(), "say Letum", "a script exit with a wait sends its command")
+mock.advance(5); vitals()
+eq(#mock.sent, 1, "...and its wait counts toward when a missing arrival is resent")
+route.stop("test")
+
+-- ROUTING POLICY [mmp]: wormholes and pebble exits locked, water weighted without waterwalk.
+reset()
+rooms = mock.map.rooms
+rooms[4].specials = { ["worm warp"] = 9 }
+rooms[5].specials = { ["touch 116998"] = 9 }
+rooms[6].env = data.ENV.Ocean
+rooms[7].env = data.ENV.Ocean
+data.remember("roomWeight", 7, nil, 50)
+config.set("map.waterwalk", false)
+route.applyPolicy(true)
+eq(rooms[4].specialLocks["worm warp"], true, "wormholes are locked by default")
+eq(rooms[5].specialLocks["touch 116998"], true, "...and the enchanted pebble's exits")
+eq(rooms[6].weight, 3, "map.waterwalk off weights water rooms")
+eq(rooms[7].weight, 50, "...but never over a weight you set")
+config.set("map.wormholes", true); config.set("map.waterwalk", true)
+route.applyPolicy(true)
+eq(rooms[4].specialLocks["worm warp"], nil, "map.wormholes on unlocks them")
+eq(rooms[6].weight, 1, "map.waterwalk on clears the water weight")
+eq(select(1, route.applyPolicy(false)), 0, "nothing changed: the policy is not re-applied")
+config.set("map.wormholes", false)
+data.forget("roomWeight", 7)
+
+-- THE PATH CACHE: one getPath per route, bounded, and emptied by a lock.
+reset()
+local before = mock.pathfindCount()
+route.path(1, 5); route.path(1, 5)
+eq(mock.pathfindCount() - before, 1, "a route is pathfound once and then cached")
+data.remember("lockRoom", 3)
+eq(route.path(1, 5), nil, "a lock empties the cache, and the new route respects it")
+data.forget("lockRoom", 3)
+ok(route.path(1, 5) ~= nil, "...as does unlocking")
+local size = route.CACHE_SIZE
+route.CACHE_SIZE = 5
+for to = 2, 10 do route.path(1, to) end
+eq(route.cached(), 5, "the cache holds at most CACHE_SIZE routes")
+route.CACHE_SIZE = size
+local dirs = route.path(2, 6)
+dirs[1] = "changed"
+eq(route.path(2, 6)[1], "e", "a caller changing a returned route does not change the cache")
+
+-- AREAS, FEATURES, BACK.
+reset()
+rooms = mock.map.rooms
+for id = 8, 10 do rooms[id].area = 2 end
+local swap = _G.getAreaTableSwap
+_G.getAreaTableSwap = function() return { [1] = "Test Area", [2] = "Far Woods" } end
+eq(#route.findAreas("woods"), 1, "an area is found by part of its name")
+eq(#route.findAreas("a"), 2, "...and every area matching is offered")
+eq(route.borders(2)[1], 8, "the way into an area is a room with an exit out of it")
+route.travel("far woods")
+eq(route.walk and route.walk.target, 8, "emset goto <area> walks to its nearest way in")
+eq(route.walk.label, "Far Woods", "...naming the area")
+route.stop("test")
+at(9)
+eq(route.goArea({ id = 2, name = "Far Woods" }), false, "already in the area: no walk")
+at(1)
+_G.getAreaTableSwap = swap
+
+data.remember("feature", "bank", 7)
+rooms[4].userdata = { ["feature-bank"] = "true" }    -- one of the crowdmap's own
+ok(route.features().bank ~= nil, "a feature you add is in the map's feature list")
+route.travel("ban")
+eq(route.walk and route.walk.target, 4, "emset goto <feature>: the nearest room with it, the crowdmap's or yours")
+route.stop("test")
+data.forget("feature", "bank", 7)
+eq(rooms[7].userdata["feature-bank"], nil, "forgetting a feature takes it off the room")
+
+reset()
+route.go(3); at(2); mock.advance(1); at(3)
+route.travel("back")
+eq(route.walk and route.walk.target, 1, "emset goto back walks to where the last walk started")
+route.stop("test")
+
+-- COMMANDS, AND MAP CLICKS.
+reset()
+emunah.commands.dispatch("goto 4")
+eq(route.walk and route.walk.target, 4, "emset goto <room>")
+emunah.commands.dispatch("goto pause")
+ok(route.paused, "emset goto pause")
+at(2)
+mock.sent = {}
+emunah.commands.dispatch("goto resume")
+eq(route.walk.origin, 2, "emset goto resume plans again from wherever we are")
+mock.advance(0.5)
+eq(last(), "e", "...and steps, once map.stepGap has passed since the last one")
+emunah.commands.dispatch("goto stop")
+eq(route.walk, nil, "emset goto stop")
+mock.echoed = {}
+emunah.commands.dispatch("path 4 1")
+ok(table.concat(mock.echoed, " "):find("3 steps", 1, true), "emset path shows a route without walking it")
+emunah.commands.dispatch("map lock 3")
+eq(mock.map.rooms[3].locked, true, "emset map lock <room>")
+emunah.commands.dispatch("map unlock 3")
+eq(mock.map.rooms[3].locked, nil, "emset map unlock <room>")
+
+local click = _G.doSpeedWalk
+route.installClickHandler()
+_G.speedWalkPath = { 2, 3, 4, 5 }
+doSpeedWalk()
+eq(route.walk and route.walk.target, 5, "double-clicking a room on the map walks there through the router")
+route.stop("test")
+_G.mmp = { checkforupdate = function() end }
+_G.doSpeedWalk = click
+route.installClickHandler()
+eq(_G.doSpeedWalk, click, "...but the click is left to mmp while it is running")
+_G.mmp = nil
+
+-- BARE goto AND rf (the user's request, 2026-10-12).
+reset()
+rooms = mock.map.rooms
+rooms[3].name, rooms[8].name, rooms[6].name = "Fish Street", "Fish Street", "A fish market"
+ok(mock.command("goto 4"), "goto, typed bare, is ours")
+eq(route.walk and route.walk.target, 4, "goto 1234 walks to the room")
+mock.command("goto fish street")
+eq(route.walk and route.walk.target, 3, "goto fish street: the nearest room with that whole name")
+ok(route.walk.label:find("Fish Street", 1, true), "...named in what it says", route.walk.label)
+mock.command("goto Fish Street.")
+eq(route.walk and route.walk.target, 3, "...in any case, with the game's trailing period")
+route.stop("test")
+at(7)
+mock.command("goto fish")
+eq(route.walk and route.walk.target, 6, "a partial name: the nearest room whose name contains it")
+route.stop("test")
+at(1)
+rooms[2].name = "Bank"
+data.remember("feature", "bank", 9)
+mock.command("goto bank")
+eq(route.walk and route.walk.target, 9, "a feature called that wins over a room called that")
+route.stop("test")
+data.forget("feature", "bank", 9)
+mock.command("goto zzzz")
+eq(route.walk, nil, "nothing called that: no walk")
+
+mock.echoed, mock.links = {}, {}
+ok(mock.command("rf fish"), "rf, typed bare, is ours")
+local said = table.concat(mock.echoed, "\n")
+ok(said:find("3 rooms matching", 1, true), "rf lists the rooms whose name contains the text", said)
+ok(said:find("Test Area", 1, true), "...under their area")
+eq(#mock.links, 3, "...each one a link")
+ok(mock.click(1), "(clicking the first)")
+eq(route.walk and route.walk.target, 3, "...that walks there")
+route.stop("test")
+
+_G.mmp = { checkforupdate = function() end }
+mock.echoed = {}
+mock.command("goto 4"); mock.command("rf fish")
+eq(route.walk, nil, "while mmp is running, its goto answers the line and ours stands down")
+ok(not table.concat(mock.echoed, "\n"):find("matching", 1, true), "...and so does rf")
+_G.mmp = nil
+
+-- AN UNMAPPED ROOM is said once.
+mock.echoed = {}
+at(999); at(999)
+local warned = 0
+for _, line in ipairs(mock.echoed) do if line:find("not on the map", 1, true) then warned = warned + 1 end end
+eq(warned, 1, "standing in a room the map does not have is said, once")
+eq(route.go(5), false, "...and no walk starts from there")
+
+reset()
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: the area walk and the hunt on Emunah's router; stop and go")
+
+;(function()
+local route  = emunah.mapper.route
+local walker = emunah.walker
+local act    = emunah.act
+
+local function vitals()
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
+                              bal = "1", eq = "1" })
+end
+local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+local function reset()
+   walker.stop("test"); walker.release(); route.stop("test")
+   emunah.bashing.enabled = false
+   emunah.timers.stopAll()
+   mock.installMap(10)
+   act.halted, act.backoffUntil = nil, nil
+   mock.feed("Char.Afflictions.List", {})
+   vitals(); at(1)
+   route.invalidate()
+   mock.sent, mock.echoed = {}, {}
+end
+
+-- THE AREA WALK GOES THROUGH THE ROUTER, quietly: its hops are room to room.
+reset()
+walker.start()
+mock.advance(1.0)
+ok(route.walk and route.walk.target == walker.nextRoom, "an area walk's hop is walked by the router")
+ok(not table.concat(mock.echoed, "\n"):find("Walking to", 1, true),
+   "...without announcing every hop")
+eq(mock.sent[#mock.sent], "e", "...one gated step")
+
+-- STOPPING THE WALK STOPS THE HOP, and is not mistaken for the hop failing.
+local failed = walker.stats.failed
+walker.stop("hurt", true)
+eq(route.walk, nil, "an emergency stop stops the router's hop too")
+eq(walker.stats.failed, failed, "...and is not counted as a room the router could not reach")
+
+-- A HOP THE ROUTER GIVES UP ON is a room the walker drops.
+reset()
+mock.map.rooms[2].exits = {}          -- one way only: 2 is reachable, nothing past it
+walker.start({ 2, 5 })
+mock.advance(1.0)
+local stuck = walker.nextRoom
+for _ = 1, 4 do mock.advance(4.0); vitals() end
+ok(not emunah.util.contains(walker.remaining, stuck),
+   "a room the router gives up on is dropped from the walk", tostring(stuck))
+walker.stop("test")
+
+-- CLAIMED (hunting), a special exit of several commands is one hop through the router,
+-- never sent raw as "script: ...".
+reset()
+mock.map.rooms[1].exits = {}
+mock.map.rooms[1].specials = { ['script: sendAll("pull vine", "e")'] = 2 }
+route.invalidate()
+walker.claim("test")
+walker.start({ 2 })
+walker.move()
+eq(mock.sent[1], "pull vine", "a claimed walker takes a multi-command exit through the router")
+ok(not table.concat(mock.sent, "|"):find("script", 1, true), "...never sending the script itself")
+walker.stop("test"); walker.release("test")
+
+-- A MOVEMENT KEY stops a goto as well as the walk.
+reset()
+route.go(5)
+emunah.keys.go("w")
+eq(route.walk, nil, "a numpad move stops a goto under way")
+
+-- STOP AND GO (the user, 2026-10-12): stop remembers the route, go carries on along it.
+reset()
+route.go(6)
+at(2); mock.advance(1)
+ok(mock.command("stop"), "stop, typed bare, is ours")
+ok(route.paused and route.walk.target == 6, "stop pauses the walk and keeps where it was going")
+mock.sent = {}
+mock.advance(5); vitals()
+eq(#mock.sent, 0, "...and nothing more is sent")
+at(3)
+mock.command("go")
+eq(route.paused, false, "go carries on")
+eq(route.walk.origin, 3, "...from wherever we are now")
+mock.advance(0.5)
+eq(mock.sent[#mock.sent], "e", "...stepping again")
+
+-- ...across a reload, too.
+mock.command("stop")
+dofile(ROOT .. "/src/emunah.lua")
+route, walker, act = emunah.mapper.route, emunah.walker, emunah.act
+ok(route.walk and route.paused and route.walk.target == 6, "a stopped walk is remembered across emreload")
+mock.command("go")
+eq(route.paused, false, "...and go picks it up")
+route.stop("test")
+
+-- The area walk: stop pauses it (and its hop), go resumes it.
+reset()
+walker.start()
+mock.advance(1.0)
+mock.command("stop")
+ok(walker.paused, "stop pauses an area walk")
+ok(route.paused, "...and the hop it was on")
+mock.command("go")
+ok(not walker.paused and not route.paused, "go resumes both")
+walker.stop("test")
+
+-- NOTHING TO STOP: the line is the game's.
+reset()
+mock.sent = {}
+mock.command("stop"); mock.command("go")
+eq(table.concat(mock.sent, "|"), "stop|go", "with no walk, stop and go go to the game unchanged")
+
+reset()
+end)()
+
+-- ===========================================================================
+suite("map: room details, area and room lists, room numbers for a named room")
+
+;(function()
+local info  = emunah.mapper.info
+local route = emunah.mapper.route
+local data  = emunah.mapper.data
+
+mock.installMap(10)
+mock.feed("Room.Info", { num = 1, name = "Room 1", exits = {} })
+route.invalidate()
+local rooms = mock.map.rooms
+local function text() return table.concat(mock.echoed, "") end
+
+rooms[3].name = "Fish Street"
+rooms[3].env = data.ENV.Road
+rooms[3].userdata = { indoors = "y", ["Game Area"] = "the City of Targossas", ["feature-bank"] = "true" }
+mock.mapUserData.mapFeatures = '{"bank":""}'
+rooms[3].exits = { w = 2, e = 4, n = 9 }
+rooms[3].specials = { ['script: sendAll("pull vine", "e")'] = 5,
+                      ['script: send("enter whirlpool") if x then killTrigger(x) end'] = 6 }
+route.unreadable["3>6"] = rooms[3].specials['script: send("enter whirlpool") if x then killTrigger(x) end']
+lockSpecialExit(3, 6, 'script: send("enter whirlpool") if x then killTrigger(x) end', true)
+data.remember("lockExit", 3, "n")
+rooms[9].area = 2
+local swap = _G.getAreaTableSwap
+_G.getAreaTableSwap = function() return { [1] = "Test Area", [2] = "Far Woods" } end
+
+mock.echoed, mock.links = {}, {}
+ok(info.room(3), "emset room <n> describes a room")
+local out = text()
+ok(out:find("Fish Street", 1, true) and out:find("(3)", 1, true), "...its name and number")
+ok(out:find("Road", 1, true) and out:find("indoors", 1, true), "...its environment, indoors or out")
+ok(out:find("the City of Targossas", 1, true), "...the game's name for its area")
+ok(out:find("2 steps", 1, true), "...how far it is from here")
+ok(out:find("bank", 1, true), "...its features")
+ok(out:find("in Far Woods", 1, true), "...an exit into another area")
+ok(out:find("locked by you", 1, true), "...an exit you locked")
+ok(out:find("pull vine, e", 1, true), "...a script exit as Emunah reads it")
+ok(out:find("a script Emunah does not run", 1, true), "...and one it does not")
+ok(#mock.links >= 5, "...every destination a link", #mock.links)
+data.forget("lockExit", 3, "n")
+mock.echoed = {}
+eq(info.room(999), false, "a room that is not on the map is said so")
+
+mock.echoed, mock.links = {}, {}
+eq(info.areas(), 2, "emset areas lists every area")
+ok(text():find("Far Woods", 1, true) and text():find("1 room", 1, true), "...with its room count")
+eq(info.areas("woods"), 1, "...or those matching")
+mock.echoed, mock.links = {}, {}
+eq(info.rooms("test"), 9, "emset rooms <area> lists its rooms")
+eq(#mock.links, 9, "...each a link")
+ok(mock.click(2), "(clicking the second; the first is where we stand)")
+eq(route.walk and route.walk.target, 2, "...walks there")
+route.stop("test")
+_G.getAreaTableSwap = swap
+
+-- ROOM NUMBERS FOR A NAMED ROOM: nearest first, three links, then a count.
+rooms[8].name, rooms[6].name, rooms[10].name = "Fish Street", "Fish Street", "Fish Street"
+local ids = info.numbers("Fish Street.")
+eq(table.concat(ids, ","), "3,6,8,10", "the rooms with that name, nearest first")
+mock.echoed, mock.links = {}, {}
+eq(info.echoNumbers("Fish Street"), 4, "echoNumbers counts them")
+eq(#mock.links, 3, "...links the nearest three")
+ok(text():find("+1", 1, true), "...and says how many more")
+mock.echoed = {}
+info.echoNumbers("Nowhere At All")
+ok(text():find("not on the map", 1, true), "a name the map does not have says so")
+
+mock.echoed = {}
+ok(mock.command("rl 3") and text():find("Fish Street", 1, true), "rl <n>, typed bare")
+mock.echoed = {}
+ok(mock.command("rl") and text():find("Room 1", 1, true), "rl alone: the room you are in")
+mock.echoed = {}
+ok(pcall(emunah.commands.dispatch, "room 3") and text():find("Fish Street", 1, true), "emset room")
+ok(pcall(emunah.commands.dispatch, "areas"), "emset areas")
+ok(pcall(emunah.commands.dispatch, "rooms test area"), "emset rooms")
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: locator lines get their rooms as links; who was where is remembered")
+
+;(function()
+local locate = emunah.mapper.locate
+local route  = emunah.mapper.route
+local config = emunah.config
+
+mock.installMap(10)
+mock.feed("Room.Info", { num = 1, name = "Room 1", exits = {} })
+route.invalidate()
+local rooms = mock.map.rooms
+rooms[3].name, rooms[8].name = "Fish Street", "A quiet glade"
+local function text() return table.concat(mock.echoed, "") end
+local function fresh() mock.echoed, mock.links = {}, {} end
+for key in pairs(locate.people) do locate.people[key] = nil end
+locate.build()
+
+fresh()
+mock.line("You see that Erishka is at Fish Street.")
+eq(mock.links[1] and mock.links[1].text:match("(%d+)$"), "3", "farsee: the room number, as a link")
+ok(text():find("Test Area", 1, true), "...and its area")
+eq(locate.find("erishka").ids[1], 3, "...and where she was is remembered")
+eq(mock.highlighted[3], true, "...and lit on the map")
+mock.advance(5 * 60 + 1)
+eq(mock.highlighted[3], nil, "...for map.trackFor minutes")
+
+for line, name in pairs({
+   ["You see that Bob is located at A quiet glade in Test Area."] = "bob",
+   ["You see Cara at A quiet glade."] = "cara",
+   ["You seek out the mind of Dain and an image of A quiet glade appears in your mind."] = "dain",
+   ["Allsight: Elin enters A quiet glade."] = "elin",
+   ["Your guardian angel reports that Fyn has moved to A quiet glade."] = "fyn",
+}) do
+   mock.line(line)
+   eq(locate.find(name) and locate.find(name).ids[1], 8, ("located: %q"):format(line))
+end
+
+-- THE ANGEL: a scan's lines are people; outside one, a sense of a place and who is with it.
+fresh()
+mock.line("You bid your guardian angel to seek out life presences nearby.")
+mock.line("Your guardian angel senses Gale at Fish Street, on a health of 6831 and a mana of 4678.")
+eq(locate.find("gale") and locate.find("gale").ids[1], 3, "a presence scan locates each person")
+eq(#mock.links, 1, "...once: the sense trigger stands down during a scan")
+raiseEvent("emunah.prompt")
+fresh()
+mock.line("Your guardian angel senses a fierce presence at A quiet glade, somewhere.")
+eq(#mock.links, 1, "outside a scan, the sense of a place gets its room")
+mock.line("Someone is with Hale.")
+eq(locate.find("hale") and locate.find("hale").ids[1], 8, "...and who is with it is located there")
+raiseEvent("emunah.prompt")
+mock.line("Someone is with Ivo.")
+eq(locate.find("ivo"), nil, "...until the prompt")
+
+-- ALERTNESS names the room next to us, so the exact room is known from our exits.
+fresh()
+mock.line("Your enhanced senses inform you that Jax has entered Room 2, to the east.")
+eq(locate.find("jax") and locate.find("jax").ids[1], 2, "alertness: the room that way from here")
+eq(#mock.links, 1, "...as a link")
+
+-- SHRINES: the place, no person.
+fresh()
+mock.line([[(Order): Thera's Herald says, "A shrine is being defiled at Fish Street!"]])
+eq(#mock.links, 1, "a shrine alert gets its room as a link")
+
+-- THE SHOP DIRECTORY: a row whose room name is one room becomes a link to it.
+fresh()
+local row = ("500gp a sturdy backpack"):rep(1) .. (" "):rep(48 - 23) .. "Fish Street"
+mock.currentLine = row
+_G.matches = { row, row }
+locate.handle.shop({ key = "shop", column = 48 })
+eq(#mock.links, 1, "a shop row's room name becomes a link")
+eq(mock.currentLine, row:sub(1, 48), "...in place of the plain name")
+
+-- WHO B: rows read only in the window after you send it.
+fresh()
+mock.line("Kip (Fish Street)")
+eq(locate.find("kip"), nil, "a Name (Room) row means nothing on its own")
+raiseEvent("emunah.sent", "who b", true)
+mock.line("Kip (Fish Street)")
+eq(locate.find("kip") and locate.find("kip").ids[1], 3, "...but is read for ten seconds after WHO B")
+mock.advance(11)
+mock.line("Lio (Fish Street)")
+eq(locate.find("lio"), nil, "...and not after")
+
+-- goto <person>, and emset where.
+mock.command("goto Erishka")
+eq(route.walk and route.walk.target, 3, "goto <person> walks to where they were located")
+ok(route.walk.label:find("Erishka", 1, true), "...naming them")
+route.stop("test")
+fresh()
+eq(locate.report(), 10, "emset where lists everyone located")
+ok(text():find("Erishka", 1, true) and text():find("ago", 1, true), "...with when")
+
+-- ONLY THE GROUPS SWITCHED ON get a trigger.
+config.set("map.locators", "view")
+local count = locate.build()
+eq(count, 1, "map.locators view: one line watched")
+mock.line("You see that Moss is at Fish Street.")
+eq(locate.find("moss"), nil, "...and farsee is not")
+config.set("map.locators", nil)
+ok(locate.build() > 10, "every group by default")
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: the map follows you, the route is drawn, and the panel shows the walk")
+
+;(function()
+local route  = emunah.mapper.route
+local locate = emunah.mapper.locate
+local config = emunah.config
+
+mock.installGeyser()
+emunah.ui.map.build()
+mock.installMap(10)
+emunah.act.halted, emunah.act.backoffUntil = nil, nil
+mock.feed("Char.Afflictions.List", {})
+mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000", bal = "1", eq = "1" })
+local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+at(1)
+route.invalidate()
+for key in pairs(locate.people) do locate.people[key] = nil end   -- earlier suites' lights
+
+-- THE MAP FOLLOWS YOU (mmp's centerview on every Room.Info; without it the map stayed put).
+at(4)
+eq(mock.centeredOn, 4, "every move centres the map on the new room")
+at(999)
+eq(mock.centeredOn, 4, "...but not on a room the map does not have")
+at(1)
+
+-- THE ROUTE, LIT ON THE MAP and cleared as it is passed.
+mock.highlighted = {}
+route.go(5)
+ok(mock.highlighted[2] and mock.highlighted[5], "a walk lights its route, destination included")
+eq(mock.highlighted[1], nil, "...not the room it starts in")
+at(2)
+eq(mock.highlighted[2], nil, "a room is cleared once passed")
+ok(mock.highlighted[3], "...the rest stay lit")
+mock.advance(0.5); at(3); mock.advance(0.5)
+mock.command("stop")
+mock.command("go")
+mock.advance(0.5); at(4)
+eq(route.walk and route.walk.rooms[route.walk.i], 5,
+   "after stop and go, arrivals are still recognised (they were not: go lost the route's rooms)")
+mock.advance(0.5); at(5)
+eq(next(mock.highlighted), nil, "arriving clears the rest")
+
+locate.record("Nia", "Room 7", "test", nil, { 7 })
+route.go(9)
+route.stop("test")
+eq(mock.highlighted[7], true, "a room lit for someone keeps that light when the route clears")
+for _, person in pairs(locate.people) do person.lit = nil end
+mock.highlighted = {}
+
+config.set("map.drawRoute", false)
+route.go(4)
+eq(next(mock.highlighted), nil, "map.drawRoute off: nothing lit")
+route.stop("test")
+config.set("map.drawRoute", true)
+
+-- DISTANCE AND TIME LEFT, in the room panel under the room's name.
+at(1)
+route.go(5)
+local left, seconds = route.eta()
+eq(left, 4, "eta: the steps left")
+ok(seconds > 0, "...and an estimate of the time")
+local panel = emunah.ui.roompanel
+local uiWas = config.get("ui.enabled")
+config.set("ui.enabled", true)        -- an earlier suite leaves the panels off
+emunah.ui.layout.build()
+local function shown()
+   panel.forgetPainted(); panel.update()
+   local console = panel.widgets.room
+   return tostring(console and console.contents)
+end
+local text = shown()
+ok(text:find("room 5", 1, true) and text:find("4 steps", 1, true), "the panel shows where to and how far", text)
+ok(text:find("stop", 1, true), "...with a stop link")
+route.pause()
+ok(shown():find("paused", 1, true), "paused: says so, with a go link instead")
+route.stop("test")
+ok(not shown():find("steps", 1, true), "no walk: no line")
+config.set("ui.enabled", uiWas)
+
+-- SIZES [mmp: smallmap / bigmap / biggestmap].
+emunah.commands.dispatch("map size big")
+eq(config.get("ui.mapHeight"), 50, "emset map size big")
+emunah.commands.dispatch("map size small")
+eq(config.get("ui.mapHeight"), 30, "emset map size small")
+config.set("ui.mapHeight", 42)
+emunah.timers.stopAll()
+mock.uninstallGeyser()
+end)()
+
+-- ===========================================================================
+suite("map: gallop, while mounted, on straight runs (AB RIDING GALLOP, 2026-10-12)")
+
+;(function()
+local route  = emunah.mapper.route
+local riding = emunah.riding
+
+mock.installMap(16)
+emunah.act.halted, emunah.act.backoffUntil = nil, nil
+mock.feed("Char.Afflictions.List", {})
+local function vitals()
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000", bal = "1", eq = "1" })
+end
+local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+vitals(); at(1)
+route.invalidate()
+
+-- FOLDING: straight runs of 2-11, the distance always given; a special exit breaks a run.
+local dirs, rooms, via = route.gallop({ "e", "e", "e", "n", "e", "e", "e", "e", "e", "e", "e", "e", "e", "e", "e", "e", "enter portal" },
+   { 2, 3, 4, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 40 })
+
+eq(dirs[1], "gallop e 3", "three rooms east: one gallop, with its distance")
+eq(dirs[2], "n", "a lone step stays a step")
+eq(dirs[3], "gallop e 11", "a long run is cut at eleven, HELP GALLOP's most")
+eq(dirs[4], "e", "...and a single room left over is a step")
+eq(dirs[5], "enter portal", "a special exit is never galloped")
+eq(rooms[1], 4, "a gallop arrives where its run ends")
+ok(via[1][2] and via[1][3] and not via[1][4], "...passing the rooms before it")
+
+-- NOT MOUNTED: plain steps.
+riding.setRiding(false)
+route.go(9)
+eq(mock.sent[#mock.sent], "e", "not mounted: no gallop")
+route.stop("test")
+
+-- MOUNTED: one gallop down the corridor; rooms passed are progress, not off-route.
+riding.setRiding(true)
+mock.sent = {}
+route.go(9)
+eq(mock.sent[#mock.sent], "gallop e 8", "mounted: a straight run is one gallop")
+at(4)
+eq(route.walk and route.walk.origin, 1, "a room the gallop passes is not leaving the route")
+at(9)
+eq(route.walk, nil, "...and the gallop's end is arrival")
+
+-- A GALLOP THAT GETS NOWHERE is not sent again: on foot from where we are.
+at(1)
+mock.sent = {}
+route.go(6)
+mock.advance(3.5); vitals()
+eq(mock.sent[#mock.sent], "e", "no arrival after a gallop: the walk goes on foot")
+eq(#mock.sent, 2, "...without a second gallop")
+route.stop("test")
+
+emunah.config.set("map.gallop", false)
+mock.sent = {}
+route.go(6)
+eq(mock.sent[#mock.sent], "e", "map.gallop off: no gallop, mounted or not")
+route.stop("test")
+emunah.config.set("map.gallop", true)
+riding.setRiding(nil)
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: water, doors, walls, rubble, wormholes, ferries and the shackle, from mmp's lines")
+
+;(function()
+local route  = emunah.mapper.route
+local config = emunah.config
+local act    = emunah.act
+
+local function vitals()
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000", bal = "1", eq = "1" })
+end
+local function at(num, details)
+   mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {}, details = details or {} })
+end
+local function last() return mock.sent[#mock.sent] end
+local function reset()
+   route.stop("test"); emunah.timers.stopAll()
+   mock.installMap(10)
+   act.halted, act.backoffUntil = nil, nil
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Defences.List", {})
+   vitals(); at(1)
+   route.invalidate()
+   mock.sent, mock.echoed = {}, {}
+end
+
+reset()
+route.go(3)
+mock.line("There's water ahead of you. You'll have to SWIM EAST to make it through.")
+mock.advance(0.6)
+eq(last(), "swim e", "water ahead: SWIM that way, after the step gap")
+at(2)
+eq(route.walk and route.walk.i, 2, "...and the swim counts as the step")
+route.stop("test")
+
+reset()
+route.go(3)
+mock.line("There is a door in the way.")
+mock.advance(0.6)
+eq(last(), "open door e", "a closed door: OPEN DOOR that way")
+mock.advance(0.6)
+eq(last(), "e", "...then the step")
+route.stop("test")
+
+reset()
+route.go(3)
+mock.line("The door is locked.")
+mock.advance(0.6)
+eq(last(), "unlock door e", "a locked door: UNLOCK DOOR that way")
+mock.advance(0.6)
+eq(last(), "e", "...then the step")
+route.stop("test")
+
+-- A door that will not open: locked out, and the walk goes round (mmp gives up instead).
+reset()
+local rooms = mock.map.rooms
+rooms[1].exits = { e = 2, n = 6 }
+rooms[6].exits = { e = 2 }
+rooms[2].exits = { e = 3, w = 1 }
+route.invalidate()
+route.go(3)
+mock.line("The door slams shut!")
+eq(hasExitLock(1, "e"), true, "a door slammed shut: that exit is locked out")
+mock.advance(0.6)
+eq(last(), "n", "...and the walk goes round it")
+route.stop("test")
+reset()
+route.go(3)
+mock.line("A wall blocks your way.")
+eq(route.walk, nil, "a wall with no way round ends the walk")
+
+-- RUBBLE: wait longer, rather than resend into it.
+reset()
+route.go(3)
+mock.line("You begin to slowly clamber over the rubble that blocks your way.")
+mock.sent = {}
+mock.advance(4)
+eq(#mock.sent, 0, "slow going: no resend within the extra time")
+mock.advance(1.5)
+eq(last(), "e", "...but one after it")
+route.stop("test")
+
+-- HASTY: refuses whatever came last. If the step went through, its arrival wins.
+reset()
+route.go(3)
+mock.line("You can not move that fast!")
+at(2)
+mock.sent = {}
+mock.advance(2.5)
+eq(last(), "e", "the step arrived despite the line: the walk just carries on")
+eq(#mock.sent, 1, "...with no resend of the first")
+route.stop("test")
+reset()
+route.go(3)
+mock.sent = {}
+mock.line("You cannot move that fast, slow down!")
+mock.advance(2.5)
+eq(last(), "e", "no arrival: the step is sent again just after the backoff")
+route.stop("test")
+
+-- NO WORMHOLE.
+reset()
+config.set("map.wormholes", true)
+rooms = mock.map.rooms
+rooms[1].exits = { e = 2 }
+rooms[1].specials = { ["worm warp"] = 9 }
+route.invalidate()
+route.go(9)
+eq(last(), "worm warp", "(the wormhole first)")
+mock.line("There is no wormhole here.")
+eq(rooms[1].specialLocks and rooms[1].specialLocks["worm warp"], true, "no wormhole: it is locked out")
+mock.advance(0.6)
+eq(last(), "e", "...and the walk goes the long way")
+route.stop("test")
+config.set("map.wormholes", false)
+
+-- FLYING into an indoor room: pause, keeping the route.
+reset()
+route.go(3)
+mock.line("You must land before you can move indoors.")
+ok(route.paused and route.walk.target == 3, "flying at an indoor room: paused with the route kept")
+route.stop("test")
+
+-- None of it is ours without a walk.
+reset()
+mock.line("There is a door in the way.")
+eq(#mock.sent, 0, "a door in the way with no walk going sends nothing")
+
+-- FERRIES: aboard is not off the route, and nothing is resent while crossing.
+reset()
+route.go(5)
+at(77, { "ferry" })
+mock.advance(30); vitals()
+eq(route.walk and route.walk.origin, 1, "a ferry room is not leaving the route")
+eq(#mock.sent, 1, "...and nothing is resent while aboard")
+at(4)
+mock.advance(0.6)
+eq(last(), "e", "off the ferry on the route, the walk carries on")
+route.stop("test")
+
+-- THE SHACKLE, with density up: off for the walk, back on after.
+reset()
+mock.feed("Char.Defences.List", { { name = "density" } })
+route.go(2)
+eq(mock.sent[1], "remove shackle", "density up: the shackle comes off first")
+mock.advance(0.6)
+at(2)
+eq(last(), "wear shackle", "...and goes back on when the walk arrives")
+
+-- POLICY: ferries weighted, sewers lockable [mmp].
+reset()
+rooms = mock.map.rooms
+rooms[4].specials = { ["enter grate"] = 9, ["buy passage to Mhojave"] = 10 }
+route.applyPolicy(true)
+eq(rooms[4].exitWeights and rooms[4].exitWeights["buy passage to Mhojave"], 200, "ferry exits weigh 200")
+eq(rooms[4].specialLocks and rooms[4].specialLocks["enter grate"], nil, "sewer grates open by default")
+config.set("map.sewers", false)
+route.applyPolicy(true)
+eq(rooms[4].specialLocks["enter grate"], true, "map.sewers off locks them")
+config.set("map.sewers", true)
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: a goto under attack -- a big hit walks you out, an enemy marks the prompt")
+
+;(function()
+local route  = emunah.mapper.route
+local guard  = emunah.mapper.guard
+local walker = emunah.walker
+local act    = emunah.act
+
+local function vitals(hp)
+   mock.feed("Char.Vitals", { hp = tostring(hp or 4000), maxhp = "4000", mp = "3000",
+                              maxmp = "3000", bal = "1", eq = "1" })
+end
+local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+local function said(text) return table.concat(mock.echoed, "\n"):find(text, 1, true) ~= nil end
+local function reset()
+   route.stop("test"); walker.stop("test"); emunah.timers.stopAll()
+   mock.installMap(10)
+   for id = 6, 10 do mock.map.rooms[id].area = 2 end
+   act.halted, act.backoffUntil = nil, nil
+   mock.feed("Char.Afflictions.List", {})
+   vitals(4000)
+   walker.trail = {}
+   route.invalidate()
+   mock.sent, mock.echoed = {}, {}
+end
+
+-- A BIG HIT, during a goto: a warning, and out of the area back the way we came.
+reset()
+at(6); at(5)
+route.go(1)
+vitals(2400)                                  -- -40% in one blow
+ok(said("BIG HIT"), "losing more than a third in one blow raises a warning")
+eq(route.walk and route.walk.target, 6, "...and walks back to the first room of another area")
+eq(route.walk.label, "out of the area", "...saying so")
+vitals(1000)
+eq(route.walk.target, 6, "a second hit while running does not turn us round")
+
+-- No other area behind us: over the nearest border instead.
+reset()
+at(3); at(4)
+route.go(1)
+vitals(2000)
+eq(route.walk and route.walk.target, 6, "nothing behind in another area: just over the border")
+
+-- Not a big hit; not a goto.
+reset()
+at(4)
+route.go(1)
+vitals(3000)                                  -- -25%
+eq(route.walk.target, 1, "a smaller hit leaves the walk alone")
+route.stop("test")
+reset()
+at(4)
+walker.start()
+mock.advance(1)
+vitals(1500)
+ok(not (route.walk and route.walk.label == "out of the area"), "an area walk's hop is not a goto: no retreat")
+walker.stop("test")
+
+-- AN AFFLICTION: cured by curing; the walk is not stopped for it.
+reset()
+at(4)
+route.go(1)
+mock.feed("Char.Afflictions.List", { { name = "paralysis" } })
+mock.advance(5); vitals()
+ok(route.walk ~= nil and route.walk.target == 1, "an affliction does not stop the walk")
+mock.feed("Char.Afflictions.List", {}); vitals()
+eq(mock.sent[#mock.sent], "w", "...which carries on once it is cured")
+route.stop("test")
+
+-- AN ENEMY in the room during a goto: a red * in brackets on the prompt.
+reset()
+local namedb = emunah.namedb
+local isEnemy = namedb.isEnemy
+namedb.isEnemy = function(name) return tostring(name):lower() == "vex" end
+at(4)
+route.go(1)
+mock.feed("Room.Players", { { name = "Vex", fullname = "Vex the Vile" } })
+mock.echoed = {}
+raiseEvent("emunah.prompt")
+ok(said("*"), "an enemy in the room puts a * on the prompt")
+mock.feed("Room.Players", {})
+mock.echoed = {}
+raiseEvent("emunah.prompt")
+ok(not said("*"), "...only while they are there")
+route.stop("test")
+mock.feed("Room.Players", { { name = "Vex", fullname = "Vex the Vile" } })
+mock.echoed = {}
+raiseEvent("emunah.prompt")
+ok(not said("*"), "...and only during a goto")
+namedb.isEnemy = isEnemy
+mock.feed("Room.Players", {})
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("room area: the area on the end of the room-name line, whichever arrives first")
+
+-- Asked for by the user (2026-10-12). Whether Room.Info comes before or after the room-name
+-- line is not established, so both orders are tested; see ui/roomarea.lua's header.
+;(function()
+local roomarea = emunah.ui.roomarea
+local config   = emunah.config
+local PROMPT   = "H:100% M:100% E:100% W:100%  exkdb  T:  10:00:00.00-"
+
+local function info(num, name, area)
+   mock.feed("Room.Info", { num = num, name = name, area = area, exits = {}, details = {} })
+end
+local function lineWith(prefix)
+   for index = #mock.buffer, 1, -1 do
+      if mock.buffer[index]:sub(1, #prefix) == prefix then return mock.buffer[index] end
+   end
+end
+-- The prompt event comes from EmunahTriggers.xml's prompt trigger; raise it the same way
+-- when that package is not installed here.
+local function prompt()
+   local before = emunah.ui.roomarea.prompts
+   mock.prompt(PROMPT)
+   if emunah.ui.roomarea.prompts == before then emunah.curing.detect.textPrompt() end
+end
+local function fresh()
+   mock.buffer = {}
+   roomarea.lastInfo, roomarea.waiting, roomarea.taggedLines = nil, nil, {}
+   prompt()
+end
+
+-- NAME LINE FIRST, then Room.Info: found by looking back, and tagged.
+fresh()
+mock.line("Fish Street.")
+mock.line("A narrow street smells of the catch.")
+mock.line("You see exits leading north and south.")
+info(2096, "Fish Street", "Targossas, the City of")
+eq(lineWith("Fish Street"), "Fish Street. (Targossas, the City of)",
+   "name line first: the area is added to the end of it")
+info(2096, "Fish Street", "Targossas, the City of")
+eq(lineWith("Fish Street"), "Fish Street. (Targossas, the City of)",
+   "...and the duplicate Room.Info adds nothing")
+prompt()
+
+-- ROOM.INFO FIRST: nothing to find yet, so the name line is caught as it arrives.
+fresh()
+info(3667, "The village fish market", "Minos, the Isle of")
+ok(roomarea.waiting ~= nil, "Room.Info first: it waits for the name line")
+info(3667, "The village fish market", "Minos, the Isle of")
+mock.line("The village fish market.")
+mock.line("Stalls line the square.")
+eq(lineWith("The village fish market"), "The village fish market. (Minos, the Isle of)",
+   "...and tags it when it arrives, once despite the duplicate Room.Info")
+eq(roomarea.waiting, nil, "...and stops waiting")
+eq(lineWith("Stalls"), "Stalls line the square.", "...the description is untouched")
+prompt()
+
+-- ROOM.INFO AFTER ITS OWN PROMPT: the block the prompt closed is searched.
+fresh()
+mock.line("Shellfish market.")
+mock.line("Barrels of shellfish.")
+prompt()
+info(530, "Shellfish market", "Ashtan, the City of")
+eq(lineWith("Shellfish market"), "Shellfish market. (Ashtan, the City of)",
+   "Room.Info after its prompt: the line before the prompt is tagged")
+
+-- A SPEEDWALK ALONG A STREET OF ONE NAME, across an area border, Room.Info first each time:
+-- each room's area lands on its own line, never on the previous room's.
+fresh()
+info(2099, "Fish Street", "Targossas, the City of")
+mock.line("Fish Street.")
+mock.line("You see exits leading north and south.")
+prompt()
+info(9001, "Fish Street", "Somewhere Else")
+eq(lineWith("Fish Street"), "Fish Street. (Targossas, the City of)",
+   "the next room's Room.Info does not touch the previous room's name line")
+mock.line("Fish Street.")
+prompt()
+eq(mock.buffer[#mock.buffer - 1], "Fish Street. (Somewhere Else)",
+   "...and its own name line gets its own area")
+eq(mock.buffer[#mock.buffer - 4], "Fish Street. (Targossas, the City of)",
+   "...while the first keeps the first")
+
+-- A ROOM WHOSE NAME LINE NEVER COMES gives up rather than tagging a later room's.
+fresh()
+info(100, "A quiet road", "Area One")
+prompt()
+prompt()
+eq(roomarea.waiting, nil, "a name line that never comes is given up after two prompts")
+mock.line("A quiet road.")
+eq(lineWith("A quiet road"), "A quiet road.", "...so a later line of that name is not tagged")
+info(101, "First room", "Area One")
+info(102, "Second room", "Area Two")
+mock.line("First room.")
+eq(lineWith("First room"), "First room.", "a different room's Room.Info drops the wait")
+mock.line("Second room.")
+eq(lineWith("Second room"), "Second room. (Area Two)", "...and waits for its own")
+prompt()
+
+-- NO AREA, OR SWITCHED OFF: nothing is added.
+fresh()
+mock.line("Nowhere much.")
+info(200, "Nowhere much", nil)
+eq(lineWith("Nowhere much"), "Nowhere much.", "no area in Room.Info adds nothing")
+fresh()
+config.set("ui.roomArea", false)
+mock.line("Fish Street.")
+info(2097, "Fish Street", "Targossas, the City of")
+eq(lineWith("Fish Street"), "Fish Street.", "ui.roomArea off adds nothing")
+config.set("ui.roomArea", nil)
+
+-- A ROOM NAME WITH ITS OWN BRACKETS is still tagged, and only once.
+fresh()
+mock.line("Tsol'aa city (Kelsys).")
+info(300, "Tsol'aa city (Kelsys)", "Kelsys")
+eq(lineWith("Tsol'aa"), "Tsol'aa city (Kelsys). (Kelsys)", "a name ending in brackets is tagged")
+prompt()
+
+-- RELOAD: the waiting trigger does not survive into a second copy.
+fresh()
+info(400, "A crossroads", "Area One")
+emunahReload()
+roomarea = emunah.ui.roomarea
+info(401, "A crossroads", "Area One")
+mock.line("A crossroads.")
+eq(lineWith("A crossroads"), "A crossroads. (Area One)",
+   "after a reload the area is added once, not once per generation")
+prompt()
 end)()
 
 io.write("\n", string.rep("-", 60), "\n")

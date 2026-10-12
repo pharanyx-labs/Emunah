@@ -788,6 +788,178 @@ M.handlers.walk = function(arg)
    end
 end
 
+--- `emset map lock|unlock <room> [exit]`, `lockarea|unlockarea <area>`, `weight <room> <n>`
+--- and `feature ...`: the overlay, kept across map updates (mapper/data.lua).
+local function mapOverlay(arg, rest)
+   local data, route = emunah.mapper.data, emunah.mapper.route
+   local words = rest and util.split(rest, " ") or {}
+   local room = tonumber(words[1])
+   if arg == "lock" or arg == "unlock" then
+      if not room then log.warn("Usage: emset map %s <room> [exit]", arg) return end
+      local exit = words[2] and table.concat(words, " ", 2) or nil
+      if arg == "lock" then
+         data.remember(exit and "lockExit" or "lockRoom", room, exit)
+         log.info("Locked %s out of routes.", exit and ("room " .. room .. "'s " .. exit .. " exit")
+            or ("room " .. room))
+      elseif data.forget(exit and "lockExit" or "lockRoom", room, exit) then
+         log.info("Unlocked %s.", exit and ("room " .. room .. "'s " .. exit .. " exit") or ("room " .. room))
+      else
+         log.info("That is not one of your locks.")
+      end
+   elseif arg == "lockarea" or arg == "unlockarea" then
+      local areas = rest and route.findAreas(rest) or {}
+      if #areas ~= 1 then
+         log.warn("%s areas match %q; name one exactly.", #areas == 0 and "No" or #areas, tostring(rest))
+         return
+      end
+      local name = areas[1].name
+      if arg == "lockarea" then
+         data.remember("lockArea", name)
+         log.info("Locked every room in %s out of routes.", name)
+      elseif data.forget("lockArea", name) then
+         log.info("Unlocked %s.", name)
+      else
+         log.info("%s is not one of your locks.", name)
+      end
+   elseif arg == "weight" then
+      local weight = tonumber(words[2])
+      if not room or not weight or weight < 1 then
+         log.warn("Usage: emset map weight <room> <n, 1 or more; 1 clears it>")
+         return
+      end
+      if weight == 1 then data.forget("roomWeight", room)
+      else data.remember("roomWeight", room, nil, weight) end
+      log.info("Room %d weighs %d.", room, weight)
+   elseif arg == "feature" then
+      local verb = words[1]
+      if not verb then
+         local names = util.keys(route.features())
+         table.sort(names)
+         header("Map features")
+         for _, name in ipairs(names) do row(name, #route.featureRooms(name) .. " rooms") end
+         if #names == 0 then row("none", "emset map feature add <name> [room]") end
+         return
+      end
+      local name = words[2] and words[2]:lower()
+      local at = tonumber(words[3]) or tonumber(emunah.gmcp.room.num)
+      if not name or not at or (verb ~= "add" and verb ~= "remove") then
+         log.warn("Usage: emset map feature [add|remove <name> [room]]")
+         return
+      end
+      if verb == "add" then
+         data.remember("feature", name, at)
+         log.info("Room %d has the feature %s.", at, name)
+      elseif data.forget("feature", name, at) then
+         log.info("Room %d no longer has the feature %s.", at, name)
+      else
+         -- One of the crowdmap's own: cleared here, and back with the next map.
+         clearRoomUserDataItem(at, "feature-" .. name)
+         log.info("Cleared %s from room %d; it is the crowdmap's, so it returns with the next map.",
+            name, at)
+      end
+   end
+end
+
+M.handlers.map = function(arg, rest)
+   local data = emunah.mapper.data
+   if arg == "size" then
+      emunah.ui.map.size(rest)
+      return
+   end
+   if arg == "locators" then
+      local locate = emunah.mapper.locate
+      local count = locate.build()
+      local on = {}
+      for _, group in ipairs(locate.GROUPS) do
+         if locate.enabledGroups()[group] then on[#on + 1] = group end
+      end
+      log.info("Locators on: %s (%d lines).", #on > 0 and table.concat(on, ", ") or "none", count)
+      return
+   end
+   if arg == "lock" or arg == "unlock" or arg == "lockarea" or arg == "unlockarea"
+      or arg == "weight" or arg == "feature" then
+      return mapOverlay(arg, rest)
+   end
+   if arg == "update" then
+      data.check(true)
+   elseif arg == "load" then
+      if not data.pending then log.info("No downloaded map is waiting to load.")
+      else data.loadPending() end
+   else
+      if arg then log.warn("Unknown: emset map %s. `emhelp map` lists its commands.", tostring(arg)) end
+      local store = data.store
+      header("Map")
+      row("version", tostring(store.version or "unknown")
+         .. (store.adopted == "mmp" and " (as mmp last loaded it)" or ""))
+      row("last check", store.checkedAt and (ago(store.checkedAt) .. " ago") or "never")
+      if data.mmpActive() then
+         row("updates", "left to mmp, which is running", "warning")
+      else
+         row("updates", emunah.config.get("map.autoupdate", true) and "automatic" or "off")
+      end
+      if data.busy then row("fetching", data.busy) end
+      if data.pending then row("waiting", "a downloaded map loads when the walk ends") end
+      local counts = data.overlayCounts()
+      row("overlay", ("%d locked rooms, %d locked exits, %d locked areas, %d weights")
+         :format(counts.lockRoom or 0, counts.lockExit or 0, counts.lockArea or 0,
+            (counts.roomWeight or 0) + (counts.exitWeight or 0)))
+      decho("\n  " .. faint("emset map update|load  --  emhelp map for its settings"))
+   end
+end
+
+M.handlers["goto"] = function(arg, rest)
+   local route = emunah.mapper.route
+   if arg == "stop" then
+      if not route.stop("stopped") then log.info("Not walking anywhere.") end
+   elseif arg == "pause" then
+      if not route.pause() then log.info("Not walking anywhere.") end
+   elseif arg == "resume" then
+      if not route.resume() then log.info("No paused walk.") end
+   elseif not arg then
+      local walk = route.walk
+      header("Walking")
+      if not walk then row("to", "nowhere") else
+         row("to", walk.label .. (route.paused and " (paused)" or ""))
+         row("steps left", #walk.dirs - walk.i + 1)
+      end
+      decho("\n  " .. faint("emset goto <room|feature|area>|back|stop|pause|resume"))
+   else
+      route.travel(rest and (arg .. " " .. rest) or arg)
+   end
+end
+
+M.handlers.flee = function()
+   emunah.mapper.guard.flee()
+end
+
+M.handlers.where = function(arg)
+   emunah.mapper.locate.report(arg)
+end
+
+M.handlers.room = function(arg)
+   emunah.mapper.info.room(arg)
+end
+
+M.handlers.areas = function(arg, rest)
+   emunah.mapper.info.areas(arg and (rest and (arg .. " " .. rest) or arg) or nil)
+end
+
+M.handlers.rooms = function(arg, rest)
+   if not arg then log.warn("Usage: emset rooms <area>") return end
+   emunah.mapper.info.rooms(rest and (arg .. " " .. rest) or arg)
+end
+
+M.handlers.path = function(arg, rest)
+   local route = emunah.mapper.route
+   local to = tonumber(arg)
+   local from = tonumber(rest) or tonumber(emunah.gmcp.room.num)
+   if not to or not from then log.warn("Usage: emset path <to room> [from room]") return end
+   local dirs = route.path(from, to)
+   if not dirs then log.warn("No route from %d to %d.", from, to) return end
+   log.info("%d to %d, %d step%s: %s", from, to, #dirs, #dirs == 1 and "" or "s",
+      table.concat(dirs, ", "))
+end
+
 M.handlers.debug = function(arg)
    if arg == "handlers" then
       header("Event handlers")
@@ -1158,6 +1330,70 @@ end))
 
 table.insert(registry(), tempAlias([[^\s*buy\s+(\d+)\s*$]], function()
    emunah.shop.buyByNumber(1, matches[2])
+end))
+
+-- GOTO and RF, typed bare: `goto bank`, `goto 1234`, `goto fish street`, `rf fish`. Asked for
+-- by the user (2026-10-12), the fifth and sixth exceptions to one prefix -- the words they
+-- already type from mmp. `goto` is `emset goto` (stop/pause/resume/back included); `rf`
+-- searches room names. While mmp's scripts run, its own goto and rf answer the same line,
+-- so ours stand down rather than walk you twice.
+table.insert(registry(), tempAlias([[^\s*goto\s+(.+)$]], function()
+   if emunah.mapper.data.mmpActive() then
+      log.debug("goto left to mmp, which is running.")
+      return
+   end
+   M.dispatch("goto " .. matches[2])
+end))
+
+table.insert(registry(), tempAlias([[^\s*rf\s+(.+)$]], function()
+   if emunah.mapper.data.mmpActive() then
+      log.debug("rf left to mmp, which is running.")
+      return
+   end
+   emunah.mapper.route.find(matches[2])
+end))
+
+-- RL, typed bare (the user, 2026-10-12): `rl` for here, `rl 1234` for any room -- mmp's
+-- word for `emset room`. Two aliases rather than an optional group: the test mock turns
+-- these regexes into Lua patterns, which have no (?:...).
+table.insert(registry(), tempAlias([[^\s*rl\s*$]], function()
+   if emunah.mapper.data.mmpActive() then log.debug("rl left to mmp, which is running.") return end
+   emunah.mapper.info.room(nil)
+end))
+
+table.insert(registry(), tempAlias([[^\s*rl\s+(\d+)\s*$]], function()
+   if emunah.mapper.data.mmpActive() then log.debug("rl left to mmp, which is running.") return end
+   emunah.mapper.info.room(matches[2])
+end))
+
+-- STOP and GO, typed bare (the user, 2026-10-12): stop walking and remember the path; carry
+-- on along it. A walk to a `goto` destination first, else the area walk. With nothing to
+-- stop or carry on, the line goes to the game untouched: whether STOP or GO mean something
+-- there is not established, and an alias that swallowed a real command would be a bug
+-- nobody could see.
+function M.stopWalking()
+   local route, walker = emunah.mapper.route, emunah.walker
+   if route.walk and not route.paused and not (walker.enabled and walker.nextRoom
+      and route.walk.target == tonumber(walker.nextRoom)) then
+      return route.pause()
+   end
+   if walker.enabled and not walker.paused then return walker.pause() end
+   return false
+end
+
+function M.carryOn()
+   local route, walker = emunah.mapper.route, emunah.walker
+   if walker.enabled and walker.paused then return walker.resume() end
+   if route.walk and route.paused then return route.resume() end
+   return false
+end
+
+table.insert(registry(), tempAlias([[^\s*stop\s*$]], function()
+   if not M.stopWalking() then send("stop") end
+end))
+
+table.insert(registry(), tempAlias([[^\s*go\s*$]], function()
+   if not M.carryOn() then send("go") end
 end))
 
 -- Reflect whatever curing/keep-up state a fresh load (or a reload mid-session) actually

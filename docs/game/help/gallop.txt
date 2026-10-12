@@ -1,0 +1,18 @@
+AB RIDING GALLOP, verbatim, captured in play on 2026-10-12 with a timestamped prompt.
+
+H:100% M:89% E:100% W:99%  exckdb  T:  16:22:17.44-ab riding gallop
+Gallop (Riding)                               Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            GALLOP <direction> [distance] (between 1 and 11 rooms)
+Works on/against:  Room
+Details:
+Gallop quickly in a direction upon a mounted steed.
+-------------------------------------------------------------------------------
+
+WHAT IS AND IS NOT ESTABLISHED HERE
+- The syntax, and that the distance is 1 to 11 rooms. mmp sends the same shape
+  (`gallop <dir> <n>`, mmp.fixPath).
+- That it needs you mounted ("upon a mounted steed").
+- NOT what it costs (balance, equilibrium), what the game says when it refuses (not
+  mounted, a wall before the distance runs out), or whether Room.Info arrives for each room
+  passed or only the last. mapper/route.lua is written to work whichever is true.

@@ -165,9 +165,9 @@ M.modules = {
       .. "damage comes in too fast.",
   commands = {
    { syntax = "emset hunt [off]", handler = "hunt",
-     summary = "walk and bash together; `off` stops both. F11 starts it" },
+     summary = "walk and bash together; `off` stops both. F11 toggles it" },
    { syntax = "emset hunt retreat",
-     summary = "stop both, go back three rooms the way you came, and stay there. F12" },
+     summary = "stop both, go back three rooms the way you came, and stay there" },
    { syntax = "emset bash", handler = "bash",
      summary = "bashing: target, kills, damage, whether it is running" },
    { syntax = "emset bash on|off",
@@ -237,10 +237,80 @@ M.modules = {
      summary = "mark a whole organisation hostile (everyone in it is an enemy), or list them" },
   } },
 
+{ id = "map", title = "Map", summary = "keeps the crowdmap current, with your own changes kept on it",
+  state = function() return config("map.autoupdate", true) end,
+  does = "Walks you anywhere on the map one confirmed step at a time, through the same "
+      .. "checks as every other command, so it waits out stun, sleep, paralysis or a lost "
+      .. "balance instead of walking into them. Re-plans when you end up off the route or "
+      .. "the game refuses an exit; double-clicking a room on the map walks there too. "
+      .. "Swims, opens and unlocks doors, goes round a door that will not open, waits out "
+      .. "rubble and ferries, and gallops straight runs while mounted. "
+      .. "Locator lines -- farsee, mindsense, the angel, alertness and the rest -- get the "
+      .. "room numbers they name as links, and who was where is remembered. "
+      .. "The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. "
+      .. "Emunah checks for a new version when it loads and every hour, shows what changed, "
+      .. "and loads it, waiting for a walk to end first. Rooms you lock or weight are kept "
+      .. "outside the map and put back after every update. As you walk, rooms whose name, "
+      .. "environment, indoors/outdoors or area disagree with GMCP are corrected. While the "
+      .. "mmp package is running it keeps updating the map itself, and Emunah leaves it to it.",
+  commands = {
+   { syntax = "emset map", handler = "map",
+     summary = "the map's version, the last check, and what your overlay holds" },
+   { syntax = "emset map update",
+     summary = "check for a new crowdmap now" },
+   { syntax = "emset map load",
+     summary = "load a downloaded map that did not load (open the map window first)" },
+   { syntax = "emset goto <room|feature|area|room name>", handler = "goto",
+     summary = "walk there: a room number, the nearest room with a feature, an area, or "
+        .. "the nearest room with that name" },
+   { syntax = "goto <where>", alias = "goto",
+     summary = "the same as `emset goto`: goto bank, goto 1234, goto fish street" },
+   { syntax = "stop", alias = "stop",
+     summary = "stop walking and remember the route (a goto, else the area walk); with "
+        .. "nothing walking it goes to the game" },
+   { syntax = "go", alias = "go",
+     summary = "carry on along the remembered route from wherever you are; with nothing "
+        .. "paused it goes to the game" },
+   { syntax = "rf <text>", alias = "rf",
+     summary = "find rooms whose name contains the text, by area; click a number to walk there" },
+   { syntax = "emset flee", handler = "flee",
+     summary = "stop any hunt and walk to the safe room, map.safeRoom (2096). F12" },
+   { syntax = "emset goto back",
+     summary = "walk back to where the last walk started" },
+   { syntax = "emset goto stop|pause|resume",
+     summary = "stop the walk, or pause it and pick it up again from wherever you are" },
+   { syntax = "emset room [number]", handler = "room",
+     summary = "everything the map holds about a room (here by default): exits, special "
+        .. "exits as Emunah reads them, locks, weights, features, distance" },
+   { syntax = "rl [number]", alias = "rl",
+     summary = "the same as `emset room`" },
+   { syntax = "emset areas [text]", handler = "areas",
+     summary = "every area with its room count, or those whose name contains the text" },
+   { syntax = "emset rooms <area>", handler = "rooms",
+     summary = "an area's rooms by number; click one to walk there" },
+   { syntax = "emset where [person]", handler = "where",
+     summary = "where people were last located, newest first; `goto <person>` walks there" },
+   { syntax = "emset map size small|big|biggest",
+     summary = "the map at 30%, 50% or 70% of the window's height" },
+   { syntax = "emset map locators",
+     summary = "apply a change to map.locators now, and say which are on" },
+   { syntax = "emset path <to> [from]", handler = "path",
+     summary = "the route between two rooms, without walking it" },
+   { syntax = "emset map lock|unlock <room> [exit]",
+     summary = "keep a room, or one of its exits, out of every route" },
+   { syntax = "emset map lockarea|unlockarea <area>",
+     summary = "keep a whole area out of every route" },
+   { syntax = "emset map weight <room> <n>",
+     summary = "make routes avoid a room unless it saves more than n steps; 1 clears it" },
+   { syntax = "emset map feature [add|remove <name> [room]]",
+     summary = "list the map's features, or mark a room (here by default) as one" },
+  } },
+
 { id = "interface", title = "Interface", summary = "the panels, chat tabs and map",
   state = function() return config("ui.enabled", true) end,
   does = "The panels around the game text: vitals, afflictions, defences, chat tabs, the "
-      .. "room and its people, your target, and the map.",
+      .. "room and its people, your target, and the map. The room's area is shown at the "
+      .. "end of the room-name line.",
   commands = {
    { syntax = "emset ui", handler = "ui",
      summary = "whether the panels and the map are on" },
@@ -275,6 +345,8 @@ M.settings = {
   shipped = true, detail = "Clamped to 10-70." },
 { key = "ui.mapFloat", default = false, type = "boolean", topic = "interface", shipped = false,
   detail = "Detaches the map into its own window. `emset ui rebuild` after changing it." },
+{ key = "ui.roomArea", default = true, type = "boolean", topic = "interface", shipped = false,
+  detail = "Show the room's area at the end of the room-name line, from GMCP." },
 { key = "ui.chatTabs", default = "Tells, City, House, Market, Says, Misc", type = "list",
   topic = "interface", shipped = true },
 { key = "ui.refresh", default = 0.2, type = "number", unit = "s", topic = "interface",
@@ -358,6 +430,55 @@ M.settings = {
   detail = "name -> \"defup\" or \"keepup\". Written by the defence grid." },
 { key = "defences.commands", default = "{}", type = "table", topic = "defences", shipped = false,
   detail = "name -> the command that raises it, for defences we ship no command for." },
+
+-- map
+{ key = "map.autoupdate", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Check for a new crowdmap on load and every map.checkEvery minutes." },
+{ key = "map.checkEvery", default = 60, type = "number", unit = "min", topic = "map",
+  shipped = false, detail = "At least 5." },
+{ key = "map.changelog", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Show the crowdmap's changelog entries since the last update." },
+{ key = "map.stepGap", default = 0.5, type = "number", unit = "s", topic = "map",
+  shipped = false, detail = "The least time between two steps. Faster draws the game's "
+     .. "\"Now now, don't be so hasty!\"." },
+{ key = "map.retryAfter", default = 3, type = "number", unit = "s", topic = "map",
+  shipped = false, detail = "Send a step again when no arrival has followed it in this long; "
+     .. "twice, then the walk stops." },
+{ key = "map.showSteps", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Show where a walk is going and the steps left at the end of the prompt, then "
+     .. "that it arrived." },
+{ key = "map.waterwalk", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Off makes routes avoid water rooms where land is not much longer." },
+{ key = "map.wormholes", default = false, type = "boolean", topic = "map", shipped = false,
+  detail = "Let routes use wormholes. Off keeps them out, as mmp does by default." },
+{ key = "map.gallop", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "While mounted, gallop straight runs of two to eleven rooms (HELP GALLOP). A gallop "
+     .. "that gets nowhere is not sent again; the walk carries on on foot." },
+{ key = "map.shackle", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "While the density defence is up, take the shackle off for a walk and wear it "
+     .. "again when the walk ends, as mmp does." },
+{ key = "map.sewers", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Let routes go through sewer grates. Off keeps them out (mmp's locksewers)." },
+{ key = "map.safeRoom", default = 2096, type = "number", topic = "map", shipped = false,
+  detail = "Where F12 walks you, stopping any hunt first." },
+{ key = "map.bigHit", default = 33, type = "number", unit = "%", topic = "map", shipped = false,
+  detail = "During a goto walk, losing more than this much health in one blow raises a warning "
+     .. "and walks you out of the area." },
+{ key = "map.enemyMark", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "During a goto walk, a red * in brackets on the prompt while an enemy is in the room." },
+{ key = "map.drawRoute", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Light a walk's route on the map, the destination brightest, clearing each room "
+     .. "as it is passed." },
+{ key = "map.locators", default = "farsee, view, mindsense, allsight, alertness, angel, shrines, shop, who",
+  type = "list", topic = "map", shipped = false,
+  detail = "Which of mmp's locator lines get room numbers: farsee, view, mindsense, allsight, "
+     .. "alertness, angel, shrines, shop, who. `emset map locators` applies a change." },
+{ key = "map.trackFor", default = 5, type = "number", unit = "min", topic = "map",
+  shipped = false, detail = "How long a located person's room stays lit on the map; 0 never "
+     .. "lights it." },
+{ key = "map.gmcpSync", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Correct a room's name, environment, indoors/outdoors and area from GMCP as you "
+     .. "walk." },
 
 -- walker
 { key = "walker.avoid", default = "{}", type = "table", topic = "hunting", shipped = true },
