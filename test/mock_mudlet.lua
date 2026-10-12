@@ -126,11 +126,22 @@ function mock.install(homeDir)
    function _G.getLineNumber() return mock.cursor or #mock.buffer end
    function _G.getLineCount() return #mock.buffer end
    function _G.moveCursor(window, x, y)
-      if type(window) ~= "string" then y = x end
+      if type(window) ~= "string" then x, y = window, x end
       mock.cursor = y
+      mock.cursorX = x
       return true
    end
-   function _G.moveCursorEnd() mock.cursor = nil return true end
+   function _G.moveCursorEnd() mock.cursor = nil mock.cursorX = nil return true end
+   --- Insert at the cursor, as Mudlet's dinsertText does: into the buffer line, at the
+   --- column moveCursor() chose. Colour tags are dropped; the buffer holds plain text.
+   function _G.dinsertText(text)
+      local index = mock.cursor or #mock.buffer
+      local line = mock.buffer[index]
+      if line == nil then return end
+      local plain = tostring(text):gsub("<%d+,%d+,%d+>", ""):gsub("<r>", "")
+      local at = mock.cursorX or #line
+      mock.buffer[index] = line:sub(1, at) .. plain .. line:sub(at + 1)
+   end
    function _G.deleteLine()
       mock.deletedLines = mock.deletedLines + 1
       local line = mock.cursor or #mock.buffer

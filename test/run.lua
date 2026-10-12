@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 65, "all 65 manifest modules loaded")
+eq(loadedModules, 66, "all 66 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -14192,6 +14192,136 @@ ok(said("version"), "emset map shows the map's version")
 
 fresh("486", 3)
 emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("room area: the area on the end of the room-name line, whichever arrives first")
+
+-- Asked for by the user (2026-10-12). Whether Room.Info comes before or after the room-name
+-- line is not established, so both orders are tested; see ui/roomarea.lua's header.
+;(function()
+local roomarea = emunah.ui.roomarea
+local config   = emunah.config
+local PROMPT   = "H:100% M:100% E:100% W:100%  exkdb  T:  10:00:00.00-"
+
+local function info(num, name, area)
+   mock.feed("Room.Info", { num = num, name = name, area = area, exits = {}, details = {} })
+end
+local function lineWith(prefix)
+   for index = #mock.buffer, 1, -1 do
+      if mock.buffer[index]:sub(1, #prefix) == prefix then return mock.buffer[index] end
+   end
+end
+-- The prompt event comes from EmunahTriggers.xml's prompt trigger; raise it the same way
+-- when that package is not installed here.
+local function prompt()
+   local before = emunah.ui.roomarea.prompts
+   mock.prompt(PROMPT)
+   if emunah.ui.roomarea.prompts == before then emunah.curing.detect.textPrompt() end
+end
+local function fresh()
+   mock.buffer = {}
+   roomarea.lastInfo, roomarea.waiting, roomarea.taggedLines = nil, nil, {}
+   prompt()
+end
+
+-- NAME LINE FIRST, then Room.Info: found by looking back, and tagged.
+fresh()
+mock.line("Fish Street.")
+mock.line("A narrow street smells of the catch.")
+mock.line("You see exits leading north and south.")
+info(2096, "Fish Street", "Targossas, the City of")
+eq(lineWith("Fish Street"), "Fish Street. (Targossas, the City of)",
+   "name line first: the area is added to the end of it")
+info(2096, "Fish Street", "Targossas, the City of")
+eq(lineWith("Fish Street"), "Fish Street. (Targossas, the City of)",
+   "...and the duplicate Room.Info adds nothing")
+prompt()
+
+-- ROOM.INFO FIRST: nothing to find yet, so the name line is caught as it arrives.
+fresh()
+info(3667, "The village fish market", "Minos, the Isle of")
+ok(roomarea.waiting ~= nil, "Room.Info first: it waits for the name line")
+info(3667, "The village fish market", "Minos, the Isle of")
+mock.line("The village fish market.")
+mock.line("Stalls line the square.")
+eq(lineWith("The village fish market"), "The village fish market. (Minos, the Isle of)",
+   "...and tags it when it arrives, once despite the duplicate Room.Info")
+eq(roomarea.waiting, nil, "...and stops waiting")
+eq(lineWith("Stalls"), "Stalls line the square.", "...the description is untouched")
+prompt()
+
+-- ROOM.INFO AFTER ITS OWN PROMPT: the block the prompt closed is searched.
+fresh()
+mock.line("Shellfish market.")
+mock.line("Barrels of shellfish.")
+prompt()
+info(530, "Shellfish market", "Ashtan, the City of")
+eq(lineWith("Shellfish market"), "Shellfish market. (Ashtan, the City of)",
+   "Room.Info after its prompt: the line before the prompt is tagged")
+
+-- A SPEEDWALK ALONG A STREET OF ONE NAME, across an area border, Room.Info first each time:
+-- each room's area lands on its own line, never on the previous room's.
+fresh()
+info(2099, "Fish Street", "Targossas, the City of")
+mock.line("Fish Street.")
+mock.line("You see exits leading north and south.")
+prompt()
+info(9001, "Fish Street", "Somewhere Else")
+eq(lineWith("Fish Street"), "Fish Street. (Targossas, the City of)",
+   "the next room's Room.Info does not touch the previous room's name line")
+mock.line("Fish Street.")
+prompt()
+eq(mock.buffer[#mock.buffer - 1], "Fish Street. (Somewhere Else)",
+   "...and its own name line gets its own area")
+eq(mock.buffer[#mock.buffer - 4], "Fish Street. (Targossas, the City of)",
+   "...while the first keeps the first")
+
+-- A ROOM WHOSE NAME LINE NEVER COMES gives up rather than tagging a later room's.
+fresh()
+info(100, "A quiet road", "Area One")
+prompt()
+prompt()
+eq(roomarea.waiting, nil, "a name line that never comes is given up after two prompts")
+mock.line("A quiet road.")
+eq(lineWith("A quiet road"), "A quiet road.", "...so a later line of that name is not tagged")
+info(101, "First room", "Area One")
+info(102, "Second room", "Area Two")
+mock.line("First room.")
+eq(lineWith("First room"), "First room.", "a different room's Room.Info drops the wait")
+mock.line("Second room.")
+eq(lineWith("Second room"), "Second room. (Area Two)", "...and waits for its own")
+prompt()
+
+-- NO AREA, OR SWITCHED OFF: nothing is added.
+fresh()
+mock.line("Nowhere much.")
+info(200, "Nowhere much", nil)
+eq(lineWith("Nowhere much"), "Nowhere much.", "no area in Room.Info adds nothing")
+fresh()
+config.set("ui.roomArea", false)
+mock.line("Fish Street.")
+info(2097, "Fish Street", "Targossas, the City of")
+eq(lineWith("Fish Street"), "Fish Street.", "ui.roomArea off adds nothing")
+config.set("ui.roomArea", nil)
+
+-- A ROOM NAME WITH ITS OWN BRACKETS is still tagged, and only once.
+fresh()
+mock.line("Tsol'aa city (Kelsys).")
+info(300, "Tsol'aa city (Kelsys)", "Kelsys")
+eq(lineWith("Tsol'aa"), "Tsol'aa city (Kelsys). (Kelsys)", "a name ending in brackets is tagged")
+prompt()
+
+-- RELOAD: the waiting trigger does not survive into a second copy.
+fresh()
+info(400, "A crossroads", "Area One")
+emunahReload()
+roomarea = emunah.ui.roomarea
+info(401, "A crossroads", "Area One")
+mock.line("A crossroads.")
+eq(lineWith("A crossroads"), "A crossroads. (Area One)",
+   "after a reload the area is added once, not once per generation")
+prompt()
 end)()
 
 io.write("\n", string.rep("-", 60), "\n")
