@@ -207,7 +207,15 @@ end
 M.unreadable = {}
 
 --- Plan a route, locking out any script exit on it we cannot read and planning again.
-local function route(from, to)
+local function route(from, to, walk)
+   local dirs, rooms = M.unfolded(from, to)
+   if not dirs then return nil end
+   if M.galloping(walk) then return M.gallop(dirs, rooms) end
+   return dirs, rooms, {}
+end
+
+--- A route with script exits we cannot read locked out, before any gallops are folded in.
+function M.unfolded(from, to)
    for _ = 1, 10 do
       local dirs, rooms = M.path(from, to)
       if not dirs then return nil end
@@ -227,6 +235,58 @@ local function route(from, to)
       if not blocked then return dirs, rooms end
    end
    return nil
+end
+
+-- ---------------------------------------------------------------------------
+-- gallop
+-- ---------------------------------------------------------------------------
+
+--- GALLOP <direction> [distance], 1 to 11 rooms, "upon a mounted steed"
+--- (docs/game/help/gallop.txt). A straight run of two or more rooms the same compass way
+--- becomes one gallop, with the distance always given: what GALLOP does without one is not
+--- in the HELP. Only while the riding module KNOWS you are mounted.
+---
+--- NOT KNOWN: what it costs, what the game says when it refuses, and whether Room.Info comes
+--- for each room passed or only the last. So the rooms passed are carried with the step
+--- (`via`) and arriving in one is progress, not leaving the route; and a gallop with no
+--- arrival is never sent again -- the walk plans again from wherever it is, on foot.
+M.GALLOP_MAX = 11
+M.GALLOP_DIRS = { n = true, s = true, e = true, w = true, ne = true, nw = true, se = true,
+                  sw = true }
+
+function M.galloping(walk)
+   if walk and walk.noGallop then return false end
+   if config.get("map.gallop", true) == false then return false end
+   local riding = emunah.riding
+   return riding ~= nil and riding.riding() == true
+end
+
+--- Fold straight runs into gallops. Returns new dirs and rooms, and via[i] -- the rooms a
+--- gallop passes through before its last -- for each folded step.
+function M.gallop(dirs, rooms)
+   local outDirs, outRooms, via = {}, {}, {}
+   local i = 1
+   while dirs[i] do
+      local dir = M.shortDir(dirs[i])
+      local run = 1
+      if M.GALLOP_DIRS[dir] then
+         while dirs[i + run] and M.shortDir(dirs[i + run]) == dir and run < M.GALLOP_MAX do
+            run = run + 1
+         end
+      end
+      if run >= 2 then
+         outDirs[#outDirs + 1] = ("gallop %s %d"):format(dir, run)
+         outRooms[#outRooms + 1] = rooms[i + run - 1]
+         local passed = {}
+         for j = i, i + run - 2 do passed[rooms[j]] = true end
+         via[#outDirs] = passed
+      else
+         outDirs[#outDirs + 1] = dirs[i]
+         outRooms[#outRooms + 1] = rooms[i]
+      end
+      i = i + run
+   end
+   return outDirs, outRooms, via
 end
 
 -- ---------------------------------------------------------------------------
@@ -449,7 +509,7 @@ function M.go(target, label, opts)
       log.info("Already at %s.", label)
       return false
    end
-   local dirs, rooms = route(from, target)
+   local dirs, rooms, via = route(from, target)
    if not dirs then
       log.warn("No route to %s from here.", label)
       event.raise("map.failed", target)
@@ -458,7 +518,7 @@ function M.go(target, label, opts)
    if M.walk then finish("a new destination") end
    M.lastStart = from
    local quiet = opts and opts.quiet or false
-   M.walk = { target = target, label = label, dirs = dirs, rooms = rooms, origin = from,
+   M.walk = { target = target, label = label, dirs = dirs, rooms = rooms, via = via, origin = from,
               resends = 0, reroutes = 0, startedAt = util.now(), quiet = quiet }
    M.paused = false
    if quiet then log.debug("Walking to %s: %d step%s.", label, #dirs, #dirs == 1 and "" or "s")
@@ -495,10 +555,10 @@ function M.resume()
    if now == walk.target then finish(nil, true) return true end
    -- Not `now and route(...)`: an `and` keeps only the first of route()'s two results, and
    -- the walk resumed with no rooms to recognise its arrivals by.
-   local dirs, rooms
-   if now then dirs, rooms = route(now, walk.target) end
+   local dirs, rooms, via
+   if now then dirs, rooms, via = route(now, walk.target, walk) end
    if not dirs then finish("no route from here any more") return true end
-   walk.dirs, walk.rooms, walk.origin = dirs, rooms, now
+   walk.dirs, walk.rooms, walk.via, walk.origin = dirs, rooms, via, now
    begin(walk, 1)
    return true
 end
@@ -508,10 +568,10 @@ local function reroute(walk, now, why)
    if walk.reroutes > M.REROUTES then
       return finish(("left the route %d times"):format(walk.reroutes - 1))
    end
-   local dirs, rooms = route(now, walk.target)
+   local dirs, rooms, via = route(now, walk.target, walk)
    if not dirs then return finish("no route from room " .. now) end
    log.debug("Re-planning from room %d (%s).", now, why)
-   walk.dirs, walk.rooms, walk.origin = dirs, rooms, now
+   walk.dirs, walk.rooms, walk.via, walk.origin = dirs, rooms, via, now
    walk.resends = 0
    begin(walk, 1)
 end
@@ -522,6 +582,12 @@ local function onRoom(_, num)
    if not walk or not num then return end
    if num == walk.from then return end   -- a LOOK, or Room.Info's duplicate
    if num == walk.target then return finish(nil, true) end
+   -- A room a gallop passes through: still on its way, and moving.
+   local passing = walk.via and walk.via[walk.i]
+   if passing and passing[num] then
+      walk.sentAt = util.now()
+      return
+   end
    for j = walk.i, #walk.rooms do
       if walk.rooms[j] == num then
          walk.resends = 0
@@ -546,6 +612,17 @@ event.register("emunah.tick", function()
       if walk.resends >= M.RESENDS then
          return finish(("no arrival after %s from room %s"):format(walk.dirs[walk.i],
             tostring(walk.from)))
+      end
+      -- A gallop is never sent twice: what refuses it is not known, and a refused one sent
+      -- again is refused again. Plan again from wherever we are, on foot.
+      if walk.dirs[walk.i]:find("^gallop ") then
+         walk.noGallop = true
+         log.debug("No arrival after %s; walking instead.", walk.dirs[walk.i])
+         local now = here() or walk.from
+         local dirs, rooms, via = route(now, walk.target, walk)
+         if not dirs then return finish("no route from room " .. tostring(now)) end
+         walk.dirs, walk.rooms, walk.via, walk.origin = dirs, rooms, via, now
+         return begin(walk, 1)
       end
       walk.resends = walk.resends + 1
       begin(walk, walk.i)

@@ -447,6 +447,9 @@ M.settings = {
   detail = "Off makes routes avoid water rooms where land is not much longer." },
 { key = "map.wormholes", default = false, type = "boolean", topic = "map", shipped = false,
   detail = "Let routes use wormholes. Off keeps them out, as mmp does by default." },
+{ key = "map.gallop", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "While mounted, gallop straight runs of two to eleven rooms (HELP GALLOP). A gallop "
+     .. "that gets nowhere is not sent again; the walk carries on on foot." },
 { key = "map.drawRoute", default = true, type = "boolean", topic = "map", shipped = false,
   detail = "Light a walk's route on the map, the destination brightest, clearing each room "
      .. "as it is passed." },

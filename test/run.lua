@@ -14954,6 +14954,70 @@ mock.uninstallGeyser()
 end)()
 
 -- ===========================================================================
+suite("map: gallop, while mounted, on straight runs (AB RIDING GALLOP, 2026-10-12)")
+
+;(function()
+local route  = emunah.mapper.route
+local riding = emunah.riding
+
+mock.installMap(16)
+emunah.act.halted, emunah.act.backoffUntil = nil, nil
+mock.feed("Char.Afflictions.List", {})
+local function vitals()
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000", bal = "1", eq = "1" })
+end
+local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+vitals(); at(1)
+route.invalidate()
+
+-- FOLDING: straight runs of 2-11, the distance always given; a special exit breaks a run.
+local dirs, rooms, via = route.gallop({ "e", "e", "e", "n", "e", "e", "e", "e", "e", "e", "e", "e", "e", "e", "e", "e", "enter portal" },
+   { 2, 3, 4, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 40 })
+
+eq(dirs[1], "gallop e 3", "three rooms east: one gallop, with its distance")
+eq(dirs[2], "n", "a lone step stays a step")
+eq(dirs[3], "gallop e 11", "a long run is cut at eleven, HELP GALLOP's most")
+eq(dirs[4], "e", "...and a single room left over is a step")
+eq(dirs[5], "enter portal", "a special exit is never galloped")
+eq(rooms[1], 4, "a gallop arrives where its run ends")
+ok(via[1][2] and via[1][3] and not via[1][4], "...passing the rooms before it")
+
+-- NOT MOUNTED: plain steps.
+riding.setRiding(false)
+route.go(9)
+eq(mock.sent[#mock.sent], "e", "not mounted: no gallop")
+route.stop("test")
+
+-- MOUNTED: one gallop down the corridor; rooms passed are progress, not off-route.
+riding.setRiding(true)
+mock.sent = {}
+route.go(9)
+eq(mock.sent[#mock.sent], "gallop e 8", "mounted: a straight run is one gallop")
+at(4)
+eq(route.walk and route.walk.origin, 1, "a room the gallop passes is not leaving the route")
+at(9)
+eq(route.walk, nil, "...and the gallop's end is arrival")
+
+-- A GALLOP THAT GETS NOWHERE is not sent again: on foot from where we are.
+at(1)
+mock.sent = {}
+route.go(6)
+mock.advance(3.5); vitals()
+eq(mock.sent[#mock.sent], "e", "no arrival after a gallop: the walk goes on foot")
+eq(#mock.sent, 2, "...without a second gallop")
+route.stop("test")
+
+emunah.config.set("map.gallop", false)
+mock.sent = {}
+route.go(6)
+eq(mock.sent[#mock.sent], "e", "map.gallop off: no gallop, mounted or not")
+route.stop("test")
+emunah.config.set("map.gallop", true)
+riding.setRiding(nil)
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
 suite("room area: the area on the end of the room-name line, whichever arrives first")
 
 -- Asked for by the user (2026-10-12). Whether Room.Info comes before or after the room-name
