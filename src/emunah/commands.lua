@@ -928,6 +928,10 @@ M.handlers["goto"] = function(arg, rest)
    end
 end
 
+M.handlers.flee = function()
+   emunah.mapper.guard.flee()
+end
+
 M.handlers.where = function(arg)
    emunah.mapper.locate.report(arg)
 end

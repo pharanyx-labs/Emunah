@@ -299,11 +299,11 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <p>Bashing and walking. Bashing attacks the denizens in the room, one at a time by replica number, on the balance and equilibrium your attack uses. The walker explores an area room by room. <code>hunt</code> runs both: clear a room, move on. Stops itself when health drops below its floor, when a player arrives, or when damage comes in too fast.</p>
 <div class="cmd-block">
 <span class="cmd-syntax">emset hunt [off]</span>
-<p>walk and bash together; <code>off</code> stops both. F11 starts it</p>
+<p>walk and bash together; <code>off</code> stops both. F11 toggles it</p>
 </div>
 <div class="cmd-block">
 <span class="cmd-syntax">emset hunt retreat</span>
-<p>stop both, go back three rooms the way you came, and stay there. F12</p>
+<p>stop both, go back three rooms the way you came, and stay there</p>
 </div>
 <div class="cmd-block">
 <span class="cmd-syntax">emset bash</span>
@@ -494,6 +494,10 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <p>find rooms whose name contains the text, by area; click a number to walk there</p>
 </div>
 <div class="cmd-block">
+<span class="cmd-syntax">emset flee</span>
+<p>stop any hunt and walk to the safe room, map.safeRoom (2096). F12</p>
+</div>
+<div class="cmd-block">
 <span class="cmd-syntax">emset goto back</span>
 <p>walk back to where the last walk started</p>
 </div>
@@ -563,6 +567,9 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>map.gallop</code></td><td>true</td><td>While mounted, gallop straight runs of two to eleven rooms (HELP GALLOP). A gallop that gets nowhere is not sent again; the walk carries on on foot.</td></tr>
 <tr><td><code>map.shackle</code></td><td>true</td><td>While the density defence is up, take the shackle off for a walk and wear it again when the walk ends, as mmp does.</td></tr>
 <tr><td><code>map.sewers</code></td><td>true</td><td>Let routes go through sewer grates. Off keeps them out (mmp's locksewers).</td></tr>
+<tr><td><code>map.safeRoom</code></td><td>2096</td><td>Where F12 walks you, stopping any hunt first.</td></tr>
+<tr><td><code>map.bigHit</code></td><td>33 %</td><td>During a goto walk, losing more than this much health in one blow raises a warning and walks you out of the area.</td></tr>
+<tr><td><code>map.enemyMark</code></td><td>true</td><td>During a goto walk, a red * in brackets on the prompt while an enemy is in the room.</td></tr>
 <tr><td><code>map.drawRoute</code></td><td>true</td><td>Light a walk's route on the map, the destination brightest, clearing each room as it is passed.</td></tr>
 <tr><td><code>map.locators</code></td><td>farsee, view, mindsense, allsight, alertness, angel, shrines, shop, who</td><td>Which of mmp's locator lines get room numbers: farsee, view, mindsense, allsight, alertness, angel, shrines, shop, who. <code>emset map locators</code> applies a change.</td></tr>
 <tr><td><code>map.trackFor</code></td><td>5 min</td><td>How long a located person's room stays lit on the map; 0 never lights it.</td></tr>

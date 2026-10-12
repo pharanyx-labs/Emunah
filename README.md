@@ -66,7 +66,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 71 modules.
+[emunah] v0.1.0 loaded -- 72 modules.
 ```
 
 ## Capabilities

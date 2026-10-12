@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 71, "all 71 manifest modules loaded")
+eq(loadedModules, 72, "all 72 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -11099,9 +11099,9 @@ eq(emunah.keys.count(), keysBefore, "rebuilding does not stack duplicate binding
 ok(pcall(emunah.commands.dispatch, "keys"), "emunah keys reports status")
 
 -- ===========================================================================
--- Action keys: Ctrl+F5 reload, F11 hunt on, F12 hunt off. Independent of keys.numpad and of
+-- Action keys: Ctrl+F5 reload, F11 hunt on/off, F12 to the safe room. Independent of keys.numpad and of
 -- the Keypad modifier -- see keys.buildActions(). Own registry, own count().
-eq(emunah.keys.actionCount(), 3, "reload, hunt on, hunt off all bound")
+eq(emunah.keys.actionCount(), 3, "reload, the hunt toggle and the safe room all bound")
 
 -- Scoped: Lua 5.1 caps a function at 200 active locals, and this file is one chunk.
 do
@@ -11119,8 +11119,8 @@ end
 ok(not mock.press(mudlet.keymodifier.None, mudlet.key.F5),
    "plain F5 (no Control modifier) is NOT bound -- only Ctrl+F5 is")
 
--- F11 starts the hunt (walk + bash together); F12 stops both. The keys just dispatch
--- `emunah hunt` / `emunah hunt off`, so this is really exercising that command.
+-- F11 starts the hunt (walk + bash together). The key just dispatches `emset hunt`, so this
+-- is really exercising that command.
 mock.feed("Room.Info", { num = 1, name = "Room 1", area = "Test", exits = { e = 2 } })
 mock.feed("Char.Items.List", {
    location = "room",
@@ -11131,13 +11131,14 @@ ok(not emunah.walker.enabled and not emunah.bashing.enabled, "hunt is off to sta
 mock.press(mudlet.keymodifier.None, mudlet.key.F11)
 ok(emunah.walker.enabled and emunah.bashing.enabled, "F11 starts the hunt")
 
--- F12 (2026-09-28): stop, go back three rooms the way you came, and stay there.
+-- `emset hunt retreat` (2026-09-28, once F12): stop, go back three rooms the way you came,
+-- and stay there.
 mock.feed("Room.Info", { num = 2, name = "Room 2", area = "Test", exits = { w = 1, e = 3 } })
 mock.feed("Room.Info", { num = 3, name = "Room 3", area = "Test", exits = { w = 2, e = 4 } })
 mock.feed("Room.Info", { num = 4, name = "Room 4", area = "Test", exits = { w = 3, e = 5 } })
 mock.feed("Room.Info", { num = 5, name = "Room 5", area = "Test", exits = { w = 4 } })
-mock.press(mudlet.keymodifier.None, mudlet.key.F12)
-ok(not emunah.walker.enabled and not emunah.bashing.enabled, "F12 stops the hunt")
+emunah.commands.dispatch("hunt retreat")
+ok(not emunah.walker.enabled and not emunah.bashing.enabled, "hunt retreat stops the hunt")
 do
    local back = emunah.mapper.route.walk
    eq(back and back.target, 2, "...and walks back to the room three rooms ago")
@@ -11149,9 +11150,24 @@ end
 -- Standing where the trail began: nowhere to go, and it says so.
 emunah.walker.trail = { 7 }
 mock.echoed = {}
-mock.press(mudlet.keymodifier.None, mudlet.key.F12)
+emunah.commands.dispatch("hunt retreat")
 ok(table.concat(mock.echoed, " "):find("Nowhere behind you", 1, true),
-   "F12 with no trail says so", table.concat(mock.echoed, " "))
+   "hunt retreat with no trail says so", table.concat(mock.echoed, " "))
+
+-- F11 BOTH WAYS, F12 TO THE SAFE ROOM (the user, 2026-10-12).
+mock.feed("Room.Info", { num = 1, name = "Room 1", area = "Test", exits = { e = 2 } })
+mock.press(mudlet.keymodifier.None, mudlet.key.F11)
+ok(emunah.walker.enabled and emunah.bashing.enabled, "F11 starts the hunt")
+mock.press(mudlet.keymodifier.None, mudlet.key.F11)
+ok(not emunah.walker.enabled and not emunah.bashing.enabled, "F11 again stops it")
+mock.press(mudlet.keymodifier.None, mudlet.key.F11)
+emunah.config.set("map.safeRoom", 6)
+mock.press(mudlet.keymodifier.None, mudlet.key.F12)
+ok(not emunah.walker.enabled and not emunah.bashing.enabled, "F12 stops a hunt")
+eq(emunah.mapper.route.walk and emunah.mapper.route.walk.target, 6, "...and walks to the safe room")
+emunah.mapper.route.stop("test")
+emunah.config.set("map.safeRoom", nil)
+eq(emunah.config.get("map.safeRoom", 2096), 2096, "the safe room is 2096 unless set")
 
 -- `emset bash on` walks the area too (2026-09-28), and `bash off` stops both.
 emunah.commands.dispatch("bash on")
@@ -15193,6 +15209,102 @@ config.set("map.sewers", false)
 route.applyPolicy(true)
 eq(rooms[4].specialLocks["enter grate"], true, "map.sewers off locks them")
 config.set("map.sewers", true)
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: a goto under attack -- a big hit walks you out, an enemy marks the prompt")
+
+;(function()
+local route  = emunah.mapper.route
+local guard  = emunah.mapper.guard
+local walker = emunah.walker
+local act    = emunah.act
+
+local function vitals(hp)
+   mock.feed("Char.Vitals", { hp = tostring(hp or 4000), maxhp = "4000", mp = "3000",
+                              maxmp = "3000", bal = "1", eq = "1" })
+end
+local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+local function said(text) return table.concat(mock.echoed, "\n"):find(text, 1, true) ~= nil end
+local function reset()
+   route.stop("test"); walker.stop("test"); emunah.timers.stopAll()
+   mock.installMap(10)
+   for id = 6, 10 do mock.map.rooms[id].area = 2 end
+   act.halted, act.backoffUntil = nil, nil
+   mock.feed("Char.Afflictions.List", {})
+   vitals(4000)
+   walker.trail = {}
+   route.invalidate()
+   mock.sent, mock.echoed = {}, {}
+end
+
+-- A BIG HIT, during a goto: a warning, and out of the area back the way we came.
+reset()
+at(6); at(5)
+route.go(1)
+vitals(2400)                                  -- -40% in one blow
+ok(said("BIG HIT"), "losing more than a third in one blow raises a warning")
+eq(route.walk and route.walk.target, 6, "...and walks back to the first room of another area")
+eq(route.walk.label, "out of the area", "...saying so")
+vitals(1000)
+eq(route.walk.target, 6, "a second hit while running does not turn us round")
+
+-- No other area behind us: over the nearest border instead.
+reset()
+at(3); at(4)
+route.go(1)
+vitals(2000)
+eq(route.walk and route.walk.target, 6, "nothing behind in another area: just over the border")
+
+-- Not a big hit; not a goto.
+reset()
+at(4)
+route.go(1)
+vitals(3000)                                  -- -25%
+eq(route.walk.target, 1, "a smaller hit leaves the walk alone")
+route.stop("test")
+reset()
+at(4)
+walker.start()
+mock.advance(1)
+vitals(1500)
+ok(not (route.walk and route.walk.label == "out of the area"), "an area walk's hop is not a goto: no retreat")
+walker.stop("test")
+
+-- AN AFFLICTION: cured by curing; the walk is not stopped for it.
+reset()
+at(4)
+route.go(1)
+mock.feed("Char.Afflictions.List", { { name = "paralysis" } })
+mock.advance(5); vitals()
+ok(route.walk ~= nil and route.walk.target == 1, "an affliction does not stop the walk")
+mock.feed("Char.Afflictions.List", {}); vitals()
+eq(mock.sent[#mock.sent], "w", "...which carries on once it is cured")
+route.stop("test")
+
+-- AN ENEMY in the room during a goto: a red * in brackets on the prompt.
+reset()
+local namedb = emunah.namedb
+local isEnemy = namedb.isEnemy
+namedb.isEnemy = function(name) return tostring(name):lower() == "vex" end
+at(4)
+route.go(1)
+mock.feed("Room.Players", { { name = "Vex", fullname = "Vex the Vile" } })
+mock.echoed = {}
+raiseEvent("emunah.prompt")
+ok(said("*"), "an enemy in the room puts a * on the prompt")
+mock.feed("Room.Players", {})
+mock.echoed = {}
+raiseEvent("emunah.prompt")
+ok(not said("*"), "...only while they are there")
+route.stop("test")
+mock.feed("Room.Players", { { name = "Vex", fullname = "Vex the Vile" } })
+mock.echoed = {}
+raiseEvent("emunah.prompt")
+ok(not said("*"), "...and only during a goto")
+namedb.isEnemy = isEnemy
+mock.feed("Room.Players", {})
 emunah.timers.stopAll()
 end)()
 

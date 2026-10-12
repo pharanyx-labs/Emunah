@@ -125,6 +125,9 @@ local MANIFEST = {
    { path = "emunah.mapper.locate",      as = "mapper.locate" },
    -- what the game says when a step does not simply happen (swim, doors, walls...)
    { path = "emunah.mapper.moves",       as = "mapper.moves"  },
+   -- walking under attack: a big hit walks you out of the area, an enemy marks the prompt,
+   -- F12 walks to the safe room
+   { path = "emunah.mapper.guard",       as = "mapper.guard"  },
 
    -- area walker: needs gmcp.room for position and config for its avoid list
    { path = "emunah.walker",             as = "walker"        },

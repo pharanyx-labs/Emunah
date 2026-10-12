@@ -513,7 +513,8 @@ end
 --- @param label string|nil what to call it in messages ("the bank", "Ashtan")
 --- @param opts table|nil { quiet = true }: start and arrival at debug, no step counts. For
 ---        the area walker, whose hops are room to room and would otherwise announce
----        themselves every few seconds.
+---        themselves every few seconds. { retreat = true }: running from a big hit
+---        (mapper/guard.lua), which another hit does not turn round.
 --- @return boolean started
 function M.go(target, label, opts)
    target = tonumber(target)
@@ -543,7 +544,8 @@ function M.go(target, label, opts)
    M.lastStart = from
    local quiet = opts and opts.quiet or false
    M.walk = { target = target, label = label, dirs = dirs, rooms = rooms, via = via, origin = from,
-              resends = 0, reroutes = 0, startedAt = util.now(), quiet = quiet }
+              resends = 0, reroutes = 0, startedAt = util.now(), quiet = quiet,
+              retreat = opts and opts.retreat or false }
    M.paused = false
    if quiet then log.debug("Walking to %s: %d step%s.", label, #dirs, #dirs == 1 and "" or "s")
    else log.info("Walking to %s: %d step%s.", label, #dirs, #dirs == 1 and "" or "s") end
