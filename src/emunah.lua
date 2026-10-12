@@ -119,6 +119,10 @@ local MANIFEST = {
    { path = "emunah.mapper.route",       as = "mapper.route"  },
    -- what the map knows: room details, area and room lists, numbers for a named room
    { path = "emunah.mapper.info",        as = "mapper.info"   },
+   -- mmp's locator lines, generated (tools/build-mapper-lines.py), then what they do: rooms
+   -- as links, last-known locations, people lit on the map
+   { path = "emunah.mapper.lines",       as = "mapper.lines"  },
+   { path = "emunah.mapper.locate",      as = "mapper.locate" },
 
    -- area walker: needs gmcp.room for position and config for its avoid list
    { path = "emunah.walker",             as = "walker"        },

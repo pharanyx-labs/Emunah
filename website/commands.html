@@ -460,7 +460,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 </tbody></table></div>
 
 <h2 id="map">Map</h2>
-<p>Walks you anywhere on the map one confirmed step at a time, through the same checks as every other command, so it waits out stun, sleep, paralysis or a lost balance instead of walking into them. Re-plans when you end up off the route or the game refuses an exit; double-clicking a room on the map walks there too. The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. Emunah checks for a new version when it loads and every hour, shows what changed, and loads it, waiting for a walk to end first. Rooms you lock or weight are kept outside the map and put back after every update. As you walk, rooms whose name, environment, indoors/outdoors or area disagree with GMCP are corrected. While the mmp package is running it keeps updating the map itself, and Emunah leaves it to it.</p>
+<p>Walks you anywhere on the map one confirmed step at a time, through the same checks as every other command, so it waits out stun, sleep, paralysis or a lost balance instead of walking into them. Re-plans when you end up off the route or the game refuses an exit; double-clicking a room on the map walks there too. Locator lines &mdash; farsee, mindsense, the angel, alertness and the rest &mdash; get the room numbers they name as links, and who was where is remembered. The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. Emunah checks for a new version when it loads and every hour, shows what changed, and loads it, waiting for a walk to end first. Rooms you lock or weight are kept outside the map and put back after every update. As you walk, rooms whose name, environment, indoors/outdoors or area disagree with GMCP are corrected. While the mmp package is running it keeps updating the map itself, and Emunah leaves it to it.</p>
 <div class="cmd-block">
 <span class="cmd-syntax">emset map</span>
 <p>the map's version, the last check, and what your overlay holds</p>
@@ -518,6 +518,14 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <p>an area's rooms by number; click one to walk there</p>
 </div>
 <div class="cmd-block">
+<span class="cmd-syntax">emset where [person]</span>
+<p>where people were last located, newest first; <code>goto &lt;person&gt;</code> walks there</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map locators</span>
+<p>apply a change to map.locators now, and say which are on</p>
+</div>
+<div class="cmd-block">
 <span class="cmd-syntax">emset path &lt;to&gt; [from]</span>
 <p>the route between two rooms, without walking it</p>
 </div>
@@ -548,6 +556,8 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>map.showSteps</code></td><td>true</td><td>Show where a walk is going and the steps left at the end of the prompt, then that it arrived.</td></tr>
 <tr><td><code>map.waterwalk</code></td><td>true</td><td>Off makes routes avoid water rooms where land is not much longer.</td></tr>
 <tr><td><code>map.wormholes</code></td><td>false</td><td>Let routes use wormholes. Off keeps them out, as mmp does by default.</td></tr>
+<tr><td><code>map.locators</code></td><td>farsee, view, mindsense, allsight, alertness, angel, shrines, shop, who</td><td>Which of mmp's locator lines get room numbers: farsee, view, mindsense, allsight, alertness, angel, shrines, shop, who. <code>emset map locators</code> applies a change.</td></tr>
+<tr><td><code>map.trackFor</code></td><td>5 min</td><td>How long a located person's room stays lit on the map; 0 never lights it.</td></tr>
 <tr><td><code>map.gmcpSync</code></td><td>true</td><td>Correct a room's name, environment, indoors/outdoors and area from GMCP as you walk.</td></tr>
 </tbody></table></div>
 

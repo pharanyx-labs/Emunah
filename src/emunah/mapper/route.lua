@@ -698,6 +698,13 @@ function M.travel(where)
       if not M.lastStart then log.info("No walk to go back from yet.") return false end
       return M.go(M.lastStart, "where the last walk started")
    end
+   -- Someone located (mapper/locate.lua): to where they were last seen.
+   local locate = emunah.mapper.locate
+   local person = locate and locate.find(where)
+   if person and person.ids[1] then
+      local nearest = M.nearest(person.ids)
+      if nearest then return M.go(nearest, ("%s (%s)"):format(person.name, tostring(person.room))) end
+   end
 
    local features = M.features()
    if features[lower] then return M.goFeature(lower) end

@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 68, "all 68 manifest modules loaded")
+eq(loadedModules, 70, "all 70 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -14755,6 +14755,111 @@ mock.echoed = {}
 ok(pcall(emunah.commands.dispatch, "room 3") and text():find("Fish Street", 1, true), "emset room")
 ok(pcall(emunah.commands.dispatch, "areas"), "emset areas")
 ok(pcall(emunah.commands.dispatch, "rooms test area"), "emset rooms")
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: locator lines get their rooms as links; who was where is remembered")
+
+;(function()
+local locate = emunah.mapper.locate
+local route  = emunah.mapper.route
+local config = emunah.config
+
+mock.installMap(10)
+mock.feed("Room.Info", { num = 1, name = "Room 1", exits = {} })
+route.invalidate()
+local rooms = mock.map.rooms
+rooms[3].name, rooms[8].name = "Fish Street", "A quiet glade"
+local function text() return table.concat(mock.echoed, "") end
+local function fresh() mock.echoed, mock.links = {}, {} end
+for key in pairs(locate.people) do locate.people[key] = nil end
+locate.build()
+
+fresh()
+mock.line("You see that Erishka is at Fish Street.")
+eq(mock.links[1] and mock.links[1].text:match("(%d+)$"), "3", "farsee: the room number, as a link")
+ok(text():find("Test Area", 1, true), "...and its area")
+eq(locate.find("erishka").ids[1], 3, "...and where she was is remembered")
+eq(mock.highlighted[3], true, "...and lit on the map")
+mock.advance(5 * 60 + 1)
+eq(mock.highlighted[3], nil, "...for map.trackFor minutes")
+
+for line, name in pairs({
+   ["You see that Bob is located at A quiet glade in Test Area."] = "bob",
+   ["You see Cara at A quiet glade."] = "cara",
+   ["You seek out the mind of Dain and an image of A quiet glade appears in your mind."] = "dain",
+   ["Allsight: Elin enters A quiet glade."] = "elin",
+   ["Your guardian angel reports that Fyn has moved to A quiet glade."] = "fyn",
+}) do
+   mock.line(line)
+   eq(locate.find(name) and locate.find(name).ids[1], 8, ("located: %q"):format(line))
+end
+
+-- THE ANGEL: a scan's lines are people; outside one, a sense of a place and who is with it.
+fresh()
+mock.line("You bid your guardian angel to seek out life presences nearby.")
+mock.line("Your guardian angel senses Gale at Fish Street, on a health of 6831 and a mana of 4678.")
+eq(locate.find("gale") and locate.find("gale").ids[1], 3, "a presence scan locates each person")
+eq(#mock.links, 1, "...once: the sense trigger stands down during a scan")
+raiseEvent("emunah.prompt")
+fresh()
+mock.line("Your guardian angel senses a fierce presence at A quiet glade, somewhere.")
+eq(#mock.links, 1, "outside a scan, the sense of a place gets its room")
+mock.line("Someone is with Hale.")
+eq(locate.find("hale") and locate.find("hale").ids[1], 8, "...and who is with it is located there")
+raiseEvent("emunah.prompt")
+mock.line("Someone is with Ivo.")
+eq(locate.find("ivo"), nil, "...until the prompt")
+
+-- ALERTNESS names the room next to us, so the exact room is known from our exits.
+fresh()
+mock.line("Your enhanced senses inform you that Jax has entered Room 2, to the east.")
+eq(locate.find("jax") and locate.find("jax").ids[1], 2, "alertness: the room that way from here")
+eq(#mock.links, 1, "...as a link")
+
+-- SHRINES: the place, no person.
+fresh()
+mock.line([[(Order): Thera's Herald says, "A shrine is being defiled at Fish Street!"]])
+eq(#mock.links, 1, "a shrine alert gets its room as a link")
+
+-- THE SHOP DIRECTORY: a row whose room name is one room becomes a link to it.
+fresh()
+local row = ("500gp a sturdy backpack"):rep(1) .. (" "):rep(48 - 23) .. "Fish Street"
+mock.currentLine = row
+_G.matches = { row, row }
+locate.handle.shop({ key = "shop", column = 48 })
+eq(#mock.links, 1, "a shop row's room name becomes a link")
+eq(mock.currentLine, row:sub(1, 48), "...in place of the plain name")
+
+-- WHO B: rows read only in the window after you send it.
+fresh()
+mock.line("Kip (Fish Street)")
+eq(locate.find("kip"), nil, "a Name (Room) row means nothing on its own")
+raiseEvent("emunah.sent", "who b", true)
+mock.line("Kip (Fish Street)")
+eq(locate.find("kip") and locate.find("kip").ids[1], 3, "...but is read for ten seconds after WHO B")
+mock.advance(11)
+mock.line("Lio (Fish Street)")
+eq(locate.find("lio"), nil, "...and not after")
+
+-- goto <person>, and emset where.
+mock.command("goto Erishka")
+eq(route.walk and route.walk.target, 3, "goto <person> walks to where they were located")
+ok(route.walk.label:find("Erishka", 1, true), "...naming them")
+route.stop("test")
+fresh()
+eq(locate.report(), 10, "emset where lists everyone located")
+ok(text():find("Erishka", 1, true) and text():find("ago", 1, true), "...with when")
+
+-- ONLY THE GROUPS SWITCHED ON get a trigger.
+config.set("map.locators", "view")
+local count = locate.build()
+eq(count, 1, "map.locators view: one line watched")
+mock.line("You see that Moss is at Fish Street.")
+eq(locate.find("moss"), nil, "...and farsee is not")
+config.set("map.locators", nil)
+ok(locate.build() > 10, "every group by default")
 emunah.timers.stopAll()
 end)()
 

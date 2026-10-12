@@ -862,6 +862,16 @@ end
 
 M.handlers.map = function(arg, rest)
    local data = emunah.mapper.data
+   if arg == "locators" then
+      local locate = emunah.mapper.locate
+      local count = locate.build()
+      local on = {}
+      for _, group in ipairs(locate.GROUPS) do
+         if locate.enabledGroups()[group] then on[#on + 1] = group end
+      end
+      log.info("Locators on: %s (%d lines).", #on > 0 and table.concat(on, ", ") or "none", count)
+      return
+   end
    if arg == "lock" or arg == "unlock" or arg == "lockarea" or arg == "unlockarea"
       or arg == "weight" or arg == "feature" then
       return mapOverlay(arg, rest)
@@ -912,6 +922,10 @@ M.handlers["goto"] = function(arg, rest)
    else
       route.travel(rest and (arg .. " " .. rest) or arg)
    end
+end
+
+M.handlers.where = function(arg)
+   emunah.mapper.locate.report(arg)
 end
 
 M.handlers.room = function(arg)

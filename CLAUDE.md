@@ -69,6 +69,10 @@ declared. Answer these from `docs/game/`, not from memory, for every new or chan
    everything they should in `act.blocked`. Death pauses Emunah completely by the user's
    rule. Don't add a command that bypasses `act.send` or the queue.
 
+`src/emunah/mapper/lines.lua` is generated from mmp's locator triggers by
+`tools/build-mapper-lines.py` (patterns verbatim from mmp; what each capture means is
+declared in the generator). Same rule: change the generator and regenerate.
+
 `EmunahTriggers.xml` is generated from svof's trigger set by
 `tools/build-trigger-package.py`. Change the generator and regenerate; never hand-edit the
 XML. Its triggers may only call `detect.text*`. Anti-illusion is svof's, in four layers

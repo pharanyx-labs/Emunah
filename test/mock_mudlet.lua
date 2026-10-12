@@ -215,6 +215,14 @@ function mock.install(homeDir)
          if not mock.cursor or mock.cursor == lineNo or lineNo == #mock.buffer then
             mock.currentLine = newText
          end
+      elseif selection.at then
+         -- Part of the line, as selectString/selectSection chose it: the rest stays.
+         local current = mock.currentLine
+         mock.currentLine = current:sub(1, selection.at - 1) .. newText
+            .. current:sub(selection.at + #selection.text)
+         if mock.buffer and #mock.buffer > 0 and mock.buffer[#mock.buffer] == current then
+            mock.buffer[#mock.buffer] = mock.currentLine
+         end
       end
       selection = nil
       return true
@@ -718,6 +726,9 @@ function mock.installMapApi()
       r.exitWeights[dir] = weight
    end
    function _G.getExitWeights(id) local r = room(id) return r and r.exitWeights or {} end
+   mock.highlighted = {}
+   function _G.highlightRoom(id) mock.highlighted[tonumber(id)] = true return true end
+   function _G.unHighlightRoom(id) mock.highlighted[tonumber(id)] = nil return true end
    mock.mapUserData = {}
    function _G.getMapUserData(key) return mock.mapUserData[key] or "" end
    function _G.setMapUserData(key, value) mock.mapUserData[key] = tostring(value) return true end
@@ -1279,7 +1290,15 @@ local function toLuaPatterns(regex)
    local hit = patternCache[regex]
    if hit then return hit end
 
-   local before, branches, after = regex:match("^(.-)%((.-)%)(.*)$")
+   -- The alternation group, wherever it is: a non-capturing (?:a|b) anywhere in the regex
+   -- (mmp's alertness line has two capturing groups before it), else the first group.
+   local before, branches, after
+   local s, e = regex:find("%(%?:[^()]*|[^()]*%)")
+   if s then
+      before, branches, after = regex:sub(1, s - 1), regex:sub(s + 1, e - 1), regex:sub(e + 1)
+   else
+      before, branches, after = regex:match("^(.-)%((.-)%)(.*)$")
+   end
    if not branches or not branches:find("|", 1, true) then
       hit = { toLuaPattern(regex) }
       patternCache[regex] = hit

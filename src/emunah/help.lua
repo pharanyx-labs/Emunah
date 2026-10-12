@@ -243,6 +243,8 @@ M.modules = {
       .. "checks as every other command, so it waits out stun, sleep, paralysis or a lost "
       .. "balance instead of walking into them. Re-plans when you end up off the route or "
       .. "the game refuses an exit; double-clicking a room on the map walks there too. "
+      .. "Locator lines -- farsee, mindsense, the angel, alertness and the rest -- get the "
+      .. "room numbers they name as links, and who was where is remembered. "
       .. "The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. "
       .. "Emunah checks for a new version when it loads and every hour, shows what changed, "
       .. "and loads it, waiting for a walk to end first. Rooms you lock or weight are kept "
@@ -282,6 +284,10 @@ M.modules = {
      summary = "every area with its room count, or those whose name contains the text" },
    { syntax = "emset rooms <area>", handler = "rooms",
      summary = "an area's rooms by number; click one to walk there" },
+   { syntax = "emset where [person]", handler = "where",
+     summary = "where people were last located, newest first; `goto <person>` walks there" },
+   { syntax = "emset map locators",
+     summary = "apply a change to map.locators now, and say which are on" },
    { syntax = "emset path <to> [from]", handler = "path",
      summary = "the route between two rooms, without walking it" },
    { syntax = "emset map lock|unlock <room> [exit]",
@@ -439,6 +445,13 @@ M.settings = {
   detail = "Off makes routes avoid water rooms where land is not much longer." },
 { key = "map.wormholes", default = false, type = "boolean", topic = "map", shipped = false,
   detail = "Let routes use wormholes. Off keeps them out, as mmp does by default." },
+{ key = "map.locators", default = "farsee, view, mindsense, allsight, alertness, angel, shrines, shop, who",
+  type = "list", topic = "map", shipped = false,
+  detail = "Which of mmp's locator lines get room numbers: farsee, view, mindsense, allsight, "
+     .. "alertness, angel, shrines, shop, who. `emset map locators` applies a change." },
+{ key = "map.trackFor", default = 5, type = "number", unit = "min", topic = "map",
+  shipped = false, detail = "How long a located person's room stays lit on the map; 0 never "
+     .. "lights it." },
 { key = "map.gmcpSync", default = true, type = "boolean", topic = "map", shipped = false,
   detail = "Correct a room's name, environment, indoors/outdoors and area from GMCP as you "
      .. "walk." },
