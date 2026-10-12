@@ -421,6 +421,7 @@ local function finish(reason, arrived)
    M.paused = false
    carried.paused = nil
    timers.stop("map.step")
+   timers.stop("map.arrival")
    clearRoute()
    if arrived then
       -- Said on the next prompt (see the prompt tag below), not as a line of its own.
@@ -460,7 +461,17 @@ function step()
       local since = walk.lastSentAt and (util.now() - walk.lastSentAt) or math.huge
       if since < gap() then after(gap() - since) return end
       if not emunah.act.send(item.send, M.NEEDS) then
-         walk.held = true      -- retried on the next tick
+         -- HELD. Most holds end with a GMCP update -- balance back, an affliction cured --
+         -- and the tick it brings retries this. A rate-limit backoff ends with nothing at
+         -- all: after "Now now, don't be so hasty!" the game sends its prompt and then goes
+         -- quiet, so a walk waiting for the next tick froze until something else made the
+         -- game send one (the user, 2026-10-12). So a time-bound hold retries on a timer,
+         -- the moment it lapses; any other hold also gets one, a second out, so no hold can
+         -- outlast a quiet game.
+         walk.held = true
+         local act = emunah.act
+         local wait = act.backoffUntil and (act.backoffUntil - util.now() + 0.05) or 1.0
+         after(math.max(0.05, math.min(wait, 5)))
          return
       end
       walk.held = false
@@ -468,6 +479,9 @@ function step()
       table.remove(walk.queue, 1)
    end
    walk.sentAt = util.now()
+   -- The same for a step that never arrives: checked on a timer of its own, not only on
+   -- the tick, which a refused step may never bring.
+   timers.start("map.arrival", M.arrivalWait(walk) + 0.05, function() M.checkArrival() end)
 end
 
 local function begin(walk, i)
@@ -479,6 +493,7 @@ local function begin(walk, i)
    end
    walk.queue = M.plan(walk.dirs[i]) or {}
    walk.sentAt, walk.extra, walk.held = nil, 0, false
+   timers.stop("map.arrival")
    walk.from = i == 1 and walk.origin or walk.rooms[i - 1]
    timers.stop("map.step")
    step()
@@ -538,6 +553,7 @@ function M.pause()
    if not M.walk or M.paused then return false end
    M.paused = true
    timers.stop("map.step")
+   timers.stop("map.arrival")
    carried.paused = M.walk
    log.info("Walk to %s paused; %d step%s left. `go` carries on.", M.walk.label,
       #M.walk.dirs - M.walk.i + 1, #M.walk.dirs - M.walk.i + 1 == 1 and "" or "s")
@@ -601,13 +617,18 @@ end
 
 event.register("emunah.room", onRoom, "mapper-route")
 
---- A held step goes out on the tick that frees it; a lost one is sent again.
-event.register("emunah.tick", function()
+--- How long a sent step may take to arrive before it is sent again.
+function M.arrivalWait(walk)
+   return (tonumber(config.get("map.retryAfter", 3)) or 3) + (walk and walk.extra or 0)
+end
+
+--- A step sent and not arrived: send it again, or give up. Run by the step's own timer,
+--- and on every tick.
+function M.checkArrival()
    local walk = M.walk
    if not walk or M.paused then return end
-   if walk.held then return step() end
    if walk.sentAt and not walk.queue[1] then
-      local wait = (tonumber(config.get("map.retryAfter", 3)) or 3) + (walk.extra or 0)
+      local wait = M.arrivalWait(walk)
       if util.now() - walk.sentAt < wait then return end
       if walk.resends >= M.RESENDS then
          return finish(("no arrival after %s from room %s"):format(walk.dirs[walk.i],
@@ -627,6 +648,26 @@ event.register("emunah.tick", function()
       walk.resends = walk.resends + 1
       begin(walk, walk.i)
    end
+end
+
+--- Send the current step again from its start, as soon as the gate allows: the game
+--- refused it without moving us ("You can not move that fast!", mapper/moves.lua).
+function M.restartStep()
+   local walk = M.walk
+   if not walk or M.paused then return false end
+   timers.stop("map.step")
+   begin(walk, walk.i)
+   return true
+end
+
+--- A held step goes out on the tick that frees it; a lost one is sent again.
+event.register("emunah.tick", function()
+   local walk = M.walk
+   if not walk or M.paused then return end
+   -- Held: the gap was already waited out before it was held, so the fallback timer is the
+   -- only thing on "map.step", and this tick may be the one that frees it.
+   if walk.held then timers.stop("map.step") return step() end
+   M.checkArrival()
 end, "mapper-route")
 
 --- Room.WrongDir: the game says the exit we just took is not there. Lock it for this map

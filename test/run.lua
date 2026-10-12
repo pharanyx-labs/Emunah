@@ -14300,6 +14300,22 @@ do
    route.stop("test")
 end
 
+-- NO PROMPT, NO FREEZE (the user, 2026-10-12: after "Now now, don't be so hasty!" the walk
+-- froze until a new prompt). Nothing below feeds a tick: time alone must move the walk on.
+do
+   reset()
+   act.rateLimited()
+   route.go(4)
+   eq(#mock.sent, 0, "a step held by the rate-limit backoff is not sent")
+   mock.advance(act.BACKOFF + 0.2)
+   eq(last(), "e", "...and goes out when the backoff lapses, with no prompt in between")
+   mock.sent = {}
+   mock.line("Now now, don't be so hasty!")     -- the step just sent was refused
+   mock.advance(5)
+   eq(last(), "e", "a step the game refused is sent again with no prompt in between")
+   route.stop("test")
+end
+
 -- SKIPPING AHEAD on the route is fine; leaving it re-plans from where we are.
 reset()
 route.go(8)
