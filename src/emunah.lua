@@ -123,6 +123,8 @@ local MANIFEST = {
    -- as links, last-known locations, people lit on the map
    { path = "emunah.mapper.lines",       as = "mapper.lines"  },
    { path = "emunah.mapper.locate",      as = "mapper.locate" },
+   -- what the game says when a step does not simply happen (swim, doors, walls...)
+   { path = "emunah.mapper.moves",       as = "mapper.moves"  },
 
    -- area walker: needs gmcp.room for position and config for its avoid list
    { path = "emunah.walker",             as = "walker"        },

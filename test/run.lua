@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 70, "all 70 manifest modules loaded")
+eq(loadedModules, 71, "all 71 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -15030,6 +15030,169 @@ eq(mock.sent[#mock.sent], "e", "map.gallop off: no gallop, mounted or not")
 route.stop("test")
 emunah.config.set("map.gallop", true)
 riding.setRiding(nil)
+emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: water, doors, walls, rubble, wormholes, ferries and the shackle, from mmp's lines")
+
+;(function()
+local route  = emunah.mapper.route
+local config = emunah.config
+local act    = emunah.act
+
+local function vitals()
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000", bal = "1", eq = "1" })
+end
+local function at(num, details)
+   mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {}, details = details or {} })
+end
+local function last() return mock.sent[#mock.sent] end
+local function reset()
+   route.stop("test"); emunah.timers.stopAll()
+   mock.installMap(10)
+   act.halted, act.backoffUntil = nil, nil
+   mock.feed("Char.Afflictions.List", {})
+   mock.feed("Char.Defences.List", {})
+   vitals(); at(1)
+   route.invalidate()
+   mock.sent, mock.echoed = {}, {}
+end
+
+reset()
+route.go(3)
+mock.line("There's water ahead of you. You'll have to SWIM EAST to make it through.")
+mock.advance(0.6)
+eq(last(), "swim e", "water ahead: SWIM that way, after the step gap")
+at(2)
+eq(route.walk and route.walk.i, 2, "...and the swim counts as the step")
+route.stop("test")
+
+reset()
+route.go(3)
+mock.line("There is a door in the way.")
+mock.advance(0.6)
+eq(last(), "open door e", "a closed door: OPEN DOOR that way")
+mock.advance(0.6)
+eq(last(), "e", "...then the step")
+route.stop("test")
+
+reset()
+route.go(3)
+mock.line("The door is locked.")
+mock.advance(0.6)
+eq(last(), "unlock door e", "a locked door: UNLOCK DOOR that way")
+mock.advance(0.6)
+eq(last(), "e", "...then the step")
+route.stop("test")
+
+-- A door that will not open: locked out, and the walk goes round (mmp gives up instead).
+reset()
+local rooms = mock.map.rooms
+rooms[1].exits = { e = 2, n = 6 }
+rooms[6].exits = { e = 2 }
+rooms[2].exits = { e = 3, w = 1 }
+route.invalidate()
+route.go(3)
+mock.line("The door slams shut!")
+eq(hasExitLock(1, "e"), true, "a door slammed shut: that exit is locked out")
+mock.advance(0.6)
+eq(last(), "n", "...and the walk goes round it")
+route.stop("test")
+reset()
+route.go(3)
+mock.line("A wall blocks your way.")
+eq(route.walk, nil, "a wall with no way round ends the walk")
+
+-- RUBBLE: wait longer, rather than resend into it.
+reset()
+route.go(3)
+mock.line("You begin to slowly clamber over the rubble that blocks your way.")
+mock.sent = {}
+mock.advance(4)
+eq(#mock.sent, 0, "slow going: no resend within the extra time")
+mock.advance(1.5)
+eq(last(), "e", "...but one after it")
+route.stop("test")
+
+-- HASTY: refuses whatever came last. If the step went through, its arrival wins.
+reset()
+route.go(3)
+mock.line("You can not move that fast!")
+at(2)
+mock.sent = {}
+mock.advance(2.5)
+eq(last(), "e", "the step arrived despite the line: the walk just carries on")
+eq(#mock.sent, 1, "...with no resend of the first")
+route.stop("test")
+reset()
+route.go(3)
+mock.sent = {}
+mock.line("You cannot move that fast, slow down!")
+mock.advance(2.5)
+eq(last(), "e", "no arrival: the step is sent again just after the backoff")
+route.stop("test")
+
+-- NO WORMHOLE.
+reset()
+config.set("map.wormholes", true)
+rooms = mock.map.rooms
+rooms[1].exits = { e = 2 }
+rooms[1].specials = { ["worm warp"] = 9 }
+route.invalidate()
+route.go(9)
+eq(last(), "worm warp", "(the wormhole first)")
+mock.line("There is no wormhole here.")
+eq(rooms[1].specialLocks and rooms[1].specialLocks["worm warp"], true, "no wormhole: it is locked out")
+mock.advance(0.6)
+eq(last(), "e", "...and the walk goes the long way")
+route.stop("test")
+config.set("map.wormholes", false)
+
+-- FLYING into an indoor room: pause, keeping the route.
+reset()
+route.go(3)
+mock.line("You must land before you can move indoors.")
+ok(route.paused and route.walk.target == 3, "flying at an indoor room: paused with the route kept")
+route.stop("test")
+
+-- None of it is ours without a walk.
+reset()
+mock.line("There is a door in the way.")
+eq(#mock.sent, 0, "a door in the way with no walk going sends nothing")
+
+-- FERRIES: aboard is not off the route, and nothing is resent while crossing.
+reset()
+route.go(5)
+at(77, { "ferry" })
+mock.advance(30); vitals()
+eq(route.walk and route.walk.origin, 1, "a ferry room is not leaving the route")
+eq(#mock.sent, 1, "...and nothing is resent while aboard")
+at(4)
+mock.advance(0.6)
+eq(last(), "e", "off the ferry on the route, the walk carries on")
+route.stop("test")
+
+-- THE SHACKLE, with density up: off for the walk, back on after.
+reset()
+mock.feed("Char.Defences.List", { { name = "density" } })
+route.go(2)
+eq(mock.sent[1], "remove shackle", "density up: the shackle comes off first")
+mock.advance(0.6)
+at(2)
+eq(last(), "wear shackle", "...and goes back on when the walk arrives")
+
+-- POLICY: ferries weighted, sewers lockable [mmp].
+reset()
+rooms = mock.map.rooms
+rooms[4].specials = { ["enter grate"] = 9, ["buy passage to Mhojave"] = 10 }
+route.applyPolicy(true)
+eq(rooms[4].exitWeights and rooms[4].exitWeights["buy passage to Mhojave"], 200, "ferry exits weigh 200")
+eq(rooms[4].specialLocks and rooms[4].specialLocks["enter grate"], nil, "sewer grates open by default")
+config.set("map.sewers", false)
+route.applyPolicy(true)
+eq(rooms[4].specialLocks["enter grate"], true, "map.sewers off locks them")
+config.set("map.sewers", true)
 emunah.timers.stopAll()
 end)()
 

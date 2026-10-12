@@ -311,7 +311,8 @@ M.PEBBLE = { ["touch 116998"] = true, ["touch 277930"] = true }
 function M.policySignature()
    return table.concat({ tostring(data.store.version),
       config.get("map.wormholes", false) and "w" or "-",
-      config.get("map.waterwalk", true) and "s" or "-" }, ":")
+      config.get("map.waterwalk", true) and "s" or "-",
+      config.get("map.sewers", true) and "g" or "-", "f200" }, ":")
 end
 
 --- Put mmp's routing defaults on the map. Walks every room, so it only runs when the
@@ -322,6 +323,7 @@ function M.applyPolicy(force)
    if not force and data.store.policy == signature then return 0, 0 end
    if not getRooms then return 0, 0 end
    local lockWorms = not config.get("map.wormholes", false)
+   local lockGrates = not config.get("map.sewers", true)
    local heavyWater = not config.get("map.waterwalk", true)
    local water = waterEnvs()
    local overlayWeights = data.store.overlay.roomWeight
@@ -335,6 +337,13 @@ function M.applyPolicy(force)
          elseif M.PEBBLE[cmd] then
             lockSpecialExit(id, to, command, true)
             locked = locked + 1
+         elseif cmd:find("enter grate", 1, true) then
+            -- [mmp] mconfig locksewers: off by default, so routes may use the sewers.
+            lockSpecialExit(id, to, command, lockGrates)
+            if lockGrates then locked = locked + 1 end
+         elseif cmd:find("buy passage to", 1, true) then
+            -- [mmp] `weight ferry exits`: 200, so a ferry is taken only when it saves a lot.
+            setExitWeight(id, command, 200)
          end
       end
       if water[getRoomEnv(id)] and overlayWeights[id] == nil then
@@ -492,7 +501,7 @@ local function begin(walk, i)
       drawRoute(walk)
    end
    walk.queue = M.plan(walk.dirs[i]) or {}
-   walk.sentAt, walk.extra, walk.held = nil, 0, false
+   walk.sentAt, walk.extra, walk.held, walk.onFerry = nil, 0, false, false
    timers.stop("map.arrival")
    walk.from = i == 1 and walk.origin or walk.rooms[i - 1]
    timers.stop("map.step")
@@ -612,7 +621,32 @@ local function onRoom(_, num)
          return begin(walk, j + 1)
       end
    end
+   -- A FERRY is not leaving the route [mmp]: aboard, the walk waits, sending nothing, for
+   -- the far side -- which is on the route, and carries on from there.
+   if M.isFerry(num) then
+      walk.onFerry = true
+      walk.sentAt = util.now()
+      timers.stop("map.arrival")
+      return
+   end
    if not M.paused then reroute(walk, num, "off the route") end
+end
+
+--- [mmp] A ferry room: Room.Info's details say "ferry", or the crowdmap lists it in room 1's
+--- user data "ferry rooms" (JSON, mmp's `fr add`).
+local ferryRooms = nil
+event.register("emunah.map.loaded", function() ferryRooms = nil end, "mapper-route")
+function M.isFerry(num)
+   local room = emunah.gmcp.room
+   if room and tonumber(room.num) == tonumber(num) and util.contains(room.details or {}, "ferry") then
+      return true
+   end
+   if ferryRooms == nil then
+      ferryRooms = {}
+      local list = data.decode(getRoomUserData(1, "ferry rooms"))
+      for _, id in pairs(type(list) == "table" and list or {}) do ferryRooms[tonumber(id)] = true end
+   end
+   return ferryRooms[tonumber(num)] == true
 end
 
 event.register("emunah.room", onRoom, "mapper-route")
@@ -627,6 +661,7 @@ end
 function M.checkArrival()
    local walk = M.walk
    if not walk or M.paused then return end
+   if walk.onFerry then return end   -- a crossing takes as long as it takes
    if walk.sentAt and not walk.queue[1] then
       local wait = M.arrivalWait(walk)
       if util.now() - walk.sentAt < wait then return end
@@ -648,6 +683,92 @@ function M.checkArrival()
       walk.resends = walk.resends + 1
       begin(walk, walk.i)
    end
+end
+
+--- The direction the current step goes, or nil for a special exit: what SWIM and OPEN
+--- DOOR are given. A gallop's is the way it gallops.
+function M.stepDirection()
+   local walk = M.walk
+   if not walk then return nil end
+   local command = bare(walk.dirs[walk.i] or "")
+   local dir = command:match("^gallop (%a+) %d+$") or command
+   dir = M.shortDir(dir)
+   for _, short in pairs(M.SHORT) do
+      if short == dir then return dir end
+   end
+   return nil
+end
+
+--- Is this line about a step of ours? Only while a walk is going and something of its
+--- went out lately; a door the user opens by hand is none of the walk's business.
+function M.stepping(window)
+   local walk = M.walk
+   return walk ~= nil and not M.paused and walk.lastSentAt ~= nil
+      and util.now() - walk.lastSentAt <= (window or 5)
+end
+
+--- Do this instead of the current step: `items` is a plan ({ send } / { wait }). For SWIM
+--- and OPEN DOOR, which stand in for the step the game turned back.
+function M.replaceStep(items)
+   local walk = M.walk
+   if not walk or M.paused then return false end
+   walk.queue = items
+   walk.sentAt = nil
+   timers.stop("map.arrival")
+   timers.stop("map.step")
+   step()
+   return true
+end
+
+--- The move takes longer than a step (rubble, a wormhole): wait this much more for it.
+function M.extendWait(seconds)
+   local walk = M.walk
+   if not walk or not walk.sentAt then return false end
+   walk.extra = (walk.extra or 0) + seconds
+   timers.start("map.arrival", M.arrivalWait(walk) - (util.now() - walk.sentAt) + 0.05,
+      function() M.checkArrival() end)
+   return true
+end
+
+--- This exit is shut to us -- a door that will not open, a wall. Lock it until the next map
+--- and go round it. mmp gives up the whole walk here (mmp.failpath).
+function M.refuseExit(why)
+   local walk = M.walk
+   if not walk or not walk.from then return false end
+   local command = bare(walk.dirs[walk.i])
+   local dir = M.stepDirection()
+   if dir and not command:find("^gallop ") then
+      lockExit(walk.from, command, true)
+   elseif not dir then
+      lockSpecialExit(walk.from, walk.rooms[walk.i], command, true)
+   else
+      -- A gallop turned back: which room of its run refused is not known. Walk it instead.
+      walk.noGallop = true
+   end
+   M.badExits[walk.from .. ":" .. command] = true
+   log.warn("Room %d's way %s is shut (%s); going round it.", walk.from, command, why or "refused")
+   M.invalidate()
+   reroute(walk, here() or walk.from, why or "refused")
+   return true
+end
+
+--- Check for the arrival `seconds` from now instead of after the usual wait. For "Now now,
+--- don't be so hasty!", which refuses whatever came LAST -- perhaps a cure, perhaps our
+--- step. Resending at once would move us twice if the step went through; checking soon
+--- after the backoff resends only if no arrival came.
+function M.recheckSoon(seconds)
+   local walk = M.walk
+   if not walk or M.paused or not walk.sentAt then return false end
+   walk.sentAt = util.now() - M.arrivalWait(walk) + seconds
+   timers.start("map.arrival", seconds + 0.05, function() M.checkArrival() end)
+   return true
+end
+
+--- Stop where we are, keeping the route, and say why: `go` carries on.
+function M.pauseFor(why)
+   if not M.walk or M.paused then return false end
+   log.warn("%s", why)
+   return M.pause()
 end
 
 --- Send the current step again from its start, as soon as the gate allows: the game

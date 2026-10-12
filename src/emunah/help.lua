@@ -243,6 +243,8 @@ M.modules = {
       .. "checks as every other command, so it waits out stun, sleep, paralysis or a lost "
       .. "balance instead of walking into them. Re-plans when you end up off the route or "
       .. "the game refuses an exit; double-clicking a room on the map walks there too. "
+      .. "Swims, opens and unlocks doors, goes round a door that will not open, waits out "
+      .. "rubble and ferries, and gallops straight runs while mounted. "
       .. "Locator lines -- farsee, mindsense, the angel, alertness and the rest -- get the "
       .. "room numbers they name as links, and who was where is remembered. "
       .. "The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. "
@@ -450,6 +452,11 @@ M.settings = {
 { key = "map.gallop", default = true, type = "boolean", topic = "map", shipped = false,
   detail = "While mounted, gallop straight runs of two to eleven rooms (HELP GALLOP). A gallop "
      .. "that gets nowhere is not sent again; the walk carries on on foot." },
+{ key = "map.shackle", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "While the density defence is up, take the shackle off for a walk and wear it "
+     .. "again when the walk ends, as mmp does." },
+{ key = "map.sewers", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Let routes go through sewer grates. Off keeps them out (mmp's locksewers)." },
 { key = "map.drawRoute", default = true, type = "boolean", topic = "map", shipped = false,
   detail = "Light a walk's route on the map, the destination brightest, clearing each room "
      .. "as it is passed." },

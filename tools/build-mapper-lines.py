@@ -63,6 +63,58 @@ ENTRIES = [
     ("who",           "who",       "who",    ["Achaea", "Parse wholist"], {"person": 1, "room": 2}),
 ]
 
+# THE MOVEMENT LINES: what the game says when a step does not simply happen. Every pattern
+# of each trigger is taken, of any Mudlet type, and turned into a regex (exact -> ^...$,
+# begin-of-line -> ^..., substring -> as is). What each means for a walk, from mmp's script
+# for it, is declared here; mapper/moves.lua does it.
+#   swim     water ahead: SWIM <dir> (mmp.swim)
+#   open     a closed door: OPEN DOOR <dir>, then the step (mmp.openDoor)
+#   unlock   a locked door: UNLOCK DOOR <dir>, then the step (mmp.unlockDoor)
+#   refused  this way is shut to us -- slammed, bolted, keyless, a wall (mmp.failpath);
+#            ours locks the exit for the session and plans around it
+#   slow     the move takes longer; wait `seconds` more for it (mmp.customwalkdelay)
+#   hasty    moved too fast: the step was not taken, send it again
+#   noworm   "There is no wormhole here." on a worm warp step
+#   land     flying, and the way is indoors (mmp lands only in Starmourn)
+MOVES = [
+    ("swim",            "swim",    ["Have to swim"], None),
+    ("door.closed",     "open",    ["Door in the way"], None),
+    ("door.locked",     "unlock",  ["Door Locked"], None),
+    ("door.cannot",     "refused", ["Failed to open door"], None),
+    ("door.piety",      "refused", ["Doors", "Closing doors", "Lack of piety"], None),
+    ("door.slam",       "refused", ["Doors", "Closing doors", "Slam Shut"], None),
+    ("door.denied",     "refused", ["Doors", "Closing doors", "Denied entry"], None),
+    ("door.cij",        "refused", ["Doors", "Closing doors", "CIJ"], None),
+    ("door.springs",    "refused", ["Doors", "Closing doors", "Springs back"], None),
+    ("door.bolted",     "refused", ["Doors", "Closing doors", "Bolted"], None),
+    ("door.selfclose",  "refused", ["Doors", "Closing doors", "Self-closing door"], None),
+    ("door.click",      "refused", ["Door closed"], None),
+    ("wall",            "refused", ["Wall"], None),
+    ("slow.rubble",     "slow",    ["Rubble at the exit"], 2),
+    ("slow.hobble",     "slow",    ["Hobbling"], 2),
+    ("slow.frozen",     "slow",    ["Frozen"], 2),
+    ("slow.sluggish",   "slow",    ["Retardation/aeon walk delay"], 2),
+    ("slow.wormhole",   "slow",    ["Wormhole"], 4),
+    ("slow.descent",    "slow",    ["Flying", "Wait for landing"], 4),
+    ("hasty",           "hasty",   ["Too quick"], None),
+    ("noworm",          "noworm",  ["No wormhole"], None),
+    ("land",            "land",    ["Flying", "move indoors failed by flying"], None),
+]
+
+TYPE_TO_REGEX = {"0": "substring", "1": "regex", "2": "begin", "3": "exact"}
+
+
+def as_regex(pattern, kind):
+    if kind == "regex":
+        return pattern
+    escaped = re.sub(r"([\\^$.|?*+()\[\]{}])", r"\\\1", pattern)
+    if kind == "exact":
+        return "^" + escaped + "$"
+    if kind == "begin":
+        return "^" + escaped
+    return escaped
+
+
 # Lines that open or close a window rather than locate anyone. Verbatim from mmp.
 SCAN_OPENERS = ["Angel/Demon presences"]
 
@@ -161,12 +213,43 @@ def main():
             continue
         openers.extend(p.text for p in found[0].findall("regexCodeList/string") if p.text)
 
+    moves = []
+    for key, kind, path, seconds in MOVES:
+        found = find(root, path)
+        if len(found) != 1:
+            problems.append(f"{key}: {' / '.join(path)} found {len(found)} times in mmp")
+            continue
+        patterns = [p.text for p in found[0].findall("regexCodeList/string")]
+        types = [p.text for p in found[0].findall("regexCodePropertyList/integer")]
+        # A multi-line trigger fires on its conditions in sequence: "You open the door to
+        # the" arms Door closed, and only the regex after it ("closes with a click") is the
+        # refusal. Taking every pattern made opening a door read as being refused. So from a
+        # multi-line trigger only the regexes are taken.
+        multiline = found[0].get("isMultiline") == "yes"
+        taken = 0
+        for pattern, ptype in zip(patterns, types):
+            how = TYPE_TO_REGEX.get(ptype)
+            if not how or not pattern:
+                continue   # a prompt-line or Lua-function pattern: context, not a line
+            if multiline and how != "regex":
+                continue
+            fields = [f'key = "{key}"', f'kind = "{kind}"',
+                      f'pattern = {literal(as_regex(pattern, how))}',
+                      f'source = "{" / ".join(path)}"']
+            if seconds:
+                fields.append(f"seconds = {seconds}")
+            moves.append("   { " + ", ".join(fields) + " },")
+            taken += 1
+        if taken == 0:
+            problems.append(f"{key}: no usable pattern on {' / '.join(path)}")
+
     if problems:
         for problem in problems:
             print("error:", problem, file=sys.stderr)
         sys.exit(1)
 
     body = "\n".join(lines)
+    moves_body = "\n".join(moves)
     scan = "\n".join(f"   {literal(p)}," for p in openers)
     out.write_text(f"""--- GENERATED by tools/build-mapper-lines.py from the IRE Mudlet Mapper {version}. Do not edit:
 --- change the generator and run it again.
@@ -174,7 +257,7 @@ def main():
 --- mmp's locator lines, verbatim [mmp]. Each pattern is copied from mmp's XML; what its
 --- captures mean (person, room, area, direction) is declared in the generator, since mmp's
 --- own scripts call mmp's functions. mapper/locate.lua registers only the groups switched on
---- in `map.locators`.
+--- in `map.locators`; mapper/moves.lua acts on the movement lines.
 
 local M = {{}}
 
@@ -182,6 +265,12 @@ M.VERSION = "{version}"
 
 M.LINES = {{
 {body}
+}}
+
+--- What the game says when a step does not simply happen [mmp]. Mudlet's exact,
+--- begin-of-line and substring patterns are written here as regexes.
+M.MOVES = {{
+{moves_body}
 }}
 
 --- Exact lines that start the angel's presence scan; until the prompt, "Your guardian angel
@@ -192,7 +281,7 @@ M.SCAN_OPENERS = {{
 
 return M
 """)
-    print(f"wrote {out}: {len(lines)} lines from mmp {version}")
+    print(f"wrote {out}: {len(lines)} locator lines and {len(moves)} movement lines from mmp {version}")
 
 
 if __name__ == "__main__":

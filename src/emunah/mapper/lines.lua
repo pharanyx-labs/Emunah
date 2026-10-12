@@ -4,7 +4,7 @@
 --- mmp's locator lines, verbatim [mmp]. Each pattern is copied from mmp's XML; what its
 --- captures mean (person, room, area, direction) is declared in the generator, since mmp's
 --- own scripts call mmp's functions. mapper/locate.lua registers only the groups switched on
---- in `map.locators`.
+--- in `map.locators`; mapper/moves.lua acts on the movement lines.
 
 local M = {}
 
@@ -27,6 +27,68 @@ M.LINES = {
    { key = "shrine.log", group = "shrines", kind = "place", pattern = [[- A shrine at '(.+)' was destroyed\.$]], source = "Downed shrine in Order logs", room = 1 },
    { key = "shop", group = "shop", kind = "shop", pattern = [[^((?:\d+)(?:mc|gp|cr|gp ea).+)$]], source = "Directory - Catch shop entry", column = 48 },
    { key = "who", group = "who", kind = "who", pattern = [[^(\w+) +\((.+)\)$]], source = "Achaea / Parse wholist", person = 1, room = 2 },
+}
+
+--- What the game says when a step does not simply happen [mmp]. Mudlet's exact,
+--- begin-of-line and substring patterns are written here as regexes.
+M.MOVES = {
+   { key = "swim", kind = "swim", pattern = [[^There's water ahead of you\. You'll have to swim in that direction to make it through\.$]], source = "Have to swim" },
+   { key = "swim", kind = "swim", pattern = [[^There's water ahead of you\. You'll have to swim in that direction to make it $]], source = "Have to swim" },
+   { key = "swim", kind = "swim", pattern = [[^There's water ahead of you\. You'll have to SWIM ]], source = "Have to swim" },
+   { key = "swim", kind = "swim", pattern = [[^You'll have to swim to make it through the water in that direction\.$]], source = "Have to swim" },
+   { key = "swim", kind = "swim", pattern = [[^The water is too deep for you to walk that way, you must swim\.$]], source = "Have to swim" },
+   { key = "swim", kind = "swim", pattern = [[^You'll have to SWIM]], source = "Have to swim" },
+   { key = "door.closed", kind = "open", pattern = [[^There is a door in the way, to the]], source = "Door in the way" },
+   { key = "door.closed", kind = "open", pattern = [[^There is a door in the way\.$]], source = "Door in the way" },
+   { key = "door.closed", kind = "open", pattern = [[^A closed door is in the way\. You need to OPEN DOOR]], source = "Door in the way" },
+   { key = "door.closed", kind = "open", pattern = [[There is an? (?:walnut|pine|oak|iron|reinforced) door in the way.]], source = "Door in the way" },
+   { key = "door.closed", kind = "open", pattern = [[The door to the (\w+) is closed.]], source = "Door in the way" },
+   { key = "door.closed", kind = "open", pattern = [[^There is a closed door in the way\.$]], source = "Door in the way" },
+   { key = "door.closed", kind = "open", pattern = [[The (?:gate|door|way) to the \w+ is closed.]], source = "Door in the way" },
+   { key = "door.closed", kind = "open", pattern = [[The \w+ (?:gate|door) to the \w+ is closed.]], source = "Door in the way" },
+   { key = "door.closed", kind = "open", pattern = [[^The (?:cellar door|manhole) (?:up|down) is closed.]], source = "Door in the way" },
+   { key = "door.closed", kind = "open", pattern = [[The \w+ in that direction is closed.]], source = "Door in the way" },
+   { key = "door.locked", kind = "unlock", pattern = [[^The door is locked\.$]], source = "Door Locked" },
+   { key = "door.locked", kind = "unlock", pattern = [[The (?:walnut|pine|oak|iron|reinforced) door is locked\.]], source = "Door Locked" },
+   { key = "door.locked", kind = "unlock", pattern = [[^The door is locked shut\.$]], source = "Door Locked" },
+   { key = "door.cannot", kind = "refused", pattern = [[^You are not carrying a key for this door\.$]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[^This door has been magically locked shut\.$]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[^Not recognising you as cast or crew, stagehands firmly close the door on you\.$]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[^You push against the door in vain as you try to open it\.$]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[^You do not have access to open this door\.$]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[^The door beeps quietly\. It appears to be locked\.$]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[This (?:walnut|pine|oak|iron|reinforced) door has been magically locked shut\.]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[You are not carrying a key for this (?:walnut|pine|oak|iron|reinforced) door\.]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[^The door has been magically locked shut\.$]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[You must have a lockpick in order to attempt to open the exit\.]], source = "Failed to open door" },
+   { key = "door.cannot", kind = "refused", pattern = [[You need to seek training before being able to pick locks\.]], source = "Failed to open door" },
+   { key = "door.piety", kind = "refused", pattern = [[^You try to open the door to the (\w+) but find it slams closed in your face, symbolic of your lack of piety\.$]], source = "Doors / Closing doors / Lack of piety" },
+   { key = "door.slam", kind = "refused", pattern = [[^The door slams shut!$]], source = "Doors / Closing doors / Slam Shut" },
+   { key = "door.denied", kind = "refused", pattern = [[^The door suddenly slams shut, denying you entry\.$]], source = "Doors / Closing doors / Denied entry" },
+   { key = "door.cij", kind = "refused", pattern = [[^A section of the door slides aside, and a rubber-gloved fist on a spring pops out and punches you in the nose!$]], source = "Doors / Closing doors / CIJ" },
+   { key = "door.springs", kind = "refused", pattern = [[^The door budges, and then springs immediately back into place\.$]], source = "Doors / Closing doors / Springs back" },
+   { key = "door.bolted", kind = "refused", pattern = [[^The door to the (\w+) is closed forcefully from the other side and the sound of a bolt being slammed home makes your lack of admittance clear\.$]], source = "Doors / Closing doors / Bolted" },
+   { key = "door.selfclose", kind = "refused", pattern = [[^The door closes swiftly with a loud 'BANG'!$]], source = "Doors / Closing doors / Self-closing door" },
+   { key = "door.click", kind = "refused", pattern = [[^The door to the \w+ closes with a click\.$]], source = "Door closed" },
+   { key = "wall", kind = "refused", pattern = [[^A wall blocks your way\.$]], source = "Wall" },
+   { key = "slow.rubble", kind = "slow", pattern = [[^You begin to slowly clamber over the rubble that blocks your way\.$]], source = "Rubble at the exit", seconds = 2 },
+   { key = "slow.rubble", kind = "slow", pattern = [[^You begin to slowly clamber over a pile of rubble that blocks your way\.$]], source = "Rubble at the exit", seconds = 2 },
+   { key = "slow.rubble", kind = "slow", pattern = [[^You start plodding carefully across the constructed trenches\.$]], source = "Rubble at the exit", seconds = 2 },
+   { key = "slow.rubble", kind = "slow", pattern = [[^You struggle to climb over the snow drift in your way\.$]], source = "Rubble at the exit", seconds = 2 },
+   { key = "slow.rubble", kind = "slow", pattern = [[^You struggle to climb over the sand dune in your way\.$]], source = "Rubble at the exit", seconds = 2 },
+   { key = "slow.rubble", kind = "slow", pattern = [[^You slowly clamber over the rubble in your path\.$]], source = "Rubble at the exit", seconds = 2 },
+   { key = "slow.hobble", kind = "slow", pattern = [[^You slowly hobble]], source = "Hobbling", seconds = 2 },
+   { key = "slow.hobble", kind = "slow", pattern = [[^The shot in your leg slows you as you hobble away\.$]], source = "Hobbling", seconds = 2 },
+   { key = "slow.frozen", kind = "slow", pattern = [[^You begin moving your frozen body slowly]], source = "Frozen", seconds = 2 },
+   { key = "slow.sluggish", kind = "slow", pattern = [[^You move sluggishly into action\.$]], source = "Retardation/aeon walk delay", seconds = 2 },
+   { key = "slow.wormhole", kind = "slow", pattern = [[^You hurl yourself forwards through the air, and sure enough a swirling vortex of colours springs into existence to swallow you\.$]], source = "Wormhole", seconds = 4 },
+   { key = "slow.wormhole", kind = "slow", pattern = [[^You reach out with the vibrating stick to probe for a wormhole, and as it connects with one, you are sucked through\.$]], source = "Wormhole", seconds = 4 },
+   { key = "slow.descent", kind = "slow", pattern = [[^You continue your descent\.$]], source = "Flying / Wait for landing", seconds = 4 },
+   { key = "hasty", kind = "hasty", pattern = [[^Now now, don't be so hasty!$]], source = "Too quick" },
+   { key = "hasty", kind = "hasty", pattern = [[^You can not move that fast!$]], source = "Too quick" },
+   { key = "hasty", kind = "hasty", pattern = [[^You cannot move that fast, slow down!$]], source = "Too quick" },
+   { key = "noworm", kind = "noworm", pattern = [[^There is no wormhole here\.$]], source = "No wormhole" },
+   { key = "land", kind = "land", pattern = [[^You must land before you can move indoors\.$]], source = "Flying / move indoors failed by flying" },
 }
 
 --- Exact lines that start the angel's presence scan; until the prompt, "Your guardian angel
