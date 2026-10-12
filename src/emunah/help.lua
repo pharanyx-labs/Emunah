@@ -424,7 +424,8 @@ M.settings = {
   shipped = false, detail = "Send a step again when no arrival has followed it in this long; "
      .. "twice, then the walk stops." },
 { key = "map.showSteps", default = true, type = "boolean", topic = "map", shipped = false,
-  detail = "Show how many steps are left after each one." },
+  detail = "Show where a walk is going and the steps left at the end of the prompt, then "
+     .. "that it arrived." },
 { key = "map.waterwalk", default = true, type = "boolean", topic = "map", shipped = false,
   detail = "Off makes routes avoid water rooms where land is not much longer." },
 { key = "map.wormholes", default = false, type = "boolean", topic = "map", shipped = false,

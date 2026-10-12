@@ -303,8 +303,9 @@ local function finish(reason, arrived)
    carried.paused = nil
    timers.stop("map.step")
    if arrived then
-      if walk.quiet then log.debug("Arrived at %s.", walk.label)
-      else log.info("Arrived at %s.", walk.label) end
+      -- Said on the next prompt (see the prompt tag below), not as a line of its own.
+      log.debug("Arrived at %s.", walk.label)
+      if not walk.quiet then M.arrivedAt = walk.label end
       event.raise("map.arrived", walk.target)
    else
       if walk.quiet then log.debug("Stopped walking to %s: %s.", walk.label, reason)
@@ -345,9 +346,6 @@ function step()
       walk.held = false
       walk.lastSentAt = util.now()
       table.remove(walk.queue, 1)
-      if config.get("map.showSteps", true) and not walk.quiet and not walk.queue[1] then
-         decho(emunah.ui.theme.dc("textDim") .. (" (%d left)"):format(stepsLeft(walk) - 1))
-      end
    end
    walk.sentAt = util.now()
 end
@@ -498,6 +496,35 @@ event.register("emunah.room.wrongDirection", function(_, direction)
       walk.dirs[walk.i], walk.from)
    M.invalidate()
    reroute(walk, walk.from, "wrong direction")
+end, "mapper-route")
+
+-- ON THE PROMPT: where the walk is going and how far is left, and then that it arrived.
+-- The prompt line is the one place that is always current and never scrolls a line of its
+-- own; echoing after each step put "(3 left)" on a line by itself under the command. Raised
+-- on the prompt line itself, so the decho lands at its end (riding.lua does the same).
+function M.promptTag()
+   local theme = emunah.ui.theme
+   local walk = M.walk
+   if walk and not walk.quiet then
+      local left = stepsLeft(walk)
+      return " " .. theme.dc("textDim") .. "(" .. theme.dc(M.paused and "warning" or "accent")
+         .. (M.paused and "paused " or "") .. "\226\134\146 " .. walk.label
+         .. theme.dc("textDim") .. " \194\183 " .. theme.dc("balance") .. left
+         .. theme.dc("textDim") .. " left" .. (M.paused and ", go carries on" or "") .. ")"
+   end
+   if M.arrivedAt then
+      local text = " " .. theme.dc("textDim") .. "(" .. theme.dc("defence") .. "arrived: "
+         .. M.arrivedAt .. theme.dc("textDim") .. ")"
+      M.arrivedAt = nil
+      return text
+   end
+   return nil
+end
+
+event.register("emunah.prompt", function()
+   if not config.get("map.showSteps", true) then M.arrivedAt = nil return end
+   local tag = M.promptTag()
+   if tag then decho(tag) end
 end, "mapper-route")
 
 event.register("sysDisconnectionEvent", function() M.stop("disconnected") end, "mapper-route")

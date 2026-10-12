@@ -14267,6 +14267,39 @@ at(5)
 eq(arrived[#arrived], 5, "arriving raises emunah.map.arrived")
 eq(route.walk, nil, "...and ends the walk")
 
+-- ON THE PROMPT, not a line of its own (the user, 2026-10-12: "(0 left)" sat under the
+-- command, and "Arrived at" on a line of its own).
+do
+   reset()
+   route.go(4)
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   local tag = table.concat(mock.echoed, "")
+   ok(tag:find("room 4", 1, true) and tag:find("3", 1, true) and tag:find("left", 1, true),
+      "the prompt ends with where the walk is going and the steps left", tag)
+   mock.echoed = {}
+   at(2); mock.advance(0.5); at(3); mock.advance(0.5); at(4)
+   ok(not table.concat(mock.echoed, "\n"):find("Arrived", 1, true), "arriving is not a line of its own")
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   ok(table.concat(mock.echoed, ""):find("arrived: room 4", 1, true), "...it is on the next prompt")
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   eq(#mock.echoed, 0, "...once")
+   route.go(1); route.pause()
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   ok(table.concat(mock.echoed, ""):find("paused", 1, true), "a stopped walk says so on the prompt")
+   route.stop("test")
+   emunah.config.set("map.showSteps", false)
+   route.go(4)
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   eq(#mock.echoed, 0, "map.showSteps off: nothing on the prompt")
+   emunah.config.set("map.showSteps", true)
+   route.stop("test")
+end
+
 -- SKIPPING AHEAD on the route is fine; leaving it re-plans from where we are.
 reset()
 route.go(8)
