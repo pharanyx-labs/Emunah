@@ -1318,6 +1318,36 @@ table.insert(registry(), tempAlias([[^\s*rf\s+(.+)$]], function()
    emunah.mapper.route.find(matches[2])
 end))
 
+-- STOP and GO, typed bare (the user, 2026-10-12): stop walking and remember the path; carry
+-- on along it. A walk to a `goto` destination first, else the area walk. With nothing to
+-- stop or carry on, the line goes to the game untouched: whether STOP or GO mean something
+-- there is not established, and an alias that swallowed a real command would be a bug
+-- nobody could see.
+function M.stopWalking()
+   local route, walker = emunah.mapper.route, emunah.walker
+   if route.walk and not route.paused and not (walker.enabled and walker.nextRoom
+      and route.walk.target == tonumber(walker.nextRoom)) then
+      return route.pause()
+   end
+   if walker.enabled and not walker.paused then return walker.pause() end
+   return false
+end
+
+function M.carryOn()
+   local route, walker = emunah.mapper.route, emunah.walker
+   if walker.enabled and walker.paused then return walker.resume() end
+   if route.walk and route.paused then return route.resume() end
+   return false
+end
+
+table.insert(registry(), tempAlias([[^\s*stop\s*$]], function()
+   if not M.stopWalking() then send("stop") end
+end))
+
+table.insert(registry(), tempAlias([[^\s*go\s*$]], function()
+   if not M.carryOn() then send("go") end
+end))
+
 -- Reflect whatever curing/keep-up state a fresh load (or a reload mid-session) actually
 -- starts in. ui/echo.lua registers the ongoing on/off listeners itself, but it loads
 -- before curing.engine and curing.defkeepup exist, so it cannot check their initial state

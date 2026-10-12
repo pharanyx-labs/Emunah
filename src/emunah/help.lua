@@ -261,6 +261,12 @@ M.modules = {
         .. "the nearest room with that name" },
    { syntax = "goto <where>", alias = "goto",
      summary = "the same as `emset goto`: goto bank, goto 1234, goto fish street" },
+   { syntax = "stop", alias = "stop",
+     summary = "stop walking and remember the route (a goto, else the area walk); with "
+        .. "nothing walking it goes to the game" },
+   { syntax = "go", alias = "go",
+     summary = "carry on along the remembered route from wherever you are; with nothing "
+        .. "paused it goes to the game" },
    { syntax = "rf <text>", alias = "rf",
      summary = "find rooms whose name contains the text, by area; click a number to walk there" },
    { syntax = "emset goto back",

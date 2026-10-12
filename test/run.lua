@@ -7522,17 +7522,22 @@ ok(stuckOn ~= nil, "walker is heading somewhere")
 local failedBefore = walker.stats.failed
 
 -- Repeated move() calls while travelling must NOT re-issue the walk.
-local walksBefore = #mock.map.walkedTo
-for _ = 1, 5 do walker.move() end
-eq(#mock.map.walkedTo, walksBefore,
-   "move() while already travelling does not restart the speedwalk",
-   #mock.map.walkedTo - walksBefore)
+do
+   local hop = emunah.mapper.route.walk
+   ok(hop ~= nil and hop.target == stuckOn, "the hop is walked by the router")
+   for _ = 1, 5 do walker.move() end
+   eq(emunah.mapper.route.walk, hop, "move() while already travelling does not restart the walk")
+end
 
--- ...but once the timeout passes with no arrival, the room is abandoned.
-mock.advance(10.0)
-walker.move()
+-- ...but once the router gives up on it -- two resends, no arrival -- the room is
+-- abandoned. The router counts on ticks, the walker on the router's word.
+for _ = 1, 4 do
+   mock.advance(4.0)
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
+                              bal = "1", eq = "1" })
+end
 ok(walker.stats.failed > failedBefore,
-   "an unreachable room is given up on after the transit timeout")
+   "an unreachable room is given up on once the router stops trying")
 ok(not emunah.util.contains(walker.remaining, stuckOn),
    "the unreachable room is dropped from the walk list")
 walker.stop("test")
@@ -8836,11 +8841,13 @@ ok(#mock.sent > 0, "...and the step is retried once balance returns",
 -- Unclaimed, a plain walk still speedwalks -- that is what you want with nothing to fight.
 bash.stop("test")
 emunah.walker.release("bashing")
-mock.map.walkedTo = {}
 emunah.walker.nextRoom = nil
 emunah.walker.lastStepAt = nil
 emunah.walker.move()
-ok(#mock.map.walkedTo > 0, "an unpaced walker still speedwalks the whole route")
+ok(emunah.mapper.route.walk ~= nil
+   and emunah.mapper.route.walk.target == emunah.walker.nextRoom,
+   "an unpaced walker still walks the whole route, through the router")
+emunah.mapper.route.stop("test")
 
 -- Restore the fight for the assertions below.
 emunah.walker.stop("test")
@@ -9251,7 +9258,6 @@ bash.start()
 ok(emunah.walker.enabled and bash.enabled, "hunting")
 
 -- Health collapses far enough to trip the flat floor.
-mock.map.walkedTo = {}
 mock.feed("Char.Vitals", { hp = "400", maxhp = "4000" })
 ok(not bash.enabled, "bashing stops on a safety condition")
 ok(not emunah.walker.enabled, "...and the walk stops too, rather than wandering off hurt")
@@ -9260,8 +9266,7 @@ eq(emunah.walker.claimedBy, nil, "...and the walker is not left claimed by a dea
 -- ...and does NOT walk home. Returning to start is right after a completed walk and
 -- actively harmful after an emergency: confirmed live, a safety stop at 44% health while
 -- bleeding 90 a tick immediately speedwalked three rooms back across the area.
-eq(#mock.map.walkedTo, 0, "an emergency stop does not speedwalk home",
-   tostring(#mock.map.walkedTo))
+eq(emunah.mapper.route.walk, nil, "an emergency stop does not walk home, and stops any hop under way")
 
 -- A deliberate stop still just hands pacing back, so `emunah walk` alone keeps working.
 mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
@@ -11131,11 +11136,15 @@ mock.feed("Room.Info", { num = 2, name = "Room 2", area = "Test", exits = { w = 
 mock.feed("Room.Info", { num = 3, name = "Room 3", area = "Test", exits = { w = 2, e = 4 } })
 mock.feed("Room.Info", { num = 4, name = "Room 4", area = "Test", exits = { w = 3, e = 5 } })
 mock.feed("Room.Info", { num = 5, name = "Room 5", area = "Test", exits = { w = 4 } })
-mock.map.walkedTo = {}
 mock.press(mudlet.keymodifier.None, mudlet.key.F12)
 ok(not emunah.walker.enabled and not emunah.bashing.enabled, "F12 stops the hunt")
-eq(mock.map.walkedTo[#mock.map.walkedTo], 2, "...and walks back to the room three rooms ago")
-eq(#mock.map.walkedTo, 1, "...and nowhere else: not back to where the walk started")
+do
+   local back = emunah.mapper.route.walk
+   eq(back and back.target, 2, "...and walks back to the room three rooms ago")
+   ok(back and back.label:find("back the way you came", 1, true),
+      "...and nowhere else: not back to where the walk started")
+   emunah.mapper.route.stop("test")
+end
 
 -- Standing where the trail began: nowhere to go, and it says so.
 emunah.walker.trail = { 7 }
@@ -14519,6 +14528,121 @@ eq(route.go(5), false, "...and no walk starts from there")
 
 reset()
 emunah.timers.stopAll()
+end)()
+
+-- ===========================================================================
+suite("map: the area walk and the hunt on Emunah's router; stop and go")
+
+;(function()
+local route  = emunah.mapper.route
+local walker = emunah.walker
+local act    = emunah.act
+
+local function vitals()
+   mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
+                              bal = "1", eq = "1" })
+end
+local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+local function reset()
+   walker.stop("test"); walker.release(); route.stop("test")
+   emunah.bashing.enabled = false
+   emunah.timers.stopAll()
+   mock.installMap(10)
+   act.halted, act.backoffUntil = nil, nil
+   mock.feed("Char.Afflictions.List", {})
+   vitals(); at(1)
+   route.invalidate()
+   mock.sent, mock.echoed = {}, {}
+end
+
+-- THE AREA WALK GOES THROUGH THE ROUTER, quietly: its hops are room to room.
+reset()
+walker.start()
+mock.advance(1.0)
+ok(route.walk and route.walk.target == walker.nextRoom, "an area walk's hop is walked by the router")
+ok(not table.concat(mock.echoed, "\n"):find("Walking to", 1, true),
+   "...without announcing every hop")
+eq(mock.sent[#mock.sent], "e", "...one gated step")
+
+-- STOPPING THE WALK STOPS THE HOP, and is not mistaken for the hop failing.
+local failed = walker.stats.failed
+walker.stop("hurt", true)
+eq(route.walk, nil, "an emergency stop stops the router's hop too")
+eq(walker.stats.failed, failed, "...and is not counted as a room the router could not reach")
+
+-- A HOP THE ROUTER GIVES UP ON is a room the walker drops.
+reset()
+mock.map.rooms[2].exits = {}          -- one way only: 2 is reachable, nothing past it
+walker.start({ 2, 5 })
+mock.advance(1.0)
+local stuck = walker.nextRoom
+for _ = 1, 4 do mock.advance(4.0); vitals() end
+ok(not emunah.util.contains(walker.remaining, stuck),
+   "a room the router gives up on is dropped from the walk", tostring(stuck))
+walker.stop("test")
+
+-- CLAIMED (hunting), a special exit of several commands is one hop through the router,
+-- never sent raw as "script: ...".
+reset()
+mock.map.rooms[1].exits = {}
+mock.map.rooms[1].specials = { ['script: sendAll("pull vine", "e")'] = 2 }
+route.invalidate()
+walker.claim("test")
+walker.start({ 2 })
+walker.move()
+eq(mock.sent[1], "pull vine", "a claimed walker takes a multi-command exit through the router")
+ok(not table.concat(mock.sent, "|"):find("script", 1, true), "...never sending the script itself")
+walker.stop("test"); walker.release("test")
+
+-- A MOVEMENT KEY stops a goto as well as the walk.
+reset()
+route.go(5)
+emunah.keys.go("w")
+eq(route.walk, nil, "a numpad move stops a goto under way")
+
+-- STOP AND GO (the user, 2026-10-12): stop remembers the route, go carries on along it.
+reset()
+route.go(6)
+at(2); mock.advance(1)
+ok(mock.command("stop"), "stop, typed bare, is ours")
+ok(route.paused and route.walk.target == 6, "stop pauses the walk and keeps where it was going")
+mock.sent = {}
+mock.advance(5); vitals()
+eq(#mock.sent, 0, "...and nothing more is sent")
+at(3)
+mock.command("go")
+eq(route.paused, false, "go carries on")
+eq(route.walk.origin, 3, "...from wherever we are now")
+mock.advance(0.5)
+eq(mock.sent[#mock.sent], "e", "...stepping again")
+
+-- ...across a reload, too.
+mock.command("stop")
+dofile(ROOT .. "/src/emunah.lua")
+route, walker, act = emunah.mapper.route, emunah.walker, emunah.act
+ok(route.walk and route.paused and route.walk.target == 6, "a stopped walk is remembered across emreload")
+mock.command("go")
+eq(route.paused, false, "...and go picks it up")
+route.stop("test")
+
+-- The area walk: stop pauses it (and its hop), go resumes it.
+reset()
+walker.start()
+mock.advance(1.0)
+mock.command("stop")
+ok(walker.paused, "stop pauses an area walk")
+ok(route.paused, "...and the hop it was on")
+mock.command("go")
+ok(not walker.paused and not route.paused, "go resumes both")
+walker.stop("test")
+
+-- NOTHING TO STOP: the line is the game's.
+reset()
+mock.sent = {}
+mock.command("stop"); mock.command("go")
+eq(table.concat(mock.sent, "|"), "stop|go", "with no walk, stop and go go to the game unchanged")
+
+reset()
 end)()
 
 -- ===========================================================================

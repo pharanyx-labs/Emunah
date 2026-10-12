@@ -126,6 +126,12 @@ function M.go(command)
          emunah.walker.stop("manual movement")
          stopped[#stopped + 1] = "the walk"
       end
+      -- A `goto` under way steers too, and would undo the keypress at its next step.
+      local route = emunah.mapper and emunah.mapper.route
+      if route and route.walk then
+         route.stop("manual movement")
+         stopped[#stopped + 1] = "the goto"
+      end
       if #stopped > 0 then
          emunah.log.info("Stopped %s -- you moved manually (%s).",
             table.concat(stopped, " and "), command)

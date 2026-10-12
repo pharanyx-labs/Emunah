@@ -274,6 +274,16 @@ event.register("emunah.map.loaded", function() M.applyPolicy(true) end, "mapper-
 ---   resends, reroutes
 M.walk = nil
 M.paused = false
+
+-- A PAUSED WALK SURVIVES emreload. `stop` is "remember the path" (the user, 2026-10-12),
+-- and a reload in between is no reason to forget it. Only a paused one: a walk in motion
+-- is mid-step, and resuming from the middle of a step is not something to carry across.
+emunah._persist.mapperRoute = emunah._persist.mapperRoute or {}
+local carried = emunah._persist.mapperRoute
+if carried.paused then
+   M.walk, M.paused = carried.paused, true
+   carried.paused = nil
+end
 --- Where the last walk started, for `emset goto back`.
 M.lastStart = nil
 
@@ -290,12 +300,15 @@ local function finish(reason, arrived)
    if not walk then return end
    M.walk = nil
    M.paused = false
+   carried.paused = nil
    timers.stop("map.step")
    if arrived then
-      log.info("Arrived at %s.", walk.label)
+      if walk.quiet then log.debug("Arrived at %s.", walk.label)
+      else log.info("Arrived at %s.", walk.label) end
       event.raise("map.arrived", walk.target)
    else
-      log.info("Stopped walking to %s: %s.", walk.label, reason)
+      if walk.quiet then log.debug("Stopped walking to %s: %s.", walk.label, reason)
+      else log.info("Stopped walking to %s: %s.", walk.label, reason) end
       event.raise("map.stopped", walk.target, reason)
    end
 end
@@ -332,7 +345,7 @@ function step()
       walk.held = false
       walk.lastSentAt = util.now()
       table.remove(walk.queue, 1)
-      if config.get("map.showSteps", true) and not walk.queue[1] then
+      if config.get("map.showSteps", true) and not walk.quiet and not walk.queue[1] then
          decho(emunah.ui.theme.dc("textDim") .. (" (%d left)"):format(stepsLeft(walk) - 1))
       end
    end
@@ -351,8 +364,11 @@ end
 --- Start walking to a room.
 --- @param target number room id
 --- @param label string|nil what to call it in messages ("the bank", "Ashtan")
+--- @param opts table|nil { quiet = true }: start and arrival at debug, no step counts. For
+---        the area walker, whose hops are room to room and would otherwise announce
+---        themselves every few seconds.
 --- @return boolean started
-function M.go(target, label)
+function M.go(target, label, opts)
    target = tonumber(target)
    local from = here()
    if not target then return false end
@@ -378,10 +394,12 @@ function M.go(target, label)
    end
    if M.walk then finish("a new destination") end
    M.lastStart = from
+   local quiet = opts and opts.quiet or false
    M.walk = { target = target, label = label, dirs = dirs, rooms = rooms, origin = from,
-              resends = 0, reroutes = 0, startedAt = util.now() }
+              resends = 0, reroutes = 0, startedAt = util.now(), quiet = quiet }
    M.paused = false
-   log.info("Walking to %s: %d step%s.", label, #dirs, #dirs == 1 and "" or "s")
+   if quiet then log.debug("Walking to %s: %d step%s.", label, #dirs, #dirs == 1 and "" or "s")
+   else log.info("Walking to %s: %d step%s.", label, #dirs, #dirs == 1 and "" or "s") end
    event.raise("map.walking", target, #dirs)
    begin(M.walk, 1)
    return true
@@ -397,13 +415,16 @@ function M.pause()
    if not M.walk or M.paused then return false end
    M.paused = true
    timers.stop("map.step")
-   log.info("Walk to %s paused.", M.walk.label)
+   carried.paused = M.walk
+   log.info("Walk to %s paused; %d step%s left. `go` carries on.", M.walk.label,
+      #M.walk.dirs - M.walk.i + 1, #M.walk.dirs - M.walk.i + 1 == 1 and "" or "s")
    return true
 end
 
 function M.resume()
    if not M.walk or not M.paused then return false end
    M.paused = false
+   carried.paused = nil
    log.info("Walk to %s resumed.", M.walk.label)
    -- Plan again from wherever we are now: anything may have moved us while paused, and a
    -- half-sent special exit is safer started over than finished from the middle.
