@@ -25,7 +25,12 @@ Before writing code that depends on how the game behaves:
    logic is more credible than Emunah's own** (the user's ruling). Where they disagree,
    change Emunah to match unless a timestamped transcript shows svof is wrong for today's
    game (it dates from 2021). Cite it as `[svof]` in `docs/game/`.
-3. **If it is not in either, ask.** One question costs the user a paste. A wrong guess costs a
+   For mapping and movement (doors, swimming, ferries, wormholes, sewers, flying, locator
+   lines), the IRE Mudlet Mapper is the equivalent reference, by the user's ruling
+   (2026-10-12): its game lines and command syntax are in the profile's
+   `map downloads/mudlet-mapper.xml`. Cite it as `[mmp]`. Its syntax for a command still
+   needs the command's HELP before Emunah sends it (cost, requirements, rejection lines).
+3. **If it is not in any of these, ask.** One question costs the user a paste. A wrong guess costs a
    play session, a bug report, and a round trip — and tends to surface as a *worse* bug than
    the one being fixed.
 4. **Never infer a command's existence or syntax.** If the exact string is not in

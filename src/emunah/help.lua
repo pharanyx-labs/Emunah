@@ -237,6 +237,23 @@ M.modules = {
      summary = "mark a whole organisation hostile (everyone in it is an enemy), or list them" },
   } },
 
+{ id = "map", title = "Map", summary = "keeps the crowdmap current, with your own changes kept on it",
+  state = function() return config("map.autoupdate", true) end,
+  does = "The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. "
+      .. "Emunah checks for a new version when it loads and every hour, shows what changed, "
+      .. "and loads it, waiting for a walk to end first. Rooms you lock or weight are kept "
+      .. "outside the map and put back after every update. As you walk, rooms whose name, "
+      .. "environment, indoors/outdoors or area disagree with GMCP are corrected. While the "
+      .. "mmp package is running it keeps updating the map itself, and Emunah leaves it to it.",
+  commands = {
+   { syntax = "emset map", handler = "map",
+     summary = "the map's version, the last check, and what your overlay holds" },
+   { syntax = "emset map update",
+     summary = "check for a new crowdmap now" },
+   { syntax = "emset map load",
+     summary = "load a downloaded map that did not load (open the map window first)" },
+  } },
+
 { id = "interface", title = "Interface", summary = "the panels, chat tabs and map",
   state = function() return config("ui.enabled", true) end,
   does = "The panels around the game text: vitals, afflictions, defences, chat tabs, the "
@@ -358,6 +375,17 @@ M.settings = {
   detail = "name -> \"defup\" or \"keepup\". Written by the defence grid." },
 { key = "defences.commands", default = "{}", type = "table", topic = "defences", shipped = false,
   detail = "name -> the command that raises it, for defences we ship no command for." },
+
+-- map
+{ key = "map.autoupdate", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Check for a new crowdmap on load and every map.checkEvery minutes." },
+{ key = "map.checkEvery", default = 60, type = "number", unit = "min", topic = "map",
+  shipped = false, detail = "At least 5." },
+{ key = "map.changelog", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Show the crowdmap's changelog entries since the last update." },
+{ key = "map.gmcpSync", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Correct a room's name, environment, indoors/outdoors and area from GMCP as you "
+     .. "walk." },
 
 -- walker
 { key = "walker.avoid", default = "{}", type = "table", topic = "hunting", shipped = true },

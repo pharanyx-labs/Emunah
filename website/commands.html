@@ -459,6 +459,29 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>names.enemyLinks</code></td><td>true</td><td>An enemy's name in the game text is a link: click it for their record, as <code>emset whois</code>.</td></tr>
 </tbody></table></div>
 
+<h2 id="map">Map</h2>
+<p>The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. Emunah checks for a new version when it loads and every hour, shows what changed, and loads it, waiting for a walk to end first. Rooms you lock or weight are kept outside the map and put back after every update. As you walk, rooms whose name, environment, indoors/outdoors or area disagree with GMCP are corrected. While the mmp package is running it keeps updating the map itself, and Emunah leaves it to it.</p>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map</span>
+<p>the map's version, the last check, and what your overlay holds</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map update</span>
+<p>check for a new crowdmap now</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset map load</span>
+<p>load a downloaded map that did not load (open the map window first)</p>
+</div>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>map.autoupdate</code></td><td>true</td><td>Check for a new crowdmap on load and every map.checkEvery minutes.</td></tr>
+<tr><td><code>map.checkEvery</code></td><td>60 min</td><td>At least 5.</td></tr>
+<tr><td><code>map.changelog</code></td><td>true</td><td>Show the crowdmap's changelog entries since the last update.</td></tr>
+<tr><td><code>map.gmcpSync</code></td><td>true</td><td>Correct a room's name, environment, indoors/outdoors and area from GMCP as you walk.</td></tr>
+</tbody></table></div>
+
 <h2 id="interface">Interface</h2>
 <p>The panels around the game text: vitals, afflictions, defences, chat tabs, the room and its people, your target, and the map.</p>
 <div class="cmd-block">
@@ -505,6 +528,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
   <a href="#loot">Loot &amp; shop</a>
   <a href="#antitheft">Antitheft</a>
   <a href="#people">People</a>
+  <a href="#map">Map</a>
   <a href="#interface">Interface</a>
 </aside>
 </div>

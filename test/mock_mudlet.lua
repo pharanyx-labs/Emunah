@@ -630,6 +630,91 @@ function mock.install(homeDir)
    local realClock = os.clock
    os.clock = function() return mock.clock end
    mock.realClock = realClock
+
+   mock.installMapApi()
+end
+
+--- Mudlet's map API, over mock.map. Real Mudlet always has these, map or no map, so the
+--- mock does too: without a map every room is simply missing. mock.installMap() fills the
+--- rooms and replaces the pathfinding half.
+---
+--- Locks and weights are stored on the room so a test can see what the overlay put back
+--- after a loadMap(), which in real Mudlet replaces every room and with it every lock.
+function mock.installMapApi()
+   mock.loadedMaps = {}
+   mock.loadMapResult = true
+
+   local function room(id) return mock.map and mock.map.rooms[tonumber(id)] end
+
+   function _G.roomExists(id) return room(id) ~= nil end
+   function _G.getRoomName(id)
+      local r = room(id)
+      return r and (r.name or ("Room " .. id)) or nil
+   end
+   function _G.setRoomName(id, name) local r = room(id) if r then r.name = name end end
+   function _G.getRoomEnv(id) local r = room(id) return r and (r.env or -1) or nil end
+   function _G.setRoomEnv(id, env) local r = room(id) if r then r.env = env end end
+   function _G.getRoomChar(id) local r = room(id) return r and (r.char or "") or nil end
+   function _G.setRoomChar(id, char) local r = room(id) if r then r.char = char end end
+   function _G.getRoomUserData(id, key)
+      local r = room(id)
+      return r and r.userdata and r.userdata[key] or ""
+   end
+   function _G.setRoomUserData(id, key, value)
+      local r = room(id)
+      if not r then return false end
+      r.userdata = r.userdata or {}
+      r.userdata[key] = tostring(value)
+      return true
+   end
+   function _G.clearRoomUserDataItem(id, key)
+      local r = room(id)
+      if r and r.userdata then r.userdata[key] = nil end
+   end
+   function _G.lockRoom(id, lock) local r = room(id) if r then r.locked = lock and true or nil end end
+   function _G.roomLocked(id) local r = room(id) return r ~= nil and r.locked == true end
+   function _G.lockExit(id, dir, lock)
+      local r = room(id)
+      if not r then return end
+      r.exitLocks = r.exitLocks or {}
+      r.exitLocks[dir] = lock and true or nil
+   end
+   function _G.hasExitLock(id, dir)
+      local r = room(id)
+      return r ~= nil and r.exitLocks ~= nil and r.exitLocks[dir] == true
+   end
+   function _G.getSpecialExitsSwap(id)
+      local r = room(id)
+      return r and r.specials or {}
+   end
+   function _G.lockSpecialExit(from, to, command, lock)
+      local r = room(from)
+      if not r then return end
+      r.specialLocks = r.specialLocks or {}
+      r.specialLocks[command] = lock and true or nil
+   end
+   function _G.setRoomWeight(id, weight) local r = room(id) if r then r.weight = weight end end
+   function _G.getRoomWeight(id) local r = room(id) return r and (r.weight or 1) or nil end
+   function _G.setExitWeight(id, dir, weight)
+      local r = room(id)
+      if not r then return end
+      r.exitWeights = r.exitWeights or {}
+      r.exitWeights[dir] = weight
+   end
+   function _G.getExitWeights(id) local r = room(id) return r and r.exitWeights or {} end
+   if not rawget(_G, "getAreaTable") then _G.getAreaTable = function() return {} end end
+   if not rawget(_G, "getAreaRooms") then _G.getAreaRooms = function() return {} end end
+
+   --- Records the path, and by default "loads" it by clearing every lock and weight, the
+   --- way a fresh map file would arrive without them.
+   function _G.loadMap(path)
+      mock.loadedMaps[#mock.loadedMaps + 1] = path
+      if not mock.loadMapResult then return false end
+      for _, r in pairs(mock.map and mock.map.rooms or {}) do
+         r.locked, r.exitLocks, r.specialLocks, r.weight, r.exitWeights = nil, nil, nil, nil, nil
+      end
+      return true
+   end
 end
 
 -- ---------------------------------------------------------------------------
@@ -979,9 +1064,6 @@ function mock.installMap(count)
       local out = {}
       for id in pairs(mock.map.rooms) do out[id] = "Room " .. id end
       return out
-   end
-   function _G.getRoomName(id)
-      return mock.map.rooms[tonumber(id)] and ("Room " .. id) or nil
    end
 
    -- Records WHERE the walk was headed (the last getPath's destination), so a test can

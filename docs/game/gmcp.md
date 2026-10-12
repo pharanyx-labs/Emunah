@@ -22,6 +22,17 @@ unsolicited list for the room you are *standing in*. Ask the walker instead.
 **`Room.Info` is duplicated** on every room change. Harmless — handlers early-return on an
 unchanged room number — but do not read the second as a second movement.
 
+## Room.Info.details marks indoors and the wilderness
+
+`details` is an array of flags. A room you are indoors in carries `"indoors"`, and a
+wilderness room `"wilderness"`; a room without `"indoors"` is outdoors. [mmp:
+`mmp.syncSafeRoomInfo`, which the crowdmap's own indoors/outdoors marks are kept in step
+with.] `src/emunah/mapper/data.lua` writes them onto the map the same way, as the room user
+data `indoors` or `outdoors` = `"y"` and the room character `W`.
+
+The game's area name is `area` (e.g. "the Western Ithmia"); the crowdmap keeps it as the
+user data `Game Area`, separately from the map's own area. [mmp]
+
 ## Room.Players includes you
 
 Standing alone:

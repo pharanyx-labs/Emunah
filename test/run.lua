@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 64, "all 64 manifest modules loaded")
+eq(loadedModules, 65, "all 65 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -13977,6 +13977,221 @@ eq(#emunah.curing.situations.rules, #emunah.curing.situations.RULES,
    "ownprios off: every shipped rule is back")
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 engine.enabled = false
+end)()
+
+-- ===========================================================================
+suite("map: the crowdmap kept current, your overlay kept across updates, rooms fixed from GMCP")
+
+-- Replaces the map-data half of mmp. The URLs, the changelog format, the environment ids
+-- and the room-name rules are mmp's; see the header of src/emunah/mapper/data.lua.
+;(function()
+local data   = emunah.mapper.data
+local config = emunah.config
+local walker = emunah.walker
+local URL    = data.URL
+
+local function said(text)
+   return table.concat(mock.echoed, "\n"):find(text, 1, true) ~= nil
+end
+local function requested(url)
+   for _, request in ipairs(mock.requests) do
+      if request.url == url then return true end
+   end
+   return false
+end
+local loadedEvents = {}
+registerAnonymousEventHandler("emunah.map.loaded", function(_, version)
+   loadedEvents[#loadedEvents + 1] = version
+end)
+
+local function fresh(version, changes)
+   emunah.timers.stopAll()
+   mock.requests, mock.loadedMaps, mock.echoed = {}, {}, {}
+   mock.loadMapResult = true
+   walker.enabled = false
+   data.busy, data.incoming, data.pending = nil, nil, nil
+   data.store = { version = version, changes = changes, overlay = {
+      lockRoom = {}, lockExit = {}, roomWeight = {}, exitWeight = {}, lockArea = {} } }
+end
+
+mock.installMap(10)
+
+-- THE WHOLE UPDATE: version, changelog, map, load.
+fresh("485", 2)
+mock.serve(URL.version, "486\n")
+mock.serve(URL.changelog, "changelog = {\n\t[[First]],\n\t[[Second]],\n\t[[Added the\nWestern Ithmia]]\n}\n")
+mock.serve(URL.map, "MAPDATA")
+ok(data.check(true), "emset map update asks for the version")
+ok(requested(URL.version), "...from the published crowdmap")
+mock.respond()
+ok(requested(URL.changelog), "a newer version fetches the changelog")
+mock.respond()
+ok(said("Added the Western Ithmia"), "the entry past the two seen last time is shown")
+ok(not said("Second"), "...and the ones already seen are not")
+eq(data.store.changes, 3, "...and the count seen is remembered")
+ok(requested(URL.map), "then the map itself")
+mock.respond()
+eq(mock.loadedMaps[1], data.FILE.map, "the downloaded map is loaded into Mudlet")
+eq(data.store.version, "486", "...and its version recorded")
+eq(loadedEvents[#loadedEvents], "486", "...and emunah.map.loaded is raised with it")
+eq(data.busy, nil, "...and nothing is left waiting")
+eq(io.open(data.FILE.map, "r"), nil, "the downloaded file is removed once loaded")
+eq(emunah.timers.active("map.check"), true, "the next automatic check is armed")
+
+-- ALREADY CURRENT: no map is downloaded, and asking says so.
+fresh("486", 3)
+data.check(true)
+mock.respond()
+ok(not requested(URL.map) and #mock.loadedMaps == 0, "a current map is not downloaded again")
+ok(said("current (version 486)"), "...and asking says it is current")
+
+-- A version.txt that is not a version -- an error page -- must not start a download.
+fresh("486", 3)
+mock.serve(URL.version, "<html>\n<body>404</body>\n</html>")
+data.check(false)
+mock.respond()
+ok(not requested(URL.changelog) and not requested(URL.map), "a garbled version.txt downloads nothing")
+eq(data.busy, nil, "...and the checker is free again")
+mock.serve(URL.version, "486\n")
+
+-- A FAILED OR LOST DOWNLOAD frees the checker rather than wedging it until a reload.
+fresh("485", 3)
+mock.serve(URL.version, nil)
+data.check(false)
+mock.respond()   -- no canned body: delivered as a download error
+eq(data.busy, nil, "a failed download frees the checker")
+fresh("485", 3)
+data.check(false)
+mock.requests = {}   -- the answer never comes
+mock.advance(data.TIMEOUT.version + 1)
+eq(data.busy, nil, "...and so does one that never answers")
+mock.serve(URL.version, "486\n")
+
+-- CHANGELOG OFF goes straight to the map.
+fresh("485", 3)
+config.set("map.changelog", false)
+data.check(false)
+mock.respond()
+ok(requested(URL.map) and not requested(URL.changelog), "map.changelog off skips the changelog")
+mock.respond()
+config.set("map.changelog", true)
+
+-- NOT MID-WALK: the map waits for the walk to end, then loads.
+fresh("485", 3)
+walker.enabled = true
+data.check(false)
+mock.respond(); mock.respond(); mock.respond()
+eq(#mock.loadedMaps, 0, "a map that arrives mid-walk is not loaded under the route")
+eq(data.pending, data.FILE.map, "...it waits")
+walker.enabled = false
+raiseEvent("emunah.walker.finished", 3, "done")
+eq(#mock.loadedMaps, 1, "...and loads when the walk finishes")
+eq(data.store.version, "486", "...with the version it was downloaded as")
+
+-- A LOAD MAPPER REFUSES keeps the file, and `emset map load` tries again.
+fresh("485", 3)
+mock.loadMapResult = false
+data.check(false)
+mock.respond(); mock.respond(); mock.respond()
+eq(data.store.version, "485", "a refused load does not record the new version")
+ok(said("emset map load"), "...and says how to retry")
+mock.loadMapResult = true
+emunah.commands.dispatch("map load")
+eq(data.store.version, "486", "emset map load loads it")
+
+-- WHILE mmp IS RUNNING it does the updating, so we do not download the map twice.
+fresh("485", 3)
+_G.mmp = { checkforupdate = function() end }
+eq(data.check(true), false, "with mmp running, no check is made")
+eq(#mock.requests, 0, "...nothing is downloaded")
+ok(said("mmp is running"), "...and asking says why")
+_G.mmp = nil
+
+-- THE CHANGELOG IS READ, NEVER RUN. mmp executes it; a pattern match is enough.
+local entries = data.parseChangelog("os.exit(1)\nchangelog = { [[one]], [[two\nlines]] }")
+eq(#entries, 2, "the changelog's entries are read without running it")
+eq(entries[2], "two\nlines", "...multi-line entries intact")
+
+-- ADOPTING mmp's MARKER, so switching over does not re-download the loaded map.
+local marker = data.MMP_MARKER
+data.MMP_MARKER = os.tmpname()
+local function mark(text)
+   local file = io.open(data.MMP_MARKER, "w"); file:write(text); file:close()
+end
+mark('{"version":"486","identity":"published:achaea"}')
+eq(data.mmpVersion(), "486", "mmp's marker gives the version it loaded")
+mark('{"version":"0f3a","identity":"game:achaea"}')
+eq(data.mmpVersion(), nil, "...but not when it was the game's own map")
+mark("471\n")
+eq(data.mmpVersion(), "471", "...and an old bare marker still reads")
+os.remove(data.MMP_MARKER)
+data.MMP_MARKER = marker
+
+-- THE OVERLAY SURVIVES A LOAD: loadMap() wipes locks and weights; they come back.
+fresh("485", 3)
+local rooms = mock.map.rooms
+data.remember("lockRoom", 3)
+data.remember("lockExit", 4, "north")
+data.remember("roomWeight", 5, nil, 20)
+rooms[6].specials = { ["enter portal"] = 9 }
+data.remember("lockExit", 6, "enter portal")
+eq(rooms[3].locked, true, "a remembered lock is put on the map at once")
+eq(rooms[6].specialLocks and rooms[6].specialLocks["enter portal"], true,
+   "a special exit is locked as a special exit")
+data.check(false)
+mock.respond(); mock.respond(); mock.respond()
+eq(#mock.loadedMaps, 1, "(the new map loaded)")
+eq(rooms[3].locked, true, "a locked room is locked again after the update")
+eq(rooms[4].exitLocks and rooms[4].exitLocks.north, true, "...a locked exit")
+eq(rooms[5].weight, 20, "...a weight")
+eq(rooms[6].specialLocks and rooms[6].specialLocks["enter portal"], true, "...a special exit")
+ok(data.forget("lockRoom", 3) and rooms[3].locked == nil, "forgetting unlocks it")
+eq(data.forget("lockRoom", 3), false, "...and forgetting it twice is a no-op")
+data.forget("lockExit", 4, "north"); data.forget("roomWeight", 5); data.forget("lockExit", 6, "enter portal")
+eq(rooms[5].weight, 1, "a forgotten weight goes back to 1")
+data.remember("lockRoom", 999)
+local _, skipped = data.apply()
+eq(skipped, 1, "an overlay room the map does not have is skipped, not an error")
+data.forget("lockRoom", 999)
+data.remember("lockArea", "Test Area")
+ok(rooms[1].locked and rooms[10].locked, "an area lock locks every room in it")
+data.remember("lockRoom", 2)
+data.forget("lockArea", "Test Area")
+ok(not rooms[1].locked and not rooms[10].locked, "...and unlocking it frees them")
+eq(rooms[2].locked, true, "...but not a room that is locked on its own as well")
+data.remember("lockArea", "Test Area")
+data.forget("lockRoom", 2)
+eq(rooms[2].locked, true, "unlocking a room inside a locked area leaves it locked")
+data.forget("lockArea", "Test Area")
+
+-- ROOMS CORRECTED FROM GMCP as you walk, on the fields GMCP states outright.
+eq(data.cleanName("Flying above Main Street (road)."), "Main Street",
+   "the crowdmap's name: no 'Flying above', no period, no '(road)'")
+eq(data.cleanName("The ruins of a temple (indoors)"), "a temple", "...nor '(indoors)'")
+mock.feed("Room.Info", { num = 3, name = "A dusty road.", area = "the Western Ithmia",
+   environment = "Road", details = { "indoors" }, exits = {} })
+eq(getRoomName(3), "A dusty road", "Room.Info renames a mapped room")
+eq(getRoomEnv(3), 12, "...sets the crowdmap's environment id for Road")
+eq(getRoomUserData(3, "indoors"), "y", "...marks it indoors")
+eq(getRoomUserData(3, "Game Area"), "the Western Ithmia", "...and records the game's area")
+mock.feed("Room.Info", { num = 3, name = "A dusty road", area = "the Western Ithmia",
+   environment = "Road", details = { "wilderness" }, exits = {} })
+eq(getRoomUserData(3, "indoors"), "", "no 'indoors' detail clears indoors")
+eq(getRoomUserData(3, "outdoors"), "y", "...and marks it outdoors")
+eq(getRoomChar(3), "W", "a wilderness room gets the W mark")
+config.set("map.gmcpSync", false)
+mock.feed("Room.Info", { num = 3, name = "Somewhere else", exits = {} })
+eq(getRoomName(3), "A dusty road", "map.gmcpSync off leaves the map alone")
+config.set("map.gmcpSync", true)
+eq(#data.sync(999, { name = "Nowhere" }), 0, "a room not on the map is not created")
+
+-- emset map renders.
+mock.echoed = {}
+emunah.commands.dispatch("map")
+ok(said("version"), "emset map shows the map's version")
+
+fresh("486", 3)
+emunah.timers.stopAll()
 end)()
 
 io.write("\n", string.rep("-", 60), "\n")

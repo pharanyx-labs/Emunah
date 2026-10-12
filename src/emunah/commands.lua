@@ -788,6 +788,35 @@ M.handlers.walk = function(arg)
    end
 end
 
+M.handlers.map = function(arg)
+   local data = emunah.mapper.data
+   if arg == "update" then
+      data.check(true)
+   elseif arg == "load" then
+      if not data.pending then log.info("No downloaded map is waiting to load.")
+      else data.loadPending() end
+   else
+      if arg then log.warn("Unknown: emset map %s. Try `emset map update|load`.", tostring(arg)) end
+      local store = data.store
+      header("Map")
+      row("version", tostring(store.version or "unknown")
+         .. (store.adopted == "mmp" and " (as mmp last loaded it)" or ""))
+      row("last check", store.checkedAt and (ago(store.checkedAt) .. " ago") or "never")
+      if data.mmpActive() then
+         row("updates", "left to mmp, which is running", "warning")
+      else
+         row("updates", emunah.config.get("map.autoupdate", true) and "automatic" or "off")
+      end
+      if data.busy then row("fetching", data.busy) end
+      if data.pending then row("waiting", "a downloaded map loads when the walk ends") end
+      local counts = data.overlayCounts()
+      row("overlay", ("%d locked rooms, %d locked exits, %d locked areas, %d weights")
+         :format(counts.lockRoom or 0, counts.lockExit or 0, counts.lockArea or 0,
+            (counts.roomWeight or 0) + (counts.exitWeight or 0)))
+      decho("\n  " .. faint("emset map update|load  --  emhelp map for its settings"))
+   end
+end
+
 M.handlers.debug = function(arg)
    if arg == "handlers" then
       header("Event handlers")
