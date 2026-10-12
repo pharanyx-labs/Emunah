@@ -1331,6 +1331,19 @@ table.insert(registry(), tempAlias([[^\s*rf\s+(.+)$]], function()
    emunah.mapper.route.find(matches[2])
 end))
 
+-- RL, typed bare (the user, 2026-10-12): `rl` for here, `rl 1234` for any room -- mmp's
+-- word for `emset room`. Two aliases rather than an optional group: the test mock turns
+-- these regexes into Lua patterns, which have no (?:...).
+table.insert(registry(), tempAlias([[^\s*rl\s*$]], function()
+   if emunah.mapper.data.mmpActive() then log.debug("rl left to mmp, which is running.") return end
+   emunah.mapper.info.room(nil)
+end))
+
+table.insert(registry(), tempAlias([[^\s*rl\s+(\d+)\s*$]], function()
+   if emunah.mapper.data.mmpActive() then log.debug("rl left to mmp, which is running.") return end
+   emunah.mapper.info.room(matches[2])
+end))
+
 -- STOP and GO, typed bare (the user, 2026-10-12): stop walking and remember the path; carry
 -- on along it. A walk to a `goto` destination first, else the area walk. With nothing to
 -- stop or carry on, the line goes to the game untouched: whether STOP or GO mean something

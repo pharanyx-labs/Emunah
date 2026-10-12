@@ -276,6 +276,8 @@ M.modules = {
    { syntax = "emset room [number]", handler = "room",
      summary = "everything the map holds about a room (here by default): exits, special "
         .. "exits as Emunah reads them, locks, weights, features, distance" },
+   { syntax = "rl [number]", alias = "rl",
+     summary = "the same as `emset room`" },
    { syntax = "emset areas [text]", handler = "areas",
      summary = "every area with its room count, or those whose name contains the text" },
    { syntax = "emset rooms <area>", handler = "rooms",

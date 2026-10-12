@@ -14748,6 +14748,10 @@ info.echoNumbers("Nowhere At All")
 ok(text():find("not on the map", 1, true), "a name the map does not have says so")
 
 mock.echoed = {}
+ok(mock.command("rl 3") and text():find("Fish Street", 1, true), "rl <n>, typed bare")
+mock.echoed = {}
+ok(mock.command("rl") and text():find("Room 1", 1, true), "rl alone: the room you are in")
+mock.echoed = {}
 ok(pcall(emunah.commands.dispatch, "room 3") and text():find("Fish Street", 1, true), "emset room")
 ok(pcall(emunah.commands.dispatch, "areas"), "emset areas")
 ok(pcall(emunah.commands.dispatch, "rooms test area"), "emset rooms")
