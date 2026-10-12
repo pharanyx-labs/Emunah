@@ -117,6 +117,8 @@ local MANIFEST = {
    { path = "emunah.mapper.data",        as = "mapper.data"   },
    -- going places: routes, stepping, areas and features. Over mapper.data and act.
    { path = "emunah.mapper.route",       as = "mapper.route"  },
+   -- what the map knows: room details, area and room lists, numbers for a named room
+   { path = "emunah.mapper.info",        as = "mapper.info"   },
 
    -- area walker: needs gmcp.room for position and config for its avoid list
    { path = "emunah.walker",             as = "walker"        },

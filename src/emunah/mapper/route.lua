@@ -109,6 +109,17 @@ event.register("emunah.map.changed", function() M.invalidate() end, "mapper-rout
 -- special exits
 -- ---------------------------------------------------------------------------
 
+--- Directions in one form. getRoomExits() names exits in full ("north"), getPath()'s
+--- speedWalkDir in short ("n"), and Room.WrongDir is not established either way; compare
+--- through this, never as typed.
+M.SHORT = { north = "n", south = "s", east = "e", west = "w", northeast = "ne",
+            northwest = "nw", southeast = "se", southwest = "sw", up = "u", down = "d",
+            ["in"] = "in", out = "out" }
+function M.shortDir(dir)
+   dir = tostring(dir or ""):lower()
+   return M.SHORT[dir] or dir
+end
+
 --- Older crowdmaps prefix a special exit with "0" or "1", its lock state [mmp:
 --- mmp.fixSpecialExits].
 local function bare(command)
@@ -489,7 +500,7 @@ M.badExits = {}
 event.register("emunah.room.wrongDirection", function(_, direction)
    local walk = M.walk
    if not walk or not walk.from then return end
-   if bare(walk.dirs[walk.i]):lower() ~= tostring(direction):lower() then return end
+   if M.shortDir(bare(walk.dirs[walk.i])) ~= M.shortDir(direction) then return end
    lockExit(walk.from, walk.dirs[walk.i], true)
    M.badExits[walk.from .. ":" .. walk.dirs[walk.i]] = true
    log.warn("The game has no %s exit in room %d; locked out of routes until the next map.",

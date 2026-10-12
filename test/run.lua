@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 67, "all 67 manifest modules loaded")
+eq(loadedModules, 68, "all 68 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -14151,7 +14151,7 @@ data.check(false)
 mock.respond(); mock.respond(); mock.respond()
 eq(#mock.loadedMaps, 1, "(the new map loaded)")
 eq(rooms[3].locked, true, "a locked room is locked again after the update")
-eq(rooms[4].exitLocks and rooms[4].exitLocks.north, true, "...a locked exit")
+eq(hasExitLock(4, "north"), true, "...a locked exit")
 eq(rooms[5].weight, 20, "...a weight")
 eq(rooms[6].specialLocks and rooms[6].specialLocks["enter portal"], true, "...a special exit")
 ok(data.forget("lockRoom", 3) and rooms[3].locked == nil, "forgetting unlocks it")
@@ -14676,6 +14676,82 @@ mock.command("stop"); mock.command("go")
 eq(table.concat(mock.sent, "|"), "stop|go", "with no walk, stop and go go to the game unchanged")
 
 reset()
+end)()
+
+-- ===========================================================================
+suite("map: room details, area and room lists, room numbers for a named room")
+
+;(function()
+local info  = emunah.mapper.info
+local route = emunah.mapper.route
+local data  = emunah.mapper.data
+
+mock.installMap(10)
+mock.feed("Room.Info", { num = 1, name = "Room 1", exits = {} })
+route.invalidate()
+local rooms = mock.map.rooms
+local function text() return table.concat(mock.echoed, "") end
+
+rooms[3].name = "Fish Street"
+rooms[3].env = data.ENV.Road
+rooms[3].userdata = { indoors = "y", ["Game Area"] = "the City of Targossas", ["feature-bank"] = "true" }
+mock.mapUserData.mapFeatures = '{"bank":""}'
+rooms[3].exits = { w = 2, e = 4, n = 9 }
+rooms[3].specials = { ['script: sendAll("pull vine", "e")'] = 5,
+                      ['script: send("enter whirlpool") if x then killTrigger(x) end'] = 6 }
+route.unreadable["3>6"] = rooms[3].specials['script: send("enter whirlpool") if x then killTrigger(x) end']
+lockSpecialExit(3, 6, 'script: send("enter whirlpool") if x then killTrigger(x) end', true)
+data.remember("lockExit", 3, "n")
+rooms[9].area = 2
+local swap = _G.getAreaTableSwap
+_G.getAreaTableSwap = function() return { [1] = "Test Area", [2] = "Far Woods" } end
+
+mock.echoed, mock.links = {}, {}
+ok(info.room(3), "emset room <n> describes a room")
+local out = text()
+ok(out:find("Fish Street", 1, true) and out:find("(3)", 1, true), "...its name and number")
+ok(out:find("Road", 1, true) and out:find("indoors", 1, true), "...its environment, indoors or out")
+ok(out:find("the City of Targossas", 1, true), "...the game's name for its area")
+ok(out:find("2 steps", 1, true), "...how far it is from here")
+ok(out:find("bank", 1, true), "...its features")
+ok(out:find("in Far Woods", 1, true), "...an exit into another area")
+ok(out:find("locked by you", 1, true), "...an exit you locked")
+ok(out:find("pull vine, e", 1, true), "...a script exit as Emunah reads it")
+ok(out:find("a script Emunah does not run", 1, true), "...and one it does not")
+ok(#mock.links >= 5, "...every destination a link", #mock.links)
+data.forget("lockExit", 3, "n")
+mock.echoed = {}
+eq(info.room(999), false, "a room that is not on the map is said so")
+
+mock.echoed, mock.links = {}, {}
+eq(info.areas(), 2, "emset areas lists every area")
+ok(text():find("Far Woods", 1, true) and text():find("1 room", 1, true), "...with its room count")
+eq(info.areas("woods"), 1, "...or those matching")
+mock.echoed, mock.links = {}, {}
+eq(info.rooms("test"), 9, "emset rooms <area> lists its rooms")
+eq(#mock.links, 9, "...each a link")
+ok(mock.click(2), "(clicking the second; the first is where we stand)")
+eq(route.walk and route.walk.target, 2, "...walks there")
+route.stop("test")
+_G.getAreaTableSwap = swap
+
+-- ROOM NUMBERS FOR A NAMED ROOM: nearest first, three links, then a count.
+rooms[8].name, rooms[6].name, rooms[10].name = "Fish Street", "Fish Street", "Fish Street"
+local ids = info.numbers("Fish Street.")
+eq(table.concat(ids, ","), "3,6,8,10", "the rooms with that name, nearest first")
+mock.echoed, mock.links = {}, {}
+eq(info.echoNumbers("Fish Street"), 4, "echoNumbers counts them")
+eq(#mock.links, 3, "...links the nearest three")
+ok(text():find("+1", 1, true), "...and says how many more")
+mock.echoed = {}
+info.echoNumbers("Nowhere At All")
+ok(text():find("not on the map", 1, true), "a name the map does not have says so")
+
+mock.echoed = {}
+ok(pcall(emunah.commands.dispatch, "room 3") and text():find("Fish Street", 1, true), "emset room")
+ok(pcall(emunah.commands.dispatch, "areas"), "emset areas")
+ok(pcall(emunah.commands.dispatch, "rooms test area"), "emset rooms")
+emunah.timers.stopAll()
 end)()
 
 -- ===========================================================================

@@ -914,6 +914,19 @@ M.handlers["goto"] = function(arg, rest)
    end
 end
 
+M.handlers.room = function(arg)
+   emunah.mapper.info.room(arg)
+end
+
+M.handlers.areas = function(arg, rest)
+   emunah.mapper.info.areas(arg and (rest and (arg .. " " .. rest) or arg) or nil)
+end
+
+M.handlers.rooms = function(arg, rest)
+   if not arg then log.warn("Usage: emset rooms <area>") return end
+   emunah.mapper.info.rooms(rest and (arg .. " " .. rest) or arg)
+end
+
 M.handlers.path = function(arg, rest)
    local route = emunah.mapper.route
    local to = tonumber(arg)

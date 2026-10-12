@@ -273,6 +273,13 @@ M.modules = {
      summary = "walk back to where the last walk started" },
    { syntax = "emset goto stop|pause|resume",
      summary = "stop the walk, or pause it and pick it up again from wherever you are" },
+   { syntax = "emset room [number]", handler = "room",
+     summary = "everything the map holds about a room (here by default): exits, special "
+        .. "exits as Emunah reads them, locks, weights, features, distance" },
+   { syntax = "emset areas [text]", handler = "areas",
+     summary = "every area with its room count, or those whose name contains the text" },
+   { syntax = "emset rooms <area>", handler = "rooms",
+     summary = "an area's rooms by number; click one to walk there" },
    { syntax = "emset path <to> [from]", handler = "path",
      summary = "the route between two rooms, without walking it" },
    { syntax = "emset map lock|unlock <room> [exit]",

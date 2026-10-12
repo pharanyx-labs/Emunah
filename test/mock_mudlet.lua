@@ -684,15 +684,20 @@ function mock.installMapApi()
    end
    function _G.lockRoom(id, lock) local r = room(id) if r then r.locked = lock and true or nil end end
    function _G.roomLocked(id) local r = room(id) return r ~= nil and r.locked == true end
+   -- Mudlet takes a direction short or long ("n" or "north") and means the same exit;
+   -- stored short here, as getPath's speedWalkDir names it.
+   local SHORT = { north = "n", south = "s", east = "e", west = "w", northeast = "ne",
+                   northwest = "nw", southeast = "se", southwest = "sw", up = "u", down = "d" }
+   local function short(dir) dir = tostring(dir):lower() return SHORT[dir] or dir end
    function _G.lockExit(id, dir, lock)
       local r = room(id)
       if not r then return end
       r.exitLocks = r.exitLocks or {}
-      r.exitLocks[dir] = lock and true or nil
+      r.exitLocks[short(dir)] = lock and true or nil
    end
    function _G.hasExitLock(id, dir)
       local r = room(id)
-      return r ~= nil and r.exitLocks ~= nil and r.exitLocks[dir] == true
+      return r ~= nil and r.exitLocks ~= nil and r.exitLocks[short(dir)] == true
    end
    function _G.getSpecialExitsSwap(id)
       local r = room(id)
