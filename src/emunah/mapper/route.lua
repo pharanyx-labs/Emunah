@@ -595,24 +595,65 @@ function M.goFeature(name)
    return M.go(nearest, "the nearest " .. name)
 end
 
---- `emset goto <where>`: a room number, a feature, or an area -- in that order, so a
---- feature called "bank" is not shadowed by an area with "bank" in its name.
+--- Rooms whose name matches, case-insensitively: { id = name }. `exact` wants the whole
+--- name; otherwise any name containing the text. The crowdmap stores names without the
+--- game's trailing period (data.cleanName), so a typed one is dropped.
+function M.findRooms(query, exact)
+   query = util.trim(tostring(query or "")):lower():gsub("%.$", "")
+   local out = {}
+   if query == "" then return out end
+   for id, name in pairs(getRooms() or {}) do
+      local lower = tostring(name):lower()
+      if (exact and lower == query) or (not exact and lower:find(query, 1, true)) then
+         out[tonumber(id)] = name
+      end
+   end
+   return out
+end
+
+--- Walk to the nearest of the rooms named.
+local function goNamed(rooms)
+   local ids = util.keys(rooms)
+   local nearest, steps = M.nearest(ids)
+   if not nearest then
+      log.warn("None of the %d rooms called that can be reached from here.", #ids)
+      return false
+   end
+   local area = getRoomAreaName and getRoomAreaName(getRoomArea(nearest))
+   local label = ("%s (%d%s)"):format(rooms[nearest], nearest, area and (", " .. area) or "")
+   if #ids > 1 then label = "the nearest " .. label end
+   return M.go(nearest, label)
+end
+
+--- `goto <where>`. A room number; else a whole name before a partial one, and among
+--- whole names a feature, then an area, then a room -- so "goto bank" finds a bank, and
+--- "goto fish street" the nearest of the four rooms called Fish Street. A partial name
+--- tries an area (when only one matches), then a feature, then the nearest room whose name
+--- contains it.
 function M.travel(where)
    where = util.trim(tostring(where or ""))
    if where == "" then return false end
    if where:match("^%d+$") then return M.go(tonumber(where)) end
-   if where:lower() == "back" then
+   local lower = where:lower()
+   if lower == "back" then
       if not M.lastStart then log.info("No walk to go back from yet.") return false end
       return M.go(M.lastStart, "where the last walk started")
    end
-   local feature = M.findFeature(where)
+
+   local features = M.features()
+   if features[lower] then return M.goFeature(lower) end
    local areas = M.findAreas(where)
-   if feature and (#areas ~= 1 or areas[1].name:lower() ~= where:lower()) then
-      return M.goFeature(feature)
-   end
+   if #areas >= 1 and areas[1].name:lower() == lower then return M.goArea(areas[1]) end
+   local named = M.findRooms(where, true)
+   if next(named) then return goNamed(named) end
+
    if #areas == 1 then return M.goArea(areas[1]) end
+   local feature = M.findFeature(where)
+   if feature then return M.goFeature(feature) end
    if #areas == 0 then
-      log.warn("No room, feature or area called %q.", where)
+      named = M.findRooms(where, false)
+      if next(named) then return goNamed(named) end
+      log.warn("No room, feature or area called %q. `rf %s` searches room names.", where, where)
       return false
    end
    log.info("%d areas match %q:", #areas, where)
@@ -622,6 +663,49 @@ function M.travel(where)
          :format(areas[i].id, name), "Walk to " .. name, true)
    end
    return false
+end
+
+--- `rf <text>`: rooms whose name contains it, by area, each number a link that walks
+--- there. [mmp: rf / room find]
+M.FIND_SHOWN = 60
+
+function M.find(query)
+   local rooms = M.findRooms(query, false)
+   local byArea, count = {}, 0
+   for id, name in pairs(rooms) do
+      count = count + 1
+      local area = getRoomAreaName and getRoomAreaName(getRoomArea(id)) or "?"
+      byArea[area] = byArea[area] or {}
+      table.insert(byArea[area], { id = id, name = name })
+   end
+   if count == 0 then
+      log.info("No room names contain %q.", tostring(query))
+      return 0
+   end
+   local areas = util.keys(byArea)
+   table.sort(areas)
+   local theme = emunah.ui.theme
+   decho(("\n%s%d room%s matching %q:"):format(theme.dc("text"), count, count == 1 and "" or "s",
+      tostring(query)))
+   local shown = 0
+   for _, area in ipairs(areas) do
+      if shown >= M.FIND_SHOWN then break end
+      decho("\n  " .. theme.dc("textDim") .. area)
+      table.sort(byArea[area], function(a, b) return a.id < b.id end)
+      for _, room in ipairs(byArea[area]) do
+         if shown >= M.FIND_SHOWN then break end
+         shown = shown + 1
+         decho("\n    ")
+         dechoLink(theme.dc("balance") .. tostring(room.id),
+            ("emunah.mapper.route.go(%d, %q)"):format(room.id, room.name),
+            "Walk to " .. room.name, true)
+         decho(theme.dc("text") .. "  " .. room.name)
+      end
+   end
+   if shown < count then
+      decho(("\n  %s...and %d more; narrow the search."):format(theme.dc("textDim"), count - shown))
+   end
+   return count
 end
 
 -- ---------------------------------------------------------------------------

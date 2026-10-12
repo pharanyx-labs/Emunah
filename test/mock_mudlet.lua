@@ -1125,6 +1125,7 @@ function mock.installMap(count)
       return out
    end
    function _G.getAreaTableSwap() return { [1] = "Test Area" } end
+   function _G.getRoomAreaName(area) return getAreaTableSwap()[tonumber(area)] end
    function _G.searchRoomUserData(key, value)
       local out = {}
       for id, room in pairs(mock.map.rooms) do
@@ -1137,7 +1138,7 @@ function mock.installMap(count)
    function _G.getAreaTable() return { ["Test Area"] = 1 } end
    function _G.getRooms()
       local out = {}
-      for id in pairs(mock.map.rooms) do out[id] = "Room " .. id end
+      for id, room in pairs(mock.map.rooms) do out[id] = room.name or ("Room " .. id) end
       return out
    end
 

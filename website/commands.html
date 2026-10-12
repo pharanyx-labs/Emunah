@@ -474,8 +474,16 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <p>load a downloaded map that did not load (open the map window first)</p>
 </div>
 <div class="cmd-block">
-<span class="cmd-syntax">emset goto &lt;room|feature|area&gt;</span>
-<p>walk there: a room number, the nearest room with a feature, or an area</p>
+<span class="cmd-syntax">emset goto &lt;room|feature|area|room name&gt;</span>
+<p>walk there: a room number, the nearest room with a feature, an area, or the nearest room with that name</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">goto &lt;where&gt;</span>
+<p>the same as <code>emset goto</code>: goto bank, goto 1234, goto fish street</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">rf &lt;text&gt;</span>
+<p>find rooms whose name contains the text, by area; click a number to walk there</p>
 </div>
 <div class="cmd-block">
 <span class="cmd-syntax">emset goto back</span>

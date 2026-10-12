@@ -14466,6 +14466,49 @@ route.installClickHandler()
 eq(_G.doSpeedWalk, click, "...but the click is left to mmp while it is running")
 _G.mmp = nil
 
+-- BARE goto AND rf (the user's request, 2026-10-12).
+reset()
+rooms = mock.map.rooms
+rooms[3].name, rooms[8].name, rooms[6].name = "Fish Street", "Fish Street", "A fish market"
+ok(mock.command("goto 4"), "goto, typed bare, is ours")
+eq(route.walk and route.walk.target, 4, "goto 1234 walks to the room")
+mock.command("goto fish street")
+eq(route.walk and route.walk.target, 3, "goto fish street: the nearest room with that whole name")
+ok(route.walk.label:find("Fish Street", 1, true), "...named in what it says", route.walk.label)
+mock.command("goto Fish Street.")
+eq(route.walk and route.walk.target, 3, "...in any case, with the game's trailing period")
+route.stop("test")
+at(7)
+mock.command("goto fish")
+eq(route.walk and route.walk.target, 6, "a partial name: the nearest room whose name contains it")
+route.stop("test")
+at(1)
+rooms[2].name = "Bank"
+data.remember("feature", "bank", 9)
+mock.command("goto bank")
+eq(route.walk and route.walk.target, 9, "a feature called that wins over a room called that")
+route.stop("test")
+data.forget("feature", "bank", 9)
+mock.command("goto zzzz")
+eq(route.walk, nil, "nothing called that: no walk")
+
+mock.echoed, mock.links = {}, {}
+ok(mock.command("rf fish"), "rf, typed bare, is ours")
+local said = table.concat(mock.echoed, "\n")
+ok(said:find("3 rooms matching", 1, true), "rf lists the rooms whose name contains the text", said)
+ok(said:find("Test Area", 1, true), "...under their area")
+eq(#mock.links, 3, "...each one a link")
+ok(mock.click(1), "(clicking the first)")
+eq(route.walk and route.walk.target, 3, "...that walks there")
+route.stop("test")
+
+_G.mmp = { checkforupdate = function() end }
+mock.echoed = {}
+mock.command("goto 4"); mock.command("rf fish")
+eq(route.walk, nil, "while mmp is running, its goto answers the line and ours stands down")
+ok(not table.concat(mock.echoed, "\n"):find("matching", 1, true), "...and so does rf")
+_G.mmp = nil
+
 -- AN UNMAPPED ROOM is said once.
 mock.echoed = {}
 at(999); at(999)

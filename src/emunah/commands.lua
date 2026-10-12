@@ -1297,6 +1297,27 @@ table.insert(registry(), tempAlias([[^\s*buy\s+(\d+)\s*$]], function()
    emunah.shop.buyByNumber(1, matches[2])
 end))
 
+-- GOTO and RF, typed bare: `goto bank`, `goto 1234`, `goto fish street`, `rf fish`. Asked for
+-- by the user (2026-10-12), the fifth and sixth exceptions to one prefix -- the words they
+-- already type from mmp. `goto` is `emset goto` (stop/pause/resume/back included); `rf`
+-- searches room names. While mmp's scripts run, its own goto and rf answer the same line,
+-- so ours stand down rather than walk you twice.
+table.insert(registry(), tempAlias([[^\s*goto\s+(.+)$]], function()
+   if emunah.mapper.data.mmpActive() then
+      log.debug("goto left to mmp, which is running.")
+      return
+   end
+   M.dispatch("goto " .. matches[2])
+end))
+
+table.insert(registry(), tempAlias([[^\s*rf\s+(.+)$]], function()
+   if emunah.mapper.data.mmpActive() then
+      log.debug("rf left to mmp, which is running.")
+      return
+   end
+   emunah.mapper.route.find(matches[2])
+end))
+
 -- Reflect whatever curing/keep-up state a fresh load (or a reload mid-session) actually
 -- starts in. ui/echo.lua registers the ongoing on/off listeners itself, but it loads
 -- before curing.engine and curing.defkeepup exist, so it cannot check their initial state

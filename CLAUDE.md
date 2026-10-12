@@ -91,8 +91,9 @@ There is one prefix, `emset`, plus `emhelp`. Keep it that way:
   and `emhelp <module>` pick it up with no command code.
 - Don't add bare aliases or a second prefix. `sleep` (relaxes insomnia and marks a
   voluntary sleep), `emreload` (works when commands fail to load), `buy [qty] <number>` (the
-  user's request; it only catches a digits-only item, which the game refuses anyway) and
-  `pp` (the user's request: pause/resume curing and defences) are the only exceptions.
+  user's request; it only catches a digits-only item, which the game refuses anyway), `pp`
+  (the user's request: pause/resume curing and defences), and `goto` and `rf` (the user's
+  request: walking and room search, the words mmp taught them) are the only exceptions.
 - After changing `help.lua`, run `lua tools/build-commands-page.lua` to regenerate
   `website/commands.html`.
 
