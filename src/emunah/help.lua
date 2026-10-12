@@ -286,6 +286,8 @@ M.modules = {
      summary = "an area's rooms by number; click one to walk there" },
    { syntax = "emset where [person]", handler = "where",
      summary = "where people were last located, newest first; `goto <person>` walks there" },
+   { syntax = "emset map size small|big|biggest",
+     summary = "the map at 30%, 50% or 70% of the window's height" },
    { syntax = "emset map locators",
      summary = "apply a change to map.locators now, and say which are on" },
    { syntax = "emset path <to> [from]", handler = "path",
@@ -445,6 +447,9 @@ M.settings = {
   detail = "Off makes routes avoid water rooms where land is not much longer." },
 { key = "map.wormholes", default = false, type = "boolean", topic = "map", shipped = false,
   detail = "Let routes use wormholes. Off keeps them out, as mmp does by default." },
+{ key = "map.drawRoute", default = true, type = "boolean", topic = "map", shipped = false,
+  detail = "Light a walk's route on the map, the destination brightest, clearing each room "
+     .. "as it is passed." },
 { key = "map.locators", default = "farsee, view, mindsense, allsight, alertness, angel, shrines, shop, who",
   type = "list", topic = "map", shipped = false,
   detail = "Which of mmp's locator lines get room numbers: farsee, view, mindsense, allsight, "

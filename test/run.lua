@@ -14864,6 +14864,96 @@ emunah.timers.stopAll()
 end)()
 
 -- ===========================================================================
+suite("map: the map follows you, the route is drawn, and the panel shows the walk")
+
+;(function()
+local route  = emunah.mapper.route
+local locate = emunah.mapper.locate
+local config = emunah.config
+
+mock.installGeyser()
+emunah.ui.map.build()
+mock.installMap(10)
+emunah.act.halted, emunah.act.backoffUntil = nil, nil
+mock.feed("Char.Afflictions.List", {})
+mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000", bal = "1", eq = "1" })
+local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+at(1)
+route.invalidate()
+for key in pairs(locate.people) do locate.people[key] = nil end   -- earlier suites' lights
+
+-- THE MAP FOLLOWS YOU (mmp's centerview on every Room.Info; without it the map stayed put).
+at(4)
+eq(mock.centeredOn, 4, "every move centres the map on the new room")
+at(999)
+eq(mock.centeredOn, 4, "...but not on a room the map does not have")
+at(1)
+
+-- THE ROUTE, LIT ON THE MAP and cleared as it is passed.
+mock.highlighted = {}
+route.go(5)
+ok(mock.highlighted[2] and mock.highlighted[5], "a walk lights its route, destination included")
+eq(mock.highlighted[1], nil, "...not the room it starts in")
+at(2)
+eq(mock.highlighted[2], nil, "a room is cleared once passed")
+ok(mock.highlighted[3], "...the rest stay lit")
+mock.advance(0.5); at(3); mock.advance(0.5)
+mock.command("stop")
+mock.command("go")
+mock.advance(0.5); at(4)
+eq(route.walk and route.walk.rooms[route.walk.i], 5,
+   "after stop and go, arrivals are still recognised (they were not: go lost the route's rooms)")
+mock.advance(0.5); at(5)
+eq(next(mock.highlighted), nil, "arriving clears the rest")
+
+locate.record("Nia", "Room 7", "test", nil, { 7 })
+route.go(9)
+route.stop("test")
+eq(mock.highlighted[7], true, "a room lit for someone keeps that light when the route clears")
+for _, person in pairs(locate.people) do person.lit = nil end
+mock.highlighted = {}
+
+config.set("map.drawRoute", false)
+route.go(4)
+eq(next(mock.highlighted), nil, "map.drawRoute off: nothing lit")
+route.stop("test")
+config.set("map.drawRoute", true)
+
+-- DISTANCE AND TIME LEFT, in the room panel under the room's name.
+at(1)
+route.go(5)
+local left, seconds = route.eta()
+eq(left, 4, "eta: the steps left")
+ok(seconds > 0, "...and an estimate of the time")
+local panel = emunah.ui.roompanel
+local uiWas = config.get("ui.enabled")
+config.set("ui.enabled", true)        -- an earlier suite leaves the panels off
+emunah.ui.layout.build()
+local function shown()
+   panel.forgetPainted(); panel.update()
+   local console = panel.widgets.room
+   return tostring(console and console.contents)
+end
+local text = shown()
+ok(text:find("room 5", 1, true) and text:find("4 steps", 1, true), "the panel shows where to and how far", text)
+ok(text:find("stop", 1, true), "...with a stop link")
+route.pause()
+ok(shown():find("paused", 1, true), "paused: says so, with a go link instead")
+route.stop("test")
+ok(not shown():find("steps", 1, true), "no walk: no line")
+config.set("ui.enabled", uiWas)
+
+-- SIZES [mmp: smallmap / bigmap / biggestmap].
+emunah.commands.dispatch("map size big")
+eq(config.get("ui.mapHeight"), 50, "emset map size big")
+emunah.commands.dispatch("map size small")
+eq(config.get("ui.mapHeight"), 30, "emset map size small")
+config.set("ui.mapHeight", 42)
+emunah.timers.stopAll()
+mock.uninstallGeyser()
+end)()
+
+-- ===========================================================================
 suite("room area: the area on the end of the room-name line, whichever arrives first")
 
 -- Asked for by the user (2026-10-12). Whether Room.Info comes before or after the room-name

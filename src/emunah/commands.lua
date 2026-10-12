@@ -862,6 +862,10 @@ end
 
 M.handlers.map = function(arg, rest)
    local data = emunah.mapper.data
+   if arg == "size" then
+      emunah.ui.map.size(rest)
+      return
+   end
    if arg == "locators" then
       local locate = emunah.mapper.locate
       local count = locate.build()

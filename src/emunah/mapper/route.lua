@@ -92,6 +92,24 @@ function M.path(from, to)
    return dirs, rooms
 end
 
+--- Steps left and an estimate of the seconds they take, for the room panel. The pace is
+--- this walk's own once it has taken a few steps; before that, the step gap plus the round
+--- trip, which is the least a step can take.
+function M.eta()
+   local walk = M.walk
+   if not walk then return nil end
+   local left = #walk.dirs - walk.i + 1
+   walk.taken = walk.taken or 0
+   local per
+   if walk.taken >= 3 then
+      per = (util.now() - walk.startedAt) / walk.taken
+   else
+      local latency = getNetworkLatency and tonumber(getNetworkLatency()) or 0
+      per = (tonumber(config.get("map.stepGap", 0.5)) or 0.5) + latency
+   end
+   return left, left * per
+end
+
 --- How many routes are cached.
 function M.cached() return #order end
 
@@ -306,6 +324,36 @@ local function gap()
    return tonumber(config.get("map.stepGap", 0.5)) or 0.5
 end
 
+-- THE ROUTE ON THE MAP: the rooms still to cross lit, the destination brighter, each one
+-- cleared as it is passed. Not for the area walker's hops, which are a room or two and would
+-- only flicker. A room someone is lit in (mapper/locate.lua) keeps that light.
+local lit = {}
+
+local function unlight(id)
+   if not lit[id] then return end
+   lit[id] = nil
+   local locate = emunah.mapper.locate
+   if not (locate and locate.isLit and locate.isLit(id)) then unHighlightRoom(id) end
+end
+
+local function clearRoute()
+   for id in pairs(lit) do unlight(id) end
+end
+
+local function drawRoute(walk)
+   clearRoute()
+   if walk.quiet or not config.get("map.drawRoute", true) or not highlightRoom then return end
+   for j = walk.i, #walk.rooms do
+      local id = walk.rooms[j]
+      if j == #walk.rooms then
+         highlightRoom(id, 90, 167, 245, 90, 167, 245, 0.7, 255, 60)
+      else
+         highlightRoom(id, 79, 182, 223, 79, 182, 223, 0.35, 140, 0)
+      end
+      lit[id] = true
+   end
+end
+
 local function finish(reason, arrived)
    local walk = M.walk
    if not walk then return end
@@ -313,6 +361,7 @@ local function finish(reason, arrived)
    M.paused = false
    carried.paused = nil
    timers.stop("map.step")
+   clearRoute()
    if arrived then
       -- Said on the next prompt (see the prompt tag below), not as a line of its own.
       log.debug("Arrived at %s.", walk.label)
@@ -363,6 +412,11 @@ end
 
 local function begin(walk, i)
    walk.i = i
+   for j = 1, i - 1 do unlight(walk.rooms[j]) end
+   if walk.drawnFor ~= walk.rooms then
+      walk.drawnFor = walk.rooms
+      drawRoute(walk)
+   end
    walk.queue = M.plan(walk.dirs[i]) or {}
    walk.sentAt, walk.extra, walk.held = nil, 0, false
    walk.from = i == 1 and walk.origin or walk.rooms[i - 1]
@@ -439,7 +493,10 @@ function M.resume()
    -- half-sent special exit is safer started over than finished from the middle.
    local walk, now = M.walk, here()
    if now == walk.target then finish(nil, true) return true end
-   local dirs, rooms = now and route(now, walk.target)
+   -- Not `now and route(...)`: an `and` keeps only the first of route()'s two results, and
+   -- the walk resumed with no rooms to recognise its arrivals by.
+   local dirs, rooms
+   if now then dirs, rooms = route(now, walk.target) end
    if not dirs then finish("no route from here any more") return true end
    walk.dirs, walk.rooms, walk.origin = dirs, rooms, now
    begin(walk, 1)
@@ -468,6 +525,7 @@ local function onRoom(_, num)
    for j = walk.i, #walk.rooms do
       if walk.rooms[j] == num then
          walk.resends = 0
+         walk.taken = (walk.taken or 0) + (j - walk.i + 1)
          if M.paused then return end   -- resume() plans again from wherever this is
          return begin(walk, j + 1)
       end

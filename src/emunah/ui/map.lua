@@ -354,6 +354,30 @@ function M.centre()
    return ok
 end
 
+-- FOLLOW THE CHARACTER. centerview() is also how Mudlet knows which room you are in, and
+-- a double-click on the map plans from that room -- so this is not only cosmetic. mmp did
+-- it on every Room.Info (mmp.centerRoominfo); with mmp gone nothing did, and the map stayed
+-- wherever it last was. A room the map does not have is left alone: centring on it fails.
+emunah.event.register("emunah.room", function(_, num)
+   num = tonumber(num)
+   if num and type(centerview) == "function" and roomExists and roomExists(num) then
+      pcall(centerview, num)
+   end
+end, "ui.map")
+
+--- `emset map size small|big|biggest` [mmp: smallmap / bigmap / biggestmap], as heights
+--- of Emunah's own map region, since the map lives in its layout rather than floating.
+M.SIZES = { small = 30, big = 50, biggest = 70 }
+
+function M.size(name)
+   local pct = M.SIZES[tostring(name or ""):lower()]
+   if not pct then
+      log.warn("Map sizes: small, big, biggest.")
+      return false
+   end
+   return M.setHeight(pct)
+end
+
 -- Rebuild alongside the rest of the UI.
 emunah.event.register("emunah.ui.built", function() M.build() end, "ui.map")
 

@@ -112,6 +112,16 @@ function M.record(name, roomName, via, area, ids)
    return ids
 end
 
+--- Is a room lit for someone? The route drawing asks before taking a light off.
+function M.isLit(id)
+   for _, person in pairs(M.people) do
+      for _, lit in ipairs(person.lit or {}) do
+         if lit == id then return true end
+      end
+   end
+   return false
+end
+
 --- Someone's last known rooms, by name (any case), or nil.
 function M.find(name)
    return M.people[tostring(name or ""):lower()]
