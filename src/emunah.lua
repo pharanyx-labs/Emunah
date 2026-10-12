@@ -101,6 +101,8 @@ local MANIFEST = {
    { path = "emunah.ui.chat",            as = "ui.chat"       },
    { path = "emunah.ui.roompanel",       as = "ui.roompanel"  },
    { path = "emunah.ui.map",             as = "ui.map"        },
+   -- the room's area on the end of the room-name line; needs theme, reads raw Room.Info
+   { path = "emunah.ui.roomarea",        as = "ui.roomarea"   },
 
    -- curing behaviour (the data half is loaded above)
    { path = "emunah.curing.engine",      as = "curing.engine" },

@@ -277,7 +277,8 @@ M.modules = {
 { id = "interface", title = "Interface", summary = "the panels, chat tabs and map",
   state = function() return config("ui.enabled", true) end,
   does = "The panels around the game text: vitals, afflictions, defences, chat tabs, the "
-      .. "room and its people, your target, and the map.",
+      .. "room and its people, your target, and the map. The room's area is shown at the "
+      .. "end of the room-name line.",
   commands = {
    { syntax = "emset ui", handler = "ui",
      summary = "whether the panels and the map are on" },
@@ -312,6 +313,8 @@ M.settings = {
   shipped = true, detail = "Clamped to 10-70." },
 { key = "ui.mapFloat", default = false, type = "boolean", topic = "interface", shipped = false,
   detail = "Detaches the map into its own window. `emset ui rebuild` after changing it." },
+{ key = "ui.roomArea", default = true, type = "boolean", topic = "interface", shipped = false,
+  detail = "Show the room's area at the end of the room-name line, from GMCP." },
 { key = "ui.chatTabs", default = "Tells, City, House, Market, Says, Misc", type = "list",
   topic = "interface", shipped = true },
 { key = "ui.refresh", default = 0.2, type = "number", unit = "s", topic = "interface",
