@@ -1,0 +1,14 @@
+Source: VERSES, in-game, pasted by the user 2026-10-15.
+
+H:100% M:95% E:100% W:100%  exckdb  T:  13:04:38.28-verses
+Verse                Conviction      Prayer length   Once per prayer  
+-------------------------------------------------------------------------------
+glory                0%              2               Yes
+light                0%              0               Yes
+purge                5%              0               Yes
+reflection           5%              2               Yes
+revelations          10%             3               Yes
+salvation            10%             0               Yes
+wrath                20%             1               Yes
+-------------------------------------------------------------------------------
+H:100% M:93% E:100% W:100%  exckdb  T:  13:05:40.97-

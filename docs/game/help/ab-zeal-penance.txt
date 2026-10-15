@@ -1,0 +1,13 @@
+Source: AB ZEAL PENANCE, in-game, pasted by the user 2026-10-15 (13:13:06).
+
+Penance (Zeal)                                Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE PENANCE <target>
+Works on/against:  Adventurers
+Cooldown:          1.60 seconds of prayer balance
+Details:
+Recite this holy verse and allow the profane soul to gaze upon their
+past sins, paralysing them with the truth of their corruption(*).
+
+* Gives the paralysis affliction.
+-------------------------------------------------------------------------------

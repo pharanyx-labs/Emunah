@@ -1,0 +1,13 @@
+Source: AB ZEAL REVELATIONS, in-game, pasted by the user 2026-10-15 (13:11:46).
+
+Revelations (Zeal)                            Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE REVELATIONS <target>
+Works on/against:  Adventurers
+Cooldown:          1.60 seconds of prayer balance
+Details:
+Recite this holy verse to reveal to a heretic the true depths of Evil's
+depravity; permit them not the chance to turn their eyes away.
+
+* Gives the hellsight affliction.
+-------------------------------------------------------------------------------

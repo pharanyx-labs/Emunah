@@ -1,0 +1,13 @@
+Source: AB DEVOTION SLOTH, in-game, pasted by the user 2026-10-15.
+(Not in Spirituality or Zeal: both answered "You know of no such ability.")
+
+H:100% M:91% E:100% W:100%  exckdb  T:  13:06:53.36-ab devotion sloth
+Sloth (Devotion)                              Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            PERFORM SLOTH <target>
+Works on/against:  Adventurers
+Cooldown:          2.20 seconds of equilibrium
+Resource:          10 devotion
+Details:
+Condemn a target with the sin of sloth, giving them weariness.
+-------------------------------------------------------------------------------

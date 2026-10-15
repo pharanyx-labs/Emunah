@@ -379,6 +379,30 @@ consistent with both sources above.
 A new rule follows the same rules as any other game mechanic here: evidence first, cited in
 this table.
 
+## Locks (svof `cnrl.lockdata`)
+
+A lock is a set of afflictions that shuts every way of curing them. svof names them on the
+prompt; Emunah does the same (`watch.locks()`, `(lock: soft)` on the prompt), and PvP
+holds its attack while one is up so the cures that break it get balance and equilibrium
+(the user, 2026-10-15: "use the reference system to check if we're safe to continue").
+[svof] `raw-svo.controllers.lua`, `cnrl.lockdata`:
+
+| Lock | Afflictions |
+|---|---|
+| soft | slickness, anorexia, asthma |
+| venom | soft + paralysis |
+| hard | soft + (impatience, or mana/willpower too low to focus: svof `can_usemana`) |
+| true | soft + paralysis, impatience, disrupt, confusion |
+| slow | asthma, slickness, both arms broken, a concussion, aeon |
+| stain | stain, slickness, both arms broken, no valerian puffs |
+| rift | asthma with no kelp or aurum in the rift, slickness, both arms broken |
+| rift 2 | soft + (paralysis, or disrupt without equilibrium), both arms broken |
+| dragon | not ported: needs dragonform |
+
+Emunah's names differ in two places: svof's `disrupt` is `disrupted`, and its arm states
+are `afflist.armAfflictions`. The rift lock waits for the rift to have been listed, since an
+unlisted rift reads as empty.
+
 ## Server names (svof `gamename`)
 
 svof records what the server calls each affliction where its own name differs. Emunah

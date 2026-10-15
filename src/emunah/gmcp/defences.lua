@@ -127,6 +127,15 @@ function M.missingFrom(wanted)
    return out
 end
 
+--- A defence the game announced in text, believed (anti-illusion is the caller's job): the
+--- sileris shell hardening (curing/defkeepup.lua). Up until Char.Defences or a DEFENCES
+--- listing says otherwise.
+function M.got(name)
+   local recorded = record({ name = name })
+   if recorded then event.raise("defence.added", recorded, M.active[recorded]) end
+   return recorded ~= nil
+end
+
 --- Apply a DEFENCES listing: the names its lines were read as (deflist.DEF_LINES).
 ---
 --- What a reload needs. The list is rebuilt from the last Char.Defences.List still in the

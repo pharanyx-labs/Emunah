@@ -441,6 +441,15 @@ You have the following defences:
 You are protected by N defences.
 ```
 
+**The end line is matched on its count** (`^You are protected by \d+ defences?\.$`).
+Several defence lines begin "You are protected by" too: the bell tattoo, the reflective
+barrier, flexible armour, the three Spiritshields. Matched on the prefix alone, "You are
+protected by the power of an Earth Spiritshield." ended the user's listing early (2026-10-15
+14:42:39). Inspiration and riding, listed after it, read as gone: inspiration was raised
+three times while up, and riding vaulted onto the horse being ridden. A listing that the
+prompt reaches unfinished is dropped, not applied; svof applies its listing at the prompt
+for the same reason.
+
 No line names its defence. `deflist.DEF_LINES` maps each one to the server's name: 199 lines,
 generated from svof's `defs_data`, with invisible defences left out. After `emreload`,
 keep-up sends `DEFENCES` and raises nothing until the listing has been read, or for 10s at
@@ -593,9 +602,17 @@ The sileris berry juice hardens into a supple purple shell.    <- up (seen in pl
 ```
 
 and for quicksilver, `You apply a quicksilver droplet to yourself.` /
-`The quicksilver hardens into a supple metallic shell.` [svof]. Keep-up won't apply again
-for 8s after the apply line. The hardening line only counts after an `APPLY` of ours
-(anti-illusion).
+`The quicksilver hardens into a supple metallic shell.` [svof]. svof waits 8s; on
+2026-10-15 the shell took **10.05s** (applied 18:26:21.16, hardened 18:26:31.21). At 8s
+Emunah threw the hardening away as an illusion and the defence stayed red. Keep-up now
+won't apply again for 12s after the apply line, and the hardening line only counts after an
+`APPLY` of ours within that window (anti-illusion). A believed hardening marks `fangbarrier`
+up on its own, as svof's `defences.got("sileris")` does, without waiting for
+`Char.Defences`.
+
+**Sileris comes out of the rift with OUTR, like a herb**, not FILL like a salve:
+`outr sileris` → `You remove 1 sileris, bringing the total in the rift to 820.`
+(2026-10-15 18:26:11). It's kept in hand with the herbs (`curelist.PULLED_SALVES`).
 
 `fangbarrier` used to have its own entry as a skill command (`fangbarrier`) that was never
 seen working. It's gone; the salve raises it.

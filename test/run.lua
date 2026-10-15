@@ -539,8 +539,11 @@ do
    -- all -- a third source, verified in play as what actually raises them (see deflist.lua).
    ok(restockables.bayberry, "blind's herb (deflist.commands) is restocked")
    ok(restockables.hawthorn, "...and deaf's")
-   -- Salves stay excluded: vials are refilled with FILL, not pulled with OUTR.
-   eq(restockables.sileris, nil, "a salve-vector defence cure is still not in the rift list")
+   -- Salves are refilled with FILL, not pulled with OUTR -- except sileris, a berry pulled
+   -- like a herb (2026-10-15 18:26:11: "You remove 1 sileris").
+   ok(restockables.sileris, "sileris is pulled from the rift")
+   ok(not emunah.util.set(curelist.restockableSalves()).sileris, "...and not filled like a salve")
+   ok(not restockables.mending, "a real salve is still not in the rift list")
 end
 ok(afflist.priority("guilt", "herb") > 58,
    "its priority is appended after the ranked list, not guessed into the middle of it")
@@ -4470,6 +4473,7 @@ mock.feed("Char.Afflictions.Remove", { "sleeping" })
 -- SLEEP with an argument is a different command and is left entirely alone.
 mock.sent = {}
 ok(not mock.command("sleep now"), "SLEEP with an argument is not swallowed by our alias")
+emunah.act.typedUntil = nil   -- typed to the game; the mock clock never lets the hold lapse
 
 detect.sleepIntent = nil
 
@@ -5576,6 +5580,39 @@ do
 
    defkeepup.setMode("rebounding", nil)
 
+   -- A DEFENCE LINE THAT BEGINS LIKE THE COUNT does not end the listing. The user's own
+   -- DEFENCES, 2026-10-15 14:42:39: "You are protected by the power of an Earth
+   -- Spiritshield." ended it early, so inspiration and riding, listed after it, read as
+   -- gone -- inspiration raised three times, and a vault onto the horse being ridden.
+   do
+      local wasRiding = emunah.riding.riding()
+      mock.feed("Char.Defences.Add", { name = "inspiration" })
+      emunah.riding.setRiding(true)
+      for _, line in ipairs({
+         "You have the following defences:",
+         "You are deaf.",
+         "You are protected by the power of an Earth Spiritshield.",
+         "You are regenerating endurance at an increased rate.",
+         "You are using your superior constitution to prevent nausea.",
+         "Your limbs are suffused with divinely-inspired strength.",
+         "You are riding a heavy horse.",
+         "You are benefitting from a 10% bonus to experience gain.",
+         "You are protected by 25 defences.",
+      }) do mock.line(line) end
+      ok(defences.has("earthblessing"), "the Earth Spiritshield line is read as a defence")
+      ok(defences.has("inspiration"), "...and does not end the listing: inspiration, after it, is up")
+      eq(emunah.riding.riding(), true, "...and so is riding")
+
+      -- A listing the prompt reaches unfinished is dropped, never applied.
+      mock.line("You have the following defences:")
+      mock.line("You are deaf.")
+      raiseEvent("emunah.prompt")
+      mock.line("You are protected by 1 defences.")
+      ok(defences.has("inspiration"), "an unfinished listing is dropped at the prompt, not applied")
+      eq(emunah.riding.riding(), true, "...by riding as well")
+      emunah.riding.setRiding(wasRiding)
+   end
+
    -- BLISS FROM ITS DEFENCES. Bliss never lists itself, but toughness, resistance and
    -- constitution -- what it grants (the user, 2026-09-28) -- do. The listing below is
    -- theirs, verbatim, with bliss up.
@@ -6416,6 +6453,52 @@ ok(clotPending ~= nil and clotPending.command == "clot",
    "with the lesson, a bleed tick queues clot", clotPending and clotPending.command)
 queue.reset()
 engine.enabled = false
+
+-- THE DUMP: every ability's AB text, from Char.Skills.Info, to a file (the user,
+-- 2026-10-15: "you can get my current abilities from gmcp").
+do
+   local skills = emunah.gmcp.skills
+   emunah.gmcp.clearRequests()
+   mock.gmcpSent = {}
+   emunah.commands.dispatch("skills dump survival")
+   mock.advance(2)
+   local asked = 0
+   for _, payload in ipairs(mock.gmcpSent) do
+      if tostring(payload):find("Char.Skills.Get", 1, true)
+         and tostring(payload):find('"name"', 1, true) then asked = asked + 1 end
+   end
+   -- Paced by gmcp/init.lua's outbox; the rest wait there. How many were asked for is the
+   -- "4 of 4" the file reports below.
+   ok(asked >= 1, "Char.Skills.Get goes out per ability, by name")
+   emunah.gmcp.clearRequests()
+   for _, skill in ipairs({ "Tumble", "Camouflage", "Track", "Clotting" }) do
+      mock.feed("Char.Skills.Info", { group = "survival", skill = skill:lower(),
+         info = skill .. " (Survival)   Known: Yes\nSyntax: " .. skill:upper() })
+   end
+   local path = getMudletHomeDir() .. "/" .. skills.DUMP_FILE
+   local file = io.open(path, "r")
+   ok(file ~= nil, "the dump is written once every answer is in")
+   local text = file and file:read("*a") or ""
+   if file then file:close() end
+   os.remove(path)
+   ok(text:find("4 of 4 abilities", 1, true), "...saying how many answered", text:sub(1, 80))
+   ok(text:find("==== Survival (Transcendent) ====", 1, true), "...headed by skillset and rank")
+   ok(text:find("Syntax: CLOTTING", 1, true), "...with each ability's text")
+
+   -- A skillset whose list never came does not block it (2026-10-15 19:10:16): the rest
+   -- is dumped, the missing one asked for again and named.
+   mock.feed("Char.Skills.Groups", { { name = "Survival", rank = "Transcendent" },
+      { name = "Frost", rank = "Inept" } })
+   mock.feed("Char.Skills.List", { group = "Survival", list = { "Tumble" } })
+   eq(table.concat(skills.pendingGroups(), ","), "frost", "the missing list is known by name")
+   mock.echoed = {}
+   ok(skills.dump({}), "the dump goes ahead without it")
+   ok(table.concat(mock.echoed, " "):find("frost", 1, true), "...and names it",
+      table.concat(mock.echoed, " "))
+   mock.feed("Char.Skills.Info", { group = "survival", skill = "tumble", info = "Tumble" })
+   os.remove(path)
+   emunah.gmcp.clearRequests()
+end
 
 -- ===========================================================================
 suite("class auto-detection (Char.Status vs skill completion)")
@@ -9962,6 +10045,7 @@ eq(#mock.sent, 0, "...so nothing is sent while it is off", table.concat(mock.sen
 ok(mock.command("emset pipes on"), "'emset pipes on' is matched")
 eq(emunah.config.get("pipes.enabled", true), true, "...and turns it back on")
 ok(not mock.command("pipes"), "bare 'pipes' is no longer claimed -- one prefix")
+emunah.act.typedUntil = nil   -- typed to the game; the mock clock never lets the hold lapse
 
 -- ===========================================================================
 suite("shop: WARES parsing and buying by replica number")
@@ -10400,6 +10484,12 @@ suite("PvP targeting")
 
 local pvp = emunah.pvp
 
+-- PvP HAS ITS OWN ATTACK (the user, 2026-10-15: "completely divest hunting mode from pvp
+-- mode"). Smite here, so the assertions below can tell the attack from a verse.
+emunah.config.set("pvp.attack", "smite")
+emunah.config.set("pvp.balance", "both")
+emunah.config.set("pvp.consumes", "bal")
+
 -- Never auto-targets: starting with no target set, even with balance free, sends nothing.
 mock.sent = {}
 ok(pvp.start(), "pvp starts with a class module present")
@@ -10451,6 +10541,21 @@ local pvpAttack = table.concat(mock.sent, " | ")
 ok(pvpAttack:find("smite sarapis"),
    "attacks once the opponent is vulnerable enough to finish", pvpAttack)
 
+-- Changing the hunt's attack leaves PvP's alone, and the other way round.
+emunah.config.set("bashing.attack", "perform hands")
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+local divested = table.concat(mock.sent, " | ")
+ok(divested:find("smite sarapis") and not divested:find("perform hands"),
+   "PvP sends pvp.attack, whatever bashing.attack says", divested)
+emunah.config.set("bashing.attack", "angel sear")
+eq(emunah.config.get("pvp.attack"), "smite", "...and setting the hunt's attack did not touch PvP's")
+emunah.commands.dispatch('pvp attack "angel sear"')
+eq(emunah.config.get("pvp.attack"), "angel sear", "emset pvp attack sets it, quotes stripped")
+eq(emunah.config.get("bashing.attack"), "angel sear", "...without touching bashing.attack")
+emunah.config.set("pvp.attack", "smite")
+
 -- The threshold is the `pvp.attackAtAfflictions` setting.
 emunah.commands.dispatch("pvp.attackAtAfflictions 3")
 eq(emunah.config.get("pvp.attackAtAfflictions"), 3, "the threshold is configurable")
@@ -10466,15 +10571,31 @@ pvp.clearTarget()
 eq(pvp.target, nil, "clearTarget removes the target")
 pvp.stop("test")
 
--- Safety: own health threshold stops it, same shape as bashing's, but a higher default --
--- a PvP loss costs more and there is no "room is clear" backstop to catch a late stop.
-eq(emunah.config.get("pvp.stopBelowHealth", 60), 60, "pvp's default health floor is higher than bashing's")
+-- Safety: own health threshold stops it, same shape as bashing's. 25% (the user, 2026-10-15,
+-- down from 60): stopping does not stop a person hitting you.
+eq(emunah.config.get("pvp.stopBelowHealth", 25), 25, "pvp's default health floor is 25%")
 mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
 pvp.start()
 pvp.setTarget("sarapis")
 mock.feed("Char.Vitals", { hp = "100", maxhp = "4000", bal = "1", eq = "1" })
 ok(not pvp.enabled, "pvp stops itself below its health threshold")
 mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+
+-- THE FLOOR IS PVP'S OWN. watch.critical (30) used to apply too, so it stopped first and the
+-- 25 was never reached. And a fast drop is what a fight against a person looks like, so the
+-- damage spike, which stops a hunt below 60%, must not stop this either.
+watch.reset()
+pvp.start()
+pvp.setTarget("sarapis")
+mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+mock.feed("Char.Vitals", { hp = "1120", maxhp = "4000", bal = "1", eq = "1" })
+ok(watch.unsafe(), "(watch alone would stop a hunt here)", watch.unsafe())
+ok(pvp.enabled, "at 28%, under watch.critical and after a 72% drop, pvp carries on")
+mock.feed("Char.Vitals", { hp = "960", maxhp = "4000", bal = "1", eq = "1" })
+ok(not pvp.enabled, "...and stops at 24%, under its own floor")
+mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+watch.reset()
+pvp.clearTarget()
 
 -- Mutual exclusion in both directions: bashing and PvP must never run concurrently, because
 -- fighting a denizen and a player on the same balance is not a thing.
@@ -10813,9 +10934,9 @@ do
       hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
       bal = "1", eq = "1", charstats = { "Devotion: 100%" },
    })
-   emunah.config.set("bashing.attack", "smite")
-   emunah.config.set("bashing.balance", "both")
-   emunah.config.set("bashing.consumes", "bal")
+   emunah.config.set("pvp.attack", "smite")
+   emunah.config.set("pvp.balance", "both")
+   emunah.config.set("pvp.consumes", "bal")
 
    mock.sent = {}
    ok(pvp.start(), "pvp starts")
@@ -10862,9 +10983,9 @@ do
    -- attacking every tick could keep re-claiming equilibrium before the queue ever got a
    -- turn to send the heal it already wanted.
 
-   emunah.config.set("bashing.attack", "smite")
-   emunah.config.set("bashing.balance", "both")
-   emunah.config.set("bashing.consumes", "bal")
+   emunah.config.set("pvp.attack", "smite")
+   emunah.config.set("pvp.balance", "both")
+   emunah.config.set("pvp.consumes", "bal")
    -- Disabled so pvp's OWN health-threshold stop (unsafe(), default 60%) cannot fire first
    -- and confound what this is actually testing -- the attack yielding to a queued heal
    -- while still fully engaged, not the separate safety stop.
@@ -10893,10 +11014,271 @@ do
    pvp.stop("test")
    emunah.timers.stopAll()
    emunah.config.set("pvp.stopBelowHealth", 60)
-   emunah.config.set("bashing.attack", "angel sear")
-   emunah.config.set("bashing.balance", "both")
-   emunah.config.set("bashing.consumes", "eq")
+   emunah.config.set("pvp.attack", "angel sear")
+   emunah.config.set("pvp.balance", "both")
+   emunah.config.set("pvp.consumes", "eq")
    mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+end
+
+-- ===========================================================================
+suite("PvP offence: F1, locks, sapping, the prayer")
+
+-- The user, 2026-10-15: the offence is only ever sent while PvP is on, F1 toggles it, and it
+-- must notice what the enemy is doing to you -- the reference system's lock table decides
+-- whether carrying on is safe. Scoped for the 200-locals cap.
+do
+   local priest = emunah.class.active
+   local opp = emunah.curing.detect.opponent
+   local function sentNow()
+      emunah.timers.stopAll()
+      mock.sent = {}
+      mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+      return table.concat(mock.sent, " | ")
+   end
+   bash.stop("test")
+   pvp.stop("test")
+   emunah.config.set("pvp.attack", "smite")
+   emunah.config.set("pvp.balance", "both")
+   emunah.config.set("pvp.consumes", "bal")
+   mock.feed("Char.Vitals", {
+      hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000", bal = "1", eq = "1",
+   })
+   pvp.setTarget("Ashden")
+   opp.assert("ashden", "guilt")
+   opp.assert("ashden", "justice")
+
+   local sent = sentNow()
+   ok(not sent:find("smite") and not sent:find("recite"),
+      "with pvp off, nothing offensive goes out even with a target set", sent)
+
+   mock.press(mudlet.keymodifier.None, mudlet.key.F1)
+   ok(pvp.enabled, "F1 turns pvp on")
+   sent = sentNow()
+   ok(sent:find("smite ashden") and sent:find("recite"), "...and the offence goes out", sent)
+   mock.press(mudlet.keymodifier.None, mudlet.key.F1)
+   ok(not pvp.enabled, "F1 again turns it off")
+   eq(pvp.target, "ashden", "...keeping the target")
+
+   -- LOCKS, from svof's cnrl.lockdata.
+   pvp.start()
+   mock.feed("Char.Afflictions.Add", { name = "slickness" })
+   mock.feed("Char.Afflictions.Add", { name = "anorexia" })
+   eq(#watch.locks(), 0, "slickness and anorexia alone are not a lock")
+   mock.feed("Char.Afflictions.Add", { name = "asthma" })
+   eq(table.concat(watch.locks(), ","), "soft", "add asthma: a soft lock")
+
+   sent = sentNow()
+   ok(not sent:find("smite"), "a lock holds the attack", sent)
+   ok(sent:find("recite"), "...but not the verses: prayer balance is shared with no cure", sent)
+   ok(pvp.enabled, "...and the session carries on")
+   eq(pvp.report().held, "soft", "the hold is reported")
+
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   ok(table.concat(mock.echoed, " "):find("lock", 1, true)
+      and table.concat(mock.echoed, " "):find("soft", 1, true),
+      "the lock is named on the prompt", table.concat(mock.echoed, " "))
+
+   mock.feed("Char.Afflictions.Add", { name = "impatience" })
+   eq(table.concat(watch.locks(), ","), "hard,soft", "add impatience: hard, worst first")
+
+   mock.feed("Char.Afflictions.Remove", { "impatience" })
+   mock.feed("Char.Afflictions.Remove", { "asthma" })
+   eq(#watch.locks(), 0, "cure asthma and the lock is gone")
+   sent = sentNow()
+   ok(sent:find("smite ashden"), "...and the attack resumes", sent)
+   eq(pvp.report().held, nil, "...and nothing is held")
+   mock.feed("Char.Afflictions.Remove", { "slickness" })
+   mock.feed("Char.Afflictions.Remove", { "anorexia" })
+   pvp.stop("test")
+
+   -- SAPPING: Anzerloi's figures, 2026-10-15 12:33-12:39, as a share of max mana.
+   local sap = priest.sapPercent
+   eq(sap({}), 0, "nothing on them: nothing (no base is known)")
+   eq(sap({ "guilt" }), 3.5, "guilt 3.5")
+   eq(sap({ "guilt", "spiritburn", "tenderskin", "burning" }), 14, "the four heavy ones 3.5 each")
+   eq(sap({ guilt = true }), 3.5, "a set works as well as a list")
+   eq(sap({ "brokenleftleg", "damagedleftleg" }), 6, "a limb counts its worst tier once: 2 levels")
+   eq(sap({ "mangledrightarm" }), 9, "mangled is the third level")
+   eq(sap({ "damagedhead" }), 3, "head starts at damaged")
+   eq(sap({ "stupidity" }), 2, "a mental affliction (focus cures it) 2")
+   eq(sap({ "prone" }), 2, "prone 2")
+   eq(sap({ "paralysis" }), 1, "anything else 1")
+   eq(sap({ "guilt", "inquisition" }, { via = "angel" }), 6.75, "inquisition: half again on an angel sap")
+   eq(sap({ "guilt", "inquisition" }, { via = "wrath" }), 4.5, "...and not on recite wrath")
+   eq(priest.sapAfter(60, { "guilt", "spiritburn", "tenderskin", "burning" }), 46,
+      "60% less 14 leaves 46")
+   ok(priest.absolveKills(49.9), "absolve kills below 50")
+   ok(not priest.absolveKills(50), "...and exactly 50 fails")
+
+   -- THE PRAYER: once-per-prayer verses are spent until the prayer ends (Anzerloi,
+   -- 2026-10-15 12:49:38-12:49:55). VERSES lists the limited ones; condemnation is not
+   -- one of them, so it stands in here for the test only (it is the one with a sender).
+   ok(priest.ONCE_PER_PRAYER.wrath and priest.ONCE_PER_PRAYER.revelations,
+      "VERSES' seven verses are once per prayer")
+   ok(not priest.ONCE_PER_PRAYER.guilt, "...and guilt, not in VERSES, is not")
+   mock.feed("Char.Vitals", { charstats = { "prayer_length: 2", "conviction: 10" } })
+   ok(not priest.prayerAllows("revelations"), "revelations needs a prayer of 3")
+   ok(not priest.prayerAllows("wrath"), "wrath needs 20% conviction")
+   -- A rebuke counts the verse it rides on (Anzerloi, 13:24:48): at 2, a verse carrying
+   -- `rebuke evil` makes the 3 it needs, but heresy's 4 is still one short.
+   ok(priest.prayerAllows("evil") and not priest.prayerAllows("heresy"),
+      "at a prayer of 2, rebuke evil (3) is allowed and heresy (4) is not")
+   mock.feed("Char.Vitals", { charstats = { "prayer_length: 1", "conviction: 10" } })
+   ok(priest.prayerAllows("darkness"), "at 1, guilt rebuke darkness: the guilt makes the 2")
+   ok(not priest.prayerAllows("chaos"), "...but not chaos, which needs 3")
+   -- "you can recite 3 times and rebuke heresy on the 4th attack" (13:24:48 onwards).
+   mock.feed("Char.Vitals", { charstats = { "prayer_length: 3", "conviction: 10" } })
+   ok(priest.prayerAllows("heresy"), "after three recites, the fourth can carry heresy")
+   ok(priest.prayerAllows("guilt"), "a verse with no needs is always allowed")
+   mock.feed("Char.Vitals", { charstats = { "prayer_length: 2", "conviction: 3" } })
+   local prayer = priest.prayer()
+   eq(prayer.length, 2, "prayer_length is read as a number")
+   eq(prayer.conviction, 3, "conviction too")
+   mock.feed("Char.Vitals", { charstats = { "prayer_length: 0", "conviction: 0" } })
+
+   priest.ONCE_PER_PRAYER.condemnation = true
+   emunah.timers.stopAll()
+   ok(priest.recite("condemnation", "Ashden"), "a once-per-prayer verse goes out")
+   emunah.timers.stopAll()
+   ok(not priest.canRecite("condemnation"), "...and is spent")
+   ok(priest.canRecite("guilt"), "...while other verses are not")
+   mock.feed("Char.Vitals", { charstats = { "prayer_length: 0", "conviction: 0" } })
+   ok(not priest.canRecite("condemnation"),
+      "a prompt still reading 0 before the verse lands does not free it")
+   mock.feed("Char.Vitals", { charstats = { "prayer_length: 1", "conviction: 0" } })
+   mock.feed("Char.Vitals", { charstats = { "prayer_length: 0", "conviction: 0" } })
+   ok(priest.canRecite("condemnation"), "the prayer ending frees it")
+   priest.ONCE_PER_PRAYER.condemnation = nil
+   priest.prayerReset()
+
+   -- CHASTEN names what landed (13:58:03), on one line or wrapped across two.
+   opp.clear("ashden")
+   mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of "
+      .. "asthma is brought down on to your victim.")
+   ok(opp.has("ashden", "asthma"), "a chasten's landing line tracks the affliction on them")
+   mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of "
+      .. "recklessness is brought")
+   mock.line("down on to your victim.")
+   ok(opp.has("ashden", "recklessness"), "...wrapped after 'brought' too")
+   mock.line("The curse of clumsiness is brought down on to your victim.")
+   ok(not opp.has("ashden", "clumsiness"), "a curse line with no chasten before it names no one")
+   opp.clear("ashden")
+
+   -- CONTEMPLATE and ANGEL SAP, verbatim from 2026-10-15 13:31:27 and 13:31:45.
+   eq(priest.mana("ashden"), nil, "no reading before a contemplate")
+   mock.line("Ashden's mana stands at 5337/5405 [98%].")
+   local mana = priest.mana("Ashden")
+   ok(mana and mana.current == 5337 and mana.max == 5405 and mana.percent == 98,
+      "contemplate's output is read as current, max and percent")
+   ok(mana and not mana.stale, "...and is fresh")
+   mock.line("Your guardian angel casts a piercing glance at Ashden.")
+   ok(priest.mana("ashden").stale, "a sap since makes it stale: the sap shows no figure")
+   mock.line("Ashden's mana stands at 4800/5405 [88%].")
+   ok(not priest.mana("ashden").stale and priest.mana("ashden").percent == 88,
+      "the next contemplate replaces it")
+
+   -- T, typed bare (the user, 2026-10-15): "assume it's a pvp fight and set things up".
+   pvp.stop("test")
+   pvp.clearTarget()
+   mock.feed("Room.Info", { num = 1, name = "Room 1", area = "Test", exits = { e = 2 } })
+   mock.feed("Char.Items.List", {
+      location = "room", items = { { id = "9003", name = "a pixie", attrib = "m" } },
+   })
+   emunah.commands.dispatch("hunt")
+   ok(emunah.walker.enabled and bash.enabled, "(a hunt is running)")
+   ok(mock.command("t Anzerloi"), "'t <name>' is claimed, not sent to the game")
+   eq(pvp.target, "anzerloi", "...sets the pvp target")
+   ok(pvp.enabled, "...and turns pvp on")
+   ok(not bash.enabled and not emunah.walker.enabled,
+      "...which stops the hunt, the walking as well as the bashing")
+   ok(not mock.command("t Anzerloi hello there"), "'t' with more than one word passes through")
+   emunah.act.typedUntil = nil   -- typed to the game; the mock clock never lets the hold lapse
+   pvp.stop("test")
+   emunah.namedb.iff("Friendly", "ally")
+   mock.command("t Friendly")
+   ok(not pvp.enabled, "an ally is refused, and nothing starts")
+   emunah.namedb.iff("Friendly", "auto")
+   mock.feed("Char.Items.List", { location = "room", items = {} })
+   pvp.setTarget("Ashden")
+
+   mock.echoed = {}
+   ok(pcall(emunah.commands.dispatch, "pvp"), "emset pvp reports")
+   ok(table.concat(mock.echoed, " "):find("a sap would take", 1, true),
+      "...including the sap estimate", table.concat(mock.echoed, " "))
+   ok(table.concat(mock.echoed, " "):find("4800/5405", 1, true),
+      "...and their last contemplated mana", table.concat(mock.echoed, " "))
+   priest.targetMana = {}
+
+   pvp.clearTarget()
+   opp.clear("ashden")
+   emunah.timers.stopAll()
+   emunah.config.set("pvp.attack", "angel sear")
+   emunah.config.set("pvp.consumes", "eq")
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+end
+
+-- ===========================================================================
+suite("your queue: typed commands first, one-offs, functions")
+
+-- The user, 2026-10-15: "Typed commands win", "Queue a one-off", "Run my own function".
+do
+   local act, queue = emunah.act, emunah.queue
+   queue.reset(); emunah.timers.stopAll(); act.typedUntil = nil
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+
+   -- TYPED COMMANDS WIN: for a moment, automated balance and equilibrium sends hold.
+   mock.command("smite rat")
+   eq(act.blocked({ bal = true }), "you typed a command", "after you type, a balance send holds")
+   eq(act.blocked({ eq = true }), "you typed a command", "...and an equilibrium one")
+   eq(act.blocked({}), nil, "...but not a cure, or anything needing neither")
+   eq(act.blocked({ bal = true, user = true }), nil, "...nor a command of yours off the queue")
+   mock.advance(act.TYPED_HOLD + 0.1)
+   eq(act.blocked({ bal = true }), nil, "the hold lapses")
+   emunah.config.set("queue.typedHold", 0)
+   mock.command("smite rat")
+   eq(act.blocked({ bal = true }), nil, "queue.typedHold 0 turns it off")
+   emunah.config.set("queue.typedHold", nil)
+   act.typedUntil = nil
+
+   -- A ONE-OFF goes first on its balance, then holds it while in flight.
+   mock.sent = {}
+   emunah.commands.dispatch("queue eqbal angel strip 9001")
+   ok(queue.pending("balance") and queue.pending("balance").user, "emset queue eqbal queues it")
+   eq(act.blocked({ bal = true }), "your queued command first",
+      "while it waits, automated balance sends hold for it")
+   eq(act.blocked({ eq = true }), "your queued command first", "...and equilibrium ones")
+   queue.flush()
+   eq(mock.sent[1], "angel strip 9001", "it goes when both are up")
+   eq(act.blocked({ bal = true }), "balance in flight", "...and holds the balance until it lands")
+   ok(not emunah.timers.ready("attack.balance") and not emunah.timers.ready("cure.equilibrium"),
+      "...with the attacks' own guards armed")
+   queue.reset(); emunah.timers.stopAll()
+
+   -- Pushed over anything Emunah queued, even an urgent heal.
+   queue.push("equilibrium", "perform hands", { priority = 0, tag = "healhands" })
+   emunah.commands.dispatch("queue eq contemplate ashden")
+   eq(queue.pending("equilibrium").command, "contemplate ashden", "yours takes the slot from a heal")
+   emunah.commands.dispatch("queue eq contemplate sarapis")
+   eq(queue.pending("equilibrium").command, "contemplate sarapis", "...and replaces your own")
+   emunah.commands.dispatch("queue clear")
+   eq(queue.pending("equilibrium"), nil, "emset queue clear drops it")
+
+   -- A FUNCTION, run when its balance is free, and as Emunah's own: what it sends is not
+   -- taken for typed.
+   mock.sent = {}
+   local ran = 0
+   ok(queue.user("eq", function() ran = ran + 1; send("perform hands") end, "hands"),
+      "a function can be queued")
+   queue.flush()
+   eq(ran, 1, "it runs when equilibrium is free")
+   eq(act.typedUntil, nil, "...and what it sends does not count as typed")
+   ok(queue.user("free", function() error("boom") end), "a failing function can be queued")
+   ok(pcall(queue.flush), "...and failing does not break the queue")
+   eq(queue.pending("free"), nil, "...nor is it retried forever")
+
+   ok(pcall(emunah.commands.dispatch, "queue"), "emset queue reports")
+   queue.reset(); emunah.timers.stopAll(); act.typedUntil = nil
 end
 
 -- ===========================================================================
@@ -11099,9 +11481,10 @@ eq(emunah.keys.count(), keysBefore, "rebuilding does not stack duplicate binding
 ok(pcall(emunah.commands.dispatch, "keys"), "emunah keys reports status")
 
 -- ===========================================================================
--- Action keys: Ctrl+F5 reload, F11 hunt on/off, F12 to the safe room. Independent of keys.numpad and of
+-- Action keys: Ctrl+F5 reload, F1 pvp on/off, F11 hunt on/off, F12 to the safe room. Independent of keys.numpad and of
 -- the Keypad modifier -- see keys.buildActions(). Own registry, own count().
-eq(emunah.keys.actionCount(), 3, "reload, the hunt toggle and the safe room all bound")
+eq(emunah.keys.actionCount(), 5,
+   "reload, the pvp, support and hunt toggles and the safe room all bound")
 
 -- Scoped: Lua 5.1 caps a function at 200 active locals, and this file is one chunk.
 do
@@ -11116,8 +11499,77 @@ do
    _G.emunahReload = realReload
 end
 
-ok(not mock.press(mudlet.keymodifier.None, mudlet.key.F5),
-   "plain F5 (no Control modifier) is NOT bound -- only Ctrl+F5 is")
+-- Plain F5 is support mode (the user, 2026-10-15); Ctrl+F5 stays reload, tested above.
+-- SUPPORT MODE: attack what the leader attacks, verbatim lines from 2026-10-15 14:47.
+do
+   bash.stop("test"); emunah.walker.stop("test")
+   emunah.timers.stopAll()
+   emunah.act.typedUntil = nil   -- the numpad keys above send as you; the mock clock stands still
+   mock.feed("Room.Info", { num = 1, name = "Room 1", area = "Test", exits = { e = 2 } })
+   mock.feed("Room.Players", { { name = "Anzerloi", fullname = "Anzerloi" } })
+   mock.feed("Char.Items.List", { location = "room", items = {
+      { id = "7101", name = "a crazed prison guard", attrib = "m" },
+      { id = "7102", name = "a howling blood mastiff", attrib = "m" },
+      { id = "7103", name = "a crazed prison guard", attrib = "m" },
+   } })
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+   local function attacked()
+      emunah.timers.stopAll()
+      mock.sent = {}
+      mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+      return table.concat(mock.sent, " | ")
+   end
+
+   emunah.commands.dispatch("support anzerloi")
+   ok(bash.enabled and bash.support and bash.support.leader == "anzerloi",
+      "emset support <name> starts support mode")
+   ok(not emunah.walker.enabled, "...and does not walk")
+   local sent = attacked()
+   ok(not sent:find("7101") and not sent:find("7102"),
+      "nothing is attacked until the leader hits something", sent)
+
+   mock.line("Anzerloi utters a prayer and smites a crazed prison guard with an Auroran Mace.")
+   sent = attacked()
+   ok(sent:find("7101"), "the leader's smite: we attack that mob, in a room with a player in it", sent)
+   mock.line("Anzerloi utters a prayer and smites a crazed prison guard with an Auroran Mace.")
+   sent = attacked()
+   ok(sent:find("7101"), "...and with two of that name, stay on the one we are on", sent)
+
+   mock.line("Sarapis utters a prayer and smites a howling blood mastiff with a mace.")
+   sent = attacked()
+   ok(not sent:find("7102"), "someone else's hit is not followed", sent)
+
+   mock.line("Anzerloi calls down holy fire upon a howling blood mastiff, condemning him to "
+      .. "serve penance in a righteous blaze of light.")
+   sent = attacked()
+   ok(sent:find("7102"), "the leader moves to another mob: so do we", sent)
+
+   mock.feed("Char.Items.Remove", { location = "room", item = { id = "7102", name = "a howling blood mastiff" } })
+   sent = attacked()
+   ok(not sent:find("7101") and not sent:find("7103"),
+      "its mob dead, we wait for the leader rather than pick one", sent)
+   mock.line("Praying to the Gods, Anzerloi lays a desolating rite on a crazed prison guard's "
+      .. "body and watches as he arches his back in agony.")
+   ok(attacked():find("7101"), "a desolating rite counts as a hit too")
+
+   mock.press(mudlet.keymodifier.None, mudlet.key.F5)
+   ok(not bash.enabled and not bash.support, "F5 turns support mode off")
+   mock.press(mudlet.keymodifier.None, mudlet.key.F5)
+   ok(bash.enabled and bash.support and bash.support.leader == "anzerloi",
+      "F5 again supports the same leader")
+
+   emunah.commands.dispatch("hunt")
+   ok(bash.enabled and not bash.support and emunah.walker.enabled,
+      "starting a hunt replaces support mode")
+   emunah.commands.dispatch("hunt off")
+   emunah.commands.dispatch("support anzerloi")
+   emunah.commands.dispatch("support off")
+   ok(not bash.enabled and not bash.support, "emset support off stops it")
+
+   mock.feed("Room.Players", {})
+   mock.feed("Char.Items.List", { location = "room", items = {} })
+   emunah.config.set("bashing.supportLeader", nil)
+end
 
 -- F11 starts the hunt (walk + bash together). The key just dispatches `emset hunt`, so this
 -- is really exercising that command.
@@ -11457,6 +11909,7 @@ mock.command("emset pause")
 ok(emunah.curing.engine.enabled, "pp resumes curing when only curing was off")
 ok(emunah.curing.defkeepup.enabled, "pp leaves defence keep-up on when only curing was off")
 ok(not mock.command("emote waves"), "an unrelated command is NOT swallowed by our aliases")
+emunah.act.typedUntil = nil   -- typed to the game; the mock clock never lets the hold lapse
 
 -- ===========================================================================
 suite("loot: the room is held until the gold is off the floor")
@@ -12672,9 +13125,15 @@ suite("sileris is fangbarrier, myrrh is scholasticism")
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
    ok(not table.concat(mock.sent, " | "):find("apply sileris", 1, true),
       "...and not again while it hardens", table.concat(mock.sent, " | "))
+   -- 10.05s after the apply, as on 2026-10-15 (18:26:21.16 -> 18:26:31.21). At svof's 8s
+   -- window this was thrown away as an illusion and the defence stayed red.
+   mock.advance(7.05)
+   mock.links = {}
    mock.line("The sileris berry juice hardens into a supple purple shell.")
+   ok(not mock.links[1], "a hardening 10s after the apply is believed, not an illusion")
+   ok(keepup.state("sileris").up, "hardened, it is up -- as fangbarrier, from the line alone")
    mock.feed("Char.Defences.Add", { name = "fangbarrier", desc = "" })
-   ok(keepup.state("sileris").up, "hardened, it is up -- as fangbarrier")
+   ok(keepup.state("sileris").up, "...and still up when Char.Defences agrees")
 
    -- The hardening line with no apply behind it is an illusion.
    mock.forgetSends()
@@ -13337,6 +13796,7 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
    -- 10:10:08: obeyed -- straight after an order, as every reply is (detect layer 5).
    riding.setFollowing(nil)
    mock.command("order 368644 follow me")
+   emunah.act.typedUntil = nil   -- typed as you; the mock clock never lets the hold lapse
    mock.line("Your order is obeyed.")
    mock.line("A heavy horse obediently falls into line behind you.")
    eq(riding.following(), true, "the obey line marks it following")
@@ -13370,6 +13830,7 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
 
    -- 10:09:54: a dismount settles it.
    mock.command("dismount")
+   emunah.act.typedUntil = nil   -- typed as you; the mock clock never lets the hold lapse
    mock.sent = {}
    mock.line("You step down off of a heavy horse.")
    eq(riding.riding(), false, "the dismount line says we are off")

@@ -170,7 +170,7 @@ M.handlers.status = function()
          number > 0 and "reset" or "ansi_light_red")
    end
    floor("stop: bashing", emunah.config.get("bashing.stopBelowHealth", 50))
-   floor("stop: pvp", emunah.config.get("pvp.stopBelowHealth", 60))
+   floor("stop: pvp", emunah.config.get("pvp.stopBelowHealth", 25))
    floor("stop: critical", emunah.watch and emunah.watch.config
       and emunah.config.get("watch.critical", emunah.watch.config.critical))
 end
@@ -999,6 +999,7 @@ M.handlers.hunt = function(arg)
       -- command having failed rather than there being nothing left to stop.
       local stoppedBash = emunah.bashing.stop("requested")
       local stoppedWalk = emunah.walker.stop("requested")
+      emunah.bashing.support, emunah.bashing.assist = nil, nil
       if not stoppedBash and not stoppedWalk then
          log.info("Hunt was not running.")
       end
@@ -1011,6 +1012,8 @@ M.handlers.hunt = function(arg)
       log.warn("Unknown: emset hunt %s. Try `emset hunt` or `emset hunt off`.", tostring(arg))
       return
    end
+   -- A hunt picks its own targets; support mode only takes the leader's. One or the other.
+   if emunah.bashing.support then emunah.bashing.stopSupport("switching to a hunt") end
    -- Walker first: bashing runs a tick as it starts, and that tick decides whether the
    -- room is clear and whether to hand movement on. With no walk running yet it has
    -- nothing to hand to.
@@ -1019,6 +1022,79 @@ M.handlers.hunt = function(arg)
    end
    if not emunah.bashing.start() then
       emunah.walker.stop("bashing would not start")
+   end
+end
+
+-- SKILLS: what the character knows, from GMCP. `dump` writes every ability's AB text to a
+-- file in the profile (gmcp/skills.lua's M.dump).
+M.handlers.skills = function(arg, rest)
+   local skills = emunah.gmcp.skills
+   if arg == "dump" then
+      local groups = {}
+      for word in tostring(rest or ""):gmatch("%S+") do groups[#groups + 1] = word end
+      skills.dump(groups)
+   else
+      header("Skills")
+      for _, key in ipairs((function() local k = skills.groupNames() table.sort(k) return k end)()) do
+         local group = skills.groups[key]
+         row(group.name, ("%s, %d abilities"):format(group.rank ~= "" and group.rank or "?",
+            #group.skills))
+      end
+      local missing = skills.pendingGroups()
+      if #missing > 0 then
+         row("no list yet", table.concat(missing, ", "), "ansi_light_red")
+      end
+      decho("\n  " .. faint("emset skills dump [skillset ...]  -- every ability's AB text to "
+         .. skills.DUMP_FILE))
+   end
+end
+
+-- QUEUE: your own command on Emunah's queue, on the balance it needs and ahead of
+-- everything automated (core/queue.lua's M.user). A Lua function goes the same way from a
+-- script: emunah.queue.user("eq", function() ... end).
+M.handlers.queue = function(arg, rest)
+   local queue = emunah.queue
+   if arg == "clear" then
+      local dropped = queue.clearUser()
+      log.info("Dropped %d queued command%s of yours.", dropped, dropped == 1 and "" or "s")
+   elseif arg and queue.USER[arg] and rest and rest ~= "" then
+      -- Quotes stripped for the reason given at `emset bash attack`.
+      local command = rest:match('^"(.+)"$') or rest:match("^'(.+)'$") or rest
+      if queue.user(arg, command) then
+         log.info("Queued on %s: %s", arg, command)
+      else
+         log.warn("Could not queue %s.", command)
+      end
+   elseif arg then
+      log.warn("Usage: emset queue bal|eq|eqbal|free <command>, or emset queue clear.")
+   else
+      header("Queue")
+      local any = false
+      for _, vector in ipairs(queue.VECTORS) do
+         local pending, flight = queue.pending(vector), queue.awaiting(vector)
+         if pending or flight then
+            any = true
+            row(vector, (pending and (pending.command .. (pending.user and " (yours)" or "")) or "-")
+               .. (flight and ("   in flight: " .. flight.command) or ""))
+         end
+      end
+      if not any then row("nothing", "waiting on any balance") end
+      decho("\n  " .. faint("emset queue bal|eq|eqbal|free <command>  |  emset queue clear"))
+   end
+end
+
+-- SUPPORT: hunt alongside a leader, attacking what they attack (bashing.lua). `emset support`
+-- toggles with the last leader, as F5 does; a name starts supporting them; `off` stops.
+M.handlers.support = function(arg)
+   local bash = emunah.bashing
+   if arg == "off" or arg == "stop" then
+      if not bash.stopSupport("requested") then log.info("Support mode was not on.") end
+   elseif arg and arg ~= "" then
+      bash.startSupport(arg)
+   elseif bash.support and bash.enabled then
+      bash.stopSupport("requested")
+   else
+      bash.startSupport(nil)
    end
 end
 
@@ -1073,6 +1149,11 @@ M.handlers.pvp = function(arg, rest)
    local pvp = emunah.pvp
    if arg == "on" or arg == "start" then pvp.start()
    elseif arg == "off" or arg == "stop" then pvp.stop("requested")
+   elseif arg == "attack" and rest then
+      -- Quotes stripped for the reason given at `emset bash attack`: a leading `"` is SAY.
+      local command = rest:match('^"(.+)"$') or rest:match("^'(.+)'$") or rest
+      emunah.config.set("pvp.attack", command); emunah.config.save()
+      log.info("PvP attack command: %s", command)
    elseif arg == "target" and rest then
       if rest == "off" or rest == "clear" or rest == "none" then
          pvp.clearTarget()
@@ -1089,14 +1170,36 @@ M.handlers.pvp = function(arg, rest)
       if r.target then
          local afflictions = emunah.curing.detect.opponent.list(r.target)
          row("target afflictions", #afflictions > 0 and table.concat(afflictions, ", ") or "-")
+         -- From the tracked afflictions alone, so it is only as good as they are. Nothing
+         -- sends a sap yet; this is the figure the offence will decide with.
+         local priest = emunah.class.active
+         if priest and priest.sapPercent then
+            row("a sap would take", ("%.1f%% angel, %.1f%% wrath (of max mana)"):format(
+               priest.sapPercent(afflictions, { via = "angel" }),
+               priest.sapPercent(afflictions, { via = "wrath" })))
+         end
+         local mana = priest and priest.mana and priest.mana(r.target)
+         if mana then
+            row("their mana", ("%d/%d [%d%%], %s ago%s"):format(mana.current, mana.max,
+               mana.percent, util.duration(util.now() - mana.at),
+               mana.stale and " -- sapped since" or ""),
+               mana.stale and "ansi_light_black" or "reset")
+         end
       end
+      local active = emunah.class.active
+      if active and active.prayer then
+         local prayer = active.prayer()
+         row("prayer", ("length %d, conviction %d"):format(prayer.length, prayer.conviction))
+      end
+      if r.held then row("attack held", "locked: " .. r.held, "ansi_light_red") end
+      row("attack", emunah.config.get("pvp.attack", "angel sear") .. " <name>")
       row("attacks sent", r.attacks)
       row("verses recited", r.recited)
       if r.running then row("elapsed", util.duration(r.elapsed)) end
       local here = emunah.gmcp.room.playerNames()
       row("players here", #here > 0 and table.concat(here, ", ") or "-",
          "ansi_light_black")
-      decho("\n  " .. faint("emset pvp on|off|target <name>|target off  -- never auto-targets"))
+      decho("\n  " .. faint("emset pvp on|off|target <name>|target off|attack <command>  -- never auto-targets"))
    end
 end
 
@@ -1394,6 +1497,17 @@ end))
 
 table.insert(registry(), tempAlias([[^\s*go\s*$]], function()
    if not M.carryOn() then send("go") end
+end))
+
+-- T, typed bare (the user, 2026-10-15): `t anzerloi` sets the PvP target, the same as `emset
+-- pvp target anzerloi`, including its refusal of allies and the game-side target -- and
+-- "if i ever type 't <anything>' assume it's a pvp fight": PvP goes on with it, which stops
+-- a hunt and puts curing and defences on their fight footing (curing/situations.lua). A
+-- refused target starts nothing. One word only: anything longer -- a T that the game reads
+-- with more after it -- passes through.
+table.insert(registry(), tempAlias([[^\s*t\s+(\w+)\s*$]], function()
+   local pvp = emunah.pvp
+   if pvp.setTarget(matches[2]) and not pvp.enabled then pvp.start() end
 end))
 
 -- Reflect whatever curing/keep-up state a fresh load (or a reload mid-session) actually

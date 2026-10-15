@@ -1,0 +1,13 @@
+Source: AB SPIRITUALITY ABSOLVE, in-game, pasted by the user 2026-10-15.
+
+H:100% M:92% E:100% W:99%  exckdb  T:  13:06:21.09-ab Spirituality absolve
+Absolve (Spirituality)                        Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            ANGEL ABSOLVE <target>
+Works on/against:  Adventurers
+Cooldown:          4.40 seconds of equilibrium
+Resource:          50 Angel power
+Details:
+Using this most powerful of Angelic abilities, your Angel will rip the very soul from your enemy. Be
+warned though, your enemy must be on less than half of his maximum mana.
+-------------------------------------------------------------------------------

@@ -1,0 +1,11 @@
+Source: AB ZEAL FIRE, in-game, pasted by the user 2026-10-15 (13:13:06).
+
+Fire (Zeal)                                   Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE FIRE <target|ME>
+Works on/against:  Adventurers and self
+Cooldown:          3.00 seconds of prayer balance
+Details:
+Recite the verse of fire, granting you or an ally protection against the
+ravages of flame.
+-------------------------------------------------------------------------------

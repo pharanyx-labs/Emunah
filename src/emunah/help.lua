@@ -63,6 +63,16 @@ M.modules = {
      summary = "trace every GMCP message in and out" },
    { syntax = "emset debug queue|timers|handlers",
      summary = "dump the action queue, the timers or the event handlers" },
+   { syntax = "emset skills", handler = "skills",
+     summary = "your skillsets and ranks, from GMCP" },
+   { syntax = "emset skills dump [skillset ...]",
+     summary = "write every ability's AB text, from GMCP, to emunah-abilities.txt in the profile" },
+   { syntax = "emset queue", handler = "queue",
+     summary = "what is waiting on each balance, Emunah's and yours" },
+   { syntax = "emset queue bal|eq|eqbal|free <command>",
+     summary = "send <command> when that balance is free, ahead of everything automated" },
+   { syntax = "emset queue clear",
+     summary = "drop the commands you queued that have not gone yet" },
   } },
 
 { id = "curing", title = "Curing", summary = "tracks afflictions and cures them on the right balance",
@@ -160,7 +170,8 @@ M.modules = {
   state = function() return emunah.bashing.enabled or emunah.walker.enabled end,
   does = "Bashing and walking. Bashing attacks the denizens in the room, one at a time by "
       .. "replica number, on the balance and equilibrium your attack uses. The walker "
-      .. "explores an area room by room. `hunt` runs both: clear a room, move on. Stops "
+      .. "explores an area room by room. `hunt` runs both: clear a room, move on. Support "
+      .. "mode follows a leader instead: it attacks what they attack and nothing else. Stops "
       .. "itself when health drops below its floor, when a player arrives, or when "
       .. "damage comes in too fast.",
   commands = {
@@ -168,6 +179,8 @@ M.modules = {
      summary = "walk and bash together; `off` stops both. F11 toggles it" },
    { syntax = "emset hunt retreat",
      summary = "stop both, go back three rooms the way you came, and stay there" },
+   { syntax = "emset support [<name>|off]", handler = "support",
+     summary = "support mode: attack what <name> attacks, never walking. F5 toggles it" },
    { syntax = "emset bash", handler = "bash",
      summary = "bashing: target, kills, damage, whether it is running" },
    { syntax = "emset bash on|off",
@@ -183,14 +196,19 @@ M.modules = {
 { id = "pvp", title = "PvP", summary = "attacks the player you name, and no one else",
   state = function() return emunah.pvp.enabled end,
   does = "Attacks the player you name, and only that player: it never picks a target by "
-      .. "itself. Tracks the afflictions you have given them. Stops below its health floor.",
+      .. "itself. Nothing offensive is sent while it is off. Tracks the afflictions you have "
+      .. "given them. Holds the attack while you are locked, and stops below its health floor.",
   commands = {
    { syntax = "emset pvp", handler = "pvp",
-     summary = "target, their afflictions, attacks sent" },
+     summary = "target, their afflictions and mana, attacks sent" },
    { syntax = "emset pvp on|off",
-     summary = "start or stop attacking the target" },
+     summary = "start or stop attacking the target. F1 toggles it" },
    { syntax = "emset pvp target <name>|off",
      summary = "choose the target, or clear it" },
+   { syntax = "emset pvp attack <command>",
+     summary = "PvP's own attack command; the hunt's is `emset bash attack`" },
+   { syntax = "t <name>", alias = "t",
+     summary = "target them and start the fight: `emset pvp target <name>`, then PvP on" },
   } },
 
 { id = "loot", title = "Loot & shop", summary = "picks up gold; asks before costly purchases",
@@ -329,6 +347,9 @@ M.modules = {
 M.settings = {
 
 -- core
+{ key = "queue.typedHold", default = 0.5, type = "number", unit = "s", topic = "system",
+  shipped = false, detail = "After you type a command, Emunah's balance and equilibrium "
+     .. "sends wait this long, plus your latency, so yours goes first. 0 turns it off." },
 { key = "logLevel", default = "info", type = "string", topic = "system", shipped = true,
   detail = "debug, info, warn or error. `emset debug` toggles between info and debug." },
 { key = "system.update", default = true, type = "boolean", topic = "system", shipped = true,
@@ -501,6 +522,8 @@ M.settings = {
   detail = "What the attack REQUIRES: eq, bal or both." },
 { key = "bashing.consumes", default = "eq", type = "string", topic = "hunting", shipped = true,
   detail = "What the attack SPENDS: eq or bal. Not the same question as `balance`." },
+{ key = "bashing.supportLeader", default = "", type = "string", topic = "hunting",
+  shipped = false, detail = "Who support mode follows; set by `emset support <name>`." },
 { key = "bashing.stopBelowHealth", default = 50, type = "number", unit = "%", topic = "hunting",
   shipped = true, detail = "Zero disables the floor." },
 { key = "bashing.maxAttempts", default = 40, type = "number", topic = "hunting", shipped = true },
@@ -519,8 +542,14 @@ M.settings = {
   shipped = false, detail = "Priest only." },
 
 -- pvp
-{ key = "pvp.stopBelowHealth", default = 60, type = "number", unit = "%", topic = "pvp",
-  shipped = true, detail = "Higher than the bashing floor on purpose." },
+{ key = "pvp.stopBelowHealth", default = 25, type = "number", unit = "%", topic = "pvp",
+  shipped = true, detail = "Replaces watch.critical in PvP. Zero disables it." },
+{ key = "pvp.attack", default = "angel sear", type = "string", topic = "pvp", shipped = true,
+  detail = "PvP's own attack, at the target's name. Separate from bashing.attack." },
+{ key = "pvp.balance", default = "both", type = "string", topic = "pvp", shipped = true,
+  detail = "What the attack REQUIRES: eq, bal or both." },
+{ key = "pvp.consumes", default = "eq", type = "string", topic = "pvp", shipped = true,
+  detail = "What the attack SPENDS: eq or bal." },
 { key = "pvp.verses", default = true, type = "boolean", topic = "pvp", shipped = false,
   detail = "Recite Zeal verses to apply afflictions." },
 { key = "pvp.attackAtAfflictions", default = 2, type = "number", topic = "pvp",

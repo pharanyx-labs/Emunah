@@ -35,6 +35,14 @@ local event = emunah.event
 
 M.enabled = false
 M.target  = nil      -- replica number currently being attacked
+
+--- SUPPORT MODE (the user, 2026-10-15: "a 'hunting support mode' via f5 that hunts when
+--- anzerloi hits the monster"). Hunting, not PvP -- the same attack, amplifiers and safety
+--- -- but the leader chooses: we attack what they are hitting, and nothing until they hit
+--- something. No walking (they lead), and their presence in the room is the point, so the
+--- never-in-front-of-a-player rules stand down. See the SUPPORT section below.
+M.support = nil      -- { leader = name (lower) } while supporting, else nil
+M.assist  = nil      -- replica number the leader was last seen hitting
 M.stats   = { killed = 0, rooms = 0, startedAt = 0, attacks = 0, dealt = 0, taken = 0 }
 
 --- Set only by the health-threshold branch of unsafe(). While true, maybeResume() watches
@@ -123,11 +131,17 @@ function M.start()
    M.stats = { killed = 0, rooms = 0, startedAt = emunah.util.now(), attacks = 0, dealt = 0, taken = 0 }
 
    -- Take over pacing. Otherwise the walker's own timer speedwalks us out of a room
-   -- mid-fight and then straight through every populated room afterwards.
-   if emunah.walker then emunah.walker.claim("bashing") end
+   -- mid-fight and then straight through every populated room afterwards. Not when
+   -- supporting: the leader moves, we do not.
+   if emunah.walker and not M.support then emunah.walker.claim("bashing") end
 
-   log.info("Bashing <ansi_light_green>on<ansi_yellow> (%s).",
-      emunah.config.get("bashing.attack", "smite"))
+   if M.support then
+      log.info("Supporting <ansi_cyan>%s<ansi_yellow> (%s): attacking what they attack.",
+         M.support.leader, emunah.config.get("bashing.attack", "angel sear"))
+   else
+      log.info("Bashing <ansi_light_green>on<ansi_yellow> (%s).",
+         emunah.config.get("bashing.attack", "smite"))
+   end
    event.raise("bashing.started")
 
    M.tick()
@@ -205,17 +219,30 @@ local function unsafe()
    -- copy of the rules rather than each growing their own.
    local watched = emunah.watch and emunah.watch.unsafe()
    if watched then return watched end
-   if emunah.config.get("bashing.stopOnPlayer", false)
+   if not M.support and emunah.config.get("bashing.stopOnPlayer", false)
       and emunah.gmcp.room.playerCount() > 0 then
       return "another player arrived"
    end
    return nil
 end
 
---- Choose something to attack here.
+--- The leader's current mob, while it is still here and still a creature.
+local function assisted()
+   if not M.assist then return nil end
+   local denizens = emunah.denizens
+   if not denizens.isDenizen(M.assist) then M.assist = nil return nil end
+   for _, denizen in ipairs(denizens.here()) do
+      if denizen.id == M.assist then return denizen end
+   end
+   M.assist = nil
+   return nil
+end
+
+--- Choose something to attack here. Supporting, only what the leader is hitting.
 local function acquire()
    local denizens = emunah.denizens
-   local next_ = denizens.next()
+   local next_
+   if M.support then next_ = assisted() else next_ = denizens.next() end
    if not next_ then return nil end
 
    M.target = next_.id
@@ -369,7 +396,7 @@ function M.tick()
    -- gmcp.room excludes ourselves from the count; Achaea's raw Room.Players does not (see
    -- gmcp/room.lua), and getting that wrong here would mean never attacking anything.
    local room = emunah.gmcp.room
-   if setting("soloOnly") ~= false and room and room.playerCount() > 0 then
+   if not M.support and setting("soloOnly") ~= false and room and room.playerCount() > 0 then
       if M.target then
          log.debug("Not attacking -- %s is here.", table.concat(room.playerNames(), ", "))
       end
@@ -380,6 +407,9 @@ function M.tick()
 
    local denizens = emunah.denizens
    local class = emunah.class
+
+   -- The leader moved on to another mob: so do we.
+   if M.support and M.target and M.target ~= M.assist then M.target = nil end
 
    -- Target still valid? A target that has left the room is no longer ours.
    if M.target then
@@ -395,6 +425,8 @@ function M.tick()
 
    if not M.target then
       if not acquire() then
+         -- Supporting, an empty hand means waiting for the leader, never moving on.
+         if M.support then return end
          -- "Nothing to attack" and "the room's contents have not arrived yet" look
          -- identical from here, and confusing them is ruinous: the loop declares every
          -- room clear the instant it walks in and the walker marches through the whole
@@ -496,6 +528,71 @@ function M.killIn()
    return math.ceil(last / perAttack)
 end
 
+-- ---------------------------------------------------------------------------
+-- support: attack what the leader attacks
+-- ---------------------------------------------------------------------------
+--
+-- The leader's attacks, as the rest of the room sees them. Verbatim from Anzerloi (a
+-- Priest), 2026-10-15 14:47:07-14:47:35; each captures the leader and the mob's
+-- description. Another class's lines are not known yet, so a leader of another class is
+-- never assisted until theirs are added here.
+--
+--   Anzerloi utters a prayer and smites a crazed prison guard with an Auroran Mace.
+--   Praying to the Gods, Anzerloi lays a desolating rite on a howling blood mastiff's body
+--   Anzerloi calls down holy fire upon a howling blood mastiff, condemning him to serve ...
+M.SUPPORT_ATTACKS = {
+   { pattern = [[^(\w+) utters a prayer and smites (.+) with ]],      leader = 2, mob = 3 },
+   { pattern = [[^Praying to the Gods, (\w+) lays a desolating rite on (.+)'s body]],
+     leader = 2, mob = 3 },
+   { pattern = [[^(\w+) calls down holy fire upon ([^,]+), condemning ]], leader = 2, mob = 3 },
+}
+
+--- The leader hit `description`. Resolved to a replica here; with several of that name,
+--- the one we are already on stays, else the first in the room's own order.
+function M.leaderHit(leader, description)
+   if not (M.support and tostring(leader or ""):lower() == M.support.leader) then return false end
+   local denizens = emunah.denizens
+   local found = denizens.findByName(description)
+   if #found == 0 then return false end
+   local pick = found[1]
+   for _, denizen in ipairs(found) do
+      if denizen.id == M.assist then pick = denizen break end
+   end
+   if not denizens.isDenizen(pick.id) then return false end
+   if M.assist ~= pick.id then
+      log.debug("%s is on %s (%s).", M.support.leader, pick.name, pick.id)
+   end
+   M.assist = pick.id
+   return true
+end
+
+--- Start supporting `leader`, or the last one when nil. Stops a hunt first: a hunt picks
+--- its own targets and walks, which is everything support mode is not.
+function M.startSupport(leader)
+   leader = tostring(leader or emunah.config.get("bashing.supportLeader", "") or ""):lower()
+   if leader == "" then
+      log.warn("Support whom? 'emset support <name>' the first time.")
+      return false
+   end
+   if M.enabled then M.stop("switching to support") end
+   if emunah.walker and emunah.walker.enabled then emunah.walker.stop("support", true) end
+   emunah.config.set("bashing.supportLeader", leader); emunah.config.save()
+   M.support = { leader = leader }
+   M.assist = nil
+   if not M.start() then
+      M.support = nil
+      return false
+   end
+   return true
+end
+
+function M.stopSupport(reason)
+   local was = M.support ~= nil and M.enabled
+   if M.enabled then M.stop(reason or "requested") end
+   M.support, M.assist = nil, nil
+   return was
+end
+
 --- Report, for `emunah bash`.
 function M.report()
    local elapsed = M.enabled and (emunah.util.now() - M.stats.startedAt) or 0
@@ -520,6 +617,7 @@ function M.report()
       killIn    = M.killIn(),
       elapsed   = elapsed,
       classLoaded = (emunah.class and emunah.class.name) or nil,
+      supporting = M.support and M.support.leader or nil,
    }
 end
 
@@ -646,5 +744,17 @@ end, "bashing")
 event.register("emunah.bashing.pause", function()
    if M.enabled then M.stop("paused") end
 end, "bashing")
+
+-- The leader's attacks (see M.SUPPORT_ATTACKS). On _persist so a reload kills the previous
+-- generation, as everywhere else that owns triggers.
+emunah._persist = emunah._persist or {}
+for _, id in ipairs(emunah._persist.supportTriggers or {}) do killTrigger(id) end
+emunah._persist.supportTriggers = {}
+for _, attack in ipairs(M.SUPPORT_ATTACKS) do
+   local id = tempRegexTrigger(attack.pattern, function()
+      if M.support then M.leaderHit(matches[attack.leader], matches[attack.mob]) end
+   end)
+   if id then table.insert(emunah._persist.supportTriggers, id) end
+end
 
 return M

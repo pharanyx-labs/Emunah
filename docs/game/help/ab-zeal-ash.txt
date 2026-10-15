@@ -1,0 +1,14 @@
+Source: AB ZEAL ASH, in-game, pasted by the user 2026-10-15 (13:13:06).
+
+Ash (Zeal)                                    Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE ASH <target>
+Cooldown:          1.60 seconds of prayer balance
+Details:
+This verse brings forth latent fires that sear at the soul, lying in
+wait to be ignited by true fire(*).
+
+* Delivers spiritburn. When a target takes damage from ticks of being on
+fire, they will also suffer mana damage. They shall also take mana
+damage if they successfully move while onfire.
+-------------------------------------------------------------------------------

@@ -1,0 +1,14 @@
+Source: AB ZEAL BURN, in-game, pasted by the user 2026-10-15 (13:13:06).
+
+Burn (Zeal)                                   Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE BURN <target>
+Cooldown:          1.60 seconds of prayer balance
+Details:
+Perhaps the most straight forward of all holy verses, but no less
+powerful for that. Send fire to scourge the flesh of your profane foe,
+leaving them tender and pained to such an extent that any attempt to
+apply a salve shall cause them to suffer in mind(*).
+
+* Drains mana on applying salves.
+-------------------------------------------------------------------------------

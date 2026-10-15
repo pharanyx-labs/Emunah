@@ -149,6 +149,39 @@ long enough to repay the lost swing. Desolation costs neither balance nor equili
 there is nothing to repay — it only waits on its own cooldown and rage, gated additionally on
 `denizens.isDenizen()` since HELP restricts it to denizens.
 
+### Angel Strip (hunting only)
+
+`ANGEL STRIP <target>`: equilibrium 1.80s, 10 Angel power and 100 mana; adventurers and
+denizens; "will always strip magical shields first" (`help/ab-spirituality-strip.txt`).
+**Used for hunting only, never in PvP** (the user, 2026-10-15).
+
+Anzerloi, 14:35:03–14:35:52 **[player]**: it **requires balance**, and it has to come
+**before** the attack, because it spends equilibrium and smite cannot go without it. The
+same holds for Angel Sear, which needs both too. So a strip takes the attack's turn. When
+to use it, against a shielded mob: "If no rage, and no heresy defense, do that instead of
+smite." Rage is **Battlerage** rage (the user). Heresy is **your** defence (`hunt heresy`,
+deflist `heresy`): "If you have heresy def, just smite. You'll do half damage, in fire
+type, and remove shield" (14:36:19–14:36:36). Which Battlerage ability the rage case means,
+and the line that shows a mob is shielded, are not yet captured.
+
+A mob raising a shield, and a heresy smite burning it away, verbatim (Anzerloi hunting,
+2026-10-15 14:47:24–14:47:26):
+
+```
+A nearly invisible magical shield forms around a crazed prison guard.
+Igniting in holy flame, Anzerloi's mace burns away the magical shield surrounding a crazed prison
+guard.
+Anzerloi utters a prayer and smites a crazed prison guard with an Auroran Mace.
+```
+
+The same capture gives the leader lines support mode follows (`bashing.SUPPORT_ATTACKS`):
+`<Name> utters a prayer and smites <mob> with <weapon>.`, `Praying to the Gods, <Name> lays a
+desolating rite on <mob>'s body ...`, and Penitence's `<Name> calls down holy fire upon <mob>,
+condemning ...`; and the kill, `A crazed prison guard has been slain by Anzerloi.`
+
+`perform purity` as the balance move instead of smite, when "they raise shield and their
+health is low enough" (Anzerloi, 14:36:57). **Hunting only** (the user). HELP not captured.
+
 ## Devotion
 
 Priest's class resource, reported by `charstats` as a **percentage only** -- so an ability
@@ -165,9 +198,10 @@ A third Priest skillset, alongside Devotion and Spirituality (see `class/priest.
 capture, known abilities ran from `Anoint` through `Unflinching`, with `Ash`, `Penance`,
 `Reflection`, `Rebuke`, `Burn`, `Light`, `Wrath`, `Purge`, `Rejection`, `Oration`, `Salvation`,
 `Benediction`, `Glory`, `Revelations` still unlearned ("Next ability available in 40
-lessons"). **`Rebuke` -- the wiki-described "lock" finisher -- is not trained.** Do not build
-a full stack-and-lock combo against that assumption; only Guilt and Condemnation are
-confirmed usable.
+lessons"). **Superseded 2026-10-15:** the user states the character now has every ability in
+Spirituality, Devotion and Zeal. Trained is not the same as specified: only Guilt and
+Condemnation have their syntax, cost and replies captured, so they are still the only verses
+Emunah sends. Each other one needs its `AB <name>` first.
 
 ### Anoint (prerequisite, blocks everything)
 
@@ -386,9 +420,243 @@ correctly.
 
 ## Priest: absolve
 
-The class's kill mechanic, for reference — not implemented.
+The class's kill. **Not implemented**: the sap calculation is (`class/priest.lua`
+`sapPercent`, shown by `emset pvp`), but nothing sends a sap or an absolve until their HELP
+is captured (see *Still needed* below).
 
 Absolve is a **mana kill** and is binary: it either kills or fails, on the target's mana
 being **below 50%**. Exactly 50% fails. The common route is to break a leg, prone the
 target, drive mana down (an angel's sap does the mana damage), then absolve. Whether the
 threshold is actually met is a calculation most players assume rather than compute.
+
+Everything below is from Anzerloi in party chat, 2026-10-15 — an informant, not HELP.
+Timestamps are the user's prompt clock. **[player]**
+
+### The route (12:30:55, 12:32:10)
+
+- Absolve needs the target **below 50% mana when it lands**.
+- Their mana falls on its own as they act, and by your saps.
+- Watch their mana with **`contemplate`**. Against **Mind Warden**, contemplate as close to
+  the next attack as you can while still leaving time to read the result and queue the
+  right attack. (Whose Mind Warden, and what it does, is not stated.)
+
+### What a sap takes (12:33:53–12:37:05)
+
+Each item adds a share of the target's **maximum** mana to one sap:
+
+| On the target | Adds |
+|---|---|
+| guilt, spiritburn, tenderskin, burning — each | 3.5% |
+| each level of a limb break | 3% |
+| each mental affliction ("cured by focusing") | 2% |
+| prone | 2% |
+| any other affliction | 1% |
+
+`sapPercent` reads "mental" as any affliction `afflist` lists a focus cure for, counts a limb
+once at its worst tier (the tiers are under *Limb breaks* above), and counts inquisition as
+"any other affliction" before its multiplier. Whether a sap does anything with none of
+these up is not stated; the base is a parameter that defaults to 0.
+
+### The two saps (12:37:44, 12:39:26)
+
+- **`recite wrath`**, on prayer balance.
+- **`angel sap`**, on equilibrium, and needs balance too.
+- **Inquisition** adds 50% to an angel sap. It does nothing for `recite wrath`.
+
+### When to sap (12:41 onwards)
+
+Stack enough afflictions that one sap takes them well under 50%, or step them down when
+it's worth it ("such as bringing 100% mana down to 60%").
+
+### Momentum routes (12:50:44–12:52:15)
+
+The two main routes are **kelp** and **lobelia** stacks, each a group of afflictions the
+target cures from the same herb:
+
+- **lobelia**: guilt, spiritburn, tenderskin (recites); masochism (a rebuke); recklessness
+  (a chasten).
+- **kelp**: `chasten body`; `perform sloth`, which gives weariness (`weakness` in
+  `afflist`, svof's `gamename`).
+
+### The prayer (12:45:21–12:49:55)
+
+- Track `prayer_length` and `conviction` from GMCP. They arrive as charstats strings;
+  `gmcp/vitals.lua` already parses them to numbers (`priest.prayer()`).
+- Before each attack, list which recites and rebukes the current length and conviction
+  allow. Example given: Revelations needs a prayer of at least 3 (the conviction figure was
+  cut off). **`VERSES`** lists each verse's requirements.
+- Some verses are **once per prayer**. Mark one unusable when you recite it, and free them
+  all on a **successful rebuke** (any rebuke), or when `prayer_length` drops back to 0 for
+  any other reason. Emunah marks on send and frees on the change to 0 (`M.ONCE_PER_PRAYER`
+  is empty until `VERSES` says which verses are limited).
+
+### From HELP (2026-10-15, `help/` has each verbatim)
+
+| Command | Costs | Notes |
+|---|---|---|
+| `angel sap <target>` | equilibrium 2.75s, 5 Angel power | Drain scales with afflictions; HELP ranks them as Anzerloi does. Lands as `Your guardian angel casts a piercing glance at Anzerloi.` then `Equilibrium used: 2.75s.` (13:31:45): **no figure** for the caster, so only the next contemplate measures it |
+| `recite wrath <target>` | prayer balance 3.00s | Once per prayer; needs 20% conviction and a prayer of 1 (`VERSES`). Also burns body if the target is ablaze **and** prone |
+| `angel absolve <target>` | equilibrium 4.40s, 50 Angel power | Target "must be on less than half of his maximum mana". Success captured, see below; failure not yet |
+| `contemplate <target>` | equilibrium 1.00s, 50 mana | `Anzerloi's mana stands at 5337/5405 [98%].` then `Equilibrium used: 1.00s.` (13:31:27); prompt `exckdb` → `xckdb`, balance kept. Read into `priest.mana(name)` |
+| `chasten <target> [body\|mind\|<affliction>]` | equilibrium 2.80s, 100 mana | Body pool: paralysis, healthleech, clumsiness, nausea, asthma. Mind: epilepsy, dizziness, confusion, recklessness. A full pool gives addiction (body) or impatience (mind). "Can be performed off balance if following a smite attack" |
+| `smite <target> <limb> [chasten <body\|mind\|affliction>]` | balance 2.90s | `help/ab-spirituality-mace.txt`: smite and chasten in one command |
+| `perform sloth <target>` | equilibrium 2.20s, 10 devotion | Gives weariness (`weakness`) |
+| `recite purge <target>` | prayer balance 1.60s | Damages and sets them **ablaze**: a 3.5% sap affliction, and half of wrath's body condition. VERSES: 5% conviction, once per prayer |
+| `recite revelations <target>` | prayer balance 1.60s | Gives **hellsight**. VERSES: 10% conviction, prayer of 3, once per prayer |
+| `recite reflection <target>` | prayer balance 2.70s | For ten seconds, some afflictions dealt to you are given back to them. VERSES: 5%, prayer of 2 |
+| `recite ash <target>` | prayer balance 1.60s | **Delivers spiritburn.** Fire ticks then drain their mana, and so does moving while on fire |
+| `recite burn <target>` | prayer balance 1.60s | "Leaving them tender and pained"; applying a salve drains their mana. HELP does not name the affliction: tenderskin by its wording and by what it does, **unconfirmed** until a live cast or DIAG shows it |
+| `recite penance <target>` | prayer balance 1.60s | **Gives paralysis** |
+| `recite fragility <target>` | prayer balance 1.60s | Next mace blow does about 30% more limb damage |
+| `recite attend <target>` | prayer balance 1.60s | Strips their ear protection (deafness) |
+| `recite rejection <target> <direction>` | prayer balance 2.80s | Damage at range, line of sight; bypasses shields and prismatic barriers |
+| `recite fire <target\|me>` | prayer balance 3.00s | Fire protection on you or an ally |
+| `recite glory`, `recite light`, `recite salvation [prepare]` | prayer balance 3.00s / 3.00s / 3.80s | Self-targeted, for the group: glory's relocation on a raised ally, light heals blessed comrades (about every 25s), salvation a prismatic barrier. AB PRAYER: a verse that targets yourself does not lengthen the prayer |
+| `recite <verse> <target> rebuke <sin>` | with the verse | Ends the prayer with a punishment. darkness (prayer 2): paranoia; chaos (3): hallucinations; evil (3): masochism; heresy (4): inquisition, only on a target with guilt **and** spiritburn. Only on a verse that targets an enemy |
+
+`VERSES`: glory (0%, 2), light (0%, 0), purge (5%, 0), reflection (5%, 2), revelations
+(10%, 3), salvation (10%, 0), wrath (20%, 1) as conviction and prayer length; all seven
+once per prayer. Conviction is a percentage. `class/priest.lua` holds these as
+`VERSE_NEEDS`, `ONCE_PER_PRAYER` and `REBUKES`.
+
+Sap, absolve and contemplate all spend **equilibrium**, so they compete with each other
+and with `perform hands`. Wrath is on prayer balance but once per prayer and costs 20%
+conviction to reach, so the repeatable sap is the angel's. Absolve and sap draw **Angel
+power** against players (1500 seen in charstats, 2026-08-04).
+
+**Conflict, unresolved:** HELP WRATH ends "Inquisition increases more than anything else",
+the same sentence as HELP SAP. Anzerloi said inquisition boosts angel sap "BUT NOT recite
+wrath" (12:39:26). `sapPercent` follows Anzerloi for now; it needs a test against a real
+target.
+
+Spiritburn and tenderskin are afflictions, not abilities: `AB` and `HELP` under those names
+find nothing (13:07). Ash gives spiritburn (HELP says so); Burn is very likely tenderskin
+(above). Still uncaptured, and by their one-line descriptions defensive: Will, Endurance,
+Void, Protection, Persevere, Unflinching, Oration, Benediction.
+
+### Absolve landing (13:39:01, in the Arena)
+
+```
+angel absolve anzerloi
+You nod gravely at your guardian angel, whose wings flare suddenly as an alien and frightening look
+of power sweeps across her face. With one hand, she reaches forward, and as her hand touches
+Anzerloi's chest, it flares an impossibly bright white and enters his breast. The angel's eyes roll
+back in her head in ecstasy as she rips the soul from Anzerloi's body. Anzerloi collapses without a
+sound, his body now nothing more than a useless husk.
+You have slain Anzerloi.
+With the completion of your adventure, you feel your renown grow to new heights! (You gain 150
+Renown.)
+Defeated, Anzerloi is cast out of the Arena.
+**********************************************************
+You have been victorious and leave the Arena in triumph!
+**********************************************************
+```
+
+The kill is announced by the ordinary `You have slain <name>.`, which `pvp.lua` already
+reads to clear the target and end the session. The flavour text wraps at the client's width,
+so nothing anchors on it. His mana before the cast was not contemplated, so this does not
+measure the threshold.
+
+### Rebuke counts its own verse (13:24:48)
+
+Anzerloi: "Rebuke concludes a prayer, and is performed right after the recite, meaning that
+on the point of rebuke it will count that recite for its prerequisite length." Example: "if
+your prayer length is 1, you can, for instance, recite guilt rebuke darkness. The guilt
+before it IS the prayer length 2 achieved, and then it is immediately reset by the rebuke."
+So a rebuke needs its stated length **minus one** already in the prayer, and the prayer
+ends with it (`priest.prayerAllows`). **[player]**
+
+### A test cast that did not settle tenderskin (13:21:07–13:21:10)
+
+Asked for tenderskin, Anzerloi cast at the user:
+
+```
+"Return to ash," decrees Anzerloi, hands outstretched in your direction.
+Your skin begins to grow uncomfortably hot.
+...
+You eat a lobelia seed.
+The uncomfortable heat suffusing you fades.
+```
+
+"Return to ash" may be Ash's line rather than Burn's. And svof files both received lines
+under **firedisrupt** ("svo got firedisrupt", and `valid.focus2`'s spirit-disrupt list), which
+Emunah's trigger package inherits as a firedisrupt cure. svof predates spiritburn and
+tenderskin, so Achaea may have reused the text; this transcript cannot tell. The GMCP
+`Char.Afflictions.Add` name would: repeat it with `emset debug gmcp`.
+
+### Conviction drains when the prayer lapses (13:48:20)
+
+```
+As your praying falters, your conviction does so in concert.
+Your conviction has entirely left you.
+```
+
+So conviction is not banked: let the chain lapse and it is gone. How fast a prayer falters
+between verses, and how much a finished prayer grants, are still not measured.
+
+### A complete attack (13:48:20–13:49:37)
+
+Anzerloi: "Not gonna get you anywhere without smiting and chastening." "Your attack needs
+to be as complete as possible." "Recite/bal/option eq." "Giving me one aff at the same rate
+I can cure it isn't going to cut it." **[player]**
+
+Each exchange should use all three: a verse on prayer balance, `smite <limb> chasten
+<aff>` on balance, and an equilibrium action when one is worth it. One affliction per
+exchange is cured as fast as it lands; stacking afflictions that share a herb is what
+outpaces the cure.
+
+### Smite with chasten, into rebounding (13:58:03–13:58:21)
+
+```
+smite anzerloi head chasten asthma
+You utter a prayer and smite Anzerloi's head with a spiritual mace.
+The attack rebounds back onto you!
+As your blow lands with a crunch, you perceive that you have dealt 13.9% damage to yourself's head.
+Health lost: 404 (physical blunt).
+Balance used: 2.5s.
+You direct a dark bolt of energy through your mace towards Anzerloi. The curse of asthma is brought
+down on to your victim.
+H:86% M:92% E:99% W:100%  eckdb
+Anzerloi eats an aurum flake.
+Health lost: 38 (raw).
+You bleed 38 health.
+You have recovered balance on all limbs.
+```
+
+- **`head` is a limb word** the smite takes. The leg words are not yet seen.
+- **The attached chasten costs no equilibrium.** Balance only: `Balance used: 2.5s.`, and
+  the prompt went `exckdb` → `eckdb` (equilibrium kept). 2.5s, not HELP's 2.90.
+- **Rebounding turns the smite back on you:** 13.9% to your own head, 404 health, then
+  bleeding. **The chasten still landed.** Smiting into rebounding is a heavy self-hit, so
+  the offence must know when the target has it. It dropping is visible: `Anzerloi's aura of
+  weapons rebounding disappears.` (13:58:12, just before his own verse). How a Priest strips
+  it is not known.
+- **Chasten announces what landed**, naming the affliction: `The curse of asthma is brought
+  down on to your victim.` Emunah tracks it on the target (`class/priest.lua`).
+- **Their cures are visible:** `Anzerloi eats an aurum flake.` (asthma's kelp alternative,
+  0.1s later), `Anzerloi takes a long drag off his pipe.`
+
+His verses at the user, as the target sees them, for the record:
+
+```
+"Know the pain which you have caused," Anzerloi proselytises, finger pointed directly at you.
+A terrible guilt descends upon you.
+"And your guilt will be made plain," Anzerloi proselytises, finger pointed directly at you.
+A terrible guilt descends upon you.
+You suddenly feel alone; betrayed, and much more as a terrible panic seizes you.
+As his prayer draws to a close, holy fire outlines Anzerloi.
+```
+
+The second guilt carried a rebuke: paranoia ("terrible panic", cured by ash: `Aaaahhh. No
+one is out to get you after all.`), and the prayer closed with it. Emunah cured the guilt
+in 0.3s and the paranoia in 0.6s.
+
+### Still needed before any of this sends
+
+- Confirmation that Burn gives tenderskin, and which affliction "Your skin begins to grow
+  uncomfortably hot." is today: a cast of each of Ash and Burn with `emset debug gmcp` on.
+- Live lines, from a spar: absolve and sap failing; wrath landing and failing; sloth
+  landing; the smite's leg words.
+- How a Priest takes down rebounding, and the line when a target raises it.
+- Whether a sap has a base amount; whether inquisition boosts wrath; whether a verse spends
+  conviction.

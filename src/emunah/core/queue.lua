@@ -56,7 +56,8 @@ function M.push(vector, command, opts)
    local existing = slots[vector]
    local priority = opts.priority or 100
 
-   if existing and existing.priority <= priority then
+   -- Your own one-off replaces your own one-off; nothing else outranks it (see M.user).
+   if existing and existing.priority <= priority and not (opts.user and existing.user) then
       -- Only worth saying when something DIFFERENT lost the slot. The engine re-pushes the
       -- same cure on every tick while the condition holds, so logging each identical
       -- rejection produced dozens of "keeping drink health over drink health" lines in one
@@ -83,8 +84,95 @@ function M.push(vector, command, opts)
       valid     = opts.valid,
       onSent    = opts.onSent,
       onTimeout = opts.onTimeout,
+      run       = opts.run,
+      user      = opts.user,
       queuedAt  = emunah.util.now(),
    }
+   return true
+end
+
+-- ---------------------------------------------------------------------------
+-- yours: a command or a function, on Emunah's queue
+-- ---------------------------------------------------------------------------
+--
+-- The user, 2026-10-15: "Queue a one-off" and "Run my own function". Either goes on the
+-- balance it needs, AHEAD of everything automated: priority -1 takes the slot from
+-- anything Emunah queued (the engine's urgent heals are 0), and while it waits act.blocked()
+-- holds every automated send that wants the same balance -- the attacks, which never queue,
+-- included. A function runs as Emunah's own (act.sending), so what it sends is not taken
+-- for typed.
+--
+-- After it goes, the balance is held for a short in-flight guard, the same one the attacks
+-- arm: until the game runs it, Char.Vitals still says the balance is there, and the next
+-- automated send would go out behind it into "You must regain balance first."
+
+--- What each kind of one-off needs, and the slot it waits in.
+M.USER = {
+   bal   = { vector = "balance",     needs = { bal = true } },
+   eq    = { vector = "equilibrium", needs = { eq = true } },
+   eqbal = { vector = "balance",     needs = { bal = true, eq = true } },
+   free  = { vector = "free",        needs = {} },
+}
+
+local function guard()
+   local class = emunah.class
+   local fn = class and class.active and class.active.inflightGuard
+   return (fn and fn()) or 1.0
+end
+
+--- Queue a command (string) or a function on `kind` ("bal" | "eq" | "eqbal" | "free").
+--- @param label string|nil what to call a function in the log and `emset queue`
+--- @return boolean queued
+function M.user(kind, what, label)
+   local spec = M.USER[kind]
+   if not spec then return false end
+   local isFunction = type(what) == "function"
+   if not isFunction and (type(what) ~= "string" or what == "") then return false end
+   local needs = { user = true }
+   for key, value in pairs(spec.needs) do needs[key] = value end
+   local seconds = guard()
+   return M.push(spec.vector, isFunction and (label or "your function") or what, {
+      priority = -1, tag = "user", user = true, needs = needs,
+      run = isFunction and what or nil,
+      confirm = (needs.bal or needs.eq) and seconds or nil,
+      onSent = function()
+         if needs.bal then emunah.timers.start("attack.balance", seconds) end
+         if needs.eq then emunah.timers.start("cure.equilibrium", seconds) end
+      end,
+   })
+end
+
+--- Is a one-off of yours waiting for a balance these needs also want?
+function M.userWaiting(needs)
+   for _, vector in ipairs({ "balance", "equilibrium" }) do
+      local action = slots[vector]
+      if action and action.user and action.needs
+         and ((needs.bal and action.needs.bal) or (needs.eq and action.needs.eq)) then
+         return true
+      end
+   end
+   return false
+end
+
+--- Drop every one-off of yours that has not gone yet.
+function M.clearUser()
+   local n = 0
+   for vector, action in pairs(slots) do
+      if action.user then slots[vector] = nil n = n + 1 end
+   end
+   return n
+end
+
+--- Send a queued action: its command, or its function run as Emunah's own.
+local function fire(action)
+   if not action.run then return emunah.act.send(action.command, action.needs) end
+   local act = emunah.act
+   if not act.can(action.needs) then return false end
+   act.sending = true
+   local ok, err = pcall(action.run)
+   act.sending = false
+   -- Run, even if it failed: retrying a broken function every tick helps nobody.
+   if not ok then log.error("Your queued function failed: %s", tostring(err)) end
    return true
 end
 
@@ -196,7 +284,7 @@ local function dispatch(vector)
    -- act.send() returning false means the game would refuse it for a reason unrelated to
    -- this vector (see act). The action stays queued rather than being dropped, so the
    -- next tick tries again -- which is why this is one condition and not an early exit.
-   if action and vectorReady(vector) and emunah.act.send(action.command, action.needs) then
+   if action and vectorReady(vector) and fire(action) then
       slots[vector] = nil
       action.sentAt = emunah.util.now()
 

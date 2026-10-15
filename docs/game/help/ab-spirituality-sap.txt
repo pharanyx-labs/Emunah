@@ -1,0 +1,18 @@
+Source: AB SPIRITUALITY SAP, in-game, pasted by the user 2026-10-15.
+
+H:100% M:92% E:100% W:100%  exckdb  T:  13:06:30.41-ab Spirituality sap
+Sap (Spirituality)                            Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            ANGEL SAP <target>
+Works on/against:  Adventurers
+Cooldown:          2.75 seconds of equilibrium
+Resource:          5 Angel power
+Details:
+Order your angel to sap the mental strength of your target. The more
+afflictions your target suffers from, the more this will drain(*).
+
+* The drain scales to the number of afflictions they are suffering from.
+Guilt, ablaze, spiritburn, and tenderskin increase the value by more
+than other afflictions, followed by mental and limb based afflictions.
+Inquisition increases more than anything else.
+-------------------------------------------------------------------------------

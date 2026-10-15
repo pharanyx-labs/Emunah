@@ -1,0 +1,10 @@
+Source: AB ZEAL PURGE, in-game, pasted by the user 2026-10-15 (13:11:46).
+
+Purge (Zeal)                                  Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE PURGE <target>
+Works on/against:  Adventurers
+Cooldown:          1.60 seconds of prayer balance
+Details:
+Recite the holy verse of purging to damage your foe and set them ablaze.
+-------------------------------------------------------------------------------
