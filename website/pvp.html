@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PvP | Emunah</title>
-<meta name="description" content="Emunah&#x27;s PvP module attacks the one player you name and no one else, tracks the afflictions you give them, and stops below its own health floor.">
+<meta name="description" content="How Emunah fights a player: one named target, every balance sending on every prompt, four modes, the target's afflictions and locks followed from the game text, and absolve to finish.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/pvp.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="PvP | Emunah">
-<meta property="og:description" content="Emunah&#x27;s PvP module attacks the one player you name and no one else, tracks the afflictions you give them, and stops below its own health floor.">
+<meta property="og:description" content="How Emunah fights a player: one named target, every balance sending on every prompt, four modes, the target's afflictions and locks followed from the game text, and absolve to finish.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html" aria-current="page">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html" aria-current="page">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -96,47 +102,73 @@
 <!-- doc:start -->
 <p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
 <h1>PvP</h1>
-<p class="lede">PvP attacks the one player you name, and nobody else. It never picks a target by itself, because in a fight against a person, attacking the wrong one is worse than attacking no one.</p>
+<p class="lede">PvP attacks the one player you name, and nobody else. Every balance that is free on a prompt sends what the mode calls for, and every choice is made from what the game has confirmed about the target: what they have, what they can still cure with, and how close they are to a lock.</p>
 <pre><code>t sarapis                    <span class="c"># target them and start the fight</span>
-emset pvp target sarapis     <span class="c"># choose the target</span>
-emset pvp on                 <span class="c"># start attacking (F1 toggles it)</span>
-emset pvp                    <span class="c"># target, their afflictions and mana, attacks sent</span>
-emset pvp off
-emset pvp attack angel sear  <span class="c"># PvP's own attack, apart from the hunt's</span>
-emset pvp target off         <span class="c"># clear the target</span></code></pre>
+emset pvp mode offence       <span class="c"># attack, offence, hinder or finish (F5 to F8)</span>
+emset pvp                    <span class="c"># the target as Emunah sees them</span>
+emset pvp off                <span class="c"># stop attacking (F1 toggles it)</span>
+emset pvp target off         <span class="c"># clear the target</span>
+emset pvp attack angel sear  <span class="c"># what attack mode sends on equilibrium</span></code></pre>
 
-<h2 id="targeting">Only the player you name</h2>
-<p>The game's list of who is in a room leaves out anyone shrouded, hidden or phased. A loop built on that list would lose an opponent the moment they concealed, or pick the wrong person outright. So a target is a name you typed, and nothing else ever sets one.</p>
-<p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> turns it on and off. <code>t &lt;name&gt;</code> is the quick way in: it sets the target and turns PvP on together, refusing an ally as the longer command does.</p>
-<p>Killing your target clears it and ends the session. Your own death ends it too.</p>
+<h2 id="target">Only the player you name</h2>
+<p>The game's list of who is in a room leaves out anyone shrouded, hidden or phased. A fight built on that list would lose an opponent the moment they concealed, or pick the wrong person outright. So a target is a name you typed, and nothing else ever sets one, except a call from a partner you trust (see <a href="allies.html">allies</a>). An ally, or you, is never accepted as a target, however it is named.</p>
+<p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> turns it on and off. <code>t &lt;name&gt;</code> sets the target and turns PvP on together. Killing your target clears it and ends the session, and so does your own death.</p>
 
-<h2 id="afflictions">Afflictions before damage</h2>
-<p>PvP has its own attack, <code>pvp.attack</code>, sent at the target's name: Angel Sear by default, with <code>pvp.balance</code> and <code>pvp.consumes</code> saying what it needs and spends. It is separate from the hunting attack, so changing what you hunt with never changes what you fight people with. <code>emset pvp attack &lt;command&gt;</code> sets it.</p>
-<p>Against a player who heals well, raw damage loses the race. So the attack is held until the target is carrying enough afflictions to be finished: <code>pvp.attackAtAfflictions</code>, two by default. The game does not report another player's health, so the afflictions you have given them are the signal there is.</p>
-<p>As a Priest with Zeal, Emunah recites Condemnation and Guilt at the target whenever prayer allows. Prayer is its own balance, so verses go out alongside the attack, not instead of it. <code>pvp.verses</code> turns them off.</p>
+<h2 id="modes">Every balance, every prompt</h2>
+<p>A fight against a person is won by sending more than they can cure. So each balance is a lane that chooses for itself on every prompt it is free: a Zeal verse on prayer, a mace blow carrying a chasten on balance, and an affliction or a finisher on equilibrium. None waits for the others. What each lane sends is the mode's, and <kbd>F5</kbd> to <kbd>F8</kbd> choose one and turn PvP on:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Key</th><th>Mode</th><th>Prayer</th><th>Balance</th><th>Equilibrium</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>F5</kbd></td><td>attack</td><td>purge, unflinching, guilt, ash</td><td>smite</td><td>heresy, then <code>pvp.attack</code> (Angel Sear)</td></tr>
+    <tr><td><kbd>F6</kbd></td><td>offence</td><td>guilt, ash, burn, penance, revelations, purge</td><td>smite with chasten</td><td>sloth, visions, dazzle, panic</td></tr>
+    <tr><td><kbd>F7</kbd></td><td>hinder</td><td>penance, fragility, guilt</td><td>smash their legs, smite</td><td>sloth, panic</td></tr>
+    <tr><td><kbd>F8</kbd></td><td>finish</td><td>wrath, guilt, ash</td><td>smite</td><td>contemplate, sap, absolve</td></tr>
+  </tbody>
+</table></div>
+<p>Each lane takes the first move in its list that applies. An affliction the game has confirmed on the target is not given again, and one it has not confirmed is not resent blind: the lane moves on to the next and comes back to it later. A verse goes once per prayer, and offence and hinder end a prayer on a rebuke when it is long enough to pay. Every ability is checked against what you actually know at the moment it is chosen, so a change to your skills needs no setting.</p>
 
-<h2 id="tracking">Tracking your opponent</h2>
-<p>GMCP reports only your own afflictions. Your opponent's are read from the game text: the third-person lines anyone in the room sees when an affliction shows on someone, such as their face contorting or their body staggering. Emunah reads only those fixed lines and never guesses an affliction from the move that might have caused it. Nothing confirms when an opponent cures, so each entry ages out on a timer.</p>
+<h2 id="locks">Building a lock</h2>
+<p>A lock is enough of the target's cure routes shut at once that they cannot cure their way out: slickness stops them salving, asthma stops them smoking, anorexia stops them eating, impatience stops them focusing, and paralysis stops them touching the tree. Emunah reads the target's afflictions against the same lock definitions it uses for you.</p>
+<p>Once at least two of those five are on the target, the next chasten carries whatever of the rest it can give, paralysis or asthma, whatever the mode. With an ally giving the others, that is often the piece still missing.</p>
+<p><code>emset pvp</code> shows it all: the target's class, their confirmed afflictions, which routes they cannot cure with and why, the locks they are in, what the lock still needs, the defences you have seen them raise, and when they last ate, sipped or salved.</p>
 
-<h2 id="sapping">Sapping toward absolve</h2>
-<p>A Priest kills with absolve, which needs the target below half their mana. <code>emset pvp</code> shows how much of the target's maximum mana a sap would take, worked out from the afflictions tracked on them, and their mana from your last <code>contemplate</code>, marked stale once you have sapped since. It shows the figures only: no contemplate, sap or absolve is sent for you yet.</p>
+<h2 id="tracking">Following their curing</h2>
+<p>GMCP reports only your own afflictions, so the target's are read from the game text, and only from lines that say so outright:</p>
+<ul>
+  <li><strong>Landing lines</strong>, such as a chasten taking hold.</li>
+  <li><strong>Symptoms</strong> anyone in the room can see, such as someone shuffling their feet in boredom.</li>
+  <li><strong>Cures.</strong> An herb they eat takes off the affliction it cures, recognised by the rift's own description or by the herb's name in the line, so an herb you hold none of still counts. A few cures say so in their own words, such as writhing free of ropes.</li>
+  <li><strong>Defences.</strong> Tattoos they touch, herbs that raise a defence, insomnia, and a quicksilver shell forming, so you know what they have up.</li>
+  <li><strong>Their cure balances.</strong> When they last ate, sipped or applied a salve.</li>
+</ul>
+<p>Emunah never guesses an affliction from the move that might have caused it. A tracked affliction stays until a cure line or an eaten herb takes it off, or you disconnect.</p>
+
+<h2 id="defences">Their defences</h2>
+<p>When your mace rebounds off their aura of weapons rebounding, the next equilibrium raises heresy and the mace waits for it: with heresy up, a smite burns rebounding away. When their aura is seen going down, the mace goes again.</p>
+<p>An Alchemist's reflective barrier turns part of your first blow back at you and breaks on the next, which is turned back too. Emunah notes the barrier when it first reflects and clears it when it shatters, so <code>emset pvp</code> shows it while it stands.</p>
+
+<h2 id="absolve">Finishing with absolve</h2>
+<p>A Priest kills with absolve, which needs the target low on mana. In finish mode, the equilibrium lane contemplates the target to read their mana, saps it while absolve would not yet kill, and absolves on a fresh reading once it would. A reading is only trusted for a few seconds, because mana moves as the target acts.</p>
+<p><code>emset pvp</code> also shows how much of the target's maximum mana a sap would take, worked out from the afflictions tracked on them, and their mana from your last contemplate, marked stale once you have sapped since.</p>
 
 <h2 id="safety">Safety</h2>
 <p>PvP stops below <code>pvp.stopBelowHealth</code>, 25% by default. That floor replaces the shared critical one, and a fast drop in health does not stop PvP the way it stops a hunt, because stopping does not stop the person hitting you.</p>
-<p>While you are locked (slickness, anorexia and asthma together, and the worse locks built on them), the lock is named on your prompt and the attack is held, so your cures get balance and equilibrium. Verses carry on, since prayer is shared with no cure. When the lock breaks, the attack resumes.</p>
+<p>While you are locked, the lock is named on your prompt and the balance and equilibrium lanes are held, so your cures get them. Verses carry on, since prayer is shared with no cure. When the lock breaks, the attack resumes. Any instant kill you are open to is named on the prompt too; see <a href="curing.html#dangers">dangers</a>.</p>
 <p>Starting PvP stops a hunt, the walking as well as the fighting, and starting a hunt stops PvP: a player and a denizen cannot share one balance.</p>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">
-  <a href="hunting.html"><small>Previous</small>Automated hunting</a>
-  <a class="next" href="people.html"><small>Next</small>People and names</a>
+  <a href="map.html"><small>Previous</small>Map and walking</a>
+  <a class="next" href="allies.html"><small>Next</small>Fighting alongside allies</a>
 </nav>
 </main>
 <aside class="toc" aria-label="On this page">
   <h4>On this page</h4>
-  <a href="#targeting">Only the player you name</a>
-  <a href="#afflictions">Afflictions before damage</a>
-  <a href="#tracking">Tracking your opponent</a>
-  <a href="#sapping">Sapping toward absolve</a>
+  <a href="#target">Only the player you name</a>
+  <a href="#modes">Every balance, every prompt</a>
+  <a href="#locks">Building a lock</a>
+  <a href="#tracking">Following their curing</a>
+  <a href="#defences">Their defences</a>
+  <a href="#absolve">Finishing with absolve</a>
   <a href="#safety">Safety</a>
 </aside>
 </div>
@@ -151,9 +183,11 @@ emset pvp target off         <span class="c"># clear the target</span></code></p
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

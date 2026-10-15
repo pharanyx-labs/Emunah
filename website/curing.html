@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Client-side curing | Emunah</title>
-<meta name="description" content="How Emunah cures afflictions in the client: one cure per balance, locks cured around, healing on its own thresholds, and illusions ignored.">
+<meta name="description" content="How Emunah cures in the client: one cure per balance, cures routed around locks, situational rules from real fights, danger warnings, healing thresholds and anti-illusion.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/curing.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Client-side curing | Emunah">
-<meta property="og:description" content="How Emunah cures afflictions in the client: one cure per balance, locks cured around, healing on its own thresholds, and illusions ignored.">
+<meta property="og:description" content="How Emunah cures in the client: one cure per balance, cures routed around locks, situational rules from real fights, danger warnings, healing thresholds and anti-illusion.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -103,39 +109,76 @@
 </figure>
 
 <h2 id="balances">One cure per balance</h2>
-<p>Achaea gates each kind of cure behind its own balance. Eating a herb, applying a salve and sipping an elixir can all happen in the same second; two herbs cannot. So there is no single priority list in Emunah. Each balance picks its own most urgent cure, every prompt, and sends it as soon as it is chosen.</p>
+<p>Achaea gates each kind of cure behind its own balance. Eating a herb, applying a salve and sipping an elixir can all happen in the same second; two herbs cannot. So there is no single priority list. Each balance picks its own most urgent cure, every prompt, and sends it as soon as it is chosen.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Balance</th><th>Cures with</th></tr></thead>
   <tbody>
-    <tr><td>Herb</td><td>Eating plants, or their minerals in minerals mode.</td></tr>
+    <tr><td>Herb</td><td>Eating plants, or their minerals with <code>curing.method minerals</code>.</td></tr>
     <tr><td>Salve</td><td>Applying salves, to the body part each one needs.</td></tr>
     <tr><td>Sip</td><td>Health and mana elixirs, and tonics.</td></tr>
     <tr><td>Purgative</td><td>The affliction-curing elixirs: immunity, frost, venom, speed and levitation.</td></tr>
     <tr><td>Smoke</td><td>A lit pipe. <a href="sustenance.html#pipes">Pipes</a> keeps them filled and lit.</td></tr>
-    <tr><td>Focus</td><td>FOCUS, for mental afflictions, held back when mana is low.</td></tr>
+    <tr><td>Focus</td><td>FOCUS, for mental afflictions, held while mana is too low to spend.</td></tr>
     <tr><td>Moss</td><td>Irid moss and potash.</td></tr>
     <tr><td>Tree</td><td>Touching the tree tattoo, when you have one.</td></tr>
   </tbody>
 </table></div>
-<p>Some cures spend no curing balance at all and go out alongside the others: COMPOSE for fear, CONCENTRATE, CLOT for bleeding above a threshold, and WRITHE for entanglement. WRITHE is sent once per entanglement and never repeated while it is under way, because a second one makes it take longer.</p>
-<p>The ranking within each balance follows the reference system's. <code>emset prio &lt;affliction&gt; &lt;balance&gt; &lt;rank&gt;</code> moves any affliction up or down on any one balance; lower is sooner.</p>
-<p>A fixed ranking is wrong in particular fights, so a few situational rules move a cure while a situation lasts. Under inquisition, guilt and spiritburn are eaten first, because clearing them is what ends it, and the tree is not spent on burning, which it will not cure. Paralysis goes ahead of asthma when it is holding your sip at low health. Weariness that comes back within seconds of every cure drops to last on the herb balance. Justice is left alone while you are not attacking, because it only reflects your own attacks. Each rule is backed by evidence, listed in the source.</p>
-<p>To use your own ranks and rule changes, put them in <code>conf/priorities.conf</code> and <code>conf/situations.conf</code> in the checkout and turn them on with <code>emset ownprios on</code>. <code>emset ownprios off</code> goes back to the shipped ones without touching the files. The other files in <code>conf/</code> can pin any setting, such as the healing thresholds in <code>healing.conf</code>.</p>
+<p>Some cures spend no curing balance and go out alongside the others: COMPOSE for fear, CONCENTRATE, CLOT for bleeding above <code>curing.clotThreshold</code>, and WRITHE for entanglement. WRITHE is sent once per entanglement and never repeated while it is under way, because a second one makes it take longer.</p>
+<p>Within each balance the ranking is the reference system's. <code>emset prio &lt;affliction&gt; &lt;balance&gt; &lt;rank&gt;</code> moves any affliction up or down on one balance; lower is sooner.</p>
 
 <h2 id="locks">Locks</h2>
-<p>Some afflictions shut whole balances. Sending into a shut balance wastes a round trip, so Emunah checks every block before it chooses a cure, and cures through the balance that is still open.</p>
+<p>Some afflictions shut whole routes. Sending into a shut route wastes a round trip, so Emunah checks every block before it chooses a cure, and cures through the route that is still open.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Affliction</th><th>Shuts</th><th>Cured through</th></tr></thead>
   <tbody>
     <tr><td>Anorexia</td><td>Herb, sip, purgative and moss</td><td>An epidermal salve, or FOCUS</td></tr>
-    <tr><td>Slickness</td><td>Salve</td><td>Smoking valerian, or eating bloodroot</td></tr>
+    <tr><td>Slickness</td><td>Salve</td><td>Smoking, or eating bloodroot</td></tr>
     <tr><td>Asthma</td><td>Smoke</td><td>Eating kelp</td></tr>
-    <tr><td>Paralysis</td><td>Everything except eating</td><td>Eating bloodroot</td></tr>
     <tr><td>Impatience</td><td>Focus</td><td>Eating goldenseal</td></tr>
+    <tr><td>Paralysis</td><td>Everything except eating, including the tree</td><td>Eating bloodroot</td></tr>
     <tr><td>Inquisition</td><td>Focus and salve</td><td>Ends once guilt and spiritburn are cured and you are standing</td></tr>
   </tbody>
 </table></div>
+<p>Enough of them together and nothing can be cured. Emunah names the lock on your prompt while it lasts, using the reference system's definitions:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Lock</th><th>Afflictions</th></tr></thead>
+  <tbody>
+    <tr><td>soft</td><td>slickness, anorexia, asthma</td></tr>
+    <tr><td>venom</td><td>soft, and paralysis</td></tr>
+    <tr><td>hard</td><td>soft, and impatience or mana too low to focus</td></tr>
+    <tr><td>true</td><td>soft, and paralysis, impatience, disrupted and confusion</td></tr>
+  </tbody>
+</table></div>
+<p>Further locks need your arms broken as well, with no asthma cure left in the rift, no valerian, or aeon and a concussion. While you are locked in PvP, your attack is held so the cures get balance and equilibrium.</p>
 <p>A block can land after a cure has been queued, so the queue asks again at the moment it would send. Stun, sleep and unconsciousness hold everything; prone holds only what needs you upright, so you keep eating and sipping on the ground.</p>
+
+<h2 id="situations">Situational rules</h2>
+<p>A fixed ranking is right on average and wrong in particular fights. A few rules move or hold a cure while a situation lasts, each one learnt from a real fight and recorded with its evidence:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>While</th><th>Emunah</th></tr></thead>
+  <tbody>
+    <tr><td>Asthma, slickness and impatience are all on you</td><td>Eats goldenseal for the impatience first. Anorexia comes next, and its only cures are a salve (shut by slickness) and FOCUS (shut by impatience). Clearing impatience keeps FOCUS open; clearing asthma first only trades the slickness for a spent salve balance.</td></tr>
+    <tr><td>Inquisition is up</td><td>Eats for guilt and spiritburn early, because clearing them is what ends it, and does not spend the tree on burning, which it will not cure.</td></tr>
+    <tr><td>Paralysis is holding your sip at low health</td><td>Cures the paralysis ahead of asthma, so the health elixir can go.</td></tr>
+    <tr><td>Weariness comes back within seconds of each cure</td><td>Drops it to last on the herb balance until it stops returning.</td></tr>
+    <tr><td>Justice is up and you are not attacking</td><td>Leaves it alone. It only reflects your own attacks.</td></tr>
+  </tbody>
+</table></div>
+
+<h3 id="your-own-rules">Your own rules</h3>
+<p>To use your own ranks and rule changes, write them in <code>conf/priorities.conf</code> and <code>conf/situations.conf</code> in the checkout and turn them on with <code>emset ownprios on</code>. Any shipped rule can be switched off or re-ranked there. <code>emset ownprios off</code> goes back to the shipped ones without touching the files.</p>
+
+<h2 id="dangers">Dangers on the prompt</h2>
+<p>Some states let an opponent kill you outright. While one is true, the prompt names it beside any lock, as <code>(danger: reave 8s)</code>:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Danger</th><th>When</th></tr></thead>
+  <tbody>
+    <tr><td>reave</td><td>Two or more of your four humours are tempered. An Alchemist's reave then takes 10 seconds with two, 8 with three, and 4 with all four.</td></tr>
+    <tr><td>dismember</td><td>You are bound and impaled.</td></tr>
+    <tr><td>pulp</td><td>You are prone with a serious concussion.</td></tr>
+    <tr><td>golem destroy</td><td>Your flesh is melting.</td></tr>
+  </tbody>
+</table></div>
 
 <h2 id="healing">Healing</h2>
 <p>Four sources, three balances, and each engages at its own threshold. Healing outranks curing on the balances it uses: there is nothing to gain from curing stupidity at 8% health.</p>
@@ -150,14 +193,14 @@
 </table></div>
 <p>Perform Hands is set low on purpose: it costs the equilibrium your attacks need. When a vial runs dry, Emunah stops asking for that fluid for a while and tells you what needs refilling, rather than tying up the sip balance with a drink that cannot happen.</p>
 
-<h2 id="detection">Knowing what you have</h2>
+<h2 id="knowing">Knowing what you have</h2>
 <p>Afflictions come from GMCP, and GMCP reports them reliably, in player combat as well as against denizens, with two exceptions:</p>
 <ul>
   <li><strong>Loki</strong> hides what you have. Emunah sends DIAG when the list is in doubt, which reports the truth for a second of equilibrium.</li>
   <li><strong>Blackout</strong> stops updates altogether. Emunah stops trusting a frozen list and catches up the moment it lifts.</li>
 </ul>
 <p>Recklessness is a third case of a different kind: it reports your health and mana as full whatever they are. While it is up, Emunah heals on every source rather than trust a figure that reads 100% while you die, and cures the recklessness itself early.</p>
-<p>With <code>EmunahTriggers.xml</code> installed, the game's own text adds to GMCP. A trigger sees an affliction the instant its line prints, ahead of the next GMCP update, and a cure line frees its balance at once instead of waiting out a timer.</p>
+<p>With <code>EmunahTriggers.xml</code> installed, the game's own text adds to GMCP. A line sees an affliction the instant it prints, ahead of the next GMCP update, and a cure line frees its balance at once instead of waiting out a timer. The package also reads attacks that take a balance from you, such as an Alchemist's homunculus shrieking away your focus, so Emunah does not try to focus into it.</p>
 
 <h2 id="illusions">Illusions</h2>
 <p>Text can be faked; GMCP cannot. So everything that comes from text is checked the way the reference system checks it:</p>
@@ -165,16 +208,17 @@
   <li>Text reports wait for the prompt that ends their block.</li>
   <li>One illusion in a block discards the whole block.</li>
   <li>A cure line only counts while that cure is actually in flight.</li>
-  <li>An affliction reported by text is dropped unless the server confirms it within about two seconds.</li>
+  <li>An affliction reported by text is dropped unless the server confirms it within two seconds (<code>curing.textConfirm</code>).</li>
 </ul>
-<p>Emunah's own lines get the same treatment with or without the trigger package: a refusal only counts after a command it could be answering, and a herb balance that comes back implausibly fast is ignored. Anything ignored is marked <code>(i)</code> on its line, so you can see it was caught.</p>
+<p>Emunah's own lines get the same care with or without the trigger package: a refusal counts only after a command it could be answering, and a herb balance that comes back implausibly fast is ignored. Anything ignored is marked <code>(i)</code> on its line, and hovering over the mark says why.</p>
+<p>Where today's game has moved on from the reference system, the game wins. Today's Alchemist, for one, sends the homunculus's shriek in the middle of a long combo, where the reference system would only believe it alone on its line; Emunah believes it there.</p>
 
-<h2 id="defences-on-purpose">Defences held on purpose</h2>
+<h2 id="held-defences">Defences held on purpose</h2>
 <p>Some defences look like afflictions to the game. If you are deliberately blind or deaf, GMCP reports blindness or deafness, and a naive engine would cure it and then do it again every time keep-up restored the defence. Emunah knows which afflictions are defences you are holding, and leaves them alone for exactly as long as the defence is up.</p>
 
-<h2 id="rift">Cures in hand</h2>
-<p>Cures live in the rift, and pulling one out takes a round trip. A herb pulled at the moment you need it arrives too late. Emunah keeps one of each curative in your inventory, pulling the next as soon as one is used, and puts any surplus back: inventory is lost on death and the rift is not.</p>
-<p>Pulls go one at a time, never while you are entangled, and still while you are paralysed, because the bloodroot that cures paralysis may be in the rift.</p>
+<h2 id="in-hand">Cures in hand</h2>
+<p>Cures live in the rift, and pulling one out takes a round trip. A herb pulled at the moment you need it arrives too late, so Emunah keeps cures in your inventory, pulling the next as soon as one is used, and puts any surplus back: inventory is lost on death and the rift is not.</p>
+<p>One of each is kept by default, and two of ash, because a Bard's crescendo takes two in a row. <code>emset keep &lt;herb&gt; &lt;number&gt;</code> changes it for one herb, and <code>IR</code> shows every herb with a toggle. Pulls go one at a time, never while you are entangled, and still while you are paralysed, because the bloodroot that cures paralysis may be in the rift.</p>
 
 <h2 id="sleep">Sleep</h2>
 <p>Emunah wakes you from a sleep you did not choose. For one you do choose, type <code>sleep</code>: it relaxes insomnia, sends SLEEP, and holds both the wake and insomnia until you are up.</p>
@@ -183,6 +227,8 @@
 <pre><code>emset curing                       <span class="c"># on or off, and everything being tracked</span>
 emset curing on|off
 emset prio paralysis herb 1        <span class="c"># cure paralysis first on the herb balance</span>
+emset ownprios on                  <span class="c"># use conf/priorities.conf and conf/situations.conf</span>
+emset keep ash 3                   <span class="c"># keep three ash in hand</span>
 emset curing.method minerals       <span class="c"># cure with minerals instead of herbs</span>
 pp                                 <span class="c"># pause or resume curing and defences together</span></code></pre>
 <p>Every curing setting is listed in the <a href="commands.html#curing">command reference</a>.</p>
@@ -196,11 +242,13 @@ pp                                 <span class="c"># pause or resume curing and 
   <h4>On this page</h4>
   <a href="#balances">One cure per balance</a>
   <a href="#locks">Locks</a>
+  <a href="#situations">Situational rules</a>
+  <a href="#dangers">Dangers on the prompt</a>
   <a href="#healing">Healing</a>
-  <a href="#detection">Knowing what you have</a>
+  <a href="#knowing">Knowing what you have</a>
   <a href="#illusions">Illusions</a>
-  <a href="#defences-on-purpose">Defences held on purpose</a>
-  <a href="#rift">Cures in hand</a>
+  <a href="#held-defences">Defences held on purpose</a>
+  <a href="#in-hand">Cures in hand</a>
   <a href="#sleep">Sleep</a>
   <a href="#commands">Commands</a>
 </aside>
@@ -216,9 +264,11 @@ pp                                 <span class="c"># pause or resume curing and 
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

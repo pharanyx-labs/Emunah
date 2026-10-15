@@ -85,6 +85,32 @@ CURE = [re.compile(r"^generic_(\w+)$"), re.compile(r"^cured_?(\w+)$"),
 ILLUSION = re.compile(r"^(?:if svo\.conf\.aillusion then )?svo\.ignore_illusion\("
                       r"(?:\"[^\"]*\"|'[^']*')?\)(?: end)?$")
 CALL = re.compile(r"^svo\.valid\.(\w+)\(\)$")
+# The reference system's fight tracker: `svo.startedfighting("alchemist", multimatches[2][2])`
+# on a line only that class sends. Bookkeeping, not curing, so it never stops a trigger
+# converting; it becomes detect.textFoe(class, attacker) when the attacker's capture can be
+# carried over, and is dropped when it cannot.
+FOE = re.compile(r"^svo\.startedfighting\(\s*[\"'](\w+)[\"']\s*,\s*"
+                 r"(?:matches\[(\d+)\]|multimatches\[(\d+)\]\[(\d+)\])\s*\)$")
+# svof functions that are not a plain gain or cure but whose meaning is fixed, and what each
+# becomes. Nothing here is interpreted from a name: each is read from the function's body.
+VALID_MAP = {
+    # raw-svo.valid.main.lua: homunculus_throat() is lostbal_focus() and nothing else. Its
+    # paragraph_length check (the shriek "needs to be on it's own line") is NOT carried over:
+    # Anzerloi's arena log of 2026-10-15 has the real shriek second in its paragraph, after
+    # the homunculus's stare and before two glowers (docs/game/alchemist.md).
+    "homunculus_throat": ("spent", "focus"),
+    # Both only add svof's `unknownany` placeholder, which this generator drops anyway (the
+    # server never sends that name). The affliction itself comes by GMCP; the line still says
+    # who is attacking, as what.
+    "humour_wrack": None,
+    "humour_truewrack": None,
+}
+# Names the reference system's tables do not give, from evidence. svof's swellskin is the
+# server's homunculusmercury: svof's own trigger for the bite is named "Homunculus mercury
+# (swellskin) bite", its serverside table (raw-svo.dict.lua, sstosvoa) lists
+# `homunculusmercury` as a server name, and Anzerloi's system tagged that same bite line
+# `homunculusmercury` (docs/game/alchemist.md).
+EXTRA_GAMENAMES = {"swellskin": "homunculusmercury"}
 
 
 def find_inputs(source, dict_arg):
@@ -111,8 +137,18 @@ def find_inputs(source, dict_arg):
 
 def gamenames(dict_path):
     text = dict_path.read_text(encoding="utf-8", errors="replace")
-    return {m.group(1): m.group(2) for m in
-            re.finditer(r"\n\s*(\w+) = \{\s*\n\s*gamename = [\"']([^\"']+)[\"']", text)}
+    names = {m.group(1): m.group(2) for m in
+             re.finditer(r"\n\s*(\w+) = \{\s*\n\s*gamename = [\"']([^\"']+)[\"']", text)}
+    # The reference system's serverside table maps the SERVER's name to its own (`corruption =
+    # "corrupted"`, `temperedsanguine = "sanguinehumour"`). Read backwards, it names the
+    # afflictions whose dictionary entry carries no gamename. Never over a gamename.
+    table = re.search(r"\n\s*sstosvoa = \{(.*?)\n\s*\}", text, re.S)
+    if table:
+        for server, own in re.findall(r"(\w+)\s*=\s*[\"'](\w+)[\"']", table.group(1)):
+            names.setdefault(own, server)
+    for own, server in EXTRA_GAMENAMES.items():
+        names.setdefault(own, server)
+    return names
 
 
 def emunah_known():
@@ -197,11 +233,52 @@ def convert_illusion(trigger):
             trigger.get("isMultiline") == "yes", trigger.findtext("conditonLineDelta") or "0")
 
 
+def literal(regex):
+    """The fixed text a regex starts with, unescaped, up to its first metacharacter."""
+    out = []
+    index = 1 if regex.startswith("^") else 0
+    while index < len(regex):
+        char = regex[index]
+        if char == "\\" and index + 1 < len(regex):
+            following = regex[index + 1]
+            if following.isalnum():
+                break                      # \w, \d, \s: not literal
+            out.append(following)
+            index += 2
+            continue
+        if char in ".[]()*+?{}|^$":
+            break
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+def collapse(patterns, types):
+    """A multi-line AND trigger whose patterns are all on ONE line (line delta 0) and amount to
+    a substring prefilter in front of a regex: the reference system's idiom for a cheap first
+    test. The regex alone matches exactly the same lines, so it is kept alone. Returns the
+    regex's 1-based position, or None when the trigger is anything else."""
+    regexes = [i for i, t in enumerate(types) if t == "1"]
+    if len(regexes) != 1:
+        return None
+    regex = patterns[regexes[0]]
+    head = literal(regex)
+    for i, (pattern, kind) in enumerate(zip(patterns, types)):
+        if i == regexes[0]:
+            continue
+        if kind == "2" and regex.startswith("^") and head.startswith(pattern):
+            continue
+        if kind == "0" and pattern in head:
+            continue
+        return None
+    return regexes[0] + 1
+
+
 def convert(trigger, names, known, native):
     """(kind, [(action, name)], patterns, types) or a skip reason."""
     if trigger.get("isActive") != "yes":
         return "inactive"
-    for flag in ("isMultiline", "isFilterTrigger", "isColorTrigger", "isColorizerTrigger"):
+    for flag in ("isFilterTrigger", "isColorTrigger", "isColorizerTrigger"):
         if trigger.get(flag) == "yes":
             return "not a plain line trigger"
     if (trigger.findtext("mStayOpen") or "0") != "0":
@@ -210,12 +287,36 @@ def convert(trigger, names, known, native):
     types = [i.text for i in trigger.find("regexCodePropertyList") or []]
     if not patterns or len(patterns) != len(types) or not set(types) <= PLAIN_TYPES:
         return "pattern type needs context"
+    # The regex's position in a collapsed multi-line trigger: multimatches[<it>] is matches.
+    collapsed = None
+    if trigger.get("isMultiline") == "yes":
+        collapsed = collapse(patterns, types)
+        if (trigger.findtext("conditonLineDelta") or "0") != "0" or not collapsed:
+            return "not a plain line trigger"
+        patterns, types = [patterns[collapsed - 1]], ["1"]
 
     actions = []
     for statement in statements(trigger.findtext("script")):
+        foe = FOE.match(statement)
+        if foe:
+            # The attacker's capture in the trigger as it is written out: a single-line
+            # trigger's own matches[n]; a collapsed one's multimatches[<the regex>][n]. Any
+            # other reference names a pattern that is gone, and the report is dropped.
+            if collapsed is None:
+                group = foe.group(2)
+            else:
+                group = foe.group(4) if foe.group(3) and int(foe.group(3)) == collapsed else None
+            if group:
+                actions.append(("foe", (foe.group(1).lower(), int(group))))
+            continue
         call = CALL.match(statement)
         if not call:
             return "script is more than plain svo.valid calls"
+        if call.group(1) in VALID_MAP:
+            mapped = VALID_MAP[call.group(1)]
+            if mapped:
+                actions.append(mapped)
+            continue
         kind, aff, via = classify(call.group(1))
         if not kind:
             return "svo.valid function is not a gain/cure"
@@ -229,6 +330,9 @@ def convert(trigger, names, known, native):
             continue                       # Emunah cannot act on it; drop this statement
         actions.append(("cure@" + via if kind == "cure" and via else kind, server))
     if not actions:
+        return "no affliction Emunah knows"
+    # A line that only says who is attacking must at least say it of someone: a capture.
+    if all(a == "foe" for a, _ in actions) and not any("(" in p for p in patterns):
         return "no affliction Emunah knows"
 
     # Drop lines patterns.lua already owns; keep the rest of the trigger.
@@ -251,6 +355,10 @@ def lua_call(action, name):
         return f'emunah.curing.detect.textCure("{name}", {via})'
     if action == "illusion":
         return f'emunah.curing.detect.textIllusion({lua_string(name)})'
+    if action == "foe":
+        return f'emunah.curing.detect.textFoe("{name[0]}", matches[{name[1]}])'
+    if action == "spent":
+        return f'emunah.curing.detect.textSpent("{name}")'
     return f'emunah.curing.detect.textState("{name}", {"true" if action == "state_on" else "false"})'
 
 
@@ -315,6 +423,8 @@ GROUP_NOTES = {
     "Afflictions cured": "-- Lines that cure an affliction or report that it wore off. A balance in parentheses\n"
                          "-- must have its cure in progress for the line to count.",
     "States": "-- Lines that leave you prone, stunned or asleep, often with an affliction as well.",
+    "Balances": "-- Lines that take a curing balance from you.",
+    "Attackers": "-- Lines only one class sends. Each says who is attacking you, and as what.",
 }
 
 # Readable names for the illusion pairs, which also appear in-game as the reason a block was
@@ -370,7 +480,12 @@ def summary(actions):
     """What a trigger reports, for its name: "Prone, paralysis", "Fear (tree, herb)"."""
     parts = []
     for action, name in actions:
-        label = display(name)
+        if action == "foe":
+            label = f"{name[0]} attack"
+        elif action == "spent":
+            label = f"{name} balance lost"
+        else:
+            label = display(name)
         if action.startswith("cure@"):
             label += " (" + ", ".join(action[5:].split(",")) + ")"
         if label not in parts:
@@ -513,7 +628,7 @@ def main():
         converted.append((name, [(action, item[1])], kept, False, "0"))
 
     groups = {"Anti-illusion": [], "Afflictions gained": [], "Afflictions cured": [],
-              "States": []}
+              "States": [], "Balances": [], "Attackers": []}
     seen = set()
     dropped_ambiguous = 0
     for name, actions, kept, multiline, delta in converted:
@@ -534,8 +649,12 @@ def main():
             group = "States"
         elif "gain" in kinds:
             group = "Afflictions gained"
-        else:
+        elif any(is_cure(a) for a in kinds):
             group = "Afflictions cured"
+        elif "spent" in kinds:
+            group = "Balances"
+        else:
+            group = "Attackers"
         # Named for what the trigger reports and the line it matches, rather than the
         # source's own labels, which are inconsistent and often private shorthand.
         if group == "Anti-illusion":

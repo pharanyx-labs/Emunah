@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Performance | Emunah</title>
-<meta name="description" content="What Emunah costs on every prompt and every line, how it was measured, and the rules that keep it fast.">
+<meta name="description" content="What Emunah costs Mudlet on every line and every prompt, how it is measured, what was found and fixed, and the rules that keep it fast.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/performance.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Performance | Emunah">
-<meta property="og:description" content="What Emunah costs on every prompt and every line, how it was measured, and the rules that keep it fast.">
+<meta property="og:description" content="What Emunah costs Mudlet on every line and every prompt, how it is measured, what was found and fixed, and the rules that keep it fast.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -97,6 +103,7 @@
 <p class="crumb"><a href="getting-started.html">Documentation</a> / Under the hood</p>
 <h1>Performance</h1>
 <p class="lede">Achaea combat is decided on round trips, and Mudlet runs every package on one thread. Time Emunah spends is time the client is not drawing, reading or sending, so every hot path is measured, not assumed.</p>
+
 <h2 id="paths">The paths that matter</h2>
 <div class="table-wrap"><table>
   <thead><tr><th>Path</th><th>Runs on</th><th>Whose cost</th></tr></thead>
@@ -110,8 +117,9 @@
 <p>A trigger whose pattern matches nearly every line is a per-line Lua handler in all but name. Emunah once had five of them.</p>
 
 <h2 id="now">What it costs now</h2>
-<p>Measured with <code>test/bench.lua</code> under a realistic lock: eight afflictions across every balance, herbs in hand, and health and mana below all four healing thresholds. A run on 4 October 2026 measured <code>engine.tick()</code> at 67.0 µs.</p>
-<h3>The first pass</h3>
+<p>Measured with <code>test/bench.lua</code> under a realistic lock: eight afflictions across every balance, herbs in hand, and health and mana below all four healing thresholds. Three runs on 15 October 2026 measured <code>engine.tick()</code> at 77.5 µs, allocating 2,000 bytes. That is up from 67.5 µs on 4 October; the rise came before that day's changes, and has not yet been profiled.</p>
+
+<h3 id="first-pass">The first pass</h3>
 <div class="table-wrap"><table>
   <thead><tr><th></th><th>Before</th><th>After</th></tr></thead>
   <tbody>
@@ -123,13 +131,14 @@
     <tr><td>Lines that run the name highlighter</td><td>88%</td><td><strong>12%</strong></td></tr>
   </tbody>
 </table></div>
-<h3>Time to send, 3 October 2026</h3>
+
+<h3 id="time-to-send">Time to send, 3 October 2026</h3>
 <p>The second pass measured the time from a packet arriving to the cure leaving, and moved every repaint after the send.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Packet</th><th>Before</th><th>After</th></tr></thead>
   <tbody>
     <tr><td>An affliction lands</td><td>158 µs, 10 draws before the send</td><td><strong>85 µs, none</strong></td></tr>
-    <tr><td>Herb balance returns, then <code>Char.Vitals</code></td><td>96 µs, 5 draws</td><td><strong>52 µs, none</strong></td></tr>
+    <tr><td>Herb balance returns, then Char.Vitals</td><td>96 µs, 5 draws</td><td><strong>52 µs, none</strong></td></tr>
     <tr><td><code>engine.tick()</code></td><td>79.0 µs, 2056 B</td><td><strong>67.5 µs, 2000 B</strong></td></tr>
     <tr><td><code>engine.has()</code></td><td>0.17 µs</td><td><strong>0.10 µs</strong></td></tr>
   </tbody>
@@ -148,6 +157,7 @@
 <h2 id="measuring">Measuring</h2>
 <pre><code>lua5.1 test/bench.lua [iterations]     <span class="c"># time and bytes per call</span>
 lua5.1 test/profile.lua [iterations]   <span class="c"># sampling profiler: the hottest lines</span>
+lua5.1 test/latency.lua                <span class="c"># from a packet arriving to the command leaving</span>
 lua5.1 test/run.lua                    <span class="c"># includes the draw-count budgets</span></code></pre>
 <p>Four traps each produced confident, wrong numbers before they were noticed:</p>
 <ul>
@@ -192,9 +202,11 @@ lua5.1 test/run.lua                    <span class="c"># includes the draw-count
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Getting started | Emunah</title>
-<meta name="description" content="Install Emunah in Mudlet, switch on curing, defences and hunting, and keep it up to date.">
+<meta name="description" content="Install Emunah in Mudlet, switch on curing, defences, hunting and PvP, and keep it up to date with one command.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/getting-started.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Getting started | Emunah">
-<meta property="og:description" content="Install Emunah in Mudlet, switch on curing, defences and hunting, and keep it up to date.">
+<meta property="og:description" content="Install Emunah in Mudlet, switch on curing, defences, hunting and PvP, and keep it up to date with one command.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -97,14 +103,15 @@
 <p class="crumb"><a href="getting-started.html">Documentation</a> / Start</p>
 <h1>Getting started</h1>
 <p class="lede">Emunah runs straight from a git checkout. Install it once, switch on the parts you want, and every update after that is one command in the client.</p>
+
 <h2 id="requirements">Requirements</h2>
 <ul>
   <li>Mudlet 4.10 or later.</li>
-  <li>An Achaea character, with Achaea's own server-side curing turned off. Emunah does the curing in the client and the two should not compete.</li>
+  <li>An Achaea character, with Achaea's own server-side curing turned off. Emunah cures in the client, and the two should not compete.</li>
   <li>git, to clone the repository and to update it.</li>
   <li>Optional: the MDK package, for tabbed chat. Without it, chat shows in a single window.</li>
 </ul>
-<p>Curing, defences and the interface work for any class. Hunting and PvP need a class module to know how to attack, and today that is Priest.</p>
+<p>Curing, defences, the interface and the map work for any class. Hunting and PvP need a class module to know how to attack, and today that is Priest.</p>
 
 <h2 id="install">Install</h2>
 <h3>1. Clone the repository</h3>
@@ -115,15 +122,15 @@
   <p>Mudlet's package manager deletes a package's own directory when it uninstalls or reinstalls it, and it follows symlinks. A checkout there, or a symlink to one, would be deleted. If you want the checkout inside the profile anyway, name it <code>EmunahSrc</code>: Emunah looks for that name too, and the package manager never touches it.</p>
 </div>
 
-<h3>2. Install the package</h3>
+<h3>2. Install the packages</h3>
 <p>In Mudlet, open <strong>Package Manager</strong>, choose <strong>Install</strong>, and select <code>Emunah.xml</code> from the root of the checkout. It is a small loader that runs everything else from the checkout, not the system itself.</p>
-<p>Optionally install <code>EmunahTriggers.xml</code> the same way. It adds 659 of the reference system's lines: afflictions gained and cured, stun, prone, sleep and unconsciousness, and its illusion catchers. Emunah applies the reference system's anti-illusion to every one of them. Without it, curing still runs from GMCP, which reports nearly every affliction.</p>
+<p>Then install <code>EmunahTriggers.xml</code> the same way. It is optional, and recommended: 743 of the reference system's lines, covering afflictions gained and cured, stun, prone, sleep and unconsciousness, a line that costs you a balance, the illusion catchers, and every class's attack lines, which tell Emunah who is attacking you and as what. Emunah checks each of them against the reference system's anti-illusion rules. Without the package, curing still runs from GMCP, which reports nearly every affliction.</p>
 
 <h3>3. Point the loader at the checkout</h3>
 <p>Run this once in Mudlet's input line. It is saved per profile.</p>
 <pre><code>lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()</code></pre>
 <p>A successful load says:</p>
-<pre><code>[emunah] v0.1.0 loaded -- 72 modules.</code></pre>
+<pre><code>[emunah] v0.1.0 loaded -- 73 modules.</code></pre>
 
 <h2 id="first-steps">First steps</h2>
 <p>Everything is one prefix, <code>emset</code>, and one help command, <code>emhelp</code>.</p>
@@ -133,7 +140,7 @@
     <tr><td><code>emhelp</code></td><td>Every module, what it does, and whether it is on.</td></tr>
     <tr><td><code>emhelp curing</code></td><td>One module: its commands, and every setting with its current value. Click a setting to change it.</td></tr>
     <tr><td><code>emset</code></td><td>Status: curing, defences, safety floors, and what is being tracked.</td></tr>
-    <tr><td><code>emset ui</code></td><td>Whether the panels and the map are on.</td></tr>
+    <tr><td><code>emset ui</code></td><td>Whether the panels and the map are on, and which panels you have sized by hand.</td></tr>
   </tbody>
 </table></div>
 <p>The <a href="commands.html">command reference</a> lists every command and setting, generated from the same table <code>emhelp</code> reads.</p>
@@ -144,8 +151,11 @@
 emset defs           <span class="c"># the defence grid: click each to cycle off, defup, keepup</span>
 emset defs on        <span class="c"># keep the chosen defences up</span>
 emset hunt           <span class="c"># walk the area and bash it (F11); emset hunt off to stop</span>
+goto bank            <span class="c"># walk to the nearest bank</span>
+t sarapis            <span class="c"># target someone and start fighting them</span>
 pp                   <span class="c"># pause or resume curing and defences together</span></code></pre>
-<p>When you want to sleep, type <code>sleep</code> rather than the game's own command: Emunah relaxes insomnia first, and does not wake you or raise insomnia again until you are up.</p>
+<p>When you want to sleep, type <code>sleep</code> rather than the game's own command: Emunah relaxes insomnia first, and neither wakes you nor raises insomnia again until you are up.</p>
+<p>Typing <code>QUIT</code> or <code>QQ</code> tells Emunah the client is closing: it stores your pack in the rift with <code>INR ALL</code>, then sends nothing more. Reconnecting, <code>emreload</code> or <code>emset pause</code> starts it again.</p>
 
 <h2 id="settings">Settings</h2>
 <p>Settings are saved per Mudlet profile, in <code>emunah-config.lua</code> in your Mudlet home directory, so two characters keep separate defences, priorities and layouts. Read or change any of them by name:</p>
@@ -163,17 +173,24 @@ emset curing.method minerals    <span class="c"># change it</span></code></pre>
 </table></div>
 <p>When a shipped default turns out to be wrong, a migration corrects the stored value the next time Emunah loads. Your own changes are kept.</p>
 
+<h3>Settings in files</h3>
+<p>The <code>conf/</code> folder in the checkout has one file per area: <code>system</code>, <code>interface</code>, <code>map</code>, <code>healing</code>, <code>curing</code>, <code>defences</code>, <code>hunting</code>, <code>pvp</code>, <code>loot</code>, <code>antitheft</code>, <code>pipes</code>, <code>riding</code> and <code>people</code>. Every line ships commented out, so nothing changes until you edit one. Uncomment a line to pin that setting: a pinned setting wins over <code>emset</code>, which says so rather than appearing to work. The files are read on every load.</p>
+<p>Two more, <code>priorities.conf</code> and <code>situations.conf</code>, hold your own cure ranks and changes to the situational rules. They apply only while <code>emset ownprios on</code>; see <a href="curing.html#your-own-rules">your own rules</a>.</p>
+
 <h2 id="updating">Updating</h2>
-<p><code>emreload</code> brings the checkout up to date with <code>main</code> on GitHub, then reloads every module from disk without losing state. It only fast-forwards: a checkout on another branch, or one with local edits in the way, is left alone and Emunah says so. <code>emset reload</code> does the same thing, and <code>emreload</code> still works when the command module itself failed to load.</p>
+<p><code>emreload</code> brings the checkout up to date with <code>main</code> on GitHub, then reloads every module from disk without losing state. It only fast-forwards: a checkout on another branch, or one with local edits in the way, is left alone, and Emunah says so. <code>emset reload</code> does the same thing, <code>emreload</code> still works when the command module itself failed to load, and <kbd>Ctrl</kbd>+<kbd>F5</kbd> reloads too.</p>
 <pre><code>emreload                       <span class="c"># update and reload</span>
 emset system.update false      <span class="c"># reload what is on disk, without pulling</span></code></pre>
+<p>The map updates itself: Emunah checks for a new crowdmap when it loads and every hour after. See <a href="map.html#updates">Map and walking</a>.</p>
 
 <h2 id="developing">Developing</h2>
-<p>Edit any file under <code>src/</code> and run <code>emreload</code>. There is nothing to reimport and no client to restart, and a new module added to the manifest is picked up on the same reload.</p>
-<p>The suite of 2433 behavioural tests runs the real modules against a simulated Mudlet, with no client involved:</p>
+<p>Edit any file under <code>src/</code> and run <code>emreload</code>. There is nothing to reimport and no client to restart, and a module added to the manifest is picked up on the same reload.</p>
+<p>The suite of 3232 behavioural tests runs the real modules against a simulated Mudlet, with no client involved:</p>
 <pre><code>lua5.1 test/run.lua             <span class="c"># the test suite</span>
 lua5.1 test/bench.lua           <span class="c"># per-prompt cost, in microseconds and bytes</span>
-lua5.1 test/ui_preview.lua      <span class="c"># render the panels in a scripted fight, as HTML</span></code></pre>
+lua5.1 test/profile.lua         <span class="c"># where the time goes</span>
+lua5.1 test/ui_preview.lua      <span class="c"># render the panels in a scripted fight, as HTML</span>
+lua5.1 tools/fight-report.lua fight.log   <span class="c"># a pasted fight, summarised</span></code></pre>
 <p>With no Lua installed, <code>python3 tools/run_tests.py .</code> runs the suite through a Python shim.</p>
 
 <h2 id="troubleshooting">Troubleshooting</h2>
@@ -182,9 +199,10 @@ lua5.1 test/ui_preview.lua      <span class="c"># render the panels in a scripte
   <tbody>
     <tr><td><code>Cannot find the Emunah source at ...</code></td><td><code>EMUNAH_ROOT</code> is unset or wrong, or the checkout moved. Run step 3 again with the right path.</td></tr>
     <tr><td><code>No class module loaded -- nothing knows how to attack.</code></td><td>Hunting and PvP need a class module, and the class is read when you log in. Log the character in first. Priest is the class supported today.</td></tr>
-    <tr><td>A panel is missing, stuck, or the wrong size</td><td><code>emset ui rebuild</code> rebuilds every panel from scratch.</td></tr>
-    <tr><td>Something is not happening and you cannot tell why</td><td><code>emset debug</code> prints every command Emunah sends, and every one it holds back with the reason: stunned, prone, no balance, and so on.</td></tr>
-    <tr><td>A setting does not seem to take effect</td><td><code>emset &lt;setting&gt;</code> with no value reads back what is stored.</td></tr>
+    <tr><td>A panel is missing, stuck, or the wrong size</td><td><code>emset ui rebuild</code> rebuilds every panel from scratch. <code>emset ui auto</code> hands panels you sized by dragging back to sizing themselves.</td></tr>
+    <tr><td>Something is not happening and you cannot tell why</td><td><code>emset debug</code> prints every command Emunah sends, and every one it holds back with the reason: stunned, prone, no balance, and so on. <code>emset debug gmcp</code> traces every GMCP message too.</td></tr>
+    <tr><td>A line is marked <code>(i)</code></td><td>Emunah ignored it as an illusion. Hover over the mark to see why.</td></tr>
+    <tr><td>A setting does not seem to take effect</td><td><code>emset &lt;setting&gt;</code> with no value reads back what is in force. A setting pinned in a <code>conf/</code> file wins over <code>emset</code>, which says so when you try to change it.</td></tr>
   </tbody>
 </table></div>
 <!-- doc:end -->
@@ -215,9 +233,11 @@ lua5.1 test/ui_preview.lua      <span class="c"># render the panels in a scripte
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

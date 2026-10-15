@@ -102,6 +102,16 @@ M.wearsOff = {
    inquisition    = true,
    numbedleftarm  = true,
    numbedrightarm = true,
+   -- The Alchemist homunculus's bite, svof's `swellskin`: "increases next herb balance"
+   -- (its DIAG line, "Struggling to process edible curatives."), and "eating any herb cures
+   -- it" with "Eating is suddenly less difficult again." [svof]. Nothing to send for it --
+   -- the next herb of any kind ends it, as svof waits for (customwait 999). Seen ended by
+   -- plumbum, antimony and magnesium in Anzerloi's arena log (docs/game/alchemist.md).
+   homunculusmercury = true,
+   -- The homunculus's other stare: "bleeding for mana, clotting takes health" (svof's DIAG
+   -- note), ended only by "The corruption of your humours fades." [svof: corrupted]. Not in
+   -- that log; here so its lines are not dropped as an unknown name.
+   corruption     = true,
 }
 
 --- Afflictions that stop you acting until you writhe free. These are not cured by items;

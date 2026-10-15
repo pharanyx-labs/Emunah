@@ -256,6 +256,34 @@ M.LOCKS = {
    end },
 }
 
+--- The locks made of afflictions alone, as svof's cnrl.lockdata has them, most severe first:
+--- what can be judged from a list of afflictions, so of an opponent as much as of you. (The
+--- rest of M.LOCKS needs your mana, your arms, your rift or your pipes.) `hard` here is
+--- impatience only; svof's own also counts focus being unusable for mana.
+M.LOCK_AFFLICTIONS = {
+   { name = "true",  needs = { "slickness", "anorexia", "asthma", "paralysis", "impatience",
+                               "disrupted", "confusion" } },
+   { name = "hard",  needs = { "slickness", "anorexia", "asthma", "impatience" } },
+   { name = "venom", needs = { "slickness", "anorexia", "asthma", "paralysis" } },
+   { name = "soft",  needs = { "slickness", "anorexia", "asthma" } },
+}
+
+--- What a lock needs that `has` lacks, for every lock in M.LOCK_AFFLICTIONS.
+--- @param has function(affliction) -> boolean
+--- @return table held names, most severe first; table name -> missing afflictions (in the
+---   lock's order) for each lock not held
+function M.lockProgress(has)
+   local held, missing = {}, {}
+   for _, lock in ipairs(M.LOCK_AFFLICTIONS) do
+      local lacking = {}
+      for _, aff in ipairs(lock.needs) do
+         if not has(aff) then lacking[#lacking + 1] = aff end
+      end
+      if #lacking == 0 then held[#held + 1] = lock.name else missing[lock.name] = lacking end
+   end
+   return held, missing
+end
+
 --- The locks you are in, most severe first. Empty when none.
 --- @return table
 function M.locks()
@@ -266,13 +294,69 @@ function M.locks()
    return found
 end
 
--- Named on the prompt while it lasts, as the reference system does: "(lock: soft)".
+-- ---------------------------------------------------------------------------
+-- dangers: what an opponent can kill you with right now
+-- ---------------------------------------------------------------------------
+--
+-- svof's sk.warnings, each raised where its afflictions land (raw-svo.dict.lua): the
+-- states an instant kill needs. Nothing here acts; it is named on the prompt, so the
+-- moment it is true is the moment you see it.
+
+local TEMPERED = { "temperedcholeric", "temperedmelancholic", "temperedphlegmatic",
+                   "temperedsanguine" }
+
+--- How long an Alchemist's REAVE takes against you, by how many of your four humours are
+--- tempered [svof: checkreavekill and sk.warnings]: two, 10s; three, 8s; all four, 4s.
+M.REAVE_SECONDS = { [2] = 10, [3] = 8, [4] = 4 }
+
+function M.temperedHumours()
+   local count = 0
+   for _, name in ipairs(TEMPERED) do
+      if has(name) then count = count + 1 end
+   end
+   return count
+end
+
+M.DANGERS = {
+   { name = "reave", test = function()
+      local seconds = M.REAVE_SECONDS[M.temperedHumours()]
+      return seconds and ("reave " .. seconds .. "s") or nil
+   end },
+   -- svof warns of this only while it is fighting a Sentinel (enabledclasses). Named here
+   -- whenever it is true: both afflictions are a Sentinel's, and missing the warning is the
+   -- worse mistake.
+   { name = "dismember", test = function() return has("bound") and has("impaled") end },
+   { name = "pulp", test = function()
+      local detect = emunah.curing.detect
+      return (has("prone") or (detect and detect.prone)) and has("seriousconcussion")
+   end },
+   { name = "golem destroy", test = function() return has("meltingburn") end },
+}
+
+--- The instant kills you are open to, most severe first, as they are named. Empty when none.
+function M.dangers()
+   local found = {}
+   for _, danger in ipairs(M.DANGERS) do
+      local result = danger.test()
+      if result then found[#found + 1] = result == true and danger.name or result end
+   end
+   return found
+end
+
+-- Named on the prompt while they last, as the reference system does: "(lock: soft)".
 event.register("emunah.prompt", function()
-   local locks = M.locks()
-   if #locks == 0 then return end
+   local locks, dangers = M.locks(), M.dangers()
+   if #locks == 0 and #dangers == 0 then return end
    local theme = emunah.ui.theme
-   decho((" %s(%slock%s: %s%s%s)"):format(theme.dc("textDim"), theme.dc("danger"),
-      theme.dc("textDim"), theme.dc("warning"), table.concat(locks, ", "), theme.dc("textDim")))
+   if #locks > 0 then
+      decho((" %s(%slock%s: %s%s%s)"):format(theme.dc("textDim"), theme.dc("danger"),
+         theme.dc("textDim"), theme.dc("warning"), table.concat(locks, ", "), theme.dc("textDim")))
+   end
+   if #dangers > 0 then
+      decho((" %s(%sdanger%s: %s%s%s)"):format(theme.dc("textDim"), theme.dc("danger"),
+         theme.dc("textDim"), theme.dc("affliction"), table.concat(dangers, ", "),
+         theme.dc("textDim")))
+   end
 end, "watch")
 
 -- ---------------------------------------------------------------------------

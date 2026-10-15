@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fighting alongside allies | Emunah</title>
+<meta name="description" content="Fighting beside allies with Emunah: partners who can never be targeted, their target calls followed, their comings and goings said mid-fight, and the class of everyone attacking you.">
+<link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/allies.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Fighting alongside allies | Emunah">
+<meta property="og:description" content="Fighting beside allies with Emunah: partners who can never be targeted, their target calls followed, their comings and goings said mid-fight, and the class of everyone attacking you.">
+<meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html" aria-current="page">Fighting alongside allies</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html" aria-current="page">Fighting alongside allies</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
+<h1>Fighting alongside allies</h1>
+<p class="lede">A partner is someone you fight beside. Emunah keeps them out of every targeting path, follows the target they call, tells you when they arrive or leave in the middle of a fight, and tells you who is attacking you and as what class, so the two of you can play to each other's strengths.</p>
+<pre><code>emset ally add anzerloi      <span class="c"># a partner, and an ally in the name database</span>
+emset ally                   <span class="c"># partners, who is here, the last call, who is attacking you</span>
+emset ally remove anzerloi</code></pre>
+
+<h2 id="partners">Partners are never targets</h2>
+<p>Adding a partner marks them an ally in the <a href="people.html">name database</a>, which is what PvP asks before it accepts any target. So neither <code>t</code>, a typo, a call, nor a name read from game text can ever point an attack at them. Removing a partner leaves their standing as it was; <code>emset iff &lt;name&gt; auto</code> hands it back to their city.</p>
+
+<h2 id="presence">Where they are</h2>
+<p>While you are fighting, in a PvP session or with someone attacking you, Emunah says when a partner arrives or leaves the room: a partner leaving in the middle of a fight changes the fight. Out of a fight it stays quiet, because walking together they arrive in every room you do. <code>emset ally</code> shows which partners are here, as far as the game's room list admits.</p>
+
+<h2 id="calls">Their target calls</h2>
+<p>A partner's message on any channel can set your PvP target. Each pattern in <code>allies.calls</code> is a Lua pattern that captures the name being called, so a partner who calls targets in party as <code>Target: Sarapis</code> is read with:</p>
+<pre><code>emset allies.calls Target:? (%a+)</code></pre>
+<p>The pattern is matched anywhere in the message, which arrives as the game shows it, such as <code>(Party): Anzerloi says, "Target: Sarapis"</code>. None ship, because how a partner calls a target is up to them and their system. A call from anyone who is not a partner is ignored, and a call naming an ally, or you, is refused just as PvP refuses it. With <code>allies.follow</code> off, a call is said but your target is left alone. <code>emset ally</code> shows the last call and how long ago it came.</p>
+
+<h2 id="foes">Who is attacking you</h2>
+<p>With <code>EmunahTriggers.xml</code> installed, the reference system's attack lines for every class it knows name the attacker, so Emunah knows who is fighting you and as what: an Alchemist's wracks, a Bard's songs, a Monk's kicks, a Sylvan's winds, and the rest. The first line from someone new is announced, as "Sobriquet is attacking you as an Alchemist.", and <code>emset ally</code> lists everyone who has attacked you in the last minute. <code>emset pvp</code> shows your target's class from the same source when the name database does not already know it.</p>
+
+<h2 id="together">Working together</h2>
+<p>What one of you lands, the other does not have to. A Priest's chasten goes for whatever a lock on your shared target still lacks, so with a Bard partner giving asthma, slickness and impatience, it carries the paralysis that shuts their tree (see <a href="pvp.html#locks">building a lock</a>). <code>emset pvp</code> shows which of the target's routes are shut and what the lock still needs, whoever gave it.</p>
+<div class="note">
+  <span class="title">Not yet</span>
+  <p>Nothing is sent to a partner for you: no party calls, no shared reports. And a partner's own attacks are not yet read as landing on your shared target, because that needs their attack lines as you see them. Both are on the <a href="roadmap.html">roadmap</a>.</p>
+</div>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="pvp.html"><small>Previous</small>PvP</a>
+  <a class="next" href="people.html"><small>Next</small>People and names</a>
+</nav>
+</main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#partners">Partners are never targets</a>
+  <a href="#presence">Where they are</a>
+  <a href="#calls">Their target calls</a>
+  <a href="#foes">Who is attacking you</a>
+  <a href="#together">Working together</a>
+</aside>
+</div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
+</body>
+</html>

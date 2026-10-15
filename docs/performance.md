@@ -27,6 +27,14 @@ was wrong is worth keeping:
 Literally true, and it missed the point. **A `tempRegexTrigger` whose pattern matches every
 line is a per-line Lua handler with extra steps.** There were five of them.
 
+## Latest measurement: 2026-10-15
+
+`lua5.1 test/bench.lua`, 20000 iterations, eight afflictions tracked: **`engine.tick()` 77.5 µs,
+2000 B** (three runs: 77.46, 77.87, 77.28). The same benchmark at commit `5d66245`, before
+that day's changes, measured 77.10 and 77.57 µs. So the rise from the 67.5 µs below came
+between 2026-10-04 and `5d66245`, or with the machine, and not with that day's changes. It
+has not been profiled yet.
+
 ## Time to send: the 2026-10-03 pass
 
 Everything below this section measures what a function costs. This pass measured what a

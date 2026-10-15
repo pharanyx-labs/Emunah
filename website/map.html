@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map and walking | Emunah</title>
+<meta name="description" content="Emunah's map: the crowd-sourced Achaea map kept current, walks that go one confirmed step at a time, doors, water, ferries and gallops, locator lines as links, and your own locks and weights kept across updates.">
+<link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/map.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Emunah">
+<meta property="og:title" content="Map and walking | Emunah">
+<meta property="og:description" content="Emunah's map: the crowd-sourced Achaea map kept current, walks that go one confirmed step at a time, doors, water, ferries and gallops, locator lines as links, and your own locks and weights kept across updates.">
+<meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#131a26">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- site:header -->
+<header class="site-header">
+  <div class="wrap">
+    <a class="wordmark" href="index.html" aria-label="Emunah home">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="name">Emunah</span>
+      <span class="by">by Pharanyx Labs</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+    <nav class="site-nav" id="site-nav" aria-label="Main">
+      <a href="index.html#features">Features</a>
+      <a href="getting-started.html" aria-current="page">Documentation</a>
+      <a href="commands.html">Commands</a>
+      <a href="https://github.com/pharanyx-labs/Emunah">GitHub</a>
+      <a class="btn btn-primary" href="getting-started.html#install">Install</a>
+    </nav>
+  </div>
+</header>
+<!-- /site:header -->
+
+<div class="docs">
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html" aria-current="page">Map and walking</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+<main class="doc" id="main">
+<details class="docs-menu"><summary>Documentation menu</summary>
+<nav class="docs-nav" aria-label="Documentation">
+  <h4>Start</h4>
+  <ul>
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+  </ul>
+  <h4>Features</h4>
+  <ul>
+    <li><a href="curing.html">Client-side curing</a></li>
+    <li><a href="interface.html">Interface</a></li>
+    <li><a href="defences.html">Defence maintenance</a></li>
+    <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html" aria-current="page">Map and walking</a></li>
+    <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
+    <li><a href="people.html">People and names</a></li>
+    <li><a href="sustenance.html">Upkeep and economy</a></li>
+  </ul>
+  <h4>Under the hood</h4>
+  <ul>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="performance.html">Performance</a></li>
+    <li><a href="api.html">Lua API</a></li>
+    <li><a href="roadmap.html">Roadmap</a></li>
+  </ul>
+</nav>
+</details>
+<!-- doc:start -->
+<p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
+<h1>Map and walking</h1>
+<p class="lede">Emunah walks you anywhere on the map one confirmed step at a time, through the same checks as every other command. It keeps the crowd-sourced Achaea map up to date, and turns every line that says where someone is into a link you can walk to.</p>
+<pre><code>goto bank               <span class="c"># the nearest room with a bank</span>
+goto 1234               <span class="c"># a room by number</span>
+goto fish street        <span class="c"># the nearest room with that name</span>
+goto sarapis            <span class="c"># where someone was last located</span>
+stop                    <span class="c"># pause, keeping the route</span>
+go                      <span class="c"># carry on from wherever you are</span>
+rf tavern               <span class="c"># find rooms by name, by area</span>
+rl                      <span class="c"># everything the map holds about this room</span></code></pre>
+
+<h2 id="walking">Walking</h2>
+<p><code>emset goto &lt;where&gt;</code>, or just <code>goto</code>, takes a room number, a feature such as a bank or a shop, an area, a room's name, or a person. Double-clicking a room on the map walks there too.</p>
+<p>Each step is sent only when the last one has arrived, and goes through the same gate as every other command, so a walk waits out stun, sleep, paralysis or a lost balance instead of walking into them. If you end up off the route, or the game refuses an exit, the walk plans again from where you are. A step that draws no arrival is sent again after <code>map.retryAfter</code>; after two retries the walk stops and says so. Steps are never closer together than <code>map.stepGap</code>, which keeps the game from answering "Now now, don't be so hasty!".</p>
+<p>The route handles what the world puts in the way:</p>
+<ul>
+  <li>Doors are opened, and unlocked when the game says they are locked; a door that still will not open is walked around.</li>
+  <li>Water is swum, or avoided where land is not much longer (<code>map.waterwalk</code>).</li>
+  <li>Rubble and ferries are waited out.</li>
+  <li>Sewer grates are used unless you turn them off (<code>map.sewers</code>), and wormholes only if you turn them on (<code>map.wormholes</code>).</li>
+  <li>While you are mounted, straight runs of two to eleven rooms are galloped (<code>map.gallop</code>). A gallop that gets nowhere is not tried again; the walk carries on on foot.</li>
+  <li>With the density defence up, the shackle comes off for the walk and goes back on at the end (<code>map.shackle</code>).</li>
+</ul>
+<p>The end of the prompt shows where a walk is going and the steps left, then that it arrived. The room panel shows the same, with links to stop or carry on, and the map lights the route, brightest at the destination, clearing each room as you pass it.</p>
+<h3 id="stopping">Stopping and carrying on</h3>
+<p><code>stop</code> pauses a walk and keeps its route; <code>go</code> carries on from wherever you are. With nothing walking, both go to the game as typed. <code>emset goto back</code> walks back to where the last walk started.</p>
+<h3 id="danger">When a walk meets trouble</h3>
+<p>During a <code>goto</code>, a red mark on the prompt says an enemy is in the room (<code>map.enemyMark</code>). Losing more than <code>map.bigHit</code> of your health in one blow (33% by default) raises a warning and walks you out of the area. <kbd>F12</kbd>, or <code>emset flee</code>, stops any hunt and walks you to your safe room, <code>map.safeRoom</code>.</p>
+
+<h2 id="finding">Finding your way</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>Type</th><th>To get</th></tr></thead>
+  <tbody>
+    <tr><td><code>rf &lt;text&gt;</code></td><td>Rooms whose name contains the text, grouped by area. Click a number to walk there.</td></tr>
+    <tr><td><code>rl [number]</code></td><td>Everything the map holds about a room, here by default: exits, special exits as Emunah reads them, locks, weights, features, and how far it is.</td></tr>
+    <tr><td><code>emset areas [text]</code></td><td>Every area with its room count, or those matching the text.</td></tr>
+    <tr><td><code>emset rooms &lt;area&gt;</code></td><td>An area's rooms by number, each one a link.</td></tr>
+    <tr><td><code>emset path &lt;to&gt; [from]</code></td><td>The route between two rooms, without walking it.</td></tr>
+    <tr><td><code>emset where [person]</code></td><td>Where people were last located, newest first.</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="locators">Locator lines</h2>
+<p>Lines that say where someone is (farsee, view, mindsense, allsight, alertness, your guardian angel, shrines, shops and WHO) get the room numbers they name added as links. Who was where is remembered for <code>emset where</code> and <code>goto &lt;person&gt;</code>, and their room stays lit on the map for <code>map.trackFor</code> (five minutes by default). <code>map.locators</code> chooses which of these lines are read; <code>emset map locators</code> applies a change at once.</p>
+
+<h2 id="updates">Keeping the map current</h2>
+<p>The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. Emunah checks for a new version when it loads and every hour (<code>map.checkEvery</code>), shows what changed, and loads it, waiting for any walk to finish first. <code>emset map update</code> checks now.</p>
+<p>As you walk, a room whose name, environment, indoors or outdoors, or area disagrees with GMCP is corrected (<code>map.gmcpSync</code>). While the IRE Mudlet Mapper package is running, it keeps the map up to date itself, and Emunah leaves that to it.</p>
+
+<h2 id="overlay">Your own changes</h2>
+<p>Rooms you lock or weight, and features you mark, are kept outside the map and put back after every update, so a new crowdmap never loses them.</p>
+<pre><code>emset map lock 1234 north       <span class="c"># keep one exit out of every route</span>
+emset map lockarea the sewers   <span class="c"># keep a whole area out</span>
+emset map weight 1234 5         <span class="c"># avoid a room unless it saves more than 5 steps</span>
+emset map feature add bank      <span class="c"># mark this room as a bank</span>
+emset map                       <span class="c"># the map's version, the last check, and your overlay</span></code></pre>
+
+<h2 id="size">On screen</h2>
+<p>The map sits below the chat and follows you. <code>emset map size small|big|biggest</code> gives it 30%, 50% or 70% of the window's height; <code>ui.mapFloat</code> detaches it into a window of its own. Every map setting is in the <a href="commands.html#map">command reference</a>.</p>
+<!-- doc:end -->
+<nav class="pager" aria-label="Pages">
+  <a href="hunting.html"><small>Previous</small>Automated hunting</a>
+  <a class="next" href="pvp.html"><small>Next</small>PvP</a>
+</nav>
+</main>
+<aside class="toc" aria-label="On this page">
+  <h4>On this page</h4>
+  <a href="#walking">Walking</a>
+  <a href="#finding">Finding your way</a>
+  <a href="#locators">Locator lines</a>
+  <a href="#updates">Keeping the map current</a>
+  <a href="#overlay">Your own changes</a>
+  <a href="#size">On screen</a>
+</aside>
+</div>
+<!-- site:footer -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="about">
+      <h4>Emunah</h4>
+      <p>A combat system for Achaea, running inside Mudlet. Built and maintained by Pharanyx Labs.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="curing.html">Client-side curing</a></li>
+        <li><a href="defences.html">Defence maintenance</a></li>
+        <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="getting-started.html">Getting started</a></li>
+        <li><a href="commands.html">Commands</a></li>
+        <li><a href="api.html">Lua API</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/pharanyx-labs/Emunah">Source on GitHub</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/issues">Report a problem</a></li>
+        <li><a href="roadmap.html">Roadmap</a></li>
+        <li><a href="https://github.com/pharanyx-labs/Emunah/blob/main/LICENSE">MIT licence</a></li>
+      </ul>
+    </div>
+    <p class="legal">&copy; 2026 Pharanyx Labs. Emunah is an unofficial third-party script for Achaea and is not affiliated with or endorsed by Iron Realms Entertainment. Achaea is a trademark of Iron Realms Entertainment.</p>
+  </div>
+</footer>
+<!-- /site:footer -->
+</body>
+</html>

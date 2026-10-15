@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>People and names | Emunah</title>
-<meta name="description" content="Emunah&#x27;s database of everyone you have seen, who is an ally or an enemy, names highlighted in the game text, and alerts when your angel senses an enemy.">
+<meta name="description" content="Emunah's name database: everyone you have seen, with their city, house and class, allies and enemies, names coloured in the game text, the Achaea API, and presence alerts.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/people.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="People and names | Emunah">
-<meta property="og:description" content="Emunah&#x27;s database of everyone you have seen, who is an ally or an enemy, names highlighted in the game text, and alerts when your angel senses an enemy.">
+<meta property="og:description" content="Emunah's name database: everyone you have seen, with their city, house and class, allies and enemies, names coloured in the game text, the Achaea API, and presence alerts.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html" aria-current="page">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html" aria-current="page">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -104,21 +110,21 @@ emset hostile city mhaldor           <span class="c"># everyone in Mhaldor is an
 emset hostile                        <span class="c"># list the hostile organisations</span></code></pre>
 
 <h2 id="standing">Allies and enemies</h2>
-<p>Standing comes from two places, and what you declare always wins.</p>
+<p>Standing comes from three places, and what you declare always wins.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Source</th><th>How it is set</th></tr></thead>
   <tbody>
-    <tr><td>City enemies</td><td>Typing <code>CITY ENEMIES</code>. The listing replaces the last one each time: everyone on it is an enemy, and anyone dropped from it no longer is. A listing whose names do not add up to its total adds without clearing anyone.</td></tr>
-    <tr><td>Declared</td><td><code>emset iff &lt;person&gt; ally|enemy</code>. It survives imports, and survives the broader rules changing underneath it.</td></tr>
+    <tr><td>City enemies</td><td>Typing <code>CITY ENEMIES</code>. Each listing replaces the last: everyone on it is an enemy, and anyone dropped from it no longer is. A listing whose names do not add up to its total adds without clearing anyone.</td></tr>
+    <tr><td>Declared</td><td><code>emset iff &lt;person&gt; ally|enemy</code>, or <code>emset ally add &lt;person&gt;</code> for a <a href="allies.html">partner</a>. It survives imports, and survives the broader rules changing underneath it.</td></tr>
     <tr><td>Derived</td><td><code>emset hostile city|house|order &lt;name&gt;</code> makes everyone in that organisation an enemy, without touching a single record.</td></tr>
   </tbody>
 </table></div>
-<p>An organisation-wide marking is the quick way to express a war; a declaration is the way to express the one person in it you are not fighting. <code>auto</code> hands the decision back to the organisation.</p>
+<p>An organisation-wide marking is the quick way to express a war; a declaration is the way to express the one person in it you are not fighting. <code>auto</code> hands the decision back to the organisation. An ally can never be made a PvP target.</p>
 
-<h2 id="highlighting">Names in the text</h2>
+<h2 id="names">Names in the text</h2>
 <p>Colour and weight do two different jobs, and they stack:</p>
 <ul>
-  <li><strong>Colour</strong> says where someone stands relative to you: a dark red for your city's enemies, green for allies, otherwise their city. Any other enemy, declared or derived, keeps that colour and is <strong>underlined</strong>.</li>
+  <li><strong>Colour</strong> says where someone stands relative to you: dark red for your city's enemies, green for allies, otherwise their city. Any other enemy, declared or derived, keeps that colour and is underlined.</li>
   <li><strong>Weight</strong> says there is something about them: a Dragon, a mark, infamy, or importance you set yourself.</li>
 </ul>
 <p>An enemy's name is also a link: click it for their record, the same as <code>emset whois</code>. <code>names.enemyLinks</code> turns that off.</p>
@@ -138,13 +144,13 @@ emset hostile                        <span class="c"># list the hostile organisa
     <tr><td>Your guardian angel</td><td>Where someone is, and their health and mana, as of that moment.</td></tr>
   </tbody>
 </table></div>
-<p><code>namedb.capture</code> switches these sources off.</p>
+<p>Lines that locate someone are remembered too, for <code>emset where</code> and <code>goto &lt;person&gt;</code>; see <a href="map.html#locators">locator lines</a>. <code>namedb.capture</code> switches the listings off.</p>
 
 <h2 id="api">The Achaea API</h2>
 <p><code>emset whois</code> can answer for someone you have never met, by asking Achaea's public character API. Requests go one per second, answers are kept for six hours and not-found answers for a day, and a timeout is never cached, because a network problem is not an answer. <code>namedb.autoFetch</code> turns the automatic lookups off.</p>
 
 <h2 id="presences">Presence alerts</h2>
-<p>When <code>presences.alert</code> is on, an ANGEL PRESENCES scan that finds an enemy raises a warning window naming them and where they are. It stays for <code>presences.alertFor</code> seconds, fifteen by default, or until clicked if set to 0. An enemy is anyone the database calls one: declared, or a member of a hostile organisation.</p>
+<p>When <code>presences.alert</code> is on, an <code>ANGEL PRESENCES</code> scan that finds an enemy raises a warning window naming them and where they are. It stays for <code>presences.alertFor</code> seconds, fifteen by default, or until clicked if set to 0. An enemy is anyone the database calls one: declared, or a member of a hostile organisation.</p>
 
 <h2 id="sharing">Export and import</h2>
 <pre><code>lua emunah.namedb.exportFile(path, opts)   <span class="c"># write the database out</span>
@@ -153,14 +159,14 @@ lua emunah.namedb.prune(days)              <span class="c"># drop records that a
 <p>Import adds and never overwrites: someone else's file is evidence about people you have not met, not a correction of what you have decided about people you have. Your own declarations and notes survive a merge, and pruning never removes anything you declared or wrote yourself.</p>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">
-  <a href="pvp.html"><small>Previous</small>PvP</a>
+  <a href="allies.html"><small>Previous</small>Fighting alongside allies</a>
   <a class="next" href="sustenance.html"><small>Next</small>Upkeep and economy</a>
 </nav>
 </main>
 <aside class="toc" aria-label="On this page">
   <h4>On this page</h4>
   <a href="#standing">Allies and enemies</a>
-  <a href="#highlighting">Names in the text</a>
+  <a href="#names">Names in the text</a>
   <a href="#sources">Where records come from</a>
   <a href="#api">The Achaea API</a>
   <a href="#presences">Presence alerts</a>
@@ -178,9 +184,11 @@ lua emunah.namedb.prune(days)              <span class="c"># drop records that a
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

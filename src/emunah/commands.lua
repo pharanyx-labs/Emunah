@@ -711,14 +711,68 @@ M.handlers.ui = function(arg, rest)
       log.info("UI rebuilt.")
    elseif arg == "map" and (rest == "on" or rest == "off") then
       emunah.ui.map.setEnabled(rest == "on")
+   elseif arg == "auto" and (rest == nil or emunah.ui.layout.DIVIDED[rest]) then
+      if emunah.ui.layout.auto(rest) then
+         log.info("%s sized to %s content again.", rest and util.capitalise(rest) or "Every panel",
+            rest and "its" or "their")
+      else
+         log.info("%s not been resized by hand.", rest and (util.capitalise(rest) .. " has")
+            or "No panel has")
+      end
    else
-      if arg then log.warn("Unknown: emset ui %s. Try `emset ui rebuild` or `emset ui map on|off`.",
-         tostring(arg .. (rest and (" " .. rest) or ""))) end
+      if arg then log.warn("Unknown: emset ui %s. Try `emset ui rebuild`, `emset ui auto` or "
+         .. "`emset ui map on|off`.", tostring(arg .. (rest and (" " .. rest) or ""))) end
       header("Interface")
       row("panels", flag(emunah.config.get("ui.enabled", true)))
       row("map", flag(emunah.config.get("ui.map", true)))
-      decho("\n  " .. faint("emset ui rebuild  |  emset ui map on|off  --  emhelp interface"))
+      for _, key in ipairs({ "afflictions", "defences" }) do
+         local manual = emunah.ui.layout.manualHeight(key)
+         row(key, manual and string.format("%dpx, sized by hand", manual) or "sized to content")
+      end
+      decho("\n  " .. faint("emset ui rebuild  |  emset ui auto  |  emset ui map on|off  --  "
+         .. "emhelp interface"))
    end
+end
+
+M.handlers.ally = function(arg, rest)
+   local allies = emunah.allies
+   if (arg == "add" or arg == "remove") and rest then
+      if arg == "add" then
+         local ok, why = allies.add(rest)
+         if not ok then log.warn("%s.", tostring(why)) return end
+         log.info("%s is your partner.", util.capitalise(rest))
+      elseif allies.remove(rest) then
+         log.info("%s is no longer your partner.", util.capitalise(rest))
+      else
+         log.warn("%s is not your partner.", util.capitalise(rest))
+      end
+      return
+   elseif arg then
+      log.warn("Usage: emset ally [add|remove <name>]")
+      return
+   end
+   header("Allies")
+   local partners = allies.partners()
+   local here = {}
+   for _, name in ipairs(allies.present()) do here[name] = true end
+   if #partners == 0 then
+      row("partners", "none -- emset ally add <name>")
+   end
+   for _, name in ipairs(partners) do
+      local class = emunah.namedb and emunah.namedb.getClass(name)
+      row(util.capitalise(name), (here[name] and "here" or "not seen here")
+         .. (class and (", " .. tostring(class)) or ""))
+   end
+   local call = allies.lastCall
+   row("last call", call and string.format("%s called %s, %ds ago", util.capitalise(call.from),
+      util.capitalise(call.target), math.floor(util.now() - call.at)) or "none")
+   row("follows calls", flag(emunah.config.get("allies.follow", true)))
+   row("call patterns", #allies.callPatterns() > 0 and table.concat(allies.callPatterns(), "  ")
+      or "none -- emset allies.calls <pattern>")
+   local foes = allies.foes()
+   local list = {}
+   for _, foe in ipairs(foes) do list[#list + 1] = util.capitalise(foe.name) .. " (" .. foe.class .. ")" end
+   row("attacking you", #list > 0 and table.concat(list, ", ") or "nobody")
 end
 
 M.handlers.prio = function(affliction, rest)
@@ -1149,6 +1203,8 @@ M.handlers.pvp = function(arg, rest)
    local pvp = emunah.pvp
    if arg == "on" or arg == "start" then pvp.start()
    elseif arg == "off" or arg == "stop" then pvp.stop("requested")
+   elseif arg == "mode" and rest then
+      pvp.setMode(rest)
    elseif arg == "attack" and rest then
       -- Quotes stripped for the reason given at `emset bash attack`: a leading `"` is SAY.
       local command = rest:match('^"(.+)"$') or rest:match("^'(.+)'$") or rest
@@ -1164,12 +1220,38 @@ M.handlers.pvp = function(arg, rest)
       local r = pvp.report()
       header("PvP")
       row("running", r.running and "yes" or "no", r.running and "ansi_light_green" or "reset")
+      row("mode", r.mode .. "   (F5 attack, F6 offence, F7 hinder, F8 finish)")
       row("class module", tostring(r.classLoaded or "NONE"),
          r.classLoaded and "ansi_light_green" or "ansi_light_red")
       row("target", tostring(r.target or "none -- set one with 'emset pvp target <name>'"))
+      if r.rebounding then row("rebounding", "up on them -- heresy burns it", "ansi_light_red") end
       if r.target then
-         local afflictions = emunah.curing.detect.opponent.list(r.target)
+         local opponent = emunah.curing.detect.opponent
+         local afflictions = opponent.list(r.target)
+         local class = (emunah.namedb and emunah.namedb.getClass(r.target))
+            or emunah.curing.detect.foeClass(r.target)
+         if class then row("their class", tostring(class)) end
          row("target afflictions", #afflictions > 0 and table.concat(afflictions, ", ") or "-")
+         -- What they can no longer cure with, and how far each lock is.
+         local shut = {}
+         for vector, by in pairs(opponent.blockedVectors(r.target)) do
+            shut[#shut + 1] = vector .. " (" .. by .. ")"
+         end
+         table.sort(shut)
+         if #shut > 0 then row("they cannot", table.concat(shut, ", "), "ansi_light_green") end
+         local held = opponent.lockProgress(r.target)
+         if #held > 0 then row("locked", table.concat(held, ", "), "ansi_light_green") end
+         local needs = opponent.lockNeeds(r.target)
+         if #needs > 0 then row("lock needs", table.concat(needs, ", ")) end
+         local defences = opponent.defenceList(r.target)
+         if #defences > 0 then row("defences seen", table.concat(defences, ", ")) end
+         local cures = {}
+         for _, vector in ipairs({ "herb", "moss", "salve", "smoke", "sip", "focus", "tree" }) do
+            local ago = opponent.usedAgo(r.target, vector)
+            if ago and ago < 60 then cures[#cures + 1] = ("%s %.1fs ago"):format(vector, ago) end
+         end
+         if #cures > 0 then row("last cured", table.concat(cures, ", "), "ansi_light_black") end
+         if r.reflecting then row("reflecting", "a barrier: the next blow breaks it, and comes back", "ansi_light_red") end
          -- From the tracked afflictions alone, so it is only as good as they are. Nothing
          -- sends a sap yet; this is the figure the offence will decide with.
          local priest = emunah.class.active

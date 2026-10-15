@@ -188,17 +188,269 @@ end
 
 function M.clear(name)
    if name then
-      M.tracked[tostring(name):lower()] = nil
+      name = tostring(name):lower()
+      M.tracked[name] = nil
+      if M.used then M.used[name] = nil end
+      if M.defences then M.defences[name] = nil end
    else
-      M.tracked = {}
+      M.tracked, M.used, M.defences = {}, {}, {}
    end
 end
 
 -- Drop the previous generation before installing this one.
+-- ---------------------------------------------------------------------------
+-- cure lines: what an opponent is seen eating
+-- ---------------------------------------------------------------------------
+--
+-- "As for pvp you go on afflict lines and cure lines" (Anzerloi, 2026-10-15 19:27:11).
+-- `Anzerloi eats an aurum flake.` (13:58:10) names the herb by its description, which the
+-- rift listing pairs with the commodity (gmcp/ire.lua's riftFind) -- so no table of
+-- descriptions is kept here to go stale. One eat cures one affliction: of those tracked on
+-- them that this herb cures, the first in the cure table's order goes, which is the order a
+-- curing system eats in. An herb that cures nothing tracked, or a description the rift does
+-- not know, retracts nothing.
+
+--- Every item afflist and deflist cure or raise with, as a set: the commodity names.
+local curatives = nil
+local function curativeItems()
+   if curatives then return curatives end
+   curatives = {}
+   local afflist = emunah.curing.afflist
+   local function take(option)
+      if option.item then curatives[option.item] = true end
+      if option.alt then curatives[option.alt] = true end
+   end
+   for _, entry in pairs(afflist.afflictions) do
+      for _, option in ipairs(entry.cures or {}) do take(option) end
+   end
+   for _, option in pairs(afflist.defenceCures) do take(option) end
+   for _, entry in pairs(emunah.curing.deflist.commands) do
+      if entry.item then curatives[entry.item] = true end
+   end
+   return curatives
+end
+
+--- The commodity an eaten item's description names, or nil. The rift's own listing pairs a
+--- description with its commodity; failing that, a word of the description that IS a
+--- commodity's name -- `a kola nut`, `a hawthorn berry`, `an aurum flake` (20:29:34 and
+--- 13:58:10, 2026-10-15) -- so an herb we hold none of is still recognised.
+function M.itemFromDescription(desc)
+   desc = tostring(desc or ""):lower():gsub("^an? ", ""):gsub("^some ", "")
+   local ire = emunah.gmcp and emunah.gmcp.ire
+   local entry = ire and ire.riftFind and ire.riftFind(desc)
+   if entry and entry.name then return entry.name end
+   local known = curativeItems()
+   for word in desc:gmatch("%a+") do
+      if known[word] then return word end
+   end
+   return nil
+end
+
+-- ---------------------------------------------------------------------------
+-- what they can still cure with, and how close they are to a lock
+-- ---------------------------------------------------------------------------
+--
+-- "Prone, asthmatic, slick, impatient, broken limbs ... missing anorexia and paralysis for
+-- lock." "They can't salve, because they're slick. They can't puff the slickness because
+-- they're asthmatic. As soon as anorexia hits, no hope of eating for asthma to clear that
+-- slickness too." (Anzerloi, party, 2026-10-15 20:25:57-20:30:28.) That is afflist.blocks
+-- read for someone else, and watch.lua's locks judged on their afflictions.
+
+--- Their curing routes shut by what they have: vector -> the affliction shutting it.
+function M.blockedVectors(name)
+   local out = {}
+   local blocks = emunah.curing.afflist.blocks
+   for affliction in pairs(M.tracked[tostring(name or ""):lower()] or {}) do
+      for _, vector in ipairs(blocks[affliction] or {}) do
+         out[vector] = out[vector] or affliction
+      end
+   end
+   return out
+end
+
+--- The locks they are in, and what each other lock still needs. See watch.lockProgress().
+function M.lockProgress(name)
+   name = tostring(name or ""):lower()
+   return emunah.watch.lockProgress(function(affliction) return M.has(name, affliction) end)
+end
+
+--- How many of the lock's afflictions must already be on them before it is worth chasing.
+--- A tuning number, not a game fact: with fewer, every mode would chase the same two
+--- afflictions from the first blow and the modes would mean nothing.
+M.LOCK_BUILDING = 2
+
+--- What to give them next to close a lock: the afflictions both the hard and the venom lock
+--- still need, together -- slickness, anorexia and asthma shut eating, smoking and salving;
+--- impatience shuts focus; paralysis shuts the tree. That union is the lock Anzerloi builds
+--- toward (20:26:06: "Missing anorexia and paralysis for lock."). Empty once it is held, and
+--- until M.LOCK_BUILDING of it are on them.
+function M.lockNeeds(name)
+   local _, missing = M.lockProgress(name)
+   local out, seen = {}, {}
+   for _, lock in ipairs({ "hard", "venom" }) do
+      for _, affliction in ipairs(missing[lock] or {}) do
+         if not seen[affliction] then
+            seen[affliction] = true
+            out[#out + 1] = affliction
+         end
+      end
+   end
+   -- The union is five afflictions: slickness, anorexia, asthma, impatience, paralysis.
+   if 5 - #out < M.LOCK_BUILDING then return {} end
+   return out
+end
+
+-- ---------------------------------------------------------------------------
+-- what they are seen using, and what they raise
+-- ---------------------------------------------------------------------------
+
+--- name -> vector -> when they were last seen curing through it.
+M.used = {}
+--- name -> defence -> when it was seen going up.
+M.defences = {}
+
+local function used(name, vector)
+   name = name:lower()
+   M.used[name] = M.used[name] or {}
+   M.used[name][vector] = emunah.util.now()
+end
+
+--- Seconds since `name` was seen curing through `vector`, or nil.
+function M.usedAgo(name, vector)
+   local at = (M.used[tostring(name or ""):lower()] or {})[vector]
+   return at and emunah.util.now() - at or nil
+end
+
+function M.defenceUp(name, defence)
+   name = tostring(name or ""):lower()
+   M.defences[name] = M.defences[name] or {}
+   M.defences[name][defence] = emunah.util.now()
+   event.raise("opponent.defence", name, defence)
+end
+
+function M.defenceDown(name, defence)
+   local defences = M.defences[tostring(name or ""):lower()]
+   if defences then defences[defence] = nil end
+end
+
+function M.hasDefence(name, defence)
+   return (M.defences[tostring(name or ""):lower()] or {})[defence] ~= nil
+end
+
+--- Their defences seen going up, sorted.
+function M.defenceList(name)
+   local out = {}
+   for defence in pairs(M.defences[tostring(name or ""):lower()] or {}) do out[#out + 1] = defence end
+   table.sort(out)
+   return out
+end
+
+--- Herbs that raise a defence when eaten: deflist's item defences on the herb vector, by the
+--- same tables keep-up raises them with (kola, myrrh, echinacea, skullcap, hawthorn,
+--- bayberry), mineral alternatives included.
+local defenceItems = nil
+local function defenceFromItem(item)
+   if not defenceItems then
+      defenceItems = {}
+      for defence, option in pairs(emunah.curing.afflist.defenceCures) do
+         if option.vector == "herb" then
+            if option.item then defenceItems[option.item] = defence end
+            if option.alt then defenceItems[option.alt] = defence end
+         end
+      end
+      for defence, entry in pairs(emunah.curing.deflist.commands) do
+         if entry.vector == "herb" and entry.item then defenceItems[entry.item] = defence end
+      end
+   end
+   return defenceItems[item]
+end
+
+--- Irid moss and potash have a balance of their own (docs/game/balance.md).
+local MOSS = { irid = true, potash = true }
+
+--- `name` ate the item described as `desc`: a cure for what it cures, a defence for what it
+--- raises, and their herb (or moss) balance spent.
+function M.ate(name, desc)
+   local item = M.itemFromDescription(desc)
+   if not item then return nil end
+   used(name, MOSS[item] and "moss" or "herb")
+   local cured = M.tracked[name:lower()] and M.curedBy(name, item) or nil
+   local defence = defenceFromItem(item)
+   if defence and not cured then M.defenceUp(name, defence) end
+   return item, cured
+end
+
+--- `name` ate `item`: retract the tracked affliction it cures first. Returns it, or nil.
+function M.curedBy(name, item)
+   name = tostring(name or ""):lower()
+   local tracked = M.tracked[name]
+   if not (tracked and item) then return nil end
+   local afflist = emunah.curing.afflist
+   local best, bestRank
+   for affliction in pairs(tracked) do
+      for _, option in ipairs(afflist.curesVia(affliction, "herb")) do
+         if option.item == item or option.alt == item then
+            local rank = afflist.priority(affliction, "herb") or math.huge
+            if not best or rank < bestRank then best, bestRank = affliction, rank end
+         end
+      end
+   end
+   if best then M.forget(name, best) end
+   return best
+end
+
+--- Watch for opponents eating. Called with the pattern corpus (opponent_patterns.lua), so a
+--- reload re-registers it with everything else this module owns.
+function M.watchEats()
+   local id = tempRegexTrigger([[^(\w+) eats (.+)\.$]], function()
+      local name, desc = matches and matches[2], matches and matches[3]
+      if not (name and desc) then return end
+      M.ate(name, desc)
+   end)
+   if id then table.insert(registry(), id) end
+   return id ~= nil
+end
+
+--- Register a line that says `name` cured through `vector`, or raised `defence`: one
+--- capture, the actor. See opponent_patterns.lua for the lines and their evidence.
+function M.watchUse(vector, pattern)
+   local id = tempRegexTrigger(pattern, function()
+      local name = matches and matches[2]
+      if name then used(name, vector) end
+   end)
+   if id then table.insert(registry(), id) end
+   return id ~= nil
+end
+
+function M.watchDefence(defence, pattern)
+   local id = tempRegexTrigger(pattern, function()
+      local name = matches and matches[2]
+      if name then M.defenceUp(name, defence) end
+   end)
+   if id then table.insert(registry(), id) end
+   return id ~= nil
+end
+
+--- A tattoo touched: its name is the defence, for the tattoos keep-up raises by touching
+--- (deflist.commands: `touch cloak`, `touch mindseye`, `touch shield`).
+function M.watchTattoos()
+   local tattoos = {}
+   for defence, entry in pairs(emunah.curing.deflist.commands) do
+      local tattoo = tostring(entry.command or ""):match("^touch (%a+)$")
+      if tattoo then tattoos[tattoo] = defence end
+   end
+   local id = tempRegexTrigger([[^(\w+) touches an? (\w+) tattoo\.$]], function()
+      local name, tattoo = matches and matches[2], matches and matches[3]
+      if name and tattoo and tattoos[tattoo:lower()] then M.defenceUp(name, tattoos[tattoo:lower()]) end
+   end)
+   if id then table.insert(registry(), id) end
+   return id ~= nil
+end
+
 M.killAll()
 
 event.register("sysDisconnectionEvent", function()
-   M.tracked = {}
+   M.tracked, M.used, M.defences = {}, {}, {}
 end, "pvp.opponent")
 
 -- Publish before loading the pattern file, same reason as curing/detect/init.lua:

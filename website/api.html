@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lua API | Emunah</title>
-<meta name="description" content="The emunah Lua namespace for your own aliases, triggers and scripts: sending commands safely, the balance queue, capability checks, tracked game state and events.">
+<meta name="description" content="Everything under emunah. that is safe to build on from your own aliases, triggers and scripts: the command gate, the queue, the capability layer, GMCP state, events, the map, opponents and allies.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/api.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Lua API | Emunah">
-<meta property="og:description" content="The emunah Lua namespace for your own aliases, triggers and scripts: sending commands safely, the balance queue, capability checks, tracked game state and events.">
+<meta property="og:description" content="Everything under emunah. that is safe to build on from your own aliases, triggers and scripts: the command gate, the queue, the capability layer, GMCP state, events, the map, opponents and allies.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -214,6 +220,11 @@ emunah.event.kill("myscript")   <span class="c">-- remove all of yours</span></c
     <tr><td><code>emunah.pvp.started</code>, <code>.stopped</code>, <code>.target</code></td><td></td><td>PvP state and target changes.</td></tr>
     <tr><td><code>emunah.loot.taken</code></td><td>id, name</td><td>Gold was picked up.</td></tr>
     <tr><td><code>emunah.character.died</code>, <code>.revived</code></td><td></td><td>Death and revival.</td></tr>
+<tr><td><code>emunah.map.walking</code>, <code>.arrived</code>, <code>.stopped</code>, <code>.failed</code></td><td>target, and steps or reason</td><td>A walk started, arrived, stopped or found no route.</td></tr>
+<tr><td><code>emunah.foe</code></td><td>name, class</td><td>Someone attacked you with a line only one class sends, or changed class.</td></tr>
+<tr><td><code>emunah.ally.arrived</code>, <code>.left</code>, <code>.call</code></td><td>name; caller, target</td><td>A partner came or went, or called a target.</td></tr>
+<tr><td><code>emunah.opponent.afflicted</code>, <code>.defence</code></td><td>name, affliction or defence</td><td>An affliction or defence was seen on someone else.</td></tr>
+<tr><td><code>emunah.prompt</code></td><td></td><td>The prompt line itself, after its block has been applied. Echo here to add to the end of the prompt.</td></tr>
   </tbody>
 </table></div>
 <p>Raise <code>emunah.walker.move</code> to tell the walker a room is finished, <code>emunah.walker.stop</code> to stop it, and <code>emunah.bashing.pause</code> to stop hunting.</p>
@@ -255,6 +266,32 @@ emunah.event.kill("myscript")   <span class="c">-- remove all of yours</span></c
   </tbody>
 </table></div>
 
+<h2 id="map">The map</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>Call</th><th>Does</th></tr></thead>
+  <tbody>
+    <tr><td><code>mapper.route.go(room, label, opts)</code></td><td>Walk to a room number, one confirmed step at a time. Returns whether a walk started.</td></tr>
+    <tr><td><code>mapper.route.stop(reason)</code>, <code>.pause()</code>, <code>.resume()</code></td><td>End a walk, or pause it keeping its route and carry on from wherever you are.</td></tr>
+    <tr><td><code>mapper.route.path(from, to)</code></td><td>The route between two rooms, without walking it.</td></tr>
+    <tr><td><code>mapper.route.eta()</code></td><td>Steps left and roughly how many seconds, for the walk under way.</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="fighting">Opponents, allies and dangers</h2>
+<div class="table-wrap"><table>
+  <thead><tr><th>Call</th><th>Answers</th></tr></thead>
+  <tbody>
+    <tr><td><code>curing.detect.opponent.list(name)</code>, <code>.has(name, aff)</code></td><td>The afflictions confirmed on someone else.</td></tr>
+    <tr><td><code>curing.detect.opponent.blockedVectors(name)</code></td><td>Their cure routes shut, and by which affliction.</td></tr>
+    <tr><td><code>curing.detect.opponent.lockProgress(name)</code>, <code>.lockNeeds(name)</code></td><td>The locks they are in and what each other one lacks; what the hard and venom locks still need once one is building.</td></tr>
+    <tr><td><code>curing.detect.opponent.defenceList(name)</code>, <code>.usedAgo(name, vector)</code></td><td>Defences seen going up on them; seconds since they last cured through a balance.</td></tr>
+    <tr><td><code>curing.detect.foeClass(name)</code>, <code>.activeFoes()</code></td><td>The class someone attacked you as, and everyone attacking you in the last minute.</td></tr>
+    <tr><td><code>allies.partners()</code>, <code>.isPartner(name)</code>, <code>.present()</code></td><td>Your partners, and which of them are in the room.</td></tr>
+    <tr><td><code>watch.locks()</code>, <code>watch.dangers()</code></td><td>The locks you are in, and the instant kills you are open to, as the prompt names them.</td></tr>
+    <tr><td><code>watch.lockProgress(has)</code></td><td>The locks judged against any affliction check, yours or anyone's.</td></tr>
+  </tbody>
+</table></div>
+
 <h2 id="example">An example</h2>
 <p>Drink health below half, without fighting the curing engine for the sip balance or sending into a refusal:</p>
 <pre><code>emunah.event.register("emunah.tick", function()
@@ -285,6 +322,8 @@ end, "myscript")</code></pre>
   <a href="#timers">emunah.timers and emunah.config</a>
   <a href="#loops">Hunting, walking and PvP</a>
   <a href="#ui">Interface</a>
+  <a href="#map">The map</a>
+  <a href="#fighting">Opponents, allies and dangers</a>
   <a href="#example">An example</a>
 </aside>
 </div>
@@ -299,9 +338,11 @@ end, "myscript")</code></pre>
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

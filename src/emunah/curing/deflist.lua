@@ -364,8 +364,10 @@ M.IMPORTED = {
    selfishness    = { vector = "equilibrium", command = "selfishness",
                       needs = { bal = true, eq = true, standing = true } },
 
-   -- Priest.
-   heresy         = { vector = "balance", command = "hunt heresy",
+   -- Priest. HUNT HERESY costs "4.00 seconds of equilibrium" and 400 mana (GMCP ability
+   -- text, docs/game/help/abilities-2026-10-15.txt); it was filed under balance. Needs both,
+   -- as every balanceful defence here does until play shows otherwise.
+   heresy         = { vector = "equilibrium", command = "hunt heresy",
                       skillset = "spirituality" },
 }
 
@@ -434,7 +436,7 @@ M.SYNTHETIC = {
    -- curing/detect's own text-trigger flag; see patterns.lua's "Guardian angel" section.
    trackangel = function()
       local detect = emunah.curing.detect
-      return detect ~= nil and detect.angel == true
+      return detect ~= nil and detect.isAngelSummoned()
    end,
    -- Char.Items when we can see it. While blind without mindseye that feed goes silent
    -- (gmcp/items.lua), so a wield the game just confirmed in text is the only truth until
@@ -778,6 +780,104 @@ function M.source(name)
    if M.DYNAMIC[name] then return "emunah" end
    if M.IMPORTED[name] then return "imported" end
    return nil
+end
+
+--- The defences panel's heading for an item defence, by the vector it goes out on. A herb
+--- defence taken as its mineral is filed as one (see M.raisedBy()).
+local ITEM_CATEGORY = {
+   herb = "Herbs", moss = "Herbs", salve = "Salves", smoke = "Pipes",
+   elixir = "Elixirs", purgative = "Elixirs",
+}
+
+--- Defences that are another defence's effect rather than raised in their own right: the
+--- three bliss grants (M.BLISS_GRANTS).
+local GRANTED_BY = {}
+for _, granted in ipairs(M.BLISS_GRANTS) do GRANTED_BY[granted] = "bliss" end
+
+--- The skillset an ability belongs to, as Char.Skills names it, or nil.
+local function skillGroup(word)
+   local skills = emunah.gmcp.skills
+   local group = skills and skills.groupOf(word)
+   if not group then return nil end
+   local entry = skills.groups[group]
+   return entry and entry.name or util.capitalise(group)
+end
+
+--- The skillset behind a command: its declared skill, else the first of its words, from the
+--- LAST, that the skill index knows. From the last because the verb comes first and is often
+--- a skill of its own: `touch cloak` is the cloak tattoo, and `touch` is a Spirituality
+--- ability (the 2026-10-15 ability dump) that would file every tattoo under it.
+local function commandGroup(command, skill)
+   local group = skill and skillGroup(skill)
+   if group then return group end
+   local words = {}
+   for word in tostring(command):gmatch("%S+") do words[#words + 1] = word:lower() end
+   for index = #words, 1, -1 do
+      group = skillGroup(words[index])
+      if group then return group end
+   end
+   return nil
+end
+
+--- What the defences panel files a defence under, and what raises it: the item for an item
+--- defence, the command for an ability.
+---
+--- Read from the same tables M.resolve() reads, in the same order, but not gated on the
+--- skill: a defence that is UP was raised by something, whether or not the skill index has
+--- finished loading. An ability's heading is its skillset from Char.Skills, so it is the
+--- server's word ("Devotion", "Tattoos") and needs no list of our own; until the index
+--- arrives, or for a command it does not know, it is "Abilities".
+---
+--- For a defence none of the tables raise, the name itself is tried against the skill index,
+--- with a "(weapon)" or "tattoo" suffix taken off: Char.Defences reports `parrying (mace)`,
+--- `boartattoo` and `mosstattoo` (docs/game/defences.md), and `parrying`, `boar` and `moss`
+--- are abilities in the dump. Nothing found is "Other", with no source: a guess there would
+--- be worse than a blank.
+--- @return string category, string|nil source
+function M.raisedBy(name)
+   name = M.canonical(name)
+
+   local granter = GRANTED_BY[name]
+   if granter then return (M.raisedBy(granter)), granter end
+
+   local custom = (emunah.config.get("defences.commands", {}) or {})[name]
+   if custom and custom.command then
+      return commandGroup(custom.command) or "Abilities", custom.command
+   end
+
+   local cure = afflist.defenceCures[name]
+   if cure then
+      local _, item = emunah.curing.curelist.command(cure)
+      item = item or cure.item
+      local category = ITEM_CATEGORY[cure.vector] or "Other"
+      if category == "Herbs" and item == cure.alt then category = "Minerals" end
+      return category, item
+   end
+
+   local command, vector, skill, item
+   local dynamic = M.DYNAMIC[name]
+   if dynamic then
+      vector, command = dynamic()
+   else
+      local entry = M.commands[name] or M.IMPORTED[name]
+      if entry then
+         vector, command, skill, item = entry.vector, entry.command, entry.skill, entry.item
+      end
+   end
+
+   if command then
+      local category = ITEM_CATEGORY[vector]
+      if category then
+         -- `drink speed`, `eat skullcap`: the item is the command's object.
+         return category, item or command:match("^%S+%s+(.+)$") or command
+      end
+      return commandGroup(command, skill) or "Abilities", command
+   end
+
+   local bare = name:gsub("%s*%b()$", ""):gsub("tattoo$", "")
+   local group = skillGroup(bare)
+   if group then return group, nil end
+   return "Other", nil
 end
 
 --- Every defence we know how to raise, sorted.

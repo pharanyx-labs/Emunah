@@ -541,8 +541,9 @@ function mock.install(homeDir)
       Asterisk = 0x2a, Plus = 0x2b, Minus = 0x2d, Period = 0x2e, Slash = 0x2f,
       ["0"] = 0x30, ["1"] = 0x31, ["2"] = 0x32, ["3"] = 0x33, ["4"] = 0x34,
       ["5"] = 0x35, ["6"] = 0x36, ["7"] = 0x37, ["8"] = 0x38, ["9"] = 0x39,
-      -- Qt::Key_F1.. F1/F5/F11/F12 are the ones keys.lua's action bindings need.
-      F1 = 0x01000030, F5 = 0x01000034, F11 = 0x0100003a, F12 = 0x0100003b,
+      -- Qt::Key_F1.. F1 and F5-F12 are the ones keys.lua's action bindings need.
+      F1 = 0x01000030, F5 = 0x01000034, F6 = 0x01000035, F7 = 0x01000036,
+      F8 = 0x01000037, F9 = 0x01000038, F11 = 0x0100003a, F12 = 0x0100003b,
    }
 
    function _G.tempKey(modifier, code, fn)
@@ -805,6 +806,9 @@ function mock.installGeyser()
          "setStyleSheet", "setFgColor", "setFont", "setFontSize", "setAlignment",
          "setBold", "setItalics", "setUnderline", "setBackgroundImage",
          "setClickCallback", "setToolTip", "setCursor", "move", "resize",
+         -- Mouse handling for the left column's dividers (ui/layout.lua). Real Geyser.Label
+         -- methods; raise() is inherited from Geyser.Container.
+         "setMoveCallback", "setReleaseCallback", "setDoubleClickCallback", "raise",
       },
       -- Geyser.Gauge
       gauge = {
@@ -884,6 +888,9 @@ function mock.installGeyser()
          end,
          -- Kept, so a test can click a label and read what it says on hover.
          setClickCallback = function(_, fn) self.onClick = fn return self end,
+         setMoveCallback = function(_, fn) self.onMove = fn return self end,
+         setReleaseCallback = function(_, fn) self.onRelease = fn return self end,
+         setDoubleClickCallback = function(_, fn) self.onDoubleClick = fn return self end,
          setToolTip = function(_, text) self.tooltip = text return self end,
          enableScrollBar  = function() self.scrollBar = true  return self end,
          disableScrollBar = function() self.scrollBar = false return self end,
@@ -921,6 +928,10 @@ function mock.installGeyser()
    local function constructor(kind)
       return { new = function(_, cons, parent) return widget(kind, cons, parent) end }
    end
+
+   -- Where the mouse is, in the main window. A test moves it to drive a drag.
+   mock.mouse = { x = 0, y = 0 }
+   function _G.getMousePosition() return mock.mouse.x, mock.mouse.y end
 
    _G.Geyser = {
       Gauge       = constructor("gauge"),

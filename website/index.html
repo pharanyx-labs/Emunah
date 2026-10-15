@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Emunah: a combat system for Achaea, running inside Mudlet</title>
-<meta name="description" content="Emunah cures your afflictions in the client, keeps your defences up, shows every balance as it moves, and hunts an area from end to end. Free and open source, for Achaea on Mudlet.">
+<meta name="description" content="Emunah cures your afflictions in the client, keeps your defences up, walks the map, hunts whole areas and fights players beside your allies. Free and open source, for Achaea on Mudlet.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Emunah: a combat system for Achaea, running inside Mudlet">
-<meta property="og:description" content="Emunah cures your afflictions in the client, keeps your defences up, shows every balance as it moves, and hunts an area from end to end. Free and open source, for Achaea on Mudlet.">
+<meta property="og:description" content="Emunah cures your afflictions in the client, keeps your defences up, walks the map, hunts whole areas and fights players beside your allies. Free and open source, for Achaea on Mudlet.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -46,7 +46,7 @@
   <div class="wrap">
     <div class="hero-copy">
       <h1>A complete combat system for Achaea, running inside Mudlet.</h1>
-      <p class="lede">Emunah cures your afflictions in the client, keeps your defences up, shows every balance as it moves, and hunts an area from end to end. The fight is the only thing left for you to think about.</p>
+      <p class="lede">Emunah cures you on every balance at once, keeps your defences up, walks you anywhere on the map, clears whole areas, and fights players with you and your allies. It reads the game as it happens, so what you see on screen is what it is about to do.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="getting-started.html#install">Install Emunah</a>
         <a class="btn btn-quiet" href="#features">See what it does</a>
@@ -56,7 +56,7 @@
 
     <figure class="shot">
       <div class="shot-frame">
-        <img src="img/emunah-in-mudlet.jpg" width="1920" height="1080" alt="Mudlet running Achaea with Emunah's interface: a room panel listing mobiles and items on the left, afflictions and nineteen defences below it, the game text in the centre, chat tabs and an area map on the right, and a combat HUD of vitals gauges and balances along the bottom.">
+        <img src="img/emunah-in-mudlet.jpg" width="1920" height="1080" alt="Mudlet running Achaea with Emunah's interface: a room panel listing denizens and items on the left, afflictions and defences below it, the game text in the centre, chat tabs and an area map on the right, and a combat HUD of vitals gauges and balances along the bottom.">
         <span class="shot-region" data-region="room" style="left:0.3%;top:6.7%;width:18.3%;height:58.3%"></span>
         <span class="shot-region" data-region="status" style="left:0.3%;top:65.4%;width:18.3%;height:22.4%"></span>
         <span class="shot-region" data-region="text" style="left:18.9%;top:5%;width:55%;height:82.8%"></span>
@@ -65,12 +65,12 @@
         <span class="shot-region" data-region="hud" style="left:0.2%;top:88.1%;width:99.6%;height:8.9%"></span>
       </div>
       <ul class="shot-legend" aria-label="Parts of the interface">
-        <li><button type="button" data-region="room" data-caption="The room panel: where you are, who is here, every denizen and item. Click a denizen to put it on the area's kill list.">Room</button></li>
-        <li><button type="button" data-region="status" data-caption="Afflictions in curing order, each with its cure and what is happening to it. Below them, every defence that is up.">Afflictions and defences</button></li>
-        <li><button type="button" data-region="text" data-caption="The game text, untouched. Names in it are coloured by what each person is to you: ally, enemy, or their city.">Game text</button></li>
+        <li><button type="button" data-region="room" data-caption="The room panel: where you are, who is here, every denizen and item, and any walk under way. Click a denizen to put its kind on the area's kill list.">Room</button></li>
+        <li><button type="button" data-region="status" data-caption="Afflictions in curing order, each with its cure and what is happening to it. Below them, your defences, grouped by what raises them. Drag the divider between panels to size them yourself.">Afflictions and defences</button></li>
+        <li><button type="button" data-region="text" data-caption="The game text, untouched. Names in it are coloured by what each person is to you, and locks and instant-kill dangers are named on the prompt.">Game text</button></li>
         <li><button type="button" data-region="chat" data-caption="Channels captured into tabs: tells, city, house, market, says and the rest.">Chat</button></li>
-        <li><button type="button" data-region="map" data-caption="Mudlet's map, embedded beside the chat and following you.">Map</button></li>
-        <li><button type="button" data-region="hud" data-caption="The combat HUD: your target, the four vitals with their change since the last prompt, and every balance.">Combat HUD</button></li>
+        <li><button type="button" data-region="map" data-caption="The crowd-sourced Achaea map, kept up to date, following you and lighting the route of any walk.">Map</button></li>
+        <li><button type="button" data-region="hud" data-caption="The combat HUD: hunt and pause buttons, your target, the four vitals with their change since the last prompt, and every balance.">Combat HUD</button></li>
       </ul>
       <figcaption class="shot-caption" data-default="Emunah in a live session. Pick a part of the interface to see what it does.">Emunah in a live session. Pick a part of the interface to see what it does.</figcaption>
     </figure>
@@ -80,26 +80,26 @@
 <section class="section" id="features">
   <div class="wrap">
     <div class="section-head">
-      <h2>Four systems, built to work as one.</h2>
-      <p>Curing, the interface, defences and hunting all read the same live picture of your character, and every command they send goes through one gate that knows when the game would refuse it.</p>
+      <h2>One picture of your character, shared by everything.</h2>
+      <p>Curing, defences, the interface, the map, hunting and PvP all read the same live state from the game, and every command they send passes one gate that knows when Achaea would refuse it.</p>
     </div>
 
     <article class="feature" id="curing">
       <div class="feature-copy">
         <p class="kicker">Client-side curing</p>
         <h3>Every affliction cured on the right balance, the moment that balance is back.</h3>
-        <p>Achaea's server-side curing stays off. Emunah reads your afflictions from GMCP, decides which cure each balance should spend, and sends it on the prompt it becomes possible. The rules are the reference system's, and you can see and change every one.</p>
+        <p>Achaea's server-side curing stays off. Emunah reads your afflictions from GMCP, chooses the cure each balance should spend, and sends it on the prompt it becomes possible. The rankings are the reference system's, refined by rules learnt in real fights, and you can read and change every one.</p>
         <ul class="points">
           <li><strong>Every balance at once.</strong> Herb, salve, sip, purgative, smoke, focus, moss and tree each choose their own cure, so a salve never waits behind a herb.</li>
-          <li><strong>Locks cured around, not into.</strong> Anorexia, slickness, asthma and paralysis shut whole balances. Emunah cures through the one that is still open instead of sending into a refusal.</li>
-          <li><strong>Healing on its own thresholds.</strong> Health and mana sips, irid moss and Perform Hands each engage at their own level, on balances that rarely compete.</li>
+          <li><strong>Locks cured around, not into.</strong> Anorexia, slickness, asthma, impatience and paralysis shut whole routes. Emunah cures through the one still open, and in the moments before a lock closes it cures the affliction that keeps an escape route open.</li>
+          <li><strong>Dangers named.</strong> The prompt names the lock you are in, and any instant kill you are open to: an Alchemist's reave, dismemberment, a pulp or a golem.</li>
           <li><strong>Illusions ignored.</strong> Text reports wait for the prompt, one illusion discards the whole block, and a gained affliction is dropped unless the server confirms it.</li>
         </ul>
         <a class="more" href="curing.html">How the curing engine works</a>
       </div>
       <div class="term">
         <img src="img/afflictions-lock.png" width="438" height="243" style="--w:438px" alt="Emunah's affliction panel during a lock: anorexia, stupidity, asthma, paralysis and clumsiness, each with its cure and the affliction blocking it. Below, anorexia shuts herb, sip, purgative and moss; paralysis shuts salve, focus and tree; asthma shuts smoke.">
-        <p class="term-caption">Drawn by Emunah's own panel code mid-lock. Three afflictions shut every curing balance between them, and each row shows which lock its cure is waiting on.</p>
+        <p class="term-caption">Drawn by Emunah's own panel code mid-lock. Three afflictions shut every curing balance between them, and each row shows which one its cure is waiting on.</p>
       </div>
     </article>
 
@@ -107,11 +107,11 @@
       <div class="feature-copy">
         <p class="kicker">Live interface</p>
         <h3>Every balance, affliction and defence on screen, as the game reports it.</h3>
-        <p>The panels draw from the same state the curing engine acts on, after each packet and only where something changed. What the screen shows is what Emunah is about to do.</p>
+        <p>The panels draw from the same state the curing engine acts on, after each packet and only where something changed. They never draw before a cure has gone out.</p>
         <ul class="points">
-          <li><strong>The balance strip.</strong> Each balance ready, in flight, recovering with the seconds left, or shut by an affliction. It applies the queue's own rules, so it never shows a balance as ready that Emunah would not use.</li>
+          <li><strong>The balance strip.</strong> Each balance ready, in flight, recovering with the seconds left, or shut by an affliction, by the queue's own rules.</li>
           <li><strong>Vitals that show the trend.</strong> Health, mana, endurance and willpower, each with its change since the last prompt.</li>
-          <li><strong>Everything around the text.</strong> The room and its people, chat in tabs, the map, your target, and a ticker for anything you must not miss.</li>
+          <li><strong>Panels that size themselves.</strong> The room, afflictions and defences share the left column by what each holds, and a divider you drag keeps the height you gave it.</li>
         </ul>
         <a class="more" href="interface.html">Tour the interface</a>
       </div>
@@ -129,38 +129,40 @@
       </div>
     </article>
 
-    <article class="feature" id="defences">
+    <article class="feature" id="pvp">
       <div class="feature-copy">
-        <p class="kicker">Defence maintenance</p>
-        <h3>Choose your defences once. Emunah keeps them up.</h3>
-        <p>Set each defence to keep up, raise once, or leave alone from one clickable grid. Emunah raises what is missing on the balance it costs, and only when curing does not need that balance.</p>
+        <p class="kicker">PvP, alone or together</p>
+        <h3>Every free balance sends something, and every choice reads what the target can still cure.</h3>
+        <p>Name a target and pick a mode with <kbd>F5</kbd> to <kbd>F8</kbd>. On each prompt the prayer, balance and equilibrium lanes each send the next move the mode calls for, skipping what the game has already confirmed on them.</p>
         <ul class="points">
-          <li><strong>Never wasted.</strong> A defence that is up is never raised again, a herb defence waits until the herb is in hand, and anything the game keeps refusing stops after three tries with the reason.</li>
-          <li><strong>The right order.</strong> Mindseye goes up before blindness and deafness, so you are never left unable to see or hear.</li>
-          <li><strong>Built in, and teachable.</strong> Herb, salve, elixir, tattoo and skill defences come with their commands. Anything else is one <code>emset defs add</code> away.</li>
-          <li><strong>The rest of your upkeep.</strong> Pipes kept filled and lit, your mount kept with you, and selfishness kept up against thieves.</li>
+          <li><strong>Their curing, followed.</strong> Afflictions that land, symptoms anyone can see, the herbs they eat and the defences they raise are all read from the game text, so Emunah knows which of their routes are shut and how close they are to a lock.</li>
+          <li><strong>Built to finish a lock.</strong> Once a lock is building, the next chasten carries what it still lacks.</li>
+          <li><strong>Allies who are never targets.</strong> A partner's call can set your target, their comings and goings are said mid-fight, and you are told who is attacking you and as what class.</li>
         </ul>
-        <a class="more" href="defences.html">How defence keep-up works</a>
+        <a class="more" href="pvp.html">How PvP works</a>
       </div>
-      <div class="term">
-        <img src="img/defences-panel.png" width="525" height="240" style="--w:525px" alt="Emunah's defence panel showing nineteen defences up, including blindness, cloak, deafness, insomnia, mindseye, speed, vigilance, constitution, inspiration and toughness.">
-        <p class="term-caption">Nineteen defences held by keep-up, from the session above.</p>
-      </div>
+      <ol class="loop" aria-label="One PvP prompt">
+        <li><div><strong>Read</strong><span>What the target has, what they can no longer cure with, and what their defences are.</span></div></li>
+        <li><div><strong>Prayer</strong><span>The next Zeal verse the mode wants, once per prayer, ending in a rebuke when it pays.</span></div></li>
+        <li><div><strong>Balance</strong><span>A mace blow carrying a chasten, aimed at whatever finishes the lock.</span></div></li>
+        <li><div><strong>Equilibrium</strong><span>An affliction, the angel's sear, or contemplate, sap and absolve to finish.</span></div></li>
+        <li class="back"><div><strong>Hold when locked</strong><span>If you are locked, balance and equilibrium go to your cures until it breaks.</span></div></li>
+      </ol>
     </article>
 
     <article class="feature flip" id="hunting">
       <div class="feature-copy">
-        <p class="kicker">Automated hunting</p>
-        <h3>Walk an area, clear every room, collect the gold. One key starts it.</h3>
-        <p><code>emset hunt</code>, or <kbd>F11</kbd>, walks the area room by room and fights whatever is on your kill list, while curing and keep-up carry on underneath it.</p>
-        <p class="stops">It stops itself at its health floor, and when mana, endurance or willpower run low. It will not attack with another player in the room; it moves on instead. After a health stop it resumes once you have recovered, and <kbd>F12</kbd> stops the hunt and walks you to the safe room.</p>
+        <p class="kicker">Hunting and the map</p>
+        <h3>Walk anywhere, clear an area, collect the gold. One key starts it.</h3>
+        <p><code>emset hunt</code>, or <kbd>F11</kbd>, walks the area room by room and fights whatever is on your kill list, while curing and keep-up carry on underneath. <code>goto</code> walks you to any room, area or person by name, one confirmed step at a time.</p>
+        <p class="stops">The hunt stops itself at its health floor and when mana, endurance or willpower run low, and will not attack with another player in the room. <kbd>F12</kbd> stops it and walks you to your safe room. With <kbd>F9</kbd> you hunt behind a leader instead, attacking what they attack.</p>
         <a class="more" href="hunting.html">How the hunt runs</a>
       </div>
       <ol class="loop" aria-label="The hunting loop">
-        <li><div><strong>Arrive</strong><span>The walker steps to the nearest room it has not visited, using Mudlet's own map. No mapper script is needed.</span></div></li>
+        <li><div><strong>Arrive</strong><span>The walker steps to the nearest room of the area it has not visited, on Emunah's own router.</span></div></li>
         <li><div><strong>Choose a target</strong><span>The next denizen on the area's kill list, by its replica number, never by name.</span></div></li>
         <li><div><strong>Attack</strong><span>On the balance your attack needs. As a Priest, penitence and the rite of desolation go first when they pay for themselves.</span></div></li>
-        <li><div><strong>Collect</strong><span>After the last kill in the room, <code>get gold</code>, and the gold goes into your pack.</span></div></li>
+        <li><div><strong>Collect</strong><span>After the last kill in the room, the gold goes into your pack.</span></div></li>
         <li class="back"><div><strong>Move on</strong><span>The room is clear, so the walker takes the next one.</span></div></li>
       </ol>
     </article>
@@ -174,14 +176,14 @@
       <p>Each one is a module you can switch on or off, documented in the client with <code>emhelp</code>.</p>
     </div>
     <dl class="index-list">
-      <div><dt><a href="pvp.html">PvP</a></dt><dd>Attacks the one player you name and no one else. Tracks the afflictions you have given them and recites Zeal verses to stack more.</dd></div>
-      <div><dt><a href="people.html">People and names</a></dt><dd>Everyone you have seen, with their city, house and class, filled from WHO lists, HONOURS and the Achaea API. Allies and enemies are coloured in the game text.</dd></div>
-      <div><dt><a href="people.html#presences">Presence alerts</a></dt><dd>An optional warning window when your guardian angel senses an enemy nearby.</dd></div>
+      <div><dt><a href="defences.html">Defence keep-up</a></dt><dd>Choose each defence once from a clickable grid: kept up, raised once, or left alone. Raised only when curing does not need the balance.</dd></div>
+      <div><dt><a href="map.html">Map and walking</a></dt><dd>The crowd-sourced map kept current, walks that wait out stun and paralysis, doors, swimming, ferries and gallops, and locator lines turned into links.</dd></div>
+      <div><dt><a href="allies.html">Allies</a></dt><dd>Partners who can never be targeted, their target calls followed, and the class of everyone attacking you.</dd></div>
+      <div><dt><a href="people.html">People and names</a></dt><dd>Everyone you have seen, with their city, house and class, from WHO lists, HONOURS and the Achaea API. Allies and enemies coloured in the game text.</dd></div>
       <div><dt><a href="sustenance.html#pipes">Pipes</a></dt><dd>Refilled with the herb they hold and relit when they go out, so smoking cures are always ready.</dd></div>
-      <div><dt><a href="defences.html#riding">Riding</a></dt><dd>Your mount ordered to follow you and, if you want, you vaulted back on whenever the balance is idle.</dd></div>
+      <div><dt><a href="defences.html#riding">Riding</a></dt><dd>Your mount kept with you and, if you want, you vaulted back on whenever the balance is idle.</dd></div>
       <div><dt><a href="sustenance.html#antitheft">Antitheft</a></dt><dd>Selfishness kept up, valuables packed, and an alert when something leaves your inventory unexplained.</dd></div>
       <div><dt><a href="sustenance.html#shops">Shops and gold</a></dt><dd>WARES listings made clickable, purchases paid from your pack, and a confirmation before anything costly.</dd></div>
-      <div><dt><a href="sustenance.html#manna">The manna rite</a></dt><dd>Three commands and their waits, done for you as soon as each one is possible.</dd></div>
     </dl>
   </div>
 </section>
@@ -190,23 +192,23 @@
   <div class="wrap">
     <div class="section-head">
       <h2>Built on evidence, not assumptions.</h2>
-      <p>A combat system is only as good as its model of the game. Emunah's is checked against the game itself, and every change has to pass the whole suite before it ships.</p>
+      <p>A combat system is only as good as its model of the game. Emunah's is checked against the game itself: HELP files, GMCP traces, timestamped fights and the accounts of the players who cast the afflictions. Every change has to pass the whole suite before it ships.</p>
     </div>
     <div class="proof">
       <div>
-        <span class="figure" data-fact="tests">2,433</span>
+        <span class="figure" data-fact="tests">3,232</span>
         <h3>Automated tests</h3>
         <p>The real modules run against a simulated Mudlet. Every reported bug gets a test that would have caught it.</p>
       </div>
       <div>
-        <span class="figure">67&nbsp;µs</span>
+        <span class="figure">77&nbsp;µs</span>
         <h3>To decide every cure</h3>
         <p>The whole curing decision on a prompt, measured under an eight-affliction lock. Mudlet shares one thread with everything you run, so Emunah stays out of its way.</p>
       </div>
       <div>
-        <span class="figure">133</span>
-        <h3>Afflictions in the cure table</h3>
-        <p>Each mapped to its cures and ranked per balance. Every correction to the table is recorded with the game transcript that proved it.</p>
+        <span class="figure">743</span>
+        <h3>Game lines understood</h3>
+        <p>The optional trigger package: afflictions gained and cured, states, illusions, and the attack lines that say who is fighting you and as what class.</p>
       </div>
     </div>
   </div>
@@ -229,7 +231,7 @@
       <li>
         <div>
           <h3>Install the package</h3>
-          <p>In Mudlet, open the Package Manager and install <code>Emunah.xml</code> from the checkout.</p>
+          <p>In Mudlet, open the Package Manager and install <code>Emunah.xml</code> from the checkout, and <code>EmunahTriggers.xml</code> if you want the game's text read as well.</p>
         </div>
       </li>
       <li>
@@ -243,7 +245,7 @@
     <div class="cta">
       <div>
         <h2>Nothing acts until you switch it on.</h2>
-        <p>Start with <code>emset curing on</code>, add your defences, and hunt when you are ready.</p>
+        <p>Start with <code>emset curing on</code>, choose your defences, and hunt or fight when you are ready.</p>
       </div>
       <a class="btn btn-primary" href="getting-started.html">Read the getting-started guide</a>
     </div>
@@ -261,9 +263,11 @@
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

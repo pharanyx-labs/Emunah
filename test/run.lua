@@ -91,7 +91,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 72, "all 72 manifest modules loaded")
+eq(loadedModules, 73, "all 73 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -5676,7 +5676,7 @@ do
    -- trackangel: pure text-trigger state, no GMCP signal to assert against at all.
    queue.reset(); emunah.timers.stopAll()
    defkeepup.resetBudget()
-   emunah.curing.detect.angel = false
+   emunah.curing.detect.setAngel(false)
    mock.feed("Char.Defences.List", {})
 
    eq(deflist.isUp("trackangel"), false, "the angel starts unsummoned")
@@ -5732,7 +5732,7 @@ do
       table.concat(mock.sent, " | "))
 
    defkeepup.setMode("trackangel", nil)
-   emunah.curing.detect.angel = false
+   emunah.curing.detect.setAngel(false)
    queue.reset(); emunah.timers.stopAll()
    -- Restore ordinary vitals -- the fade-reaction check above deliberately starved the
    -- vector so nothing would actually send, and left bal/eq at 0 for whatever runs next.
@@ -5749,6 +5749,8 @@ do
    local maceVector, maceCommand = deflist.resolve("trackmace")
    eq(maceVector, "balance", "never summoned this login -- raised on balance")
    eq(maceCommand, "summon mace", "...with SUMMON, not CALL")
+   eq((deflist.resolve("heresy")), "equilibrium",
+      "heresy is raised on equilibrium: HUNT HERESY costs 4.00s of it, not balance")
 
    -- Once seen -- summoned by us or already standing before keep-up was told to track it --
    -- it is never summoned a second time. Confirmed live 07:49:40.91: CALL MACE recalled the
@@ -6768,14 +6770,14 @@ do
       ("%d px for %d lines"):format(room.cons.height, lines))
    ok(not mock.widgets["emunah.room"].scrollBar, "...without needing a scrollbar")
 
-   -- Far more than fits: defences go to three columns, items two to a line, and the room
+   -- Far more than fits: defences go three to a row, names only, items two to a line, and the room
    -- scrolls -- nothing is cut off silently.
    for index = 31, 160 do
       items[index] = { id = tostring(9000 + index), name = "a trinket number " .. index, attrib = "t" }
    end
    mock.feed("Char.Items.List", { location = "room", items = items })
    for _ = 1, 4 do mock.advance(0) end
-   eq(layout.compact("defences"), 2, "an overflowing column puts the defences in three columns")
+   eq(layout.compact("defences"), 3, "an overflowing column puts the defences in three columns")
    eq(layout.compact("room"), 2, "...then the room's items two to a line")
    ok(mock.widgets["emunah.room"].scrollBar, "...and, when even that is too much, the room scrolls")
    ok(tostring(mock.widgets["emunah.room"].contents):find("trinket number 160", 1, true),
@@ -6785,6 +6787,113 @@ do
    for _ = 1, 4 do mock.advance(0) end
    eq(layout.compact("room"), 1, "an emptied room goes back to one item per line")
    ok(not mock.widgets["emunah.room"].scrollBar, "...and drops its scrollbar")
+end
+
+-- DEFENCES BY CATEGORY, WITH WHAT RAISED THEM (the user, 2026-10-15: "i want them
+-- categorising... put the ability or herb/elixir that raised them in that window"). Items by
+-- how they are taken, abilities by the skillset Char.Skills files them under.
+do
+   local deflist = emunah.curing.deflist
+   local skills = emunah.gmcp.skills
+   local savedIndex, savedGroups = skills.index, skills.groups
+
+   skills.index, skills.groups = {}, {}
+   local category, source = deflist.raisedBy("inspiration")
+   eq(category, "Abilities", "before the skill index arrives, an ability is filed as one")
+   eq(source, "perform inspiration", "...beside the command that raises it")
+
+   skills.index = { inspiration = "devotion", bliss = "devotion", touch = "spirituality",
+                    cloak = "tattoos", boar = "tattoos", parrying = "weaponry" }
+   skills.groups = { devotion = { name = "Devotion" }, spirituality = { name = "Spirituality" },
+                     tattoos = { name = "Tattoos" }, weaponry = { name = "Weaponry" } }
+   eq(deflist.raisedBy("inspiration"), "Devotion", "an ability is filed under its skillset")
+   category, source = deflist.raisedBy("cloak")
+   eq(category, "Tattoos", "`touch cloak` is the cloak tattoo, not Spirituality's `touch`")
+   eq(source, "touch cloak", "...raised by touching it")
+   category, source = deflist.raisedBy("fangbarrier")
+   eq(category, "Salves", "fangbarrier is filed with the salves")
+   eq(source, "sileris", "...raised by sileris")
+   category, source = deflist.raisedBy("poisonresist")
+   eq(category, "Elixirs", "poisonresist is an elixir's")
+   eq(source, "venom", "...the venom elixir's")
+   category, source = deflist.raisedBy("deafness")
+   eq(category, "Herbs", "deafness is a herb's")
+   eq(source, "hawthorn", "...hawthorn's")
+   category, source = deflist.raisedBy("toughness")
+   eq(category, "Devotion", "a bliss grant is filed where bliss is")
+   eq(source, "bliss", "...as bliss's")
+   eq(deflist.raisedBy("parrying (mace)"), "Weaponry", "parrying (weapon) is Weaponry's parrying")
+   eq(deflist.raisedBy("boartattoo"), "Tattoos", "boartattoo is the boar tattoo")
+   category, source = deflist.raisedBy("preachblessing")
+   eq(category, "Other", "a defence nothing raises is Other")
+   eq(source, nil, "...with no guess at its source")
+
+   mock.feed("Char.Defences.List", {
+      { name = "inspiration", desc = "" }, { name = "fangbarrier", desc = "" },
+      { name = "poisonresist", desc = "" }, { name = "preachblessing", desc = "" },
+   })
+   mock.advance(0); mock.advance(0)
+   local body = tostring(mock.widgets["emunah.panel.defences"].contents)
+   local elixirs, devotion, other = body:find("Elixirs", 1, true), body:find("Devotion", 1, true),
+      body:find("Other", 1, true)
+   ok(elixirs and devotion and other, "the defences panel heads each category", body)
+   ok(elixirs and devotion and other and elixirs < devotion and devotion < other,
+      "...items first, then skillsets, then what nothing could place")
+   ok(body:find("venom", 1, true) and body:find("perform inspiration", 1, true),
+      "...with what raised each defence beside it")
+
+   skills.index, skills.groups = savedIndex, savedGroups
+end
+
+-- RESIZING BY HAND: dragging the divider above a section fixes its height; one not dragged
+-- keeps sizing itself to its content (the user, 2026-10-15).
+do
+   local layout = emunah.ui.layout
+   local divider = mock.widgets["emunah.divider.defences"]
+   ok(divider ~= nil, "defences have a divider above them")
+   ok(mock.widgets["emunah.divider.room"] == nil, "...and the room, which takes the rest, has none")
+   layout.auto()
+   local box = mock.widgets["emunah.section.defences"]
+   local before = box.cons.height
+
+   mock.mouse.y = 700
+   divider.onClick({ button = "LeftButton" })
+   mock.mouse.y = 640
+   divider.onMove({})
+   eq(box.cons.height, before + 60, "dragging the divider up 60px makes defences 60px taller at once")
+   divider.onRelease({})
+   eq(layout.manualHeight("defences"), before + 60, "...and keeps that height on release")
+   eq(mock.widgets["emunah.divider.defences"].cons.y, box.cons.y - layout.DIVIDER_PX / 2,
+      "...with the divider still on its top edge")
+   local room = mock.widgets["emunah.section.room"]
+   eq(room.cons.y + room.cons.height, mock.widgets["emunah.section.afflictions"].cons.y,
+      "...and the sections still stacked")
+
+   mock.feed("Char.Defences.Add", { name = "speed", desc = "" })
+   mock.advance(0); mock.advance(0)
+   eq(box.cons.height, before + 60, "a dragged section does not resize itself for new content")
+
+   local afflictions = mock.widgets["emunah.divider.afflictions"]
+   mock.mouse.y = 300
+   afflictions.onClick({ button = "LeftButton" })
+   afflictions.onRelease({})
+   eq(layout.manualHeight("afflictions"), nil, "a click on a divider without a drag fixes nothing")
+
+   divider.onDoubleClick({})
+   eq(layout.manualHeight("defences"), nil, "double-clicking the divider sizes it to content again")
+   eq(box.cons.height, before, "...back to the height its content needs")
+
+   mock.mouse.y = 700
+   divider.onClick({ button = "LeftButton" })
+   mock.mouse.y = 2000
+   divider.onMove({})
+   divider.onRelease({})
+   ok(layout.manualHeight("defences") >= layout.HEADER_PX + layout.lineHeight(),
+      "dragging far past the bottom still leaves a line of it", layout.manualHeight("defences"))
+   emunah.commands.handlers.ui("auto", "defences")
+   eq(layout.manualHeight("defences"), nil, "`emset ui auto defences` sizes it to content again")
+   mock.feed("Char.Defences.Remove", { "speed" })
+   mock.advance(0); mock.advance(0)
 end
 
 -- The HUD's rows hang from the BOTTOM edge of the strip, so the balance row is the one right
@@ -10484,11 +10593,6 @@ suite("PvP targeting")
 
 local pvp = emunah.pvp
 
--- PvP HAS ITS OWN ATTACK (the user, 2026-10-15: "completely divest hunting mode from pvp
--- mode"). Smite here, so the assertions below can tell the attack from a verse.
-emunah.config.set("pvp.attack", "smite")
-emunah.config.set("pvp.balance", "both")
-emunah.config.set("pvp.consumes", "bal")
 
 -- Never auto-targets: starting with no target set, even with balance free, sends nothing.
 mock.sent = {}
@@ -10509,63 +10613,85 @@ for _, payload in ipairs(mock.gmcpSent) do
 end
 ok(targetSet, "the game-side target is set too")
 
--- THE ATTACK IS A FINISHER, NOT THE KILL ROUTE. Damage-racing an opponent the whole fight
--- is exactly the strategy already established as unwinnable (see class/priest.lua's Zeal
--- header) -- afflictions are the route, and the attack only fires once the opponent is
--- already low enough that it becomes a realistic finishing blow. Checked against "smite"
--- specifically, not against mock.sent being empty -- verse-reciting is independent of this
--- gate (different resource entirely) and may legitimately fire the same tick; have.skill()
--- defaults permissive before the skill index completes, same as everywhere else in this file.
---
--- NOT health: IRE.Target.Info does not report a player opponent's vitals at all (confirmed
--- live 2026-08-06), so opponent.count() (curing/detect/opponent.lua) is the only signal
--- actually available to gate this on.
-emunah.curing.detect.opponent.clear("sarapis")
+-- EVERY FREE BALANCE, EVERY TICK (the user, 2026-10-15: "overwhelm my pvp opponent with a
+-- range of afflictions, damage, and finisher moves"). In offence mode, the default, a verse,
+-- a mace blow carrying a chasten, and an equilibrium affliction all go out on one prompt.
+-- have.skill() is permissive here: the skill index has not completed in this suite.
+-- Scoped: Lua 5.1 caps a function at 200 active locals, and this file is one chunk.
+do
+local opponent = emunah.curing.detect.opponent
+opponent.clear("sarapis")
+emunah.config.set("pvp.mode", nil)
+eq(pvp.mode(), "offence", "offence is the mode a session starts in")
+emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-ok(not table.concat(mock.sent, " | "):find("smite"),
-   "no attack while nothing is tracked on the opponent -- never a guess",
-   table.concat(mock.sent, " | "))
+local lanes = table.concat(mock.sent, " | ")
+ok(lanes:find("recite guilt sarapis", 1, true), "prayer: the offence's first verse", lanes)
+ok(lanes:find("smite sarapis head chasten asthma", 1, true),
+   "balance: a smite carrying the first kelp chasten", lanes)
+ok(lanes:find("perform sloth sarapis", 1, true), "equilibrium: sloth", lanes)
 
-emunah.curing.detect.opponent.assert("sarapis", "guilt")
+-- A CONFIRMED affliction is not given again, and an unconfirmed one is not resent blind.
+opponent.assert("sarapis", "asthma")
+emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-ok(not table.concat(mock.sent, " | "):find("smite"),
-   "...nor with only one affliction tracked, below the finishing threshold",
-   table.concat(mock.sent, " | "))
+lanes = table.concat(mock.sent, " | ")
+ok(lanes:find("chasten recklessness", 1, true), "asthma confirmed: the chasten moves on", lanes)
+ok(lanes:find("recite ash sarapis", 1, true),
+   "guilt just sent and not confirmed: the next verse goes instead", lanes)
+ok(lanes:find("perform visions sarapis", 1, true), "...and the next equilibrium affliction", lanes)
+opponent.clear("sarapis")
 
-emunah.curing.detect.opponent.assert("sarapis", "justice")
+-- A LOCK BUILDING IS FINISHED FIRST (Anzerloi, 2026-10-15 20:26:06, on a target prone,
+-- asthmatic, slick, impatient: "Missing anorexia and paralysis for lock."). Chasten cannot
+-- give anorexia; it can give paralysis, which shuts the tree.
+opponent.assert("sarapis", "asthma")
+opponent.assert("sarapis", "slickness")
+opponent.assert("sarapis", "impatience")
+local needs = opponent.lockNeeds("sarapis")
+eq(table.concat(needs, ","), "anorexia,paralysis", "the lock still needs anorexia and paralysis")
+eq(opponent.blockedVectors("sarapis").salve, "slickness", "...they cannot salve: slick")
+eq(opponent.blockedVectors("sarapis").smoke, "asthma", "...nor smoke: asthmatic")
+eq(opponent.blockedVectors("sarapis").focus, "impatience", "...nor focus: impatient")
+emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-local pvpAttack = table.concat(mock.sent, " | ")
-ok(pvpAttack:find("smite sarapis"),
-   "attacks once the opponent is vulnerable enough to finish", pvpAttack)
+lanes = table.concat(mock.sent, " | ")
+ok(lanes:find("chasten paralysis", 1, true), "the chasten carries paralysis to close it", lanes)
+opponent.assert("sarapis", "anorexia")
+opponent.assert("sarapis", "paralysis")
+eq(#opponent.lockNeeds("sarapis"), 0, "with all five, nothing is missing")
+local held = opponent.lockProgress("sarapis")
+eq(table.concat(held, ","), "hard,venom,soft", "...and they are hard, venom and soft locked")
+opponent.clear("sarapis")
+eq(#opponent.lockNeeds("sarapis"), 0, "one affliction is not yet a lock worth chasing")
 
--- Changing the hunt's attack leaves PvP's alone, and the other way round.
+-- ATTACK MODE sends pvp.attack on equilibrium -- PvP's own, never the hunt's -- once heresy
+-- is up (attack mode raises it first: it burns rebounding away, HELP HERESY).
 emunah.config.set("bashing.attack", "perform hands")
+emunah.config.set("pvp.attack", "angel sear")
+ok(pvp.setMode("attack"), "emset pvp mode attack")
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+ok(table.concat(mock.sent, " | "):find("hunt heresy", 1, true), "attack mode raises heresy first",
+   table.concat(mock.sent, " | "))
+mock.feed("Char.Defences.Add", { name = "heresy", desc = "" })
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 local divested = table.concat(mock.sent, " | ")
-ok(divested:find("smite sarapis") and not divested:find("perform hands"),
-   "PvP sends pvp.attack, whatever bashing.attack says", divested)
+ok(divested:find("angel sear sarapis", 1, true) and not divested:find("perform hands", 1, true),
+   "...then sends pvp.attack, whatever bashing.attack says", divested)
+mock.feed("Char.Defences.Remove", { "heresy" })
 emunah.config.set("bashing.attack", "angel sear")
-eq(emunah.config.get("pvp.attack"), "smite", "...and setting the hunt's attack did not touch PvP's")
 emunah.commands.dispatch('pvp attack "angel sear"')
 eq(emunah.config.get("pvp.attack"), "angel sear", "emset pvp attack sets it, quotes stripped")
 eq(emunah.config.get("bashing.attack"), "angel sear", "...without touching bashing.attack")
-emunah.config.set("pvp.attack", "smite")
-
--- The threshold is the `pvp.attackAtAfflictions` setting.
-emunah.commands.dispatch("pvp.attackAtAfflictions 3")
-eq(emunah.config.get("pvp.attackAtAfflictions"), 3, "the threshold is configurable")
-mock.sent = {}
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-ok(not table.concat(mock.sent, " | "):find("smite"),
-   "two afflictions no longer qualifies once the threshold is tightened to 3",
-   table.concat(mock.sent, " | "))
-emunah.config.set("pvp.attackAtAfflictions", 2)
-emunah.curing.detect.opponent.clear("sarapis")
+emunah.config.set("pvp.mode", nil)
+end
 
 pvp.clearTarget()
 eq(pvp.target, nil, "clearTarget removes the target")
@@ -10934,42 +11060,34 @@ do
       hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
       bal = "1", eq = "1", charstats = { "Devotion: 100%" },
    })
-   emunah.config.set("pvp.attack", "smite")
-   emunah.config.set("pvp.balance", "both")
-   emunah.config.set("pvp.consumes", "bal")
+   -- The Priest's PvP abilities, as the skill index reports them. The planner checks each
+   -- with have.skill() when it chooses, since what is trained changes.
+   mock.feed("Char.Skills.List", { group = "Spirituality", list = { "Mace", "Smash", "Heresy",
+      "Sear", "Contemplate", "Sap", "Absolve", "Panic", "Chasten", "Summon", "Call", "Strip" } })
+   mock.feed("Char.Skills.List", { group = "Devotion", list = { "Hands", "Inspiration",
+      "Penitence", "Bliss", "Sloth", "Visions", "Dazzle", "Purity", "Rites" } })
+   mock.feed("Char.Skills.List", { group = "Zeal", list = { "Anoint", "Guilt", "Condemnation",
+      "Ash", "Burn", "Penance", "Purge", "Revelations", "Wrath", "Fragility", "Unflinching",
+      "Rebuke" } })
 
    mock.sent = {}
    ok(pvp.start(), "pvp starts")
    pvp.setTarget("Ashden")
-   -- The attack is a finisher now, not the kill route -- gated on the opponent's tracked
-   -- affliction load (not health; IRE.Target.Info does not report a player's vitals), so it
-   -- needs enough tracked before it fires at all (see pvp.lua).
-   emunah.curing.detect.opponent.assert("ashden", "guilt")
-   emunah.curing.detect.opponent.assert("ashden", "justice")
    mock.feed("Char.Vitals", { bal = "1", eq = "1" })
    local bothSent = table.concat(mock.sent, " | ")
-   ok(bothSent:find("smite ashden"), "the attack still goes out", bothSent)
-   ok(bothSent:find("recite condemnation ashden"),
+   ok(bothSent:find("smite ashden"), "the mace goes out", bothSent)
+   ok(bothSent:find("recite guilt ashden"),
       "...and a verse goes out the SAME tick -- different resources, no conflict", bothSent)
    eq(pvp.report().recited, 1, "the recite is counted")
 
-   -- Condemnation is preferred over guilt whenever both are ready -- HELP states its
-   -- affliction outright, where guilt's payoff depends on the target choosing to focus.
+   -- An ability the game says you lack is never chosen.
+   emunah.have.denySkill("mace")
    emunah.timers.stopAll()
    mock.sent = {}
    mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-   ok(table.concat(mock.sent, " | "):find("recite condemnation"),
-      "condemnation is tried first when both verses are ready",
-      table.concat(mock.sent, " | "))
-
-   -- The opt-out, same shape as bashing.penitence / bashing.desolation.
-   emunah.timers.stopAll()
-   emunah.config.set("pvp.verses", false)
-   mock.sent = {}
-   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-   ok(not table.concat(mock.sent, " | "):find("recite"),
-      "pvp.verses=false disables reciting entirely", table.concat(mock.sent, " | "))
-   emunah.config.set("pvp.verses", true)
+   ok(not table.concat(mock.sent, " | "):find("smite"),
+      "without the mace, no smite", table.concat(mock.sent, " | "))
+   emunah.event.raise("skills.complete")
 
    pvp.stop("test")
    emunah.timers.stopAll()
@@ -10983,9 +11101,6 @@ do
    -- attacking every tick could keep re-claiming equilibrium before the queue ever got a
    -- turn to send the heal it already wanted.
 
-   emunah.config.set("pvp.attack", "smite")
-   emunah.config.set("pvp.balance", "both")
-   emunah.config.set("pvp.consumes", "bal")
    -- Disabled so pvp's OWN health-threshold stop (unsafe(), default 60%) cannot fire first
    -- and confound what this is actually testing -- the attack yielding to a queued heal
    -- while still fully engaged, not the separate safety stop.
@@ -10997,26 +11112,27 @@ do
    })
    pvp.start()
    pvp.setTarget("Ashden")
-   emunah.curing.detect.opponent.assert("ashden", "guilt")
-   emunah.curing.detect.opponent.assert("ashden", "justice")
+   emunah.timers.stopAll()
    mock.sent = {}
    mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-   ok(table.concat(mock.sent, " | "):find("smite"),
-      "above the hands threshold, the attack goes out as normal", table.concat(mock.sent, " | "))
-
-   mock.feed("Char.Vitals", { hp = tostring(handsAt - 10), maxhp = "100" })
-   mock.sent = {}
-   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-   ok(not table.concat(mock.sent, " | "):find("smite"),
-      "below the hands threshold, the attack yields instead of re-claiming equilibrium",
+   ok(table.concat(mock.sent, " | "):find("perform sloth"),
+      "above the hands threshold, the equilibrium lane goes out as normal",
       table.concat(mock.sent, " | "))
+
+   -- Only the lane that would spend what `perform hands` needs yields: the smite requires
+   -- equilibrium but spends balance, so it carries on.
+   mock.feed("Char.Vitals", { hp = tostring(handsAt - 10), maxhp = "100" })
+   emunah.timers.stopAll()
+   mock.sent = {}
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+   local yielded = table.concat(mock.sent, " | ")
+   ok(not yielded:find("perform sloth") and not yielded:find("perform visions"),
+      "below the hands threshold, equilibrium yields instead of re-claiming it", yielded)
+   ok(yielded:find("smite ashden"), "...while the smite, on balance, still goes", yielded)
 
    pvp.stop("test")
    emunah.timers.stopAll()
-   emunah.config.set("pvp.stopBelowHealth", 60)
-   emunah.config.set("pvp.attack", "angel sear")
-   emunah.config.set("pvp.balance", "both")
-   emunah.config.set("pvp.consumes", "eq")
+   emunah.config.set("pvp.stopBelowHealth", nil)
    mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
 end
 
@@ -11216,6 +11332,82 @@ do
    emunah.config.set("pvp.attack", "angel sear")
    emunah.config.set("pvp.consumes", "eq")
    mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+end
+
+-- ===========================================================================
+suite("PvP modes: hinder, finish, rebounding, cure lines")
+
+-- The user, 2026-10-15: "full on attack, full on offence, hindering, etc." -- each mode is
+-- what every balance sends. The skill index from the Zeal suite above lists the abilities.
+do
+   local P = emunah.class.active
+   local opp = emunah.curing.detect.opponent
+   pvp.stop("test"); emunah.timers.stopAll(); emunah.act.typedUntil = nil
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
+      bal = "1", eq = "1" })
+   pvp.setTarget("Ashden")
+   local function lanes()
+      emunah.timers.stopAll()
+      mock.sent = {}
+      mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+      return table.concat(mock.sent, " | ")
+   end
+
+   -- HINDER: legs and paralysis.
+   ok(pvp.setMode("hinder") and pvp.enabled, "hinder mode, and PvP on")
+   local sent = lanes()
+   ok(sent:find("smash legs ashden chasten paralysis", 1, true), "smash the legs, chastening paralysis", sent)
+   ok(sent:find("recite penance ashden", 1, true), "...penance for paralysis on prayer", sent)
+
+   -- FINISH: read the mana, sap it under half, absolve -- only ever on a fresh reading.
+   pvp.setMode("finish")
+   sent = lanes()
+   ok(sent:find("contemplate ashden", 1, true), "no reading yet: contemplate first", sent)
+   mock.line("Ashden's mana stands at 4000/5000 [80%].")
+   sent = lanes()
+   ok(sent:find("angel sap ashden", 1, true), "a fresh reading over half: sap", sent)
+   mock.line("Your guardian angel casts a piercing glance at Ashden.")
+   sent = lanes()
+   ok(sent:find("contemplate ashden", 1, true), "sapped since: read again before deciding", sent)
+   mock.line("Ashden's mana stands at 2400/5000 [48%].")
+   sent = lanes()
+   ok(sent:find("angel absolve ashden", 1, true), "under half: absolve", sent)
+   mock.advance(P.pvp.FRESH + 1)
+   sent = lanes()
+   ok(not sent:find("absolve", 1, true) and sent:find("contemplate", 1, true),
+      "a reading gone stale is read again, never absolved on", sent)
+   P.targetMana = {}
+
+   -- REBOUNDING: a blow turned back marks them; heresy goes up before the next one.
+   pvp.setMode("offence")
+   mock.line("The attack rebounds back onto you!")
+   ok(pvp.report().rebounding, "a rebounded blow marks the target")
+   sent = lanes()
+   ok(not sent:find("smite", 1, true) and sent:find("hunt heresy", 1, true),
+      "no mace blow into it: heresy goes up instead", sent)
+   mock.feed("Char.Defences.Add", { name = "heresy", desc = "" })
+   sent = lanes()
+   ok(sent:find("smite ashden", 1, true), "with heresy, the smite goes: it burns rebounding away", sent)
+   mock.feed("Char.Defences.Remove", { "heresy" })
+   mock.line("Ashden's aura of weapons rebounding disappears.")
+   ok(not pvp.report().rebounding, "...and the aura going down clears it")
+
+   -- CURE LINES: what they eat retracts what it cures, the herb named by the rift.
+   mock.feed("IRE.Rift.List", {
+      { name = "aurum", desc = "aurum flake", amount = 10 },
+      { name = "lobelia", desc = "lobelia seed", amount = 10 },
+   })
+   opp.assert("ashden", "asthma")
+   opp.assert("ashden", "guilt")
+   mock.line("Ashden eats an aurum flake.")
+   ok(not opp.has("ashden", "asthma"), "an aurum flake cures the kelp affliction")
+   ok(opp.has("ashden", "guilt"), "...and nothing it does not cure")
+   mock.line("Ashden eats a lobelia seed.")
+   ok(not opp.has("ashden", "guilt"), "a lobelia seed cures guilt")
+
+   pvp.stop("test"); pvp.clearTarget(); opp.clear("ashden")
+   mock.feed("IRE.Rift.List", {})
+   emunah.config.set("pvp.mode", nil)
 end
 
 -- ===========================================================================
@@ -11483,8 +11675,8 @@ ok(pcall(emunah.commands.dispatch, "keys"), "emunah keys reports status")
 -- ===========================================================================
 -- Action keys: Ctrl+F5 reload, F1 pvp on/off, F11 hunt on/off, F12 to the safe room. Independent of keys.numpad and of
 -- the Keypad modifier -- see keys.buildActions(). Own registry, own count().
-eq(emunah.keys.actionCount(), 5,
-   "reload, the pvp, support and hunt toggles and the safe room all bound")
+eq(emunah.keys.actionCount(), 9,
+   "reload, pvp on/off, four pvp modes, support, the hunt and the safe room all bound")
 
 -- Scoped: Lua 5.1 caps a function at 200 active locals, and this file is one chunk.
 do
@@ -11499,7 +11691,20 @@ do
    _G.emunahReload = realReload
 end
 
--- Plain F5 is support mode (the user, 2026-10-15); Ctrl+F5 stays reload, tested above.
+-- F5-F8 ENTER A PVP MODE (the user, 2026-10-15), turning PvP on; Ctrl+F5 stays reload,
+-- tested above, and support mode moved to F9.
+do
+   local pvp = emunah.pvp
+   pvp.stop("test")
+   for key, mode in pairs({ F5 = "attack", F6 = "offence", F7 = "hinder", F8 = "finish" }) do
+      pvp.stop("test")
+      mock.press(mudlet.keymodifier.None, mudlet.key[key])
+      eq(pvp.mode(), mode, key .. " enters " .. mode .. " mode")
+      ok(pvp.enabled, "...and turns PvP on")
+   end
+   pvp.stop("test")
+   emunah.config.set("pvp.mode", nil)
+end
 -- SUPPORT MODE: attack what the leader attacks, verbatim lines from 2026-10-15 14:47.
 do
    bash.stop("test"); emunah.walker.stop("test")
@@ -11552,11 +11757,11 @@ do
       .. "body and watches as he arches his back in agony.")
    ok(attacked():find("7101"), "a desolating rite counts as a hit too")
 
-   mock.press(mudlet.keymodifier.None, mudlet.key.F5)
-   ok(not bash.enabled and not bash.support, "F5 turns support mode off")
-   mock.press(mudlet.keymodifier.None, mudlet.key.F5)
+   mock.press(mudlet.keymodifier.None, mudlet.key.F9)
+   ok(not bash.enabled and not bash.support, "F9 turns support mode off")
+   mock.press(mudlet.keymodifier.None, mudlet.key.F9)
    ok(bash.enabled and bash.support and bash.support.leader == "anzerloi",
-      "F5 again supports the same leader")
+      "F9 again supports the same leader")
 
    emunah.commands.dispatch("hunt")
    ok(bash.enabled and not bash.support and emunah.walker.enabled,
@@ -12987,8 +13192,12 @@ if handle then
          if not okRun then bad[#bad + 1] = runErr end
       end
       for kind, name in code:gmatch('text(%a+)%("([%w]+)"') do
-         if kind == "Illusion" then
-            -- a reason, not a name
+         if kind == "Illusion" or kind == "Foe" then
+            -- a reason, or the attacker's class: not an affliction
+         elseif kind == "Spent" then
+            if not emunah.curing.curelist.vectors[name] then
+               unknownNames[#unknownNames + 1] = "balance " .. name
+            end
          elseif kind == "State" then
             if not states[name] then unknownNames[#unknownNames + 1] = name end
          elseif not (afflist.known(name) or afflist.isWrithe(name)
@@ -13592,6 +13801,18 @@ end
 eq(#drifted, 0, "every website page has the same header and footer as index.html",
    table.concat(drifted, " | "))
 
+-- NO EM OR EN DASHES ON THE SITE (the user, 2026-10-15), whether typed or as an entity, and
+-- none dressed up from help.lua's text by the commands page generator.
+local dashed = {}
+for _, path in ipairs(pages) do
+   local html = readFile(path)
+   for _, dash in ipairs({ "\226\128\148", "\226\128\147", "&mdash;", "&ndash;", "&#8212;",
+                           "&#8211;", "&#x2014;", "&#x2013;" }) do
+      if html:find(dash, 1, true) then dashed[#dashed + 1] = path break end
+   end
+end
+eq(#dashed, 0, "no website page has an em or en dash", table.concat(dashed, " | "))
+
 -- NO DEAD LINKS. Every link to another page of the site, and every #fragment, must land on
 -- something that exists -- a removed page or a renamed section is exactly what goes stale.
 local ids = {}
@@ -13700,6 +13921,19 @@ do
    emunahReload()
    eq(next(emunah.pipes.pipes), nil, "a disconnect still forgets them, reload or not")
    emunah.config.set("pipes.enabled", false)
+end
+
+-- THE ANGEL survives a reload too (2026-10-15: trackangel red after `emreload` with the
+-- angel at your side; keep-up then spent a summon to learn it again).
+do
+   emunah.timers.stopAll()
+   mock.line("A flower of white light blooms in the air beside you, and your guardian is by your side.")
+   ok(emunah.curing.deflist.isUp("trackangel"), "the angel is up")
+   emunahReload()
+   emunah.timers.stopAll()
+   ok(emunah.curing.deflist.isUp("trackangel"), "...and still up after a reload")
+   raiseEvent("sysDisconnectionEvent")
+   ok(not emunah.curing.deflist.isUp("trackangel"), "a disconnect forgets it")
 end
 
 -- ===========================================================================
@@ -14098,6 +14332,7 @@ local HERBS = {
    { id = "2", name = "a bloodroot leaf", attrib = "e" },
    { id = "3", name = "a lobelia seed", attrib = "e" },
    { id = "4", name = "a bellwort flower", attrib = "e" },
+   { id = "5", name = "a goldenseal root", attrib = "e" },
 }
 
 local function fight(hp)
@@ -14153,12 +14388,28 @@ engine.add("weariness", "gmcp")
 ok(situations.recurring("weariness"), "weariness back 1.6s after its cure is being re-applied")
 queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
 eq(herbSent(tick()), "lobelia", "...and guilt now goes ahead of it")
-mock.advance(situations.RULES[4].when.hold + 1)
+mock.advance(situations.find("weariness-reapplied").when.hold + 1)
 queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
 eq(situations.recurring("weariness"), false, "the hold lapses once it stops coming back")
 fight()
 engine.add("weariness", "gmcp")
 eq(herbSent(tick()), "kelp", "on its own it is still eaten: ranked last, never held")
+
+-- IMPATIENCE BEFORE A HARD LOCK (Anzerloi, 2026-10-15 20:28:30-20:32:20): asthma, slickness
+-- and impatience, anorexia next. Kelp (asthma, 4) went first; goldenseal goes first now.
+-- Fed as the server sends them, so a reconcile against Char.Afflictions keeps them.
+local function afflict(...)
+   for _, name in ipairs({ ... }) do
+      mock.feed("Char.Afflictions.Add", { name = name, cure = "", desc = "" })
+   end
+end
+fight()
+afflict("asthma", "impatience")
+eq(herbSent(tick()), "kelp", "asthma and impatience alone: asthma first, as svof ranks it")
+fight()
+afflict("asthma", "slickness", "impatience")
+eq(herbSent(tick()), "goldenseal",
+   "20:28:30 -- asthmatic, slick and impatient: the impatience goes first")
 
 -- JUSTICE is held while nothing is attacking.
 fight()
@@ -15897,6 +16148,194 @@ mock.line("A crossroads.")
 eq(lineWith("A crossroads"), "A crossroads. (Area One)",
    "after a reload the area is added once, not once per generation")
 prompt()
+end)()
+
+-- ===========================================================================
+suite("an Alchemist, from Anzerloi's arena log (2026-10-15)")
+
+-- The lines are verbatim from that log (docs/game/alchemist.md); the package's own triggers
+-- are loaded into the mock, so what is tested is the generated XML, not a copy of it.
+;(function()
+local detect = emunah.curing.detect
+local engine = emunah.curing.engine
+local function prompt() mock.feed("Char.Vitals", { bal = "1", eq = "1" }) end
+engine.clear(); emunah.queue.reset(); emunah.timers.stopAll()
+
+local handle = io.open("EmunahTriggers.xml", "r")
+local xml = handle and handle:read("*a") or ""
+if handle then handle:close() end
+local function unescape(text)
+   return (text:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&quot;", '"')
+               :gsub("&apos;", "'"):gsub("&amp;", "&"))
+end
+local loaded = {}
+for body in xml:gmatch("<Trigger [^>]*>(.-)</Trigger>") do
+   local script = body:match("<script>(.-)</script>")
+   local pattern = body:match("<regexCodeList>%s*<string>(.-)</string>")
+   local kind = body:match("<regexCodePropertyList>%s*<integer>(%d+)</integer>")
+   if script and pattern and (kind == "1" or kind == "3") and (pattern:find("homunculus", 1, true)
+      or pattern:find("wracks your", 1, true) or pattern:find("less difficult", 1, true)) then
+      local fn = loadstring(unescape(script))
+      local regex = unescape(pattern)
+      -- An exact match is the whole line, literally.
+      if kind == "3" then regex = "^" .. regex:gsub("[%.%(%)%[%]%*%+%?%^%$\\|]", "\\%0") .. "$" end
+      if fn then loaded[#loaded + 1] = tempRegexTrigger(regex, fn) end
+   end
+end
+ok(#loaded >= 4, "the package has svof's homunculus and wrack lines", #loaded)
+
+-- THE BITE: svof's swellskin, the server's homunculusmercury, and an Alchemist attacking.
+mock.line("A diminutive homunculus resembling Sobriquet claws into your flesh with dirty "
+   .. "nails. The surrounding flesh begins to swell with fluid.")
+prompt()
+eq(detect.foeClass("sobriquet"), "alchemist", "the bite says Sobriquet is attacking as an Alchemist")
+mock.feed("Char.Afflictions.Add", { name = "homunculusmercury", cure = "", desc = "" })
+ok(engine.has("homunculusmercury"), "...and the server's homunculusmercury is tracked")
+ok(emunah.curing.afflist.wearsOff.homunculusmercury, "...as one with nothing to send for it")
+
+-- THE SHRIEK takes focus balance [svof: homunculus_throat], second in its paragraph as in
+-- the log: svof's "on its own line" check would have thrown this real one away.
+mock.line("A diminutive homunculus resembling Sobriquet stares menacingly at you, its eyes "
+   .. "flashing brightly.")
+mock.line("A diminutive homunculus resembling Sobriquet turns its head towards you, its jaws "
+   .. "opening wider than what seems possible. The homunculus stares intently at you and lets "
+   .. "out an ear-piercing shriek that disrupts your thoughts.")
+ok(emunah.timers.remaining("cure.focus") <= 0, "the shriek waits for the prompt")
+prompt()
+ok(emunah.timers.remaining("cure.focus") > 0, "...then focus balance is spent")
+
+-- AN ILLUSION SPOILS IT: the same shriek in a block svof knows cannot be real.
+emunah.timers.stopAll()
+mock.line("A diminutive homunculus resembling Sobriquet turns its head towards you, its jaws "
+   .. "opening wider than what seems possible. The homunculus stares intently at you and lets "
+   .. "out an ear-piercing shriek that disrupts your thoughts.")
+detect.textIllusion("test pair")
+prompt()
+ok(emunah.timers.remaining("cure.focus") <= 0, "...and not in a block with an illusion")
+
+-- THE WRACK names the attacker too; its afflictions come by GMCP.
+detect.foes = {}
+mock.line("A short convulsion sweeps through your body as Sobriquet wracks your melancholic "
+   .. "and choleric humours.")
+prompt()
+eq(detect.foeClass("sobriquet"), "alchemist", "a two-humour wrack says who and what")
+
+-- EATING ANYTHING ends the bite [svof: swellskin_woreoff].
+mock.line("Eating is suddenly less difficult again.")
+prompt()
+ok(not engine.has("homunculusmercury"), "\"Eating is suddenly less difficult again.\" ends it")
+
+for _, id in ipairs(loaded) do killTrigger(id) end
+
+-- REAVE: two, three, four tempered humours [svof: checkreavekill].
+local watch = emunah.watch
+engine.clear()
+eq(#watch.dangers(), 0, "no humours, no danger")
+engine.add("temperedsanguine", "gmcp")
+eq(#watch.dangers(), 0, "one humour is not yet a reave")
+engine.add("temperedcholeric", "gmcp")
+eq(watch.dangers()[1], "reave 10s", "two humours: a reave takes 10s")
+engine.add("temperedmelancholic", "gmcp")
+eq(watch.dangers()[1], "reave 8s", "three: 8s")
+engine.add("temperedphlegmatic", "gmcp")
+eq(watch.dangers()[1], "reave 4s", "all four: 4s")
+engine.clear()
+engine.add("bound", "gmcp"); engine.add("impaled", "gmcp")
+eq(watch.dangers()[1], "dismember", "bound and impaled: dismember")
+engine.clear()
+
+-- THE REFLECTIVE BARRIER, as the attacker sees it.
+local pvp = emunah.pvp
+mock.line("The reflective barrier surrounding Sobriquet reflects part of your attack back at you.")
+ok(pvp.reflecting.sobriquet, "a reflected blow marks the barrier")
+mock.line("As your attack falls, Sobriquet's reflective barrier shatters and reflects the attack.")
+ok(not pvp.reflecting.sobriquet, "...and the blow that shatters it clears it")
+end)()
+
+-- ===========================================================================
+suite("an opponent seen from outside: Synbios raising defences (2026-10-15 20:29:34)")
+
+;(function()
+local opponent = emunah.curing.detect.opponent
+opponent.clear()
+for _, line in ipairs({
+   "Synbios clenches his fists and grits his teeth.",
+   "Synbios eats a kola nut.",
+   "Synbios eats an arsenic pellet.",
+   "Synbios touches a cloak tattoo.",
+   "Synbios takes a drink from an elegant diamond vial.",
+   "Synbios takes some salve from a vial and rubs it on his skin.",
+   "Synbios applies a quicksilver droplet to himself.",
+   "Synbios touches a mindseye tattoo.",
+   "Synbios eats a hawthorn berry.",
+   "A supple metallic shell of quicksilver has formed around Synbios.",
+}) do mock.line(line) end
+eq(table.concat(opponent.defenceList("synbios"), ","),
+   "cloak,deafness,fangbarrier,insomnia,kola,mindseye",
+   "his defences, from what he ate, touched and applied")
+ok(opponent.usedAgo("synbios", "herb") ~= nil, "...his herb balance seen used")
+ok(opponent.usedAgo("synbios", "sip") ~= nil, "...his sip")
+ok(opponent.usedAgo("synbios", "salve") ~= nil, "...and his salve")
+eq(opponent.itemFromDescription("an arsenic pellet"), nil, "an item no cure uses is not guessed at")
+
+-- An herb we hold none of is still recognised by its name: aurum cures clumsiness.
+opponent.assert("synbios", "clumsiness")
+mock.line("Synbios eats an aurum flake.")
+ok(not opponent.has("synbios", "clumsiness"), "aurum, eaten, takes clumsiness off him")
+opponent.clear()
+end)()
+
+-- ===========================================================================
+suite("allies: the partners you fight beside")
+
+;(function()
+local allies = emunah.allies
+local pvp = emunah.pvp
+local ndb = emunah.namedb
+pvp.clearTarget()
+
+ok(allies.add("Anzerloi"), "a partner is added")
+ok(allies.isPartner("anzerloi"), "...by any case")
+eq(ndb.relationship("anzerloi"), "ally", "...and marked an ally")
+ok(not pvp.setTarget("anzerloi"), "...so PvP refuses to target them")
+eq(select(2, allies.add("two words")), "a partner is one name, letters only",
+   "a partner is one name")
+
+-- No call patterns ship: a partner's message is only a message.
+mock.feed("Comm.Channel.Text", { channel = "party", talker = "Anzerloi",
+   text = "(Party): Anzerloi says, \"Target: Sobriquet\"" })
+eq(pvp.target, nil, "with no call patterns, nothing is read as a call")
+
+-- As the site shows it: one pattern, typed through emset, kept as a string.
+emunah.commands.dispatch("allies.calls Target:? (%a+)")
+eq(table.concat(allies.callPatterns(), "|"), "Target:? (%a+)", "emset allies.calls takes a pattern")
+mock.feed("Comm.Channel.Text", { channel = "party", talker = "Anzerloi",
+   text = "(Party): Anzerloi says, \"Target: Sobriquet\"" })
+eq(pvp.target, "sobriquet", "a partner's call sets your target")
+eq(allies.lastCall and allies.lastCall.from, "anzerloi", "...and is remembered")
+
+mock.feed("Comm.Channel.Text", { channel = "party", talker = "Someone",
+   text = "(Party): Someone says, \"Target: Torvald\"" })
+eq(pvp.target, "sobriquet", "someone who is not a partner calls nothing")
+
+mock.feed("Comm.Channel.Text", { channel = "party", talker = "Anzerloi",
+   text = "(Party): Anzerloi says, \"Target: Anzerloi\"" })
+eq(pvp.target, "sobriquet", "a call naming an ally is refused, as PvP refuses it")
+
+emunah.config.set("allies.follow", false)
+mock.feed("Comm.Channel.Text", { channel = "party", talker = "Anzerloi",
+   text = "(Party): Anzerloi says, \"Target: Torvald\"" })
+eq(pvp.target, "sobriquet", "with allies.follow off, a call is only said")
+eq(allies.lastCall.target, "torvald", "...though it is still remembered")
+
+emunah.commands.handlers.ally()
+ok(true, "`emset ally` renders")
+
+ok(allies.remove("anzerloi"), "a partner is removed")
+ok(not allies.isPartner("anzerloi"), "...and is no longer one")
+emunah.config.set("allies.calls", nil); emunah.config.set("allies.follow", nil)
+ndb.iff("anzerloi", "auto")
+pvp.clearTarget()
 end)()
 
 io.write("\n", string.rep("-", 60), "\n")

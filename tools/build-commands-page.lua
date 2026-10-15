@@ -21,10 +21,12 @@ local function esc(text)
    return (tostring(text):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
 end
 
--- `backticks` in the help text become <code>, and the " -- " the client prints as a dash
--- becomes a real one.
+-- `backticks` in the help text become <code>.
 local function prose(text)
-   return (esc(text):gsub("`([^`]+)`", "<code>%1</code>"):gsub(" %-%- ", " &mdash; "))
+   -- No em dashes on the site (the user, 2026-10-15): help.lua writes its asides with
+   -- brackets, colons and full stops, and a stray " -- " is left as typed for the suite to
+   -- catch rather than dressed up as one.
+   return (esc(text):gsub("`([^`]+)`", "<code>%1</code>"))
 end
 
 local function read(path)

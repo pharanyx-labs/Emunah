@@ -30,6 +30,12 @@ local density = {}
 local placed = {}
 --- Whether the room console's scrollbar is on.
 local scrolling = nil
+--- key -> the height the last reflow gave it, in pixels.
+M.heights = {}
+--- The divider drag in progress: { key, from = mouse y at the press, height, moved }.
+local dragging = nil
+--- key -> the height a drag in progress is asking for, ahead of ui.panelHeights.
+local override = {}
 
 --- Fractions of the window given to each region.
 ---
@@ -222,6 +228,7 @@ function M.build()
    M.fit()
    -- New widgets: nothing has been placed, and the room console starts without a scrollbar.
    M.sections, placed, scrolling = {}, {}, nil
+   dragging, override = nil, {}
    discardStaleGeometry()
    hideLegacy()
    local removed = teardown()
@@ -427,8 +434,12 @@ function M.section(parent, spec)
    theme.forgetPainted("body." .. spec.key)
    M.header(spec.key, header, spec.title)
 
+   -- After the box, so it is drawn over the box's top edge; M.reflow() raises it as well,
+   -- because the section above may be built later.
+   local divider = M.DIVIDED[spec.key] and M.divider(parent, spec.key, spec.title) or nil
+
    local section = { box = box, header = header, body = body, kind = spec.body,
-                     refresh = spec.refresh }
+                     refresh = spec.refresh, divider = divider }
    M.sections[spec.key] = section
    placed[spec.key] = nil
    return section
@@ -472,6 +483,112 @@ end
 -- A section reports a list of line counts, one per density it can do, most spacious first,
 -- and reads back the density it was given with M.compact(). It is repainted only when that
 -- changes, so this settles in one pass.
+--
+-- SIZED BY HAND. "I need to be able to actually manually resize these windows. Keep the
+-- current dynamic behaviour unless it's manually moved, though" (the user, 2026-10-15). A
+-- divider above afflictions and above defences can be dragged; the section under it then
+-- keeps the height it was dragged to (ui.panelHeights, in pixels) and lays itself out at the
+-- most spacious density that fits in it. The room still takes what is left, so dragging
+-- either divider moves the room's bottom edge too. A section nobody has dragged is sized by
+-- its content exactly as above, and double-clicking its divider, or `emset ui auto`, gives a
+-- dragged one back to that.
+
+--- Sections with a divider above them, which sizes them. The room has none: it is the one
+--- that takes what is left.
+M.DIVIDED = { afflictions = true, defences = true }
+
+--- Height of a divider's grab area, in pixels. Centred on the boundary, where the section
+--- above ends 2px under its body and the one below starts 2px over its title bar, so it
+--- covers a pixel of each and nothing that can be read.
+M.DIVIDER_PX = 6
+
+--- The height a section was dragged to, or nil while it sizes itself.
+function M.manualHeight(key)
+   if not M.DIVIDED[key] then return nil end
+   if override[key] then return override[key] end
+   local heights = emunah.config.get("ui.panelHeights", {}) or {}
+   return tonumber(heights[key])
+end
+
+--- Give a dragged section back to sizing itself; every section when no key is given.
+--- @return boolean whether anything was dragged
+function M.auto(key)
+   local heights = emunah.config.get("ui.panelHeights", {}) or {}
+   local changed = false
+   for name in pairs(M.DIVIDED) do
+      if (key == nil or key == name) and heights[name] ~= nil then
+         heights[name] = nil
+         changed = true
+      end
+   end
+   if changed then
+      emunah.config.set("ui.panelHeights", heights)
+      emunah.config.save()
+      M.reflow()
+   end
+   return changed
+end
+
+-- Where the mouse is, in the main window, as Adjustable.Container reads it for its own drags.
+local function mouseY()
+   if type(getMousePosition) ~= "function" then return nil end
+   local _, y = getMousePosition()
+   return tonumber(y)
+end
+
+function M.dragStart(key, event)
+   if type(event) == "table" and event.button and event.button ~= "LeftButton" then return end
+   local y = mouseY()
+   if not y then return end
+   dragging = { key = key, from = y, height = M.heights[key] or 0, moved = false }
+end
+
+function M.dragMove(key)
+   if not dragging or dragging.key ~= key then return end
+   local y = mouseY()
+   if not y then return end
+   -- Up makes the section under the divider taller.
+   local height = dragging.height - (y - dragging.from)
+   if height == override[key] then return end
+   dragging.moved = true
+   override[key] = height
+   M.reflow()
+end
+
+function M.dragEnd(key)
+   if not dragging or dragging.key ~= key then return end
+   local drag = dragging
+   dragging = nil
+   override[key] = nil
+   -- A click is not a drag: a section that was sizing itself goes on doing so.
+   if not drag.moved then return end
+   -- The height it was given, not the one asked for: the drag may have gone past what the
+   -- column has, and a saved height the column cannot hold would be clamped on every reflow.
+   local heights = emunah.config.get("ui.panelHeights", {}) or {}
+   heights[key] = M.heights[key]
+   emunah.config.set("ui.panelHeights", heights)
+   emunah.config.save()
+   M.reflow()
+end
+
+--- A divider: a strip over the top edge of a section that drags it taller or shorter.
+function M.divider(parent, key, title)
+   local divider = Geyser.Label:new({
+      name = "emunah.divider." .. key,
+      x = 4, y = 0, width = "-8px", height = M.DIVIDER_PX,
+   }, parent)
+   divider:setStyleSheet(string.format(
+      "QLabel { background-color: transparent; } QLabel::hover { background-color: %s; }",
+      theme.colour.borderLit))
+   divider:setCursor("ResizeVertical")
+   divider:setToolTip(string.format(
+      "Drag to resize %s. Double-click to size it to its content again.", title or key))
+   divider:setClickCallback(function(event) M.dragStart(key, event) end)
+   divider:setMoveCallback(function() M.dragMove(key) end)
+   divider:setReleaseCallback(function() M.dragEnd(key) end)
+   divider:setDoubleClickCallback(function() M.auto(key) end)
+   return divider
+end
 
 
 --- Order in which sections give up space, densest first. Afflictions never do: it is the one
@@ -524,10 +641,15 @@ function M.reflow()
    local level = {}
    for _, spec in ipairs(M.LEFT_SECTIONS) do level[spec.key] = 1 end
 
-   local function height(key)
+   local function linesHeight(key, at)
       local levels = needs[key]
-      local lines = levels and (levels[level[key]] or levels[#levels]) or 1
+      local lines = levels and (levels[at] or levels[#levels]) or 1
       return chrome + math.max(lines, 1) * line
+   end
+   local function height(key)
+      local manual = M.manualHeight(key)
+      if manual then return math.max(manual, chrome + line) end
+      return linesHeight(key, level[key])
    end
    local function total()
       local sum = 0
@@ -535,8 +657,10 @@ function M.reflow()
       return sum
    end
 
+   -- A dragged section's height is fixed, so making it denser frees nothing.
    for _, key in ipairs(M.COMPACT_ORDER) do
-      while total() > available and needs[key] and level[key] < #needs[key] do
+      while total() > available and not M.manualHeight(key) and needs[key]
+         and level[key] < #needs[key] do
          level[key] = level[key] + 1
       end
    end
@@ -544,14 +668,48 @@ function M.reflow()
    local heights = {}
    for _, spec in ipairs(M.LEFT_SECTIONS) do heights[spec.key] = height(spec.key) end
    local roomNeed = heights.room
-   local others = total() - roomNeed
    local minimum = chrome + 2 * line
+   local smallest = chrome + line
+   -- Nothing left to give: the room keeps a minimum, and the rest comes back from a section
+   -- dragged taller than the column holds (the one being dragged first), then the defences.
+   -- Afflictions sizing themselves never give: they are what matters in a fight.
+   local deficit = minimum - (available - (total() - roomNeed))
+   if deficit > 0 then
+      local givers = {}
+      if dragging and M.manualHeight(dragging.key) then givers[1] = dragging.key end
+      for _, key in ipairs({ "defences", "afflictions" }) do
+         if M.manualHeight(key) and givers[1] ~= key then givers[#givers + 1] = key end
+      end
+      if not M.manualHeight("defences") then givers[#givers + 1] = "defences" end
+      for _, key in ipairs(givers) do
+         local give = math.min(deficit, heights[key] - smallest)
+         if give > 0 then
+            heights[key] = heights[key] - give
+            deficit = deficit - give
+         end
+         if deficit <= 0 then break end
+      end
+   end
+   local others = 0
+   for _, spec in ipairs(M.LEFT_SECTIONS) do
+      if spec.key ~= "room" then others = others + heights[spec.key] end
+   end
    heights.room = math.max(available - others, minimum)
    local overflow = heights.room < roomNeed
-   if heights.room + others > available then
-      -- Nothing left to give: defences hand back what they must, so the room keeps a minimum.
-      heights.defences = math.max(chrome + line, available - heights.room - heights.afflictions)
+
+   -- A dragged section shows as much as fits in it: the most spacious density that does.
+   for key in pairs(M.DIVIDED) do
+      if M.manualHeight(key) and needs[key] then
+         level[key] = #needs[key]
+         for at = 1, #needs[key] do
+            if linesHeight(key, at) <= heights[key] then
+               level[key] = at
+               break
+            end
+         end
+      end
    end
+   M.heights = heights
 
    local y = 4
    for _, spec in ipairs(M.LEFT_SECTIONS) do
@@ -564,6 +722,10 @@ function M.reflow()
          section.box:move(4, y)
          section.box:resize("-8px", h)
          section.body:resize("100%", h - M.HEADER_PX - 4)
+         if section.divider then
+            section.divider:move(4, y - M.DIVIDER_PX / 2)
+            section.divider:raise()
+         end
       end
       y = y + h
    end
@@ -659,13 +821,19 @@ end
 emunah.event.register("AdjustableContainerRepositionFinish", function(_, name)
    if type(name) == "string" and name:sub(1, 7) == "emunah." and emunah.config.get("ui.enabled", true) then
       M.resizeConsole()
+      -- The left column's sections are placed in pixels: a taller or shorter column needs
+      -- them laid out again, or they keep the old column's heights.
+      if name == "emunah.left" then theme.later("layout.reflow", M.reflow) end
    end
 end, "ui.layout")
 
--- Keep the console borders correct when the window is resized. The containers handle
--- themselves; the borders do not.
+-- Keep the console borders correct when the window is resized, and the left column's
+-- sections in it. The containers handle themselves; the borders and the sections do not.
 emunah.event.register("sysWindowResizeEvent", function()
-   if emunah.config.get("ui.enabled", true) then M.resizeConsole() end
+   if emunah.config.get("ui.enabled", true) then
+      M.resizeConsole()
+      theme.later("layout.reflow", M.reflow)
+   end
 end, "ui.layout")
 
 M.build()

@@ -318,6 +318,11 @@ local function apply(report)
    elseif kind == "state" then
       local handlers = TEXT_STATES[name]
       if handlers then M[report[3] and handlers.on or handlers.off]() end
+   elseif kind == "foe" then
+      M.noteFoe(report[3], name)
+   elseif kind == "spent" then
+      -- svof's lostbal_focus(): nothing if the balance is already down.
+      if emunah.timers.remaining("cure." .. name) <= 0 then emunah.have.spend(name) end
    end
 end
 
@@ -344,6 +349,52 @@ end
 --- A state entered or left.
 function M.textState(state, on)
    report({ "state", state, on and true or false })
+end
+
+--- Someone attacked you with a line only `class` sends: svof's startedfighting(), from the
+--- class attack lines in the imported package. Who is fighting you, and as what, is what the
+--- fight warnings and an ally need to know (watch.lua, allies.lua).
+function M.textFoe(class, name)
+   if type(name) ~= "string" or name == "" then return end
+   report({ "foe", tostring(class or ""):lower(), name:lower() })
+end
+
+--- A curing balance taken from you by an attack: the Alchemist homunculus's shriek takes
+--- focus [svof: homunculus_throat]. Counted as spent, so nothing tries to focus into it.
+function M.textSpent(vector)
+   report({ "spent", tostring(vector or ""):lower() })
+end
+
+--- name (lower) -> { class = "alchemist", at = when last seen attacking }. For this login.
+M.foes = {}
+
+--- How long an attacker stays "fighting you" with no further line from them.
+M.FOE_TIMEOUT = 60
+
+function M.noteFoe(name, class)
+   local known = M.foes[name]
+   M.foes[name] = { class = class, at = emunah.util.now() }
+   if not known or known.class ~= class then
+      log.info("%s is attacking you as %s %s.", emunah.util.capitalise(name),
+         class:match("^[aeiou]") and "an" or "a", emunah.util.capitalise(class))
+      event.raise("foe", name, class)
+   end
+end
+
+--- The class of someone attacking you, if a line has said, and recently.
+function M.foeClass(name)
+   local foe = M.foes[tostring(name or ""):lower()]
+   if not foe or emunah.util.now() - foe.at > M.FOE_TIMEOUT then return nil end
+   return foe.class
+end
+
+--- Everyone who has attacked you within FOE_TIMEOUT, as name -> class.
+function M.activeFoes()
+   local out, now = {}, emunah.util.now()
+   for name, foe in pairs(M.foes) do
+      if now - foe.at <= M.FOE_TIMEOUT then out[name] = foe.class end
+   end
+   return out
 end
 
 --- This block of output contains an illusion: throw away everything it reported.
@@ -464,11 +515,26 @@ end
 --- Char.Status naming the angel. curing/deflist.lua's M.SYNTHETIC reads this directly, the
 --- same way it reads a wielded item straight off Char.Items for the mace -- neither has a
 --- Char.Defences entry to be "up" in.
-M.angel = false
-
+---
+--- Kept in emunah._persist, as bliss is: on the module it was forgotten by every `emreload`
+--- (2026-10-15: trackangel red after a reload with the angel at your side), and keep-up then
+--- spent a summon to learn it again. Cleared on disconnect, where it cannot be known.
 function M.isAngelSummoned()
-   return M.angel
+   return emunah._persist ~= nil and emunah._persist.angelSummoned == true
 end
+
+--- Record the angel arriving or leaving, raising what a Char.Defences change would.
+function M.setAngel(up)
+   emunah._persist = emunah._persist or {}
+   local was = emunah._persist.angelSummoned == true
+   emunah._persist.angelSummoned = up and true or nil
+   if up and not was then emunah.event.raise("defence.added", "trackangel") end
+   if was and not up then emunah.event.raise("defence.lost", "trackangel") end
+end
+
+emunah.event.register("sysDisconnectionEvent", function()
+   if emunah._persist then emunah._persist.angelSummoned = nil end
+end, "detect-angel")
 
 --- True when this sleep is one the character asked for.
 ---

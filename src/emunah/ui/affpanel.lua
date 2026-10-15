@@ -21,7 +21,9 @@
 --- pills, because each one holds every command. Below them: every curing vector currently
 --- shut and by what -- a lock, read off in one line.
 ---
---- DEFENCES lists what keep-up is owed first, then what is up.
+--- DEFENCES files every defence under what raises it -- Elixirs, Herbs, Salves, then each
+--- skillset by the server's name for it (deflist.raisedBy()) -- with the item or command
+--- beside it, and within each heading what keep-up is owed first, then what is up.
 ---
 --- Both are Labels drawing rich text (see ui/theme.lua for why), each painted in one call and
 --- not at all when unchanged, after the packet (theme.later).
@@ -275,6 +277,67 @@ local function updateAfflictions()
    return live
 end
 
+--- Where a category's heading sorts: the items first, in the order you would reach for them,
+--- then the skillsets alphabetically, then what nothing could place.
+local CATEGORY_RANK = { Elixirs = 1, Herbs = 2, Minerals = 3, Salves = 4, Pipes = 5,
+                        Abilities = 98, Other = 99 }
+
+local function categoryBefore(a, b)
+   local ra, rb = CATEGORY_RANK[a] or 50, CATEGORY_RANK[b] or 50
+   if ra ~= rb then return ra < rb end
+   return a < b
+end
+
+--- One defence's cell: its dot and name, and what raises it unless that is just its name
+--- again (`insomnia` is raised by `insomnia`).
+local function defenceCell(entry, keepingUp, withSource)
+   local cell
+   if entry.up then
+      cell = theme.span("defence", "&#9679; ") .. theme.span("text", theme.esc(entry.name))
+   else
+      cell = theme.span(keepingUp and "warning" or "textDim", "&#9675; " .. theme.esc(entry.name))
+   end
+   if withSource and entry.source and entry.source ~= entry.name then
+      cell = cell .. theme.span("textDim", " &middot; " .. theme.esc(entry.source))
+   end
+   return cell
+end
+
+--- The defences, filed by category (deflist.raisedBy()): owed first within each, then up.
+--- @return table categories in display order, table category -> entries
+local function groupDefences(active, missing)
+   local deflist = emunah.curing.deflist
+   local byCategory, order = {}, {}
+   local seen = {}
+   local function add(name, up)
+      if seen[name] then return end
+      seen[name] = true
+      local category, source = deflist.raisedBy(name)
+      local list = byCategory[category]
+      if not list then
+         list = {}
+         byCategory[category] = list
+         order[#order + 1] = category
+      end
+      list[#list + 1] = { name = name, up = up, source = source }
+   end
+   for _, name in ipairs(missing) do add(name, false) end
+   for _, record in ipairs(active) do add(record.name, true) end
+   -- Up by their own lines, never in Char.Defences (deflist.SYNTHETIC): bliss, the angel,
+   -- the mace. Listed so the panel shows every defence Emunah knows is up.
+   for name in pairs(deflist.SYNTHETIC) do
+      if deflist.isUp(name) then add(name, true) end
+   end
+   table.sort(order, categoryBefore)
+   for _, category in ipairs(order) do
+      table.sort(byCategory[category], function(a, b)
+         if a.up ~= b.up then return not a.up end
+         return a.name < b.name
+      end)
+   end
+   return order, byCategory
+end
+
 --- Repaint the defences section.
 local function updateDefences()
    local body = M.widgets.defences
@@ -285,10 +348,17 @@ local function updateDefences()
    local active  = defences.list()
    local missing = keepup and keepup.missing() or {}
    local keepingUp = keepup and keepup.enabled
+   local order, byCategory = groupDefences(active, missing)
+   local upCount = 0
+   for _, category in ipairs(order) do
+      for _, entry in ipairs(byCategory[category]) do
+         if entry.up then upCount = upCount + 1 end
+      end
+   end
 
    -- A defence missing while keep-up is OFF is not a fault, it is a job nobody is doing.
    -- Reported from play: `emunah defs add inspiration`, then it sat red indefinitely.
-   local summary = string.format("%d up", #active)
+   local summary = string.format("%d up", upCount)
    local summaryColour = "defence"
    if #missing > 0 then
       summary = summary .. string.format(" \194\183 %d down", #missing)
@@ -297,37 +367,44 @@ local function updateDefences()
    if not keepingUp and #missing > 0 then summary = summary .. " \194\183 keep-up off" end
    layout.header("defences", M.widgets.defencesHeader, "Defences", summary, summaryColour)
 
-   -- Owed first, in the warning colour (dim when nobody is raising them), then what is up.
-   local cells = {}
-   for _, name in ipairs(missing) do
-      cells[#cells + 1] = theme.span(keepingUp and "warning" or "textDim", "&#9675; " .. theme.esc(name))
-   end
-   for _, record in ipairs(active) do
-      cells[#cells + 1] = theme.span("defence", "&#9679; ") .. theme.span("text", theme.esc(record.name))
-   end
-
-   -- Two columns, or three when the left column is short of room (layout.reflow()).
-   local columns = layout.compact("defences") >= 2 and 3 or 2
+   -- Three densities, most spacious first, for layout.reflow() to choose between: one a
+   -- row with what raised it beside it; two a row, still with it; three a row, names only.
+   -- Each category's heading is a line of its own in all three.
+   local level = layout.compact("defences")
+   local columns = level >= 3 and 3 or level
+   local withSource = level < 3
+   local lines = { 0, 0, 0 }
    local n = 0
-   if #cells == 0 then
+   if #order == 0 then
       n = 1
       html[1] = theme.span("textDim", "none")
    else
       n = 1
       html[1] = '<table width="100%" cellspacing="0" cellpadding="0">'
       local width = math.floor(100 / columns)
-      for index = 1, #cells, columns do
-         n = n + 1
-         local row = {}
-         for offset = 0, columns - 1 do
-            row[#row + 1] = string.format('<td width="%d%%">%s</td>', width, cells[index + offset] or "")
+      for _, category in ipairs(order) do
+         local entries = byCategory[category]
+         for density = 1, 3 do
+            lines[density] = lines[density] + 1 + math.ceil(#entries / density)
          end
-         html[n] = "<tr>" .. table.concat(row) .. "</tr>"
+         n = n + 1
+         html[n] = string.format('<tr><td colspan="%d">%s</td></tr>', columns,
+            theme.span("accent", theme.esc(category)))
+         for index = 1, #entries, columns do
+            local row = {}
+            for offset = 0, columns - 1 do
+               local entry = entries[index + offset]
+               row[#row + 1] = string.format('<td width="%d%%">%s</td>', width,
+                  entry and defenceCell(entry, keepingUp, withSource) or "")
+            end
+            n = n + 1
+            html[n] = "<tr>" .. table.concat(row) .. "</tr>"
+         end
       end
       n = n + 1
       html[n] = "</table>"
    end
-   layout.need("defences", { math.max(1, math.ceil(#cells / 2)), math.max(1, math.ceil(#cells / 3)) })
+   layout.need("defences", { math.max(1, lines[1]), math.max(1, lines[2]), math.max(1, lines[3]) })
    theme.paintLabel(body, "body.defences", table.concat(html, "", 1, n))
 end
 
@@ -351,6 +428,8 @@ emunah.event.registerAll({
    "emunah.curing.disabled",
    "emunah.defkeepup.enabled",
    "emunah.defkeepup.disabled",
+   -- The skill index names an ability's skillset, which is a defence's heading.
+   "emunah.skills.list",
 }, function() theme.later("affpanel", M.update) end, "ui.affpanel")   -- after the packet: theme.later()
 
 -- A cure sent, answered or refused changes a row's status with no affliction event at all.

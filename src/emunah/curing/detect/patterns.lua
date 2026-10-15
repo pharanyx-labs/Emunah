@@ -629,10 +629,7 @@ end
 
 do
    local function onAngelUp()
-      if not detect.angel then
-         detect.angel = true
-         emunah.event.raise("defence.added", "trackangel")
-      end
+      detect.setAngel(true)
       -- NOTHING ELSE CONFIRMS THE EQUILIBRIUM VECTOR for this command -- same gap
       -- documented below at "perform hands landed": "Equilibrium used: N.NNs." arms the
       -- fallback timer but never calls queue.confirm(), so without this the vector sits
@@ -647,7 +644,7 @@ do
    -- REGRESSION: a cold summon and a redundant one answer with DIFFERENT text, and only the
    -- first was covered. Confirmed live 08:32:09.28-08:32:16.27: `angel summon` sent while
    -- already summoned answered "You feel confusion radiate from your guardian, who hovers
-   -- already at your side." -- which never touched detect.angel, so isUp("trackangel") stayed
+   -- already at your side." -- which never set the angel flag, so isUp("trackangel") stayed
    -- false forever and keep-up resent ANGEL SUMMON every equilibrium cycle indefinitely,
    -- stopped only by the user pausing keep-up by hand (`pp`). Both mean the same thing --
    -- the angel is up -- and both have to set the flag.
@@ -665,10 +662,7 @@ end
 
 do
    local id = tempRegexTrigger([[^Your guardian angel shimmers silently away\.$]], function()
-      if detect.angel then
-         detect.angel = false
-         emunah.event.raise("defence.lost", "trackangel")
-      end
+      detect.setAngel(false)
    end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}

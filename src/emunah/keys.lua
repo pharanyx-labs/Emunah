@@ -69,8 +69,18 @@ end
 M.ACTIONS = {
    { name = "reload",   modifier = "Control", key = "F5",
      fn = function() emunahReload() end },
-   -- Hunting support both ways (the user, 2026-10-15): attack what the leader attacks.
-   { name = "support toggle", modifier = "None", key = "F5",
+   -- PvP modes (the user, 2026-10-15: "set rules via f5-8 that will enter various pvp
+   -- modes"). Each enters its mode and turns PvP on; F1 still turns it off.
+   { name = "pvp attack",  modifier = "None", key = "F5",
+     fn = function() emunah.commands.dispatch("pvp mode attack") end },
+   { name = "pvp offence", modifier = "None", key = "F6",
+     fn = function() emunah.commands.dispatch("pvp mode offence") end },
+   { name = "pvp hinder",  modifier = "None", key = "F7",
+     fn = function() emunah.commands.dispatch("pvp mode hinder") end },
+   { name = "pvp finish",  modifier = "None", key = "F8",
+     fn = function() emunah.commands.dispatch("pvp mode finish") end },
+   -- Hunting support both ways: attack what the leader attacks. F5 until F5-F8 went to PvP.
+   { name = "support toggle", modifier = "None", key = "F9",
      fn = function() emunah.commands.dispatch("support") end },
    -- One key for the hunt both ways (the user, 2026-10-12): on when it is off, off when on.
    { name = "hunt toggle", modifier = "None",  key = "F11",

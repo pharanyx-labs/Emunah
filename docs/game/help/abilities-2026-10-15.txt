@@ -1,0 +1,3983 @@
+Source: `emset skills dump` (GMCP Char.Skills.Info for every ability), the user's character,
+2026-10-15 20:17. Abilities change now and then: re-run the dump rather than trust this copy
+for what is trained. The text of each ability is verbatim from the game.
+
+Emunah ability dump, 2026-10-15 20:18. 172 of 259 abilities answered.
+
+==== Attainment (Virtuoso) ====
+
+---- portals
+Syntax:
+PORTALS
+
+Works on/against:
+None
+
+Details:
+Access to the Ring of Portals, which will provide convenient access to  
+many useful places throughout the lands.                                
+
+---- market
+Syntax:
+MARKETON
+MARKETOFF
+MARKET <text>
+
+Works on/against:
+None
+
+Details:
+The market channel is a venue for sellers to quickly find buyers and    
+vice versa. If you have something to sell or need to buy something in a 
+hurry, this is the channel to use!                                      
+
+Market use is subject to stricter rules relative to most other channels.
+Please see HELP MARKET for details.                                     
+
+---- battle
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+You are able to attack adventurers and participate in arena events.
+
+---- limitedportals
+Syntax:
+PORTALS
+
+Works on/against:
+None
+
+Details:
+You may only access the Ring of Portals 20 more times.
+
+Time to start learning your way around! See HELP LANDMARKS for help     
+getting around without PORTALS.                                         
+
+---- independence
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+Time to stand on your own two feet!
+
+* You no longer have access to the Ring of Portals. See HELP LANDMARKS  
+for help getting around.                                                
+* You are no longer welcome in Minia, Lodi, and Mount Gheladan.
+
+---- tradeskills
+Syntax:
+ASK AMARISSE GAIN <trade skill>
+
+Works on/against:
+None
+
+Details:
+Seek out Amarisse at the Delosian Crafters Union in Delos to begin      
+learning a tradeskill.                                                  
+
+See HELP TRADESKILLS for more information and a list of tradeskills.
+
+---- theft
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+You have advanced to the point that you may become the target of        
+attempted theft.                                                        
+
+To help protect yourself, see HELP THEFT and the Selfishness ability in 
+Survival.                                                               
+
+---- embrace
+Syntax:
+EMBRACE CLASS
+
+Works on/against:
+None
+
+Details:
+The Good News: if you EMBRACE CLASS, then:
+- you become a full member in the class.
+- you are no longer a journeyman/journeywoman.
+- you may train in all class skills without limitation.
+
+The Not-So-Good News: if you EMBRACE CLASS, then:
+- you may not UNEMBRACE class. Ever.
+- if you decide to leave your class, then you will only receive HALF of 
+the lessons back that you invested in class skills.                     
+
+Prior to embracing class, if you leave your class, you'll receive a     
+refund of about 98% of your lessons invested in class skills. After,    
+you'll receive about 50%. Think carefully about embracing class!        
+
+This is a very serious decision. Do not make it lightly!
+
+A Bit More Bad News:
+Once you are offered the opportunity to embrace, whether you do or not, 
+you may never return to any newbie area such as Minia or Lodi, not even 
+if you somehow fall to level 20 or lower again.                         
+
+NOTE: If you join a house and reach House Rank 2, you will be able to   
+EMBRACE CLASS at level 30 instead of 50.                                
+
+---- craftsmanship
+Syntax:
+ASK AMARISSE GAIN <trade skill>
+
+Works on/against:
+None
+
+Details:
+Seek out Amarisse at the Delosian Crafters Union in Delos to begin      
+learning another tradeskill.                                            
+
+See HELP TRADESKILLS for more information and a list of tradeskills.
+
+---- multiclass
+*** You have not yet learned this ability ***
+
+Syntax:
+ASK CERTIMENE GAIN <class>
+CLASS SWITCH <class name|slot#>
+CLASS LIST
+CLASS STATUS
+CLASS FORGET <class>
+CLASS BUY SLOT
+
+Works on/against:
+None
+
+Details:
+Seek out Certimene in Delos to begin learning another class, subject to 
+some restrictions.                                                      
+
+Once you have learned an additional class, you may switch between       
+classes once every 12 Achaean days (12 RL hours), though this time can  
+be reduced in various ways.                                             
+
+See HELP MULTICLASS for details.
+
+---- sustenance
+*** You have not yet learned this ability ***
+
+Syntax:
+CONFIG DEPRIVATION [ON|OFF]
+
+Works on/against:
+None
+
+Details:
+You will no longer grow more tired or more hungry.
+
+Note that this only applies to the natural effects of the passage of    
+time; some special abilities may still cause hunger or tiredness.       
+
+This is automatically OFF for all who reach level 80, but you can toggle
+this with the DEPRIVATION configuration.                                
+
+---- dragonhood
+*** You have not yet learned this ability ***
+
+Syntax:
+DRAGONFORM
+
+Works on/against:
+None
+
+Details:
+Seek out the crater in the centre of the Mhojave desert and LIGHT the   
+beacon for your desired Dragon colour.                                  
+
+See HELP DRAGONS for more.
+
+---- polymath
+*** You have not yet learned this ability ***
+
+Syntax:
+ASK CERTIMENE GAIN <class>
+CLASS SWITCH <class name|slot#>
+CLASS LIST
+CLASS STATUS
+CLASS FORGET <class>
+CLASS BUY SLOT
+
+Works on/against:
+None
+
+Details:
+Seek out Certimene in Delos to begin learning another class, subject to 
+some restrictions.                                                      
+
+Once you have learned an additional class, you may switch between       
+classes once every 12 Achaean days (12 RL hours), though this time can  
+be reduced in various ways.                                             
+
+See HELP MULTICLASS for details.
+
+You will continue to gain additional class slots for every 10 levels    
+past 100.                                                               
+
+---- battlerage
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+As you fight denizens, you will build up Battlerage. Your Rage will     
+increase as you do damage to denizens, and will slowly decrease if you  
+stop attacking. Certain abilities only useful against denizens require  
+you to build up and expend Rage.                                        
+
+Each class has access to six Battlerage abilities, which will be earned 
+as you increase in level from 6 to 65.                                  
+
+By default, you will be notified every time you gain Rage and you can  
+also do BATTLERAGE (or simply BR) to see your current rage.             
+
+For configuration options, details, and more, see HELP BATTLERAGE.
+
+---- torment
+Syntax:
+ANGEL TORMENT <target>
+
+Works on/against:
+Denizens
+
+Cooldown:
+16.00 seconds
+Resource:
+14 rage
+Details:
+Your angel crystalizes its wings and buffets the target with them, causing painful wounds.
+
+---- incense
+Syntax:
+ANGEL INCENSE <target>
+
+Extra Information:
+Gives denizen affliction: Recklessness
+
+Works on/against:
+Denizens
+
+Cooldown:
+19.00 seconds
+Resource:
+18 rage
+Details:
+Your angel absorbs your rage and channels it into your target instead, making it impossible for the target to shield itself for several seconds.
+
+---- crack
+Syntax:
+CRACK <target>
+
+Works on/against:
+Denizens
+
+Resource:
+17 rage
+Details:
+Expend your rage in a powerful blow with your mace that is able to shatter a denizen's shield.
+
+---- desolation
+Syntax:
+PERFORM RITE OF DESOLATION ON <target>
+
+Works on/against:
+Denizens
+
+Cooldown:
+23.00 seconds
+Resource:
+36 rage
+Details:
+This rite will torture the unfaithful, causing their very bones to ache. The pain will last for several seconds, doing damage to your target for the duration.
+
+---- hammer
+Syntax:
+HAMMER <target>
+
+Extra Information:
+Uses denizen afflictions: Clumsiness or Amnesia
+
+Works on/against:
+Denizens
+
+Cooldown:
+23.00 seconds
+Resource:
+25 rage
+Details:
+Swing your mace in a mighty blow at your target. This attack will do significantly increased damage to those who are too clumsy to see it coming or forgetful enough to neglect to dodge it.
+
+---- horrify
+*** You have not yet learned this ability ***
+
+Syntax:
+PERFORM RITE OF HORRIFY ON <target>
+
+Extra Information:
+Gives denizen affliction: Fear
+
+Works on/against:
+Denizens
+
+Cooldown:
+34.00 seconds
+Resource:
+29 rage
+Details:
+Summon a rite of terrible visions that causes your target to flee uncontrollably for several seconds.
+
+---- provoke
+*** You have not yet learned this ability ***
+
+Syntax:
+PROVOKE <target>
+
+Works on/against:
+None
+
+Cooldown:
+20.00 seconds
+Resource:
+32 rage
+Details:
+Let out a fierce bellow to provoke a denizen, forcing it to focus its  
+attacks on you for a short duration.                                    
+
+Note: This ability consumes 2.5s of both balance and equilibrium, while 
+also requiring you to be on both balance and equilibrium in addition to 
+your arms and legs being whole, not being paralysed, and not being tied.
+
+==== Avoidance (Virtuoso) ====
+
+---- avoid
+Syntax:
+AVOID <PHYSICAL|ARCANE|MENTAL|AOE>
+
+Works on/against:
+None
+
+Details:
+Learning to strike a foe is but half the battle, for they too will seek 
+to end your life. Studying this ability will allow you to focus on a    
+type of incoming attack and mitigate the damage you suffer from said    
+attack if you successfully avoid it. This ability does improve          
+considerably as you rise through the ranks in avoidance.                
+
+Note that some abilities are beyond your ability to avoid, and you may  
+only change what you are avoiding once every thirty seconds.            
+
+---- metabolise
+*** You have not yet learned this ability ***
+
+Syntax:
+METABOLISE <affliction>
+
+Works on/against:
+None
+
+Cooldown:
+3.00 seconds of equilibrium
+Details:
+You may now focus upon a specific affliction(*) and train your          
+metabolism to drive off rapid multiple origin delivery(**) of that      
+affliction. For example, you may now METABOLISE IMPATIENCE, and if      
+Makarios gives you impatience you shall be afflicted as normal, but if  
+Ictinus then tries to give you impatience again in a short window there 
+after you shall resist it. However, if Makarios gives you impatience    
+then rapidly reapplies it, both will still afflict you.                 
+
+* Only certain afflictions can be metabolised. Generally speaking: if   
+the tree tattoo cannot cure it and it is not cured by eating or smoking,
+it cannot be metabolised.                                               
+** The window for this ability to consider delivery rapid is around two 
+seconds.                                                                
+*** This ability only works against players as of this time.
+
+---- epitomise
+*** You have not yet learned this ability ***
+
+Syntax:
+EPITOMISE
+
+Works on/against:
+None
+
+Details:
+The master of avoidance may, for but a brief time(*) and only so        
+often(**), enter a state of such epitomised martial perfection that they
+shall find themselves able to avoid onslaughts of multiple adventurers  
+when surrounded(***).                                                   
+
+* Nine seconds duration.
+** Fifty seconds cooldown.
+*** When multiple attackers attempt to assault you, they will find that 
+many of their attacks outright miss.                                    
+
+==== Devotion (Transcendent) ====
+
+---- enlightenment
+Syntax:
+PERFORM ENLIGHTENMENT [target]
+
+Works on/against:
+Adventurers and self
+
+Cooldown:
+3.50 seconds of equilibrium
+Details:
+When performed upon yourself, this will reveal your current devotion levels. When performed on an adventurer, this will reveal their devotion levels if they have access to the Light. It will also reveal if they have accepted the true path of Good and have received a Preaching blessing.
+
+---- hands
+Syntax:
+PERFORM HANDS [target]
+
+Works on/against:
+Adventurers, denizens, and self
+
+Cooldown:
+3.00 seconds of equilibrium
+Resource:
+150 devotion
+Details:
+This ability will allow you to lay hands on yourself or another to heal 
+some damage.                                                            
+
+---- parting
+Syntax:
+PERFORM PARTING <direction>
+
+Extra Information:
+Devotion cost: 100
+
+Works on/against:
+Room
+
+Cooldown:
+1.00 seconds of equilibrium
+Resource:
+100 devotion
+Details:
+In true religious tradition, you will now be able to part the water in a location, allowing safe and dry passage.
+
+---- preaching
+Syntax:
+PERFORM PREACHING <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.00 seconds of equilibrium
+Resource:
+250 devotion
+Details:
+This ability will allow you the opportunity to preach to an adventurer. Should they accept the enlightened truth you offer, they will receive a blessing over their life that allows them to be targeted with the DELIVERANCE and RESURRECTION abilities.
+
+---- truth
+Syntax:
+PERFORM TRUTH
+
+Works on/against:
+Room
+
+Cooldown:
+3.00 seconds of equilibrium
+Resource:
+100 devotion
+Details:
+This ability allows you to detect certain types of hidden adventurers in your room.
+
+---- rites
+Syntax:
+RITES
+
+Works on/against:
+Room
+
+Cooldown:
+1.00 seconds of equilibrium
+Details:
+This ability will show you what rites are operating in your room.
+
+---- sustenance
+Syntax:
+PERFORM RITE OF SUSTENANCE
+
+Works on/against:
+None
+
+Cooldown:
+3.00 seconds of equilibrium
+Resource:
+1500 devotion
+Details:
+At the cost of some devotion, you may feed yourself with this ability. You need to be holding a bowl of some sort in order for this to work. Upon performing the rite, your bowl will be filled with Divine manna, which will provide you with great sustenance.
+
+---- inspiration
+Syntax:
+PERFORM INSPIRATION
+
+Works on/against:
+Self
+
+Cooldown:
+3.50 seconds of equilibrium
+Resource:
+800 devotion
+Details:
+This ability will cause you to pray for divinely-inspired strength, effectively raising your strength +2 for a short time.
+
+---- bliss
+Syntax:
+PERFORM BLISS <target>
+
+Works on/against:
+Adventurers and self
+
+Cooldown:
+6.50 seconds of equilibrium
+Resource:
+1000 devotion
+Details:
+This will give your companion a glimpse of Paradise. The vision will be so calming and refreshing that the target will receive many beneficial blessings.
+
+---- pilgrimage
+Syntax:
+PERFORM RITE OF PILGRIMAGE
+PERFORM PILGRIMAGE <target>
+
+Extra Information:
+Rite cooldown: 5.00 seconds of equilibrium and 300 devotion.
+Travel cooldown: 3.50 seconds of equilibrium and 450 devotion.
+
+Works on/against:
+Adventurers
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+Devotion
+Details:
+By performing the rite of pilgrimage, you are able to then pilgrimage to
+anyone standing in that rite.                                           
+
+You may also perform a pilgrimage to any mutual ally who bears the      
+preach blessing, stripping their blessing in the process.               
+
+---- purity
+Syntax:
+PERFORM PURITY <target>
+
+Works on/against:
+Adventurers and denizens
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+250 devotion
+Details:
+Call upon your faith to the Bloodsworn and assail a foe's soul with your
+righteousness and pious fury. This holy prayer will bypass any magical  
+shields or prismatic barriers around your target.                       
+
+This ability does not cost devotion when used against denizens.
+
+
+---- chaoscalm
+Syntax:
+PERFORM CHAOSCALM <doppleganger>
+
+Works on/against:
+None
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+500 devotion
+Details:
+Chaos entities are the stuff of disorder, and your ordered, calm behavior is striking enough to drive them into submission for a short period of time.
+
+---- visions
+Syntax:
+PERFORM VISIONS <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.50 seconds of equilibrium
+Resource:
+100 devotion and 50 mana
+Details:
+Condemn your foe as an enemy of creation, striking them down to never   
+know peace. First, they will suffer the dementia affliction, while      
+subsequent visions will confer shyness if the target is already         
+demented.                                                               
+
+---- warding
+Syntax:
+PERFORM RITE OF WARDING
+
+Works on/against:
+Room
+
+Cooldown:
+3.80 seconds of equilibrium
+Resource:
+180 devotion
+Details:
+This ability will set up a rite that will ward off any of your enemies that enter the room, by giving them fear.
+
+---- force
+Syntax:
+PERFORM FORCE <target> <command>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+2000 devotion
+Details:
+Using your powers over those who fall under your gaze, you
+may force an adventurer to bend to your will and carry out your
+commands.
+
+
+---- piety
+Syntax:
+PERFORM RITE OF PIETY
+
+Works on/against:
+Room
+
+Cooldown:
+3.80 seconds of equilibrium
+Resource:
+600 devotion
+Details:
+This rite will make it difficult for your enemies to leave the room.    
+When it successfully prevents them from moving, they will suffer a      
+balance penalty.                                                        
+
+---- dazzle
+Syntax:
+PERFORM DAZZLE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.50 seconds of equilibrium
+Resource:
+250 devotion
+Details:
+This will dazzle the mind of an adventurer and cause them to become     
+struck down with a case of stupidity.                                   
+
+---- demons
+Syntax:
+PERFORM RITE OF DEMONS
+
+Works on/against:
+Room
+
+Cooldown:
+3.50 seconds of equilibrium
+Resource:
+360 devotion
+Details:
+This rite will cause your enemies to be tormented by vengeful demons.
+
+---- sloth
+Syntax:
+PERFORM SLOTH <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.20 seconds of equilibrium
+Resource:
+10 devotion
+Details:
+Condemn a target with the sin of sloth, giving them weariness.
+
+---- allsight
+Syntax:
+PERFORM RITE OF ALLSIGHT
+
+Works on/against:
+Room
+
+Cooldown:
+3.80 seconds of equilibrium
+Resource:
+180 devotion
+Details:
+When activated, this ability will inform you whenever any of your enemies enters or leaves the room that the Rite is in.
+
+---- healing
+Syntax:
+PERFORM RITE OF HEALING
+
+Works on/against:
+Room
+
+Cooldown:
+3.50 seconds of equilibrium
+Resource:
+360 devotion
+Details:
+This ability will cause a rite to spring into existence which will      
+occasionally heal an affliction from you and your allies that are in the
+room.                                                                   
+
+Note that this ability is mutually exclusive with ANGEL CARE;only one of
+these two effects may take effect at any one time even when both are    
+active.                                                                 
+
+---- well-being
+Syntax:
+PERFORM RITE OF WELL-BEING
+
+Works on/against:
+Room
+
+Cooldown:
+5.00 seconds of equilibrium
+Resource:
+120 devotion
+Details:
+The rite of well-being is a beneficial rite to all in the room. While in it, one will not grow any hungrier or sleepier. It lasts for quite a bit longer than the standard rite.
+
+---- convocation
+Syntax:
+PERFORM RITE OF CONVOCATION
+PERFORM CONVOCATION <target>
+
+Extra Information:
+Rite cooldown: 4.00 seconds of equilibrium and 600 devotion.
+Summon cooldown: 6.00 seconds of equilibrium, 600 devotion, 500 mana.
+
+Works on/against:
+Adventurers
+
+Cooldown:
+3.80 seconds of equilibrium
+Resource:
+Devotion and mana
+Details:
+This powerful ability will allow you to create a Rite of Convocation. Anyone in a Rite of Convocation set up by you can then be summoned by you by doing PERFORM CONVOCATION <adventurer>, providing that adventurer does not have certain defences set up, such as the mass salve.
+
+---- revitalisation
+Syntax:
+PERFORM RITE OF REVITALISATION
+
+Works on/against:
+Room
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+360 devotion
+Details:
+This rite will heal a percentage of one's maximum health and maximum mana. It will affect everyone in the room who is not an enemy of the Devotionist who performed it.
+
+---- deliverance
+Syntax:
+PERFORM DELIVERANCE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+1200 devotion
+Details:
+This will allow you to summon an adventurer from any distance should    
+they have been blessed with the PREACHING ability. It should be noted   
+that a monolith sigil placed in the room of the summonee or summoner    
+will prevent this from working.                                         
+
+Be aware that delivering another adventurer out of combat may open you  
+up for repercussion.                                                    
+
+
+---- cleansing
+Syntax:
+PERFORM RITE OF CLEANSING
+
+Works on/against:
+Room
+
+Cooldown:
+3.60 seconds of equilibrium
+Resource:
+300 devotion
+Details:
+This relatively short-lived rite will begin slowly stripping the        
+defences of any enemies in the room. It shall always strip the blackwind
+or astralform defences first.                                           
+
+
+---- reclaim
+Syntax:
+PERFORM RECLAIM <rite>
+
+Works on/against:
+Room
+
+Cooldown:
+3.00 seconds of equilibrium
+Details:
+This ability will allow you to remove one of your rites from your location, regaining some of the devotion used to summon it.
+
+---- prayer
+Syntax:
+PERFORM RITE OF PRAYER
+
+Extra Information:
+500 devotion is gained for each valid person present as the rite ends.
+
+Works on/against:
+Room
+
+Details:
+To perform this rite, there must be at least six people together in a   
+room. Apprentices do not count and you may be the only person with      
+Devotion there. All of the adventurers must KNEEL before the rite can   
+begin and no adventurer may participate in this rite more than once     
+every Achaean month. You will gain a certain amount of devotion for     
+every adventurer present, and the members of the assembled congregation 
+will gain experience also.                                              
+
+
+---- banishment
+Syntax:
+PERFORM RITE OF BANISHMENT
+
+Works on/against:
+Room
+
+Cooldown:
+4.50 seconds of equilibrium
+Resource:
+450 devotion
+Details:
+This rite will occasionally attempt to destroy a chaos entity, provided that a minion of chaos, sent by the Chaos Prince, Dameron, is not in the room. Also, it is rumoured that those occultists to have formed a pact with the greatest of the Chaos Lords may be capable of defeating this potent rite.
+
+---- fasting
+Syntax:
+PERFORM FASTING <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.20 seconds of equilibrium
+Resource:
+10 devotion
+Details:
+Instill an antipathy for food in your target, giving anorexia.
+
+---- resurrection
+Syntax:
+PERFORM RESURRECTION <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+5.00 seconds of equilibrium
+Resource:
+2000 devotion
+Details:
+One of the holiest of abilities, this will grant life anew to the target adventurer. For this ability to work, the adventurer must have been preached to and accepted the blessing over their life or be under level 30.
+
+---- illuminate
+Syntax:
+PERFORM ILLUMINATE <direction>
+PERFORM EXTINGUISH
+
+Extra Information:
+Illuminate cooldown: 3.50 seconds of equilibrium, 1000 mana, and 1500 devotion.
+Extinguish cooldown: 4.00 seconds of equilibrium, 1000 mana, and 500 devotion.
+
+Works on/against:
+Room
+
+Cooldown:
+Equilibrium
+Resource:
+1000 mana and devotion
+Details:
+When you perform this ability, you will create an orb of light which will move off in the direction specified. The orb is unpredictable and will move erratically. Each time it moves, the orb will illuminate the room, giving a chance to strip the blackwind or astralform defences from adventurers in the room.
+
+In addition, you may extinguish the orb at any time to travel directly to the room the orb is currently in. 
+
+It should be noted that the orb will only have enough energy to move a limited number of times, and it will fade if not extinguished a short while after it ceases moving.
+
+---- purify
+Syntax:
+PERFORM PURIFY
+
+Works on/against:
+None
+
+Cooldown:
+4.80 seconds of equilibrium
+Resource:
+500 mana
+Details:
+Drive out necromantic corruption, destroying the hands of the grave that
+may clutch at the living in a location. If a Necromancer stands guard   
+over said hands, there is a delay during which the faithful may perform 
+no other actions, so focussed on their task are they.                   
+
+---- bloodsworn
+Syntax:
+BLOODSWEAR <priest or paladin>
+BLOODSWORN ON/OFF
+BLOODSWORN REJECT
+
+Extra Information:
+Bloodswear <target> cooldown: Flat 1000 mana cost.
+Bloodswear on cooldown: 6.00 seconds of equilibrium, 1000 mana, 5 mana per second drain.
+Bloodswear off: no costs.
+Bloodswear reject: no costs.
+
+Works on/against:
+Adventurers and self
+
+Cooldown:
+Equilibrium
+Resource:
+1000 mana
+Drains:
+5 mana per second
+Details:
+The bond of the bloodsworn is one of the most revered rituals of
+devotion-users. When two Devotionists feel strongly that they wish
+to become one, they bloodswear to each other, and from that moment on,
+have the capability to bond their very souls to each other. When the
+BLOODSWORN ON ritual is performed by both of the Devotionists,
+their maximum health and manas will be 65% of the -sum- of both their
+normal maximum health and maximum mana respectively. Further, some  
+portion of the health or mana healed by either of the Devotionists,
+when using elixirs of health or mana, will also be healed on his or her 
+bloodsworn. The hands ability shall also heal an additional amount when 
+performed on your bloodsworn.                                           
+
+The bloodsworn ability will automatically turn off if the Priest and    
+Paladin are away from each other for greater than approximately 60      
+seconds.                                                                
+
+As with many phenomena that grant great power unto the user, the power  
+of the bloodsworn comes at a price. While the bloodsworn pact is        
+activated, with BLOODSWORN ON, the mana of both of the Devotionists
+will drain away. Further, and far more seriously, if either dies while  
+the ability is active, the other will be critically damaged in body.    
+Such is the price of power.                                             
+
+If you wish to break your blood bond, you may do so by rejecting your   
+bloodsworn, but be aware that you will not be able to become bloodsworn 
+to another until the New Year.                                          
+
+
+---- penitence
+Syntax:
+PERFORM PENITENCE <target>
+
+Works on/against:
+Adventurers and denizens
+
+Cooldown:
+1.00 seconds of equilibrium
+Resource:
+300 devotion and 100 mana
+Details:
+Through your piety to the Bloodsworn, you are able to force an          
+individual to perform penance for their crimes against Creation.        
+
+When used against an adventurer, this will brand them and upon granting 
+redemption to this person through death, your righteous work will be    
+rewarded with an increase in your Devotional energies.                  
+
+Against denizens, this will scour your foe in righteous fire, forcing   
+them to take ten percent more damage from your mace(*) and the          
+weaponmastery attacks of your fellow Paladins(**). In this case, the    
+devotion cost of this holy art will be reduced but its equilibrium cost 
+will be slightly increased.                                             
+
+* SPIRITUALITY SMITE.
+** All weapon-based attacks in the WEAPONMASTERY skill when performed by
+a Paladin.                                                              
+
+
+---- congregation
+Syntax:
+PERFORM CONGREGATION <rite1> [rite2]
+
+Works on/against:
+Room
+
+Cooldown:
+3.00 seconds of equilibrium
+Resource:
+200 mana and 50 willpower
+Details:
+You may now beckon forth up to two holy rites from somewhere else you   
+have placed them in the land. This notably does not incur any additional
+devotion cost, though you may not summon either the rites of piety or   
+warding in this manner.                                                 
+
+==== Riding (Mythical) ====
+
+---- mount
+Syntax:
+MOUNT <steed>
+DISMOUNT
+
+Works on/against:
+None
+
+Cooldown:
+3.00 seconds of balance
+Details:
+If you have the riding skill to ride a specific steed (or a steed of a similar level), you can mount and dismount it, assuming it is loyal to you.
+
+---- mule
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+You can ride upon a mule (or a steed of a similar level).
+
+---- mounts
+Syntax:
+MOUNTS
+
+Works on/against:
+None
+
+Cooldown:
+4.00 seconds of equilibrium
+Details:
+List all your loyal steeds. If a steed is on the same continent as you, it will list the exact location of where it is.
+
+---- calming
+Syntax:
+SOOTHE <steed>
+
+Works on/against:
+Denizens
+
+Cooldown:
+3.00 seconds of balance
+Details:
+If your loyal steed is panicking, quickly soothe the poor beast with soft, comforting whispers.
+
+---- ponies
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+You can ride upon a pony (or a steed of a similar level).
+
+---- scooping
+Syntax:
+GET <item>
+
+Works on/against:
+None
+
+Details:
+Your ease of being upon your steed is so great that you can easily scoop up items that lay on the ground while still mounted.
+
+---- steedtrade
+Syntax:
+STEEDTRADE <steed> TO <adventurer>
+
+Works on/against:
+None
+
+Cooldown:
+4.00 seconds of equilibrium
+Details:
+Trade your steed to another, transferring its loyalty. Make sure you get a good price! A steed that wears a collar of Lupus may not be traded under any conditions.
+
+---- lighthorse
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+You can ride upon a light horse (or a steed of a similar level).
+
+---- defence
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+While upon your steed, you will have a greater chance of avoiding physical blows. The greater your skill in riding and the stronger your mount, the more defence will be afforded you.
+
+---- fording
+Syntax:
+FORD <direction>
+
+Works on/against:
+Room
+
+Details:
+You can ford across rivers and other watery areas upon your steed. As long as you remain on your steed, you will not be endangered of drowning.
+
+---- whistle
+Syntax:
+WHISTLE MOUNT|WHISTLE MOUNT <mount type>|<mount#>
+
+Works on/against:
+None
+
+Cooldown:
+4.00 seconds of equilibrium
+Details:
+Upon issuing a high-pitched whistle, you can call one of your loyal mounts to you, so long as it is on the same continent as you. Note that this ability may only be used to call -one- mount to you. If you have multiple mounts, you will only be able to call one of them to you at a time. You can whistle for a specific mount with WHISTLE MOUNT <mount type> or WHISTLE MOUNT mount# (if you have more than one of the same type).
+
+---- mediumhorse
+Syntax:
+none
+
+Works on/against:
+None
+
+Details:
+You can ride upon a medium horse (or a steed of a similar level).
+
+---- intimidate
+Syntax:
+INTIMIDATE <steed>
+
+Works on/against:
+Denizens
+
+Cooldown:
+3.00 seconds of balance
+Details:
+Enrage your steed into a fury and it will attempt to intimidate another steed, sending it panicking. The success of the intimidation depends on your skill in riding and the level of your steed versus the level of the target steed and the riding skill of its rider (if mounted).
+
+---- ram
+Syntax:
+RAM <adventurer>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.50 seconds of balance
+Details:
+Attempt to ram a mounted opponent and knock him off his steed. Be warned, however, that depending on your skill in riding and the level of your mount versus your opponent's skill in riding and level of his mount, there is a chance that you will be the one knocked off your steed. Also, if your opponent has the jousting skill and is wielding the correct weapon, he will automatically lower it and attempt to skewer you.
+
+---- lasso
+Syntax:
+LASSO <mount>
+
+Works on/against:
+Denizens
+
+Cooldown:
+3.00 seconds of balance
+Details:
+If you find a wild steed that is not loyal to any other, you may attempt to lasso and ride it. You must be wielding a rope to make the attempt.
+
+---- heavyhorse
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+You can ride upon a heavy horse (or a steed of a similar level).
+
+---- vault
+Syntax:
+VAULT <denizen>
+
+Works on/against:
+Denizens
+
+Details:
+Instead of mounting a steed, you can vault onto it, cutting your balance time by two-thirds.
+
+---- gallop
+Syntax:
+GALLOP <direction> [distance] (between 1 and 11 rooms)
+
+Works on/against:
+Room
+
+Details:
+Gallop quickly in a direction upon a mounted steed.
+
+---- warhorse
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+You can ride upon a war horse (or a steed of a similar level).
+
+---- mountjump
+Syntax:
+MOUNTJUMP/MJ <direction>
+
+Works on/against:
+Room
+
+Cooldown:
+1.00 seconds of balance
+Details:
+Use your mount to jump over obstructions.
+
+---- greaterwarhorse
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+You can ride upon a greater war horse (or a steed of a similar level).
+
+---- blocking
+Syntax:
+BLOCK <direction>
+UNBLOCK
+
+Works on/against:
+None
+
+Details:
+You can use the mass of your steed to block exits.
+
+---- breakfall
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+This ability allows one to roll from the back of a faithful steed, to   
+prepare for use of the tumble ability in survival. This ability works   
+automatically.                                                          
+
+---- mountkick
+Syntax:
+MOUNTKICK/MK <adventurer> <direction>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+3.00 seconds of balance
+Details:
+Allows you to buck someone into an adjacent room, assuming they are not 
+mounted, prone or have defences that prevent you from moving them.      
+
+---- legendsteeds
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+Legend steeds are the highest class of steed available to a rider. They are extremely expensive, but to the lady or gentleman of discerning taste, there is no substitute. These steeds often go beyond the capabilities of your average horse.
+
+---- mounttreading
+*** You have not yet learned this ability ***
+
+Syntax:
+Passive
+
+Works on/against:
+None
+
+Details:
+Your skill in handling mounts allows you to train your beasts to move fluidly through water, as though you were affected by a waterwalk enchantment.
+
+---- flying
+*** You have not yet learned this ability ***
+
+Syntax:
+SPUR <steed> SKYWARDS
+
+Works on/against:
+None
+
+Cooldown:
+3.00 seconds of balance
+Details:
+If your steed has wings or can otherwise fly, you can now fly it up into the skies.
+
+---- jousting
+*** You have not yet learned this ability ***
+
+Syntax:
+JOUST <adventurer>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.50 seconds of balance
+Details:
+Similar to ram. You can attempt to joust a mounted opponent. If successful, you will knock him off his steed and viciously skewer him. You must be wielding a lance in order to joust. Be warned, however, that depending on your skill in riding and the level of your mount versus your opponent's skill in riding and level of his mount, there is a chance that you will be the one knocked off your steed and potentially skewered (for if your opponent has the jousting skill and is wielding the correct weapon, he will automatically lower it and attempt to skewer you).
+
+---- trample
+*** You have not yet learned this ability ***
+
+Syntax:
+TRAMPLE
+
+Works on/against:
+Room
+
+Cooldown:
+4.00 seconds of balance
+Details:
+Whip your steed into a fury and trample the ground. Anyone who is prone in your location will be in danger of having their limbs crushed under your steed's deadly rampage. The number of limbs crushed is based partly on chance and partly on your steed's level. The amount of damage is based upon the level of your steed and number of limbs crushed.
+
+==== Spirituality (Transcendent) ====
+
+---- summon
+Syntax:
+ANGEL SUMMON
+ANGEL FADE
+
+Works on/against:
+None
+
+Cooldown:
+2.00 seconds of equilibrium
+Resource:
+325 devotion
+Details:
+ANGEL SUMMON will call your angel to your side. When your angel has not been summoned, she will be resting invisible, though always near you. ANGEL FADE will cause your angel to fade back into obscurity.
+
+---- touch
+Syntax:
+ANGEL TOUCH
+
+Works on/against:
+None
+
+Cooldown:
+1.00 seconds of equilibrium
+Details:
+Using this ability, you will be able to assess the current power of your Angel. When she runs out of power, she will be forced to disappear and regain power.
+
+---- mace
+Syntax:
+SUMMON MACE
+CALL MACE
+SMITE <target> <limb> [CHASTEN <BODY|MIND|affliction>]
+
+Works on/against:
+Adventurers and denizens
+
+Cooldown:
+2.90 seconds of balance
+Details:
+Using your inherent link to the spirit world, you may summon a spiritual mace, with which to smite down your enemies. Note that your spiritual mace can be used with the targeting abilities in weaponry.
+
+---- shine
+Syntax:
+ANGEL SHINE [<target>]
+
+Extra Information:
+Roomwide cooldown: 2.00 seconds of equilibrium
+Target cooldown: 1.50 seconds of equilibrium and 100 mana
+
+Works on/against:
+Adventurers and room
+
+Cooldown:
+Equilibrium
+Resource:
+5 Angel power and mana
+Details:
+Upon doing this, your Angel will begin radiating light, the better to avoid fumbling about in the darkness. If you direct this ability at an adventurer, it will blind that adventurer.
+
+---- call
+Syntax:
+CALL MACE
+
+Works on/against:
+None
+
+Cooldown:
+4.00 seconds of equilibrium
+Details:
+Through sheer willpower, you will be able to summon your mace to you if you have lost it.
+
+---- aura
+Syntax:
+ANGEL AURA [<target>]
+
+Works on/against:
+Adventurers and self
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+10 Angel power and 100 mana
+Details:
+This ability will cause your angel to raise a magical shield (like the tattoo), of whomever you choose. If you do not specify anyone, then it will raise a shield around you.
+
+---- panic
+Syntax:
+ANGEL PANIC <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.40 seconds of equilibrium
+Details:
+With this ability, you may command your angel to strike fear into the heart of another adventurer.
+
+---- fortify
+Syntax:
+ANGEL FORTIFY
+
+Works on/against:
+None
+
+Cooldown:
+2.00 seconds of equilibrium
+Resource:
+Health
+Details:
+Using this ability, you may replenish your angel's power at a cost of some of your health.
+
+---- watch
+Syntax:
+ANGEL WATCH [ON|OFF]
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.00 seconds of equilibrium
+Resource:
+10 Angel power
+Details:
+When you turn on this ability, your angel will begin reporting on the movements of your enemies when they are near to you.
+
+---- smash
+Syntax:
+SMASH ARMS|LEGS <target> [CHASTEN <BODY|MIND|affliction>]
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.20 seconds of balance
+Details:
+This ability will allow you to crush one of your opponents arms or legs with your mace, rendering it useless.
+
+---- rest
+Syntax:
+ANGEL REST
+
+Works on/against:
+None
+
+Cooldown:
+2.80 seconds of equilibrium
+Details:
+Many abilities that you may use with your Angel will cause a regular drain on her power. This ability will cause your Angel to cease doing these things and rest.
+
+---- drain
+Syntax:
+ANGEL DRAIN
+
+Works on/against:
+Self
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+527 Angel power
+Details:
+Your Angel stands ready to sacrifice even her very essence for your benefit. This ability will replenish some of your health at a cost to her.
+
+---- heresy
+Syntax:
+HUNT HERESY
+
+Works on/against:
+Adventurers
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+400 mana
+Details:
+Engulf your mace in righteous flame for a time, empowering it to burn   
+through your foe's defences.                                            
+
+When smiting adventurers with your mace, you will burn away the aura of 
+rebounding from your foes.                                              
+
+When smiting denizens, the strike will burn through their magical       
+shield. In such cases, your smite deals half its normal damage, and its 
+damage type becomes fire.                                               
+
+
+---- seek
+Syntax:
+ANGEL SEEK <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.40 seconds of equilibrium
+Resource:
+5 Angel power
+Details:
+This ability will cause your angel to report on the whereabouts of the selected adventurer, his or her health and mana levels, and who is with him or her.
+
+---- mindread
+Syntax:
+ANGEL MINDREAD
+
+Works on/against:
+Room
+
+Cooldown:
+2.00 seconds of equilibrium
+Resource:
+100 Angel power
+Details:
+This ability will cause your angel to report to you any tells that adventurers in the room with you receive.
+
+---- push
+Syntax:
+ANGEL PUSH <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.20 seconds of equilibrium
+Resource:
+50 Angel power and 15 mana
+Details:
+Have your angel throw a heretic to the ground.
+
+* Requires they have inquisition if combined with
+smite and no requirement if performed standalone.                       
+
+---- beckon
+Syntax:
+ANGEL BECKON [<target>]
+
+Extra Information:
+Roomwide cooldown: 4.00 seconds of equilibrium and 35 Angel power
+Target cooldown: 1.50 seconds of equilibrium, 35 Angel power, and 30 mana
+
+Works on/against:
+Adventurers and room
+
+Cooldown:
+Equilibrium
+Resource:
+35 Angel power and mana
+Details:
+This ability will cause your angel to draw all those in adjacent locations to your location. If you target a specific adventurer (who must be in an adjacent location), then it will draw only that adventurer in. If the adventurer(s) being drawn in can't move normally, then angel beckon will do nothing.
+
+---- sear
+Syntax:
+ANGEL SEAR <target>
+ANGEL SEAR ICEWALL <direction>
+
+Works on/against:
+Adventurers and room
+
+Cooldown:
+2.50 seconds of equilibrium
+Resource:
+10 Angel power and 100 mana
+Details:
+With this ability, you may command your guardian angel to sear an       
+opponent with intense heat, causing them to burst into flames. If the   
+target is a denizen, this will not consume any of your angel's power.   
+
+If your target is an adventurer and already ablaze, they shall become   
+sensitive to pain(*).                                                   
+
+Alternatively, your angel can target an icewall with its flames, melting
+it.                                                                     
+
+* This respects the deafness defence: if this is present the angel shall
+strip it instead.                                                       
+
+
+---- judgement
+Syntax:
+JUDGE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+5.00 seconds of equilibrium
+Details:
+Through supplication and prayer, you may seek judgement that an         
+adventurer has committed a crime punishable by death, and await his     
+sentence.                                                               
+
+This ability takes some time to work, though less if the heretic        
+possesses the justice affliction at the time you begin.                 
+
+
+---- strip
+Syntax:
+ANGEL STRIP <target>
+
+Works on/against:
+Adventurers and denizens
+
+Cooldown:
+1.80 seconds of equilibrium
+Resource:
+10 Angel power and 100 mana
+Details:
+You may order your angel to strip a defence from your opponent. It will 
+always strip magical shields first.                                     
+
+---- ripples
+Syntax:
+ANGEL RIPPLES
+
+Works on/against:
+Room
+
+Cooldown:
+2.00 seconds of equilibrium
+Resource:
+15 Angel power
+Details:
+With this ability, you will be able to see a list of all chaos entities currently on the Prime Material Plane.
+
+---- ward
+Syntax:
+ANGEL WARD
+
+Works on/against:
+Room
+
+Cooldown:
+3.10 seconds of equilibrium
+Resource:
+15 Angel power
+Details:
+Ward will cause all Chaos Entities in the room to have to fight to maintain their composure. If they fail, they will flee in fear.
+
+---- chasten
+Syntax:
+CHASTEN <target> [BODY|MIND|<affliction>]
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.80 seconds of equilibrium
+Resource:
+100 mana
+Details:
+The successful believer requires many methods to discourage the chaotic 
+natures of many of Achaea's inhabitants. Chasten will allow you to      
+disrupt an adventurer's mental processes, while focusing it upon the    
+body will disrupt their physical processes.                             
+
+This ability can be performed off balance if following a smite attack.
+
+Available body afflictions: paralysis, healthleech, clumsiness, nausea, 
+and asthma.                                                             
+
+Available mind afflictions: epilepsy, dizziness, confusion, and         
+recklessness.                                                           
+
+Should your target have all of the afflictions from one pool, they will 
+receive either addiction (for body) or impatience (for mind).
+
+
+---- presences
+Syntax:
+ANGEL PRESENCES
+
+Works on/against:
+Room
+
+Cooldown:
+2.50 seconds of equilibrium
+Resource:
+50 Angel power
+Details:
+Using this ability, you will be able to gain information on the status of the other people in the same area as you.
+
+---- lift
+Syntax:
+ANGEL LIFT <target>
+
+Works on/against:
+None
+
+Cooldown:
+2.90 seconds of equilibrium
+Details:
+Command your angel to lift an individual into the sky if outdoors, and  
+it shall be so.                                                         
+
+---- trace
+Syntax:
+ANGEL TRACE <target>
+ANGEL TRACE OFF
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.00 seconds of equilibrium
+Resource:
+25 Angel power
+Details:
+With trace, your angel will report on each movement of an adventurer,   
+within the same continent.                                              
+
+---- sap
+Syntax:
+ANGEL SAP <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.75 seconds of equilibrium
+Resource:
+5 Angel power
+Details:
+Order your angel to sap the mental strength of your target. The more    
+afflictions your target suffers from, the more this will drain(*).      
+
+* The drain scales to the number of afflictions they are suffering from.
+Guilt, ablaze, spiritburn, and tenderskin increase the value by more    
+than other afflictions, followed by mental and limb based afflictions.  
+Inquisition increases more than anything else.                          
+
+---- care
+Syntax:
+ANGEL CARE [ON|OFF]
+
+Works on/against:
+Adventurers and denizens
+
+Cooldown:
+1.80 seconds of equilibrium
+Resource:
+50 Angel power
+Details:
+This ability will cause your Angel to regularly heal your afflictions at
+a significant cost of power to her.                                     
+
+Note that this ability is mutually exclusive with devotion rite of      
+HEALING; only one of these two effects may take effect at any one time  
+even when both are active.                                              
+
+---- refuge
+Syntax:
+ANGEL REFUGE
+
+Works on/against:
+Self
+
+Cooldown:
+5.00 seconds of equilibrium
+Resource:
+300 Angel power
+Details:
+Using this ability, you may order your Angel to take you to Nirvana.
+
+---- empathy
+Syntax:
+ANGEL EMPATHY
+ANGEL EMPATHY OFF
+
+Works on/against:
+Self
+
+Cooldown:
+2.50 seconds of equilibrium
+Details:
+With this ability, your Angel will regularly heal you if you are damaged.
+
+---- power
+Syntax:
+ANGEL POWER
+
+Works on/against:
+None
+
+Cooldown:
+2.75 seconds of equilibrium
+Resource:
+Mana
+Details:
+Using the mental bond between you and your angel, you can devote some of your own mental energy to restore your spiritual companion's strength.
+
+---- contemplate
+Syntax:
+CONTEMPLATE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.00 seconds of equilibrium
+Resource:
+50 mana
+Details:
+With this ability, you may see how much mana an adventurer has.
+
+---- sacrifice
+Syntax:
+ANGEL SACRIFICE
+
+Works on/against:
+Self
+
+Cooldown:
+5.00 seconds of equilibrium
+Details:
+Though it will cost her greatly, your Angel will make the massive sacrifice required to restore you fully in both mind and body.
+
+---- absolve
+Syntax:
+ANGEL ABSOLVE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+4.40 seconds of equilibrium
+Resource:
+50 Angel power
+Details:
+Using this most powerful of Angelic abilities, your Angel will rip the very soul from your enemy. Be warned though, your enemy must be on less than half of his maximum mana.
+
+==== Survival (Fabled) ====
+
+---- fishing
+Syntax:
+None
+
+Works on/against:
+Room
+
+Details:
+Fishing is a complicated subject that has its own help file: HELP FISHING. Know, however, that the higher your survival skill rises the greater will be your chance of successfully hooking a fish.
+
+---- considering
+Syntax:
+CONSIDER/CON <target>
+
+Works on/against:
+Adventurers and denizens
+
+Details:
+Find out how strong another adventurer is relative to your might, or how strong a denizen is on an absolute scale. See HELP CONSIDER for more information.
+
+---- brawling
+Syntax:
+KICK <target>
+PUNCH <target>
+HEADSLAM <target>
+
+Works on/against:
+Adventurers and denizens
+
+Cooldown:
+Balance
+Details:
+Enter into basic hand-to-hand combat! These moves are especially recommended for the youths of the realm who have not yet learned any of the more powerful class skills for combat.
+
+---- navigating
+Syntax:
+WALK TOWARD <landmark>
+
+Works on/against:
+Room
+
+Details:
+Your geographic knowledge allows you to navigate to certain major landmarks in Sapience, such as major city-states, provided you are close enough to them.
+
+HELP LANDMARKS contains a full list of landmarks towards which you can navigate.
+
+---- diagnose
+Syntax:
+DIAGNOSE/DIAG [ME]
+
+Works on/against:
+Self
+
+Cooldown:
+1.00 seconds of equilibrium
+Details:
+With this ability, you may check and see a list of what ails you.
+
+---- distance
+Syntax:
+DISTANCE TO <landmark>/<adventurer>
+
+Works on/against:
+Room
+
+Cooldown:
+1.20 seconds of balance
+Details:
+Using this ability, you can sense the distance to a given landmark (see HELP LANDMARKS).
+
+---- swimming
+Syntax:
+SWIM <direction>
+
+Works on/against:
+Room
+
+Details:
+Using this ability, you can swim in lakes, rivers, and the ocean, albeit slowly.
+
+---- fluidswim
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+Once you have gained this ability, you will be able to swim constantly without fear of health loss due to drowning.
+
+---- surveying
+Syntax:
+SURVEY
+SURVEY REGION <commodity>
+SURVEY FOR MAP
+
+Works on/against:
+Room
+
+Details:
+You've learned the lay of the land enough to be able to determine some  
+basic information about your surroundings from a simple glance.         
+
+This includes information about your environment, area, whether or not  
+the area has been reclaimed for Nature, and nearby landmarks if you are 
+in the wilderness.                                                      
+
+---- selfishness
+Syntax:
+SELFISHNESS
+GENEROSITY
+
+Works on/against:
+None
+
+Cooldown:
+0.50 seconds of equilibrium
+Details:
+With this ability, you may cause yourself to become so selfish that you can't give away a thing. Exceptions to this are sigils and boomerangs.
+
+---- perceive
+Syntax:
+PERCEIVE
+
+Works on/against:
+Room
+
+Details:
+Use this ability to discover if a forest location has been claimed as a Grove or not.
+
+---- assessing
+Syntax:
+ASSESS <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.50 seconds of equilibrium
+Resource:
+50 mana
+Details:
+You've now gained the ability to see the health of another adventurer by evaluating the seriousness of their wounds.
+
+---- dousing
+Syntax:
+FILL BUCKET WITH WATER
+DOUSE ROOM|GROUND
+DOUSE <person>|<item>
+DOUSE SAIL[S]
+
+Works on/against:
+Adventurers and room
+
+Details:
+With this ability, you may fill a bucket with water in any watery       
+location, and then, while standing in a burning location, douse the     
+fires that rage.                                                        
+Dousing the ground shall also extinguish any firewalls which may have   
+been erected in the location.                                           
+
+---- physiology
+Syntax:
+Passive
+
+Works on/against:
+None
+
+Details:
+Due to your increased knowledge of the physiology of sentient life, you are able to discern your own ailments at a much quicker speed.
+
+---- sewers
+Syntax:
+ENTER GRATE
+
+Works on/against:
+None
+
+Details:
+Dotted around the streets of cities are sewer grates, leading to the sewer system of that city. This ability will allow you access to that foul area, but be warned that many unsavoury characters reside there.
+
+---- satiation
+Syntax:
+SATIATION
+
+Works on/against:
+None
+
+Cooldown:
+4.00 seconds of equilibrium
+Resource:
+100 mana
+Details:
+By using this ability, you will begin to concentrate on processing your food more efficiently. After activating it, you'll have a short period during which to eat some food.
+
+---- metawake
+Syntax:
+METAWAKE [ON|OFF]
+RELAX METAWAKE
+
+Works on/against:
+None
+
+Drains:
+Mana
+Details:
+Though it will quickly drain your mana, turning metawake on will ensure that you will quickly wake up if put to sleep.
+
+---- tumbling
+Syntax:
+TUMBLE <direction>
+
+Works on/against:
+Room
+
+Cooldown:
+Balance
+Details:
+Your body is agile enough that you are able to escape nearly any        
+predicament by tumbling out of the room. Be warned though that tumbling 
+is not the swiftest method of moving and that furthermore, you will lose
+your entourage and perhaps some defences while doing this.              
+
+Note that if you attempt to move while tumbling, the tumble attempt will
+be aborted.                                                             
+
+---- focusing
+Syntax:
+FOCUS
+
+Works on/against:
+Self
+
+Resource:
+250 mana
+Details:
+Your mental survival skills have adapted to the point where you can cure mental afflictions merely by focusing your mind. Be warned though that the mana cost for this is high.
+
+---- wormattack
+Syntax:
+WORM CANCEL
+
+Works on/against:
+Room
+
+Cooldown:
+5.00 seconds of equilibrium
+Details:
+To use this ability, you must first possess the ability Wormholes in Vision. Using this ability, you may attack a wormhole and attempt to destroy it. Once you start the process, you must finish it without executing any commands, or you will have to start over. It is not a short process at all, as it is an extremely complicated thing to close a dimensional wormhole.
+
+---- leap
+Syntax:
+LEAP <direction>
+
+Works on/against:
+None
+
+Details:
+Walls, rubble, and other impediments are no longer a problem to one with your training. What you cannot get around, you may go over.
+
+---- clotting
+Syntax:
+CLOT [amount]
+
+Works on/against:
+Self
+
+Resource:
+60 mana
+Details:
+This will permit you to partially clot your bleeding. You may attempt to
+clot a specified amount of bleeding.                                    
+
+---- insomnia
+Syntax:
+INSOMNIA
+RELAX INSOMNIA
+
+Works on/against:
+None
+
+Resource:
+100 mana
+Details:
+This ability will allow you to give yourself insomnia - a useful defence against being put to sleep involuntarily.
+
+---- swinging
+Syntax:
+SWING UP/DOWN
+
+Works on/against:
+Room
+
+Cooldown:
+2.00 seconds of balance
+Details:
+When in a forest location, you will be able to swing up into the trees.
+
+---- shaking
+Syntax:
+SHAKE TREES
+SHAKE RIGGING
+
+Works on/against:
+Room
+
+Details:
+By using this ability, you will be able to try and shake people loose who might be hiding up in the trees or rigging.
+
+---- clinging
+Syntax:
+CLING
+
+Works on/against:
+Room
+
+Cooldown:
+2.00 seconds of balance
+Details:
+Such is your knowledge of the outdoors and so comfortable are you in the trees, that you are able to cling tightly onto them, maintaining your balance when in them, even if the branches should be greatly disturbed by sinister persons.
+
+---- blunder
+Syntax:
+BLUNDER
+
+Works on/against:
+None
+
+Details:
+You may now prepare to blunder through any traps or tribulations that   
+bar your path(*). This mindset lasts only a short time before expiring. 
+
+* You will hit traps and ground runes regardless of if you are enemied  
+to the person who placed them while this is active.                     
+
+---- restoration
+*** You have not yet learned this ability ***
+
+Syntax:
+RESTORE
+
+Extra Information:
+Listed are the base costs, these increase with 1/2/3/4 limbs broken.
+
+Works on/against:
+Self
+
+Cooldown:
+3.00 seconds of equilibrium
+Resource:
+100 mana
+Details:
+By channeling mental power into healing, you can heal any broken limbs  
+you may have at one time.                                               
+
+This will also cure a fracture if you are in the same location as the   
+person who applied it, it will cure two fractures if not.               
+
+---- clearing
+*** You have not yet learned this ability ***
+
+Syntax:
+CLEAR RUBBLE
+
+Works on/against:
+Room
+
+Cooldown:
+4.50 seconds of balance
+Details:
+With this ability, you will be able to clear away piles of rubble that  
+may block your path.                                                    
+
+---- heartstop
+*** You have not yet learned this ability ***
+
+Syntax:
+HEARTSTOP
+
+Works on/against:
+Self
+
+Details:
+This lethal ability will cause your heart to immediately stop, killing yourself in an instant. Use it with caution, for it will cost you more experience than a standard death.
+
+If you are a Vodun or Puppetry user, please be aware that using heartstop will destroy all puppets of the last person to do damage to you before you heartstopped.
+
+---- breathing
+*** You have not yet learned this ability ***
+
+Syntax:
+HOLD BREATH
+RELEASE
+
+Works on/against:
+None
+
+Details:
+This ability will grant a short-term immunity from anything doing       
+asphyxiation damage. However, any offensive activity or consumption of  
+balance or equilibrium will cause you to begin breathing once again.    
+
+
+---- curseward
+*** You have not yet learned this ability ***
+
+Syntax:
+CURSEWARD
+
+Works on/against:
+None
+
+Cooldown:
+4.50 seconds of equilibrium
+Resource:
+250 mana
+Details:
+This ability will let you erect a mental barrier against which curses will splash harmlessly.
+
+---- suppress
+*** You have not yet learned this ability ***
+
+Syntax:
+SUPPRESS REVERBERATION [direction]
+
+Works on/against:
+Room
+
+Cooldown:
+3.00 seconds of equilibrium
+Resource:
+150 mana
+Details:
+You may now suppress active reverberation vibrations in a room. Given   
+the difficulties involved, this requires all of your concentration, and 
+may be interrupted.                                                     
+
+In addition, if a magi is present you require a secondary influence to  
+assist in your attempt to disrupt said vibration. You may accomplish    
+this by throwing a cube sigil at the ground, although the influence     
+shall only last a short while.                                          
+
+Sometimes it is not possible to enter a location, but one must still    
+remove a reverberation vibration that protects more dangerous barriers. 
+In order to do this, you may specify a direction in which to suppress   
+vibrations. This requires you be adjacent to the location you are       
+targeting and the channel time is somewhat increased compared to doing  
+it in the location proper.                                              
+
+---- efficiency
+*** You have not yet learned this ability ***
+
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+Due to your mastery of various survival techniques, you are now able to manage your resources to a higher degree, reducing the mana necessary to focus your mind and clot your wounds.
+
+In addition, you will now recover far more swiftly from activating the tree tattoo or focusing your mind.
+
+---- endure
+*** You have not yet learned this ability ***
+
+Syntax:
+ENDURE [STOP]
+
+Works on/against:
+None
+
+Details:
+Your survival training has reached such a point that through a constant 
+state of heightened meditation you may optimise your metabolism for     
+driving out paralysis. You may cease doing so with ENDURE STOP.         
+
+* When enduring, the bloodroot herb or magnesium mineral will always    
+cure paralysis before other afflictions.                                
+
+==== Tattoos (Adept) ====
+
+---- firefly
+Syntax:
+TOUCH FIREFLY
+
+Extra Information:
+Inks: 1 Yellow ink
+
+Works on/against:
+Self
+
+Cooldown:
+3.00 seconds of equilibrium
+Details:
+This is a simple tattoo. Touching it will cause it to give off light for a time.
+
+---- moss
+Syntax:
+TOUCH MOSS
+
+Extra Information:
+Inks: 1 Blue ink
+1 Red ink
+1 Yellow ink
+
+Works on/against:
+Self
+
+Cooldown:
+4.00 seconds of balance
+Details:
+Touching this tattoo will activate it. As long as it remains active, it will begin clotting your bleeding automatically.
+
+---- feather
+Syntax:
+TOUCH FEATHER
+
+Extra Information:
+Inks: 2 Blue inks
+1 Red ink
+
+Works on/against:
+Self
+
+Cooldown:
+4.00 seconds of equilibrium
+Details:
+Upon touching this tattoo, you will begin levitating, and thus be immune from falling damage.
+
+---- shield
+Syntax:
+TOUCH SHIELD
+
+Extra Information:
+Inks: 1 Green ink
+2 Red inks
+
+Works on/against:
+Self
+
+Cooldown:
+4.00 seconds of equilibrium
+Details:
+Possibly the single most useful tattoo, using the shield will cause you to be immune from many attacks. Committing any aggressive act, or moving, will cause your shield to be dispelled.
+
+---- mindseye
+Syntax:
+TOUCH MINDSEYE
+
+Extra Information:
+Inks: 2 Blue inks
+1 Green ink
+
+Works on/against:
+Self
+
+Cooldown:
+3.00 seconds of equilibrium
+Details:
+This will allow you to see and hear most things while deaf and blind.
+
+---- canvas
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+Through your innate understanding of inks, you are able to wear tattoos on your back.
+
+---- hammer
+Syntax:
+TOUCH HAMMER <target>
+
+Extra Information:
+Inks: 1 Purple ink
+2 Red inks
+
+Works on/against:
+Adventurers and denizens
+
+Cooldown:
+2.50 seconds of equilibrium
+Details:
+The hammer has a single purpose in life: to smash the magical shields of your opponents.
+
+---- cloak
+Syntax:
+TOUCH CLOAK
+
+Extra Information:
+Inks: 3 Blue inks
+
+Works on/against:
+Self
+
+Cooldown:
+1.00 seconds of equilibrium
+Details:
+Touching the cloak tattoo will conjure up a mystical cloak that will serve to protect you from being summoned.
+
+---- bell
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH BELL
+
+Extra Information:
+Inks: 3 Blue inks
+2 Red inks
+
+Works on/against:
+Adventurers
+
+Details:
+Upon touching this tattoo, you will gain an acute awareness of attempts 
+to appraise your possession. This effect may not trigger if you are     
+mesmerised.                                                             
+
+In addition, having this defence active will alert you to some forms of 
+spying, most notably that accomplished via use of whisperstones.        
+
+---- torso
+*** You have not yet learned this ability ***
+
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+Your understanding of inks permits you to wear two mystical tattoos on  
+your torso.                                                             
+
+---- crystal
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH CRYSTAL
+
+Extra Information:
+Inks: 1 Green ink
+1 Purple ink
+1 Yellow ink
+
+Works on/against:
+Self
+
+Cooldown:
+6.00 seconds of equilibrium
+Details:
+This powerful tattoo will heal your health completely, but it may be used only once per Achaean day.
+
+---- moon
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH MOON
+
+Extra Information:
+Inks: 1 Blue ink
+1 Red ink
+1 Yellow ink
+
+Works on/against:
+Self
+
+Cooldown:
+4.00 seconds of balance
+Details:
+This is a tattoo that will work automatically. When you have it         
+inscribed upon you (and activated), it will automatically restore a     
+portion of your mana anytime you have less than full mana. Each time it 
+works, there is a small chance of the tattoo fading. Activating this    
+tattoo will take balance.                                               
+
+
+---- starburst
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH STARBURST
+RELAX STARBURST
+
+Extra Information:
+Inks: 1 Blue ink
+1 Gold ink
+1 Green ink
+1 Purple ink
+1 Red ink
+1 Yellow ink
+
+Works on/against:
+None
+
+Details:
+This tattoo will work automatically upon your death, once you have      
+touched it. It will resurrect you immediately, and cause you to lose    
+only half the normal amount of experience that you would lose from a    
+death. RELAX STARBURST will remove the defence once activated.          
+
+* Certain abilities will prevent the resurrection effect of the         
+starburst, but will not dispel the active starburst you currently have.
+
+---- boar
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH BOAR
+
+Extra Information:
+Inks: 1 Purple ink
+2 Red inks
+
+Works on/against:
+Self
+
+Cooldown:
+4.00 seconds of balance
+Details:
+The Black Boar, along with the Snow Owl, is one of the two symbols of   
+the Logos Himself. A noble, proud, and strong creature, the boar tattoo 
+will automatically heal your health when you are hurt. Each time it     
+works, there is a slight chance of it fading. Using this tattoo will    
+take balance, but once touched, it will work automatically from then on.
+
+---- head
+*** You have not yet learned this ability ***
+
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+Your understanding of inks permits you to wear two mystical tattoos on  
+your head.                                                              
+
+---- web
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH WEB <target>
+
+Extra Information:
+Inks: 1 Green ink
+1 Yellow ink
+
+Works on/against:
+Adventurers
+
+Cooldown:
+3.00 seconds of equilibrium
+Details:
+The web tattoo allows you to cast a sticky web over your opponent, entrapping him until he writhes out.
+
+---- tentacle
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH TENTACLE <target>
+
+Extra Information:
+Inks: 2 Green inks
+1 Purple ink
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.80 seconds of equilibrium
+Details:
+This fearsome tattoo will call the tentacles of the feared Shimite from the bowels of the earth to drag your foe from the sky or from the trees.
+
+---- hourglass
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH HOURGLASS <target>
+
+Extra Information:
+Inks: 1 Blue ink
+2 Yellow inks
+
+Works on/against:
+Adventurers
+
+Cooldown:
+3.00 seconds of equilibrium
+Details:
+The hourglass tattoo, when used on another adventurer, will cause him to fall into a deep sleep, from which waking will be difficult.
+
+---- brazier
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH BRAZIER <target>
+
+Extra Information:
+Inks: 2 Red inks
+2 Yellow inks
+
+Works on/against:
+Adventurers
+
+Cooldown:
+4.00 seconds of equilibrium
+Details:
+The brazier tattoo allows you to invoke and summon another adventurer, providing he does not have a cloak of protection. It has a range that is limited to the local area.
+
+---- leftleg
+*** You have not yet learned this ability ***
+
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+Your understanding of inks permits you to wear two mystical tattoos on  
+your left leg.                                                          
+
+---- prism
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH PRISM <target>
+
+Extra Information:
+Inks: 1 Blue ink
+1 Green ink
+1 Purple ink
+1 Red ink
+1 Yellow ink
+
+Works on/against:
+Adventurers
+
+Details:
+The prism tattoo may be used to transport yourself across long distances though within the same area. After touching it, a plane of prismatic light will shoot out and, a handful of seconds later, put you into the room with your target. If the target moves in the meantime, or if you do anything, the spell will be ruined. If there is a monolith sigil in the room, the movement delay will be slightly longer than normal.
+
+---- tree
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH TREE
+
+Extra Information:
+Inks: 5 Green inks
+
+Works on/against:
+Self
+
+Details:
+The Tree of Life is a powerful tattoo, capable of healing nearly any affliction. It will, however, leave you too weak to use it again for a bit.
+
+---- megalith
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH MEGALITH
+
+Extra Information:
+Inks: 2 Gold inks
+
+Works on/against:
+Self
+
+Cooldown:
+4.00 seconds of balance
+Details:
+This is a tattoo that will work automatically after activation. When you have it inscribed upon you, it will automatically restore your willpower anytime you have less than full. Each time it works, there is a small chance of the tattoo fading. Activating this tattoo will take balance.
+
+---- rightleg
+*** You have not yet learned this ability ***
+
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+Your understanding of inks permits you to wear two mystical tattoos on  
+your right leg.                                                         
+
+---- ox
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH OX
+
+Extra Information:
+Inks: 1 Gold ink
+1 Red ink
+1 Yellow ink
+1 Blue ink
+
+Works on/against:
+Self
+
+Cooldown:
+4.00 seconds of balance
+Details:
+This is a tattoo that will work automatically after activation. When you have it inscribed upon you, it will automatically restore your endurance anytime you have less than full. Each time it works, there is a small chance of the tattoo fading. Activating this tattoo will take balance.
+
+---- chameleon
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH CHAMELEON <target>
+
+Extra Information:
+Inks: 1 Gold ink
+1 Purple ink
+1 Yellow ink
+
+Works on/against:
+Self
+
+Details:
+Using this tattoo, you may assume the identity (on most public who lists) of any other adventurer, whether active in the realms or not. Simply touch it again, with your name as the target, to resume your normal appearance.
+
+---- talon
+*** You have not yet learned this ability ***
+
+Syntax:
+TOUCH TALON <target>
+
+Works on/against:
+None
+
+Details:
+This tattoo has but one charge and requires a full 20 black inks to     
+place upon your skin, but it shall allow you to pull an individual from 
+behind the protective wards of a house(*). The process takes some time, 
+but the only means by which it may be avoided is for your target to     
+leave the dwelling in question(**).
+
+* House in this context refers to player housing, not the house         
+organisations.                                                          
+** If the target is in a bed during the initiation and termination of   
+this process, the talon tattoo will instead move them to outside that   
+bed. The talon is not wiped in this case.                               
+
+---- superscribe
+*** You have not yet learned this ability ***
+
+Syntax:
+None
+
+Works on/against:
+Self
+
+Details:
+Superscribing is the ability to hold two tattoos on each of your body parts. It will work automatically. Furthermore, you will be able to ink tattoos on yourself faster than before.
+
+---- stencils
+*** You have not yet learned this ability ***
+
+Syntax:
+INK <tattooname> ON <stencil>
+PRESS <stencil|tattooname> TO <body part> [OF <adventurer>]
+
+Works on/against:
+None
+
+Details:
+With this ability, you may ink tattoos onto prepared stencils, allowing 
+for later application even by those without knowledge in the skill of   
+tattoos. Blank stencils can be purchased from the various city markets. 
+
+==== Vision (Fabled) ====
+
+---- look
+Syntax:
+LOOK/L
+
+Works on/against:
+Room
+
+Details:
+A simple ability inherent in all visual beings.
+
+---- glance
+Syntax:
+GLANCE/GL/QL
+GLANCE <direction>
+GLANCE GROUND
+GLANCE HARBOUR
+
+Works on/against:
+Room
+
+Cooldown:
+0.50 seconds of equilibrium
+Details:
+A simple ability that is inherent that allows you to see the contents of
+your current room.                                                      
+
+In addition, you may glance in a direction to see the contents of an    
+adjacent room, or glance ground if you are flying or in the trees, or   
+glance harbour if you are stood on the quarterdeck of a docked ship. It 
+should be noted these latter uses incur a minor equilibrium cost.       
+
+
+---- list
+Syntax:
+<x>LIST
+
+Works on/against:
+Self
+
+Details:
+ARMOURLIST     Easily list and view the stats on your armour.
+BOOKLIST       All about your journals and books.
+CLOTHESLIST    Easily list and view info on clothing you are wearing.
+DECAYLIST*     All your decaying items.
+DOLLLIST       All about any vodun dolls you possess.
+ELIXLIST       All about your curative liquids.
+ELIXSUM        A summary of all elixirs in vials.
+ENCHANTLIST    View all your enchantments.
+FISHLIST       All about any fish you have caught.
+JEWELLERYLIST  View everything about jewellery you possess.
+KEYLIST        See a list of your keys and what they open.
+LETTERLIST     List the letters in your inventory.
+PACKLIST       List all containers in your inventory.
+PETLIST        List the locations of your living pets.
+PHIALLIST      List your formulation phials.
+PIPELIST       List all of your pipes and what's in them.
+PUPPETLIST     All about any puppets you possess.
+RUNELIST       Identify the runes in a room.
+RUNELIST <ME>  All about the runes inked or on your person.
+SHARDLIST      View details about the iconic shards you hold.
+VENOMLIST      All about your venoms.
+VENOMSUM       A summary of all venoms in vials.
+WEAPONLIST     Easily list and view the stats on your weapons.
+
+A series of abilities to quickly examine items in your inventory.
+
+* DECAYLIST <item> will allow you to refine the search for description
+or number.
+
+
+
+---- secrets
+Syntax:
+SECRETS
+
+Works on/against:
+Room
+
+Cooldown:
+2.50 seconds of equilibrium
+Details:
+Using your perceptive powers, you will attempt to spot hidden exits from your room. It should be noted that secret exits can be fairly difficult to spot, and that you will often fail to find an exit with this ability.
+
+---- squint
+Syntax:
+SQ[UINT] <direction> [#]
+
+Works on/against:
+Room
+
+Details:
+Squinting will allow you to look as far as the eye can see in a single  
+direction, or you can specify the maximum distance in which you wish to 
+squint. While on aggression, this will then incur a brief cooldown.
+
+---- nightsight
+Syntax:
+NIGHTSIGHT [ON|OFF]
+RELAX NIGHTSIGHT
+
+Works on/against:
+None
+
+Details:
+You will gain the ability to see in normal darkness.
+
+---- flyers
+Syntax:
+FLYERS
+
+Works on/against:
+Room
+
+Cooldown:
+0.25 seconds of equilibrium
+Details:
+If you use this ability while outdoors, you will gain information on those in the skies above you.
+
+---- tunnelvision
+Syntax:
+TUNNELVISION SHOW
+TUNNELVISION ON [target]
+TUNNELVISION OFF
+TUNNELVISION ADD <option>
+TUNNELVISION REMOVE <option>
+
+Extra Information:
+Options are: DRINKING, EATING, SMOKING, APPLYING, DEFENCES, SAYS, ENTRIES, EXITS
+
+Works on/against:
+Adventurers and room
+
+Details:
+This ability allows you to disregard much of what those around you are doing. By focusing your target upon an adventurer (with SETTARGET), you will be able to ignore certain groups of actions performed by all other individuals in your location.
+
+If you specify a person when enabling this ability, they will be considered your target for the purposes of tunnelvision when you do not have a target set.
+
+---- observe
+Syntax:
+OBSERVE
+
+Works on/against:
+Room
+
+Cooldown:
+1.50 seconds of equilibrium
+Details:
+This will perform a glance on each location adjacent to yours, in quick succession. An excellent way to ensure your surroundings are safe.
+
+---- farsee
+Syntax:
+FARSEE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.00 seconds of equilibrium
+Resource:
+20 mana
+Details:
+Use this ability to locate adventurers from afar.
+
+---- recognition
+Syntax:
+None
+
+Works on/against:
+Adventurers
+
+Details:
+This ability works automatically. It will allow you to perceive the name of the person who is shouting.
+
+---- vigilance
+Syntax:
+VIGILANCE [ON|OFF]
+RELAX VIGILANCE
+
+Works on/against:
+None
+
+Drains:
+Mana
+Details:
+At the cost of a regular mana drain, this will increase your chances of noticing an insidious attempt to hypnotise you. Should you be the victim of a successful pickpocket attempt, you are more likely to catch the perpetrator red-handed.
+
+---- treewatch
+Syntax:
+TREEWATCH [ON|OFF]
+RELAX TREEWATCH
+
+Works on/against:
+Adventurers
+
+Drains:
+Mana
+Details:
+While this ability is active, it will, at the cost of a mana drain, alert you to movement within the trees.
+
+---- deathsight
+Syntax:
+DEATHSIGHT
+RELAX DEATHSIGHT
+
+Works on/against:
+None
+
+Resource:
+50 mana
+Details:
+Using this ability, you will attune yourself to the realm of Death.     
+While doing so, you will be alerted whenever anyone dies.               
+
+You can also check this history of deathsights using HISTORY DEATHSIGHT.
+
+---- search
+Syntax:
+SEARCH
+
+Works on/against:
+Room
+
+Cooldown:
+4.00 seconds of balance
+Details:
+Force those in your location to reveal themselves if hidden.
+
+---- skywatch
+Syntax:
+SKYWATCH [ON|OFF]
+RELAX SKYWATCH
+
+Works on/against:
+Adventurers
+
+Drains:
+Mana
+Details:
+The counterpart to Treewatch, this will alert you to movement in the skies above.
+
+---- groundwatch
+Syntax:
+GROUNDWATCH [ON|OFF]
+RELAX GROUNDWATCH
+
+Works on/against:
+Adventurers
+
+Drains:
+Mana
+Details:
+The counterpart to Treewatch and Skywatch, this will alert you to movement on the ground below.
+
+---- alertness
+Syntax:
+ALERTNESS [ON|OFF]
+RELAX ALERTNESS
+
+Works on/against:
+Room
+
+Cooldown:
+2.50 seconds of equilibrium
+Drains:
+Mana
+Details:
+Your sense of hearing is heightened enough to allow you to detect movement in adjacent locations. 
+
+---- rites
+Syntax:
+RITES
+
+Works on/against:
+Room
+
+Cooldown:
+1.00 seconds of equilibrium
+Details:
+This will allow you to view what holy rites are active in your location.
+
+---- vibes
+Syntax:
+VIBES|VIBRATIONS
+
+Works on/against:
+Room
+
+Cooldown:
+1.00 seconds of equilibrium
+Details:
+This ability will show you what vibrations are in a room.
+
+---- hypersight
+Syntax:
+HYPERSIGHT [ON|OFF]
+RELAX HYPERSIGHT
+
+Works on/against:
+None
+
+Cooldown:
+3.00 seconds of equilibrium
+Drains:
+Mana
+Details:
+This will, at the cost of a regular drain of mana, permit you to see actions normally concealed by certain abilities.
+
+---- thirdeye
+Syntax:
+THIRDEYE
+
+Works on/against:
+None
+
+Resource:
+30 mana
+Details:
+This powerful ability will allow you to see everybody on the continent's location with the WHO command. It will also reveal shrouded persons in the room with you.
+
+---- tattoos
+Syntax:
+TATTOOS <target>
+
+Works on/against:
+Adventurers
+
+Details:
+This will allow you to gain certain information about the tattoos on another adventurer.
+
+---- wormholes
+Syntax:
+WORMHOLES
+
+Works on/against:
+Room
+
+Cooldown:
+3.00 seconds of equilibrium
+Details:
+This ability will tell you if there is a wormhole in your location and where it leads to.
+
+---- mapsight
+Syntax:
+MAPSEE <target>
+
+Works on/against:
+None
+
+Cooldown:
+1.00 seconds of equilibrium
+Resource:
+20 mana
+Details:
+Use this ability to locate the map coordinates of other adventurers who are in the same subdivision as you.
+
+---- contemplation
+*** You have not yet learned this ability ***
+
+Syntax:
+CONTEMPLATE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.00 seconds of equilibrium
+Resource:
+50 mana
+Details:
+With this ability, you may see how much mana an adventurer has.
+
+---- telesense
+*** You have not yet learned this ability ***
+
+Syntax:
+TELESENSE [ON|OFF]
+RELAX TELESENSE
+
+Works on/against:
+Adventurers
+
+Drains:
+Mana
+Details:
+Though it drains mana, this ability will inform you when most mind lock attempts are made on you or someone in your location.
+
+---- appraise
+*** You have not yet learned this ability ***
+
+Syntax:
+APPRAISE <target>
+
+Works on/against:
+Adventurers
+
+Details:
+You may use this ability to gain information on an opponent's inventory.
+
+---- compounds
+*** You have not yet learned this ability ***
+
+Syntax:
+COMPOUNDS
+
+Works on/against:
+Room
+
+Details:
+See what formulation compounds are active at your current location.
+
+---- angels
+*** You have not yet learned this ability ***
+
+Syntax:
+ANGELS
+
+Works on/against:
+None
+
+Details:
+This ability will give you information on the status of any visible Guardian Angels in your location.
+
+---- entities
+*** You have not yet learned this ability ***
+
+Syntax:
+ENTITIES
+
+Works on/against:
+None
+
+Cooldown:
+4.00 seconds of equilibrium
+Details:
+The Entities of the Chaos Plane cause disruptions in the relatively orderly continuum in which we live. This ability allows you to detect these disruptions and pinpoint where the Entities are.
+
+---- loyals
+*** You have not yet learned this ability ***
+
+Syntax:
+LOYALS
+
+Works on/against:
+Denizens
+
+Details:
+With this ability, locate all of those denizens that are both alive and 
+loyal to you.                                                           
+
+---- innersight
+*** You have not yet learned this ability ***
+
+Syntax:
+SCORE
+
+Works on/against:
+Self
+
+Details:
+With Innersight, you see your level of experience to a higher degree of 
+accuracy when reviewing your SCORE. This is further increased while you 
+have set CONFIG SHOWXPDROPS ON.                                         
+
+In addition, adventurers with classes that use life essence, karma, or  
+holy wrath will be able to determine the value of those reserves to a   
+finer degree.                                                           
+
+---- softfocus
+*** You have not yet learned this ability ***
+
+Syntax:
+SOFTFOCUS [ON|OFF]
+RELAX SOFTFOCUS
+
+Works on/against:
+None
+
+Drains:
+Mana
+Details:
+At a cost of a constant mana drain, you can cause your eyes to lose 
+focus, which will result in seeing less detail. In particular, this 
+will allow you to have a 66% chance of seeing runes on implanted 
+totems.
+
+==== Weaponry (Fabled) ====
+
+---- proficiencies
+Syntax:
+PROFICIENCIES
+
+Works on/against:
+None
+
+Details:
+With this ability, you will find yourself able to specialize in specific weapons, such as the longsword, broadsword, javelin, halberd, flail, and many others. In order to gain proficiency, you must first seek out someone with the knowledge to teach you that specific weapon. Once you have located such a person, you must then ensure that you have enough lessons to persuade the teacher to teach you. If you do not have enough, the teacher will inform you how many you need.
+
+To learn a weapon proficiency:
+  LEARN PROFICIENCY IN <weapon name> FROM <whomever>.
+
+After you have given your lessons to the teacher, you must go out and practice with the weapon you are seeking proficiency in. Simply go out and use the weapon as it was intended, and eventually you will master it.
+
+Typing PROFICIENCIES will show you what you are currently proficient in, and what you are practicing to be proficient in.
+
+TEACHERS
+Below is a partial list of teachers for the various weapon groups:
+Straight, edged swords :      Swordmaster Colbey, of Delos
+Rapier and scimitar    :      King Tu'eras, of the Tsol'aa
+Polearms               :      Captain Korlosh, of Delos
+Maces, flails, etc     :      Lieutenant Serentesh, of Delos
+Battleaxes, Handaxes   :      Shale Ironrock, of Delos
+Spear, Javelin         :      Etarni the Hunter, of Tomacula
+Hammers                :      Geld, of Hashan
+Dagger, Dirk           :      A shady-looking man in Hashan
+Quarterstaff           :      Seasone
+Lance                  :      Lady Lhadia, of Matsuhama's temple
+Trident, Whip          :      Clynalia, of Delos
+
+---- weaponprobe
+Syntax:
+WP|WPROBE|WEAPONPROBE <item>
+
+Works on/against:
+None
+
+Details:
+Using this ability, you will be able to see what venoms or magical effects have been put on an item, and, if it is a weapon, get a general idea of how much damage it can cause, how awkward it is, and how quickly you could use it. The weaponprobe ability also may enhance the detail shown in II (INFO INVENTORY).
+
+---- targeting
+Syntax:
+TARGET <body part>
+
+
+Extra Information:
+Body Parts: HEAD
+TORSO
+RIGHT/LEFT ARM
+RIGHT/LEFT LEG
+NOTHING
+
+Works on/against:
+Adventurers
+
+Details:
+With this ability, you will be able to target specific body parts on your opponent. Because this requires more precise timing on your part, the sheer damage you can do is reduced. However, by battering these body parts with either edged or blunt weapons, you can cause damage to them that is more difficult to cure than simple broken bones. For instance, a limb may be able to be beaten into uselessness, which requires a restoration salve to fix (and which does not get fixed immediately). Attacks to the torso will produce internal bleeding, while attacks to the head will produce a concussion. TARGET NOTHING will turn targeting off.
+
+---- parrying
+Syntax:
+PARRY <body part>
+
+
+Extra Information:
+Body Parts: HEAD
+TORSO
+RIGHT/LEFT ARM
+RIGHT/LEFT LEG
+NOTHING
+
+Works on/against:
+Adventurers
+
+Details:
+To use this ability, you must have a weapon capable of parrying wielded. It allows you to automatically stop any physical attack directed specifically at that body part.
+
+---- decapitate
+Syntax:
+DECAPITATE <corpse>
+PIKE <head>
+
+Works on/against:
+None
+
+Cooldown:
+1.00 seconds of balance
+Details:
+Provided you have an edged weapon in one of your hands, you will be able to decapitate a corpse. You may then do whatever you like with the head, including buying a pike and then PIKEing the head. Note that heads, being organic matter, do not tend to stick around too long, and if put on a pike, the pike will also decay away when the head does.
+
+---- envenom
+Syntax:
+ENVENOM <weapon> with <venom>
+WIPE <weapon>
+
+Works on/against:
+Adventurers
+
+Details:
+With this ability, you may layer venoms on an edged weapon. Each time that weapon hits somebody, one venom will poison your opponent, and disappear from the weapon. They work on a last-on, first-off basis, so if you put xentio on a weapon, and then put voyria on, the voyria would come off first, and the xentio second. You must have the selected venom in a vial in your inventory. In order to get rid of the venoms on a weapon, simply WIPE <weapon>.
+
+---- throw
+Syntax:
+None
+
+Works on/against:
+None
+
+Details:
+You have now gained skill enough to drastically improve your chances of hitting an opponent with a thrown weapon.
+
+---- targetthrow
+Syntax:
+None
+
+Works on/against:
+Adventurers
+
+Details:
+Your eagle eye and throwing ability now enable you to throw not just at a target, but at a specific body part on a person. Use the TARGETING ability in conjunction with this.
+
+---- shatter
+*** You have not yet learned this ability ***
+
+Syntax:
+SHATTER <left/right> <arm/leg> <adventurer>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+3.93 seconds of balance
+Details:
+While wielding a blunt weapon, this ability will allow you to deal out  
+an extraordinary amount of limb damage to the chosen limb, as well as   
+some health damage. It is used as a normal weapon, so the better quality
+the weapon, the more effective this ability is.                         
+
+A weapon proficiency is required for your chosen shattering weapon.
+
+
+---- behead
+*** You have not yet learned this ability ***
+
+Syntax:
+BEHEAD <unlucky adventurer target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.00 seconds of balance
+Details:
+Once you have an opponent prone (which, for our purposes, includes being on the ground, tied up in any way, paralysed, sleeping, frozen, or otherwise unable to move), you may, if you are wielding a sword or battleaxe, try to behead him. Simply BEHEAD <target> and wait a few seconds. If your opponent is still in the room when you are ready to finish the beheading, he will die, and his head will be separated from his body.
+
+==== Zeal (Transcendent) ====
+
+---- anoint
+Syntax:
+ANOINT ASH
+
+Works on/against:
+None
+
+Details:
+A wielder of the holy verses must first gain the ability to imbue their 
+words with a remnant of Phoenix Song. Travel to Anost in the excised    
+Ruins of the Dawnspear and ANOINT your brow with the holy ash that can  
+be found there.                                                         
+
+
+
+---- verses
+Syntax:
+VERSES [ALL]
+
+Works on/against:
+None
+
+Details:
+You may view the holy verses that you have learned, and the various     
+limitations imposed on the use of each in prayer.                       
+
+---- will
+Syntax:
+RECITE WILL <target|ME>
+
+Works on/against:
+Adventurers and self
+
+Cooldown:
+3.00 seconds of prayer balance
+Details:
+This holy verse shall bolster the mind of yourself or an ally, improving
+their willpower regeneration.                                           
+
+---- endurance
+Syntax:
+RECITE ENDURANCE <target|ME>
+
+Works on/against:
+Adventurers and self
+
+Cooldown:
+3.00 seconds of prayer balance
+Details:
+This holy verse shall grant improved endurance regeneration to yourself 
+or an ally.                                                             
+
+---- attend
+Syntax:
+RECITE ATTEND <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+Some would seek to close their ears as well as their hearts to the holy 
+truth of the Light and Fire. No matter. With this verse you may force   
+them to attend you, stripping away such protections with a simple       
+sentence.                                                               
+
+---- fire
+Syntax:
+RECITE FIRE <target|ME>
+
+Works on/against:
+Adventurers and self
+
+Cooldown:
+3.00 seconds of prayer balance
+Details:
+Recite the verse of fire, granting you or an ally protection against the
+ravages of flame.                                                       
+
+---- void
+Syntax:
+RECITE VOID <target|ME>
+
+Works on/against:
+Adventurers and self
+
+Cooldown:
+3.00 seconds of prayer balance
+Details:
+This holy verse is both warning and protection. It grants improved      
+resistance to cold damage to either yourself or an ally.                
+
+---- protection
+Syntax:
+RECITE PROTECTION <target|ME>
+
+Works on/against:
+Adventurers and self
+
+Cooldown:
+3.00 seconds of prayer balance
+Details:
+
+
+A holy verse of protection, this scripture conveys a protection on      
+yourself or an ally that reduces incoming damage from physical blows.   
+
+---- fragility
+Syntax:
+RECITE FRAGILITY <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+Direct this holy verse at a profane enemy of Creation and the next blow 
+you deal with your mace shall deal greatly increased damage to the      
+chosen limb(*).                                                         
+
+* This increases the next mace attack's limb damage you deal by         
+approximately 30%.                                                      
+
+---- prayer
+Syntax:
+VERSES
+
+Works on/against:
+None
+
+Details:
+You may now chain holy verses together. Each verse you recite(*)        
+somewhat quickly after a prior one will form a prayer; a prayer of two  
+or more verses that you allow to finish without reciting further will   
+grant you conviction. Conviction is used to enact some of the more      
+powerful holy verses.                                                   
+
+Additionally, certain verses can only be utilised once per prayer, and  
+others may require a prayer of a certain length before they can be      
+recited.                                                                
+
+* Verses that specifically target yourself do not increase your prayer's
+length. Prayers that target others or that are somewhat indiscriminate  
+do.                                                                     
+
+---- condemnation
+Syntax:
+RECITE CONDEMNATION <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+Condemn your foe with this holy verse, striking them down with the      
+justice affliction.                                                     
+
+---- guilt
+Syntax:
+RECITE GUILT <target>
+
+Works on/against:
+None
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+This verse reminds a foe of their life's failings, forcing them to      
+confront them. Attempts to focus their mind shall only serve to worsen  
+their situation(*).                                                     
+
+* Focus still cures an affliction, but it also gives a new mental       
+affliction in the cured one's place.                                    
+
+---- persevere
+Syntax:
+RECITE PERSEVERE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+You will persevere even when your enemy flees to the skies. Reciting    
+this holy verse will draw them back down to your level.                
+
+---- unflinching
+Syntax:
+RECITE UNFLINCHING <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+This holy verse can drive you to greater levels of fervour, allowing you
+to strike through the next attempt to parry that the foe you recite it  
+against attempts.                                                       
+
+In addition, reciting this verse while you are not hunting the heretics 
+shall convey the heresy defence, though it will be more short-lived     
+compared to utilising the spirituality ability.
+
+Recitation of this verse is not affected by weariness.                  
+
+---- ash
+Syntax:
+RECITE ASH <target>
+
+Works on/against:
+None
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+This verse brings forth latent fires that sear at the soul, lying in    
+wait to be ignited by true fire(*).                                     
+
+* Delivers spiritburn. When a target takes damage from ticks of being on
+fire, they will also suffer mana damage. They shall also take mana      
+damage if they successfully move while onfire.                          
+
+---- penance
+Syntax:
+RECITE PENANCE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+Recite this holy verse and allow the profane soul to gaze upon their    
+past sins, paralysing them with the truth of their corruption(*).       
+
+* Gives the paralysis affliction.
+
+---- reflection
+Syntax:
+RECITE REFLECTION <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+2.70 seconds of prayer balance
+Details:
+Recite this verse against one of the profane and they shall share in the
+suffering they would seek to bring upon you. Some of the afflictions    
+dealt to you shall be gifted back to them in turn for a short time(*).  
+
+* Ten seconds.
+
+---- rebuke
+Syntax:
+RECITE <verse> <target> REBUKE <sin>
+
+Works on/against:
+None
+
+Details:
+Your mastery of the holy verses now grants you the ability to conclude
+your prayer with a punishment of one of a heretic's sins. Certain
+punishments require a prayer of longer length than others. The
+punishment is given alongside the standard verse effect:
+
+Chaos: requires a prayer of at least three verses, gives hallucinations.
+
+Darkness: requires a prayer of at least two verses, gives paranoia.
+
+Evil: requires a prayer of at least three verses, gives masochism.
+
+Heresy: requires a prayer of at least four verses. Gives the inquisition
+affliction to a target suffering from both the guilt and spiritburn     
+afflictions.                                                            
+
+Note that you may only couple rebuke with a verse that also targets a   
+specific enemy.                                                         
+
+
+---- burn
+Syntax:
+RECITE BURN <target>
+
+Works on/against:
+None
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+Perhaps the most straight forward of all holy verses, but no less       
+powerful for that. Send fire to scourge the flesh of your profane foe,  
+leaving them tender and pained to such an extent that any attempt to    
+apply a salve shall cause them to suffer in mind(*).                    
+
+* Drains mana on applying salves.
+
+---- light
+Syntax:
+RECITE LIGHT
+
+Works on/against:
+Self
+
+Cooldown:
+3.00 seconds of prayer balance
+Details:
+The rallying cry of the light, this verse will heal all of your blessed 
+comrades in your location and for each one healed it shall cure an      
+affliction from you.                                                    
+
+Each priest may only call upon the light every 25 seconds or so.
+
+---- wrath
+Syntax:
+RECITE WRATH <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+3.00 seconds of prayer balance
+Details:
+The verse of wrath shall ravage your foe with holy flame, burning their 
+mind(*). If they are also alight with regular flame(**) and prone, they 
+shall suffer in body as well.                                           
+
+* The mana damage scales to the number of afflictions they are suffering
+from. Guilt, ablaze, spiritburn, and tenderskin increase the value by   
+more than other afflictions, followed by mental and limb based          
+afflictions. Inquisition increases more than anything else.             
+** If they have the ablaze affliction.
+
+---- purge
+Syntax:
+RECITE PURGE <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+Recite the holy verse of purging to damage your foe and set them ablaze.
+
+---- rejection
+Syntax:
+RECITE REJECTION <target> <direction>
+
+Works on/against:
+None
+
+Cooldown:
+2.80 seconds of prayer balance
+Details:
+The verse of rejection is a manifestation of your defiance in the face  
+of the enemies of Creation. Recite this verse, and even from a far you  
+shall strike down your foes.                                            
+
+* Does damage to a target in line of sight. Notably, this bypasses      
+magical shields and prismatic barriers.                                 
+
+---- oration
+Syntax:
+
+
+Works on/against:
+None
+
+Details:
+The enemies of Creation shall learn that your cause is a righteous one, 
+whether they care to hear or not(*).                                    
+
+* You will never stumble over your recitals when directed against one   
+afflicted with justice.                                                 
+
+---- salvation
+Syntax:
+RECITE SALVATION [PREPARE]
+
+Works on/against:
+Self
+
+Cooldown:
+3.80 seconds of prayer balance
+Details:
+A prayer for salvation, not for yourself but for others, this powerful  
+verse of prayer shall create a prismatic barrier for all blessed        
+comrades in your location.                                              
+
+---- benediction
+Syntax:
+RECITE BENEDICTION <target>
+
+Works on/against:
+Adventurers and self
+
+Details:
+This holy benediction shall grant all of the blessings gained from      
+reciting the verses of fire, void, protection, will and endurance to an 
+individual in your location. Due to the nature of this supplication, it 
+is not considered a holy verse and does not compose any aspect of a     
+prayer.                                                                 
+
+---- glory
+Syntax:
+RECITE GLORY
+
+Works on/against:
+Self
+
+Cooldown:
+3.00 seconds of prayer balance
+Details:
+A verse inspiring victory and tenacity, this holy power will bring forth
+a blessed protection on a given location when recited against a foe of  
+Creation. For one minute after activation if an individual blessed by   
+devotion to the gods falls in battle and is raised by the grace of the  
+stars, he or she shall be pulled from the location to a random adjacent 
+location. This effect can fire up to three times before it runs its     
+course, and it can not be brought forth again for a short time in the   
+location(*).                                                            
+
+* This cooldown is on the location, not on the priest.
+
+---- revelations
+Syntax:
+RECITE REVELATIONS <target>
+
+Works on/against:
+Adventurers
+
+Cooldown:
+1.60 seconds of prayer balance
+Details:
+Recite this holy verse to reveal to a heretic the true depths of Evil's 
+depravity; permit them not the chance to turn their eyes away.          
+
+* Gives the hellsight affliction.
+
