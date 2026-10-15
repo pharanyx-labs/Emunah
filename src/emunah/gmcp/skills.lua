@@ -162,6 +162,125 @@ function M.all()
    return util.keys(M.index)
 end
 
+-- ---------------------------------------------------------------------------
+-- ability text, and the dump
+-- ---------------------------------------------------------------------------
+--
+-- `emset skills dump` (the user, 2026-10-15: "you can get my current abilities from gmcp")
+-- asks for every ability's AB text, Char.Skills.Info, and writes it with the index to
+-- emunah-abilities.txt in the profile -- readable without pasting AB output, and worth
+-- re-running when abilities change ("they may change randomly, albeit rarely"). The
+-- requests are paced by gmcp/init.lua's outbox, one every REQUEST_INTERVAL.
+
+--- "group/skill" (lower) -> the ability's help text, as Char.Skills.Info gave it.
+M.infos = {}
+
+M.DUMP_FILE = "emunah-abilities.txt"
+
+local dumping = nil   -- { order, waiting, wanted, got, timer } while a dump is under way
+
+local function keyOf(group, skill)
+   return tostring(group or ""):lower() .. "/" .. tostring(skill or ""):lower()
+end
+
+local function writeDump()
+   local job = dumping
+   if not job then return end
+   dumping = nil
+   if job.timer then killTimer(job.timer) end
+
+   local path = getMudletHomeDir() .. "/" .. M.DUMP_FILE
+   local file, err = io.open(path, "w")
+   if not file then
+      log.error("Could not write %s: %s", path, tostring(err))
+      return
+   end
+   file:write(("Emunah ability dump, %s. %d of %d abilities answered.\n\n")
+      :format(os.date("%Y-%m-%d %H:%M"), job.got, job.wanted))
+   for _, key in ipairs(job.order) do
+      local group = M.groups[key]
+      file:write(("==== %s (%s) ====\n"):format(group.name, group.rank))
+      for _, skill in ipairs(group.skills) do
+         file:write(("\n---- %s\n%s\n"):format(skill,
+            M.infos[keyOf(key, skill)] or "(no answer)"))
+      end
+      file:write("\n")
+   end
+   file:close()
+   log.info("Wrote %d of %d abilities to %s.", job.got, job.wanted, path)
+   event.raise("skills.dumped", path, job.got, job.wanted)
+end
+
+local function onInfo()
+   local payload = gmcp.Char.Skills.Info
+   if type(payload) ~= "table" or not payload.skill then return end
+   local key = keyOf(payload.group, payload.skill)
+   M.infos[key] = tostring(payload.info or "")
+   if not (dumping and dumping.waiting[key]) then return end
+   dumping.waiting[key] = nil
+   dumping.got = dumping.got + 1
+   if dumping.got >= dumping.wanted then writeDump() end
+end
+
+--- Skillsets asked for whose ability list has not arrived, sorted.
+function M.pendingGroups()
+   local out = util.keys(pending)
+   table.sort(out)
+   return out
+end
+
+--- Ask for the text of every ability in `groups` (all when empty), then write the dump.
+--- Written when every answer is in, or after a generous timeout with whatever arrived.
+---
+--- It does not wait for the whole index: a skillset whose list never came (2026-10-15
+--- 19:10:16, "The skill list is not in yet" with nothing to say which) would block it
+--- forever. It dumps what has arrived, asks again for what has not, and names it.
+function M.dump(groups)
+   local missing = M.pendingGroups()
+   if #missing > 0 then
+      log.warn("Still waiting on the ability list for: %s. Asked again; dumping the rest.",
+         table.concat(missing, ", "))
+      for _, key in ipairs(missing) do M.request((M.groups[key] or {}).name or key) end
+   end
+   local order = {}
+   if groups and #groups > 0 then
+      for _, name in ipairs(groups) do
+         local key = tostring(name):lower()
+         if M.groups[key] then order[#order + 1] = key
+         else log.warn("No skillset called %s.", tostring(name)) end
+      end
+   else
+      for key, group in pairs(M.groups) do
+         if #group.skills > 0 then order[#order + 1] = key end
+      end
+   end
+   table.sort(order)
+   if #order == 0 then
+      log.warn("No ability lists have arrived from the game yet.")
+      return false
+   end
+
+   if dumping and dumping.timer then killTimer(dumping.timer) end
+   local job = { order = order, waiting = {}, wanted = 0, got = 0 }
+   dumping = job
+   for _, key in ipairs(order) do
+      local group = M.groups[key]
+      for _, skill in ipairs(group.skills) do
+         job.waiting[keyOf(key, skill)] = true
+         job.wanted = job.wanted + 1
+         M.info(group.name, skill)
+      end
+   end
+   if job.wanted == 0 then writeDump() return true end
+
+   local seconds = job.wanted * (emunah.gmcp.REQUEST_INTERVAL or 0.15) + 10
+   job.timer = tempTimer(seconds, writeDump)
+   log.info("Asking the game for %d abilities' text -- about %ds.", job.wanted,
+      math.ceil(seconds - 10))
+   return true
+end
+
+event.gmcp("Char.Skills.Info",   onInfo,   "gmcp.skills")
 event.gmcp("Char.Skills.Groups", onGroups, "gmcp.skills")
 event.gmcp("Char.Skills.List",   onList,   "gmcp.skills")
 

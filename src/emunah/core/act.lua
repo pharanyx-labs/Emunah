@@ -95,6 +95,26 @@ end
 
 M.BACKOFF = 1.5
 
+-- TYPED COMMANDS WIN (the user, 2026-10-15). A command you type goes straight to the game,
+-- and Emunah's next send could take the balance it needed first. So for a moment after
+-- anything you type, everything automated holds. svof's override mode does the same: it
+-- pauses for the network latency plus `sacdelay`, 0.5s (controllers.lua, setup.lua).
+-- `queue.typedHold` sets the 0.5; 0 turns it off. Anything sent by another script counts
+-- as typed too, since Mudlet cannot tell them apart.
+M.TYPED_HOLD = 0.5
+M.typedUntil = nil
+
+function M.typed()
+   local hold = tonumber(emunah.config.get("queue.typedHold", M.TYPED_HOLD)) or M.TYPED_HOLD
+   if hold <= 0 then return end
+   local latency = 0
+   if type(getNetworkLatency) == "function" then
+      local ok, value = pcall(getNetworkLatency)
+      if ok then latency = tonumber(value) or 0 end
+   end
+   M.typedUntil = emunah.util.now() + hold + latency
+end
+
 --- Does the character have this affliction? The curing engine's view when it is running
 --- (it knows about DIAG and refusal-detected afflictions), the server's list otherwise.
 function M.afflicted(name)
@@ -123,6 +143,15 @@ function M.blocked(needs)
    if M.backoffUntil then
       if emunah.util.now() < M.backoffUntil then return "rate limited" end
       M.backoffUntil = nil
+   end
+
+   -- Only what wants balance or equilibrium: that is what a typed command races for.
+   -- Holding everything, as svof does, also held Emunah's answers to what you typed --
+   -- INR ALL after QUIT, a purchase's GET GOLD -- and those are yours too. `user`: your
+   -- own command off the queue (queue.user), the thing being waited for.
+   if M.typedUntil and (needs.bal or needs.eq) and not needs.user then
+      if emunah.util.now() < M.typedUntil then return "you typed a command" end
+      M.typedUntil = nil
    end
 
    -- Resolved at call time, not captured at load time: core/ loads before curing/ and
@@ -188,6 +217,10 @@ function M.blocked(needs)
       if queue then
          if needs.bal and queue.awaiting("balance") then return "balance in flight" end
          if needs.eq and queue.awaiting("equilibrium") then return "equilibrium in flight" end
+         -- Your queued one-off goes before anything automated that wants the same balance.
+         if not needs.user and queue.userWaiting and queue.userWaiting(needs) then
+            return "your queued command first"
+         end
       end
    end
 
@@ -236,6 +269,10 @@ function M.send(command, needs)
    emunah.log.debug("-> %s", command)
    return true
 end
+
+emunah.event.register("emunah.sent", function(_, _, typed)
+   if typed then M.typed() end
+end, "act")
 
 -- A new connection is a new session: whatever stopped the last one no longer applies.
 emunah.event.register("sysConnectionEvent", function() M.resume() end, "act")

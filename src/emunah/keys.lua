@@ -69,12 +69,21 @@ end
 M.ACTIONS = {
    { name = "reload",   modifier = "Control", key = "F5",
      fn = function() emunahReload() end },
+   -- Hunting support both ways (the user, 2026-10-15): attack what the leader attacks.
+   { name = "support toggle", modifier = "None", key = "F5",
+     fn = function() emunah.commands.dispatch("support") end },
    -- One key for the hunt both ways (the user, 2026-10-12): on when it is off, off when on.
    { name = "hunt toggle", modifier = "None",  key = "F11",
      fn = function()
         local running = (emunah.bashing and emunah.bashing.enabled)
            or (emunah.walker and emunah.walker.enabled)
         emunah.commands.dispatch(running and "hunt off" or "hunt")
+     end },
+   -- PvP both ways (the user, 2026-10-15). The offence only ever sends while PvP is on, so
+   -- this key is the switch for all of it.
+   { name = "pvp toggle", modifier = "None",   key = "F1",
+     fn = function()
+        emunah.commands.dispatch(emunah.pvp and emunah.pvp.enabled and "pvp off" or "pvp on")
      end },
    -- The escape route (the user, 2026-10-12): stop any hunt and walk to map.safeRoom, 2096.
    -- It replaced F12's three-rooms-back retreat, which `emset hunt retreat` still does.

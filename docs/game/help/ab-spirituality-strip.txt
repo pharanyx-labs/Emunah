@@ -1,0 +1,18 @@
+Source: AB SPIRITUALITY STRIP, in-game, pasted by the user 2026-10-15.
+Anzerloi, asked whether it works on a mob (14:34:55): "Yes." Then (14:35:03-14:35:52): "If
+no rage, and no heresy defense, do that instead of smite." "Clear example of eq move
+replacing bal move." "It needs you to be on bal, but even if it didn't you'd still have to."
+"Because strip will put you off eq and you can't smite off eq." "But must strip before smite."
+The user's ruling, 2026-10-15: hunting only, never in PvP.
+
+H:100% M:97% E:100% W:100%  exckdb  T:  14:34:37.50-ab spirituality strip
+Strip (Spirituality)                          Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            ANGEL STRIP <target>
+Works on/against:  Adventurers and denizens
+Cooldown:          1.80 seconds of equilibrium
+Resource:          10 Angel power and 100 mana
+Details:
+You may order your angel to strip a defence from your opponent. It will
+always strip magical shields first.
+-------------------------------------------------------------------------------

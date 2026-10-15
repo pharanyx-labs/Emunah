@@ -1,0 +1,15 @@
+Source: AB ZEAL FRAGILITY, in-game, pasted by the user 2026-10-15 (13:13:06).
+
+Fragility (Zeal)                              Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE FRAGILITY <target>
+Works on/against:  Adventurers
+Cooldown:          1.60 seconds of prayer balance
+Details:
+Direct this holy verse at a profane enemy of Creation and the next blow
+you deal with your mace shall deal greatly increased damage to the
+chosen limb(*).
+
+* This increases the next mace attack's limb damage you deal by
+approximately 30%.
+-------------------------------------------------------------------------------

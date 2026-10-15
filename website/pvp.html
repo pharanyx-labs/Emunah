@@ -97,25 +97,34 @@
 <p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
 <h1>PvP</h1>
 <p class="lede">PvP attacks the one player you name, and nobody else. It never picks a target by itself, because in a fight against a person, attacking the wrong one is worse than attacking no one.</p>
-<pre><code>emset pvp target sarapis     <span class="c"># choose the target</span>
-emset pvp on                 <span class="c"># start attacking</span>
-emset pvp                    <span class="c"># target, their afflictions, attacks sent</span>
+<pre><code>t sarapis                    <span class="c"># target them and start the fight</span>
+emset pvp target sarapis     <span class="c"># choose the target</span>
+emset pvp on                 <span class="c"># start attacking (F1 toggles it)</span>
+emset pvp                    <span class="c"># target, their afflictions and mana, attacks sent</span>
 emset pvp off
+emset pvp attack angel sear  <span class="c"># PvP's own attack, apart from the hunt's</span>
 emset pvp target off         <span class="c"># clear the target</span></code></pre>
 
 <h2 id="targeting">Only the player you name</h2>
 <p>The game's list of who is in a room leaves out anyone shrouded, hidden or phased. A loop built on that list would lose an opponent the moment they concealed, or pick the wrong person outright. So a target is a name you typed, and nothing else ever sets one.</p>
+<p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> turns it on and off. <code>t &lt;name&gt;</code> is the quick way in: it sets the target and turns PvP on together, refusing an ally as the longer command does.</p>
 <p>Killing your target clears it and ends the session. Your own death ends it too.</p>
 
 <h2 id="afflictions">Afflictions before damage</h2>
+<p>PvP has its own attack, <code>pvp.attack</code>, sent at the target's name: Angel Sear by default, with <code>pvp.balance</code> and <code>pvp.consumes</code> saying what it needs and spends. It is separate from the hunting attack, so changing what you hunt with never changes what you fight people with. <code>emset pvp attack &lt;command&gt;</code> sets it.</p>
 <p>Against a player who heals well, raw damage loses the race. So the attack is held until the target is carrying enough afflictions to be finished: <code>pvp.attackAtAfflictions</code>, two by default. The game does not report another player's health, so the afflictions you have given them are the signal there is.</p>
 <p>As a Priest with Zeal, Emunah recites Condemnation and Guilt at the target whenever prayer allows. Prayer is its own balance, so verses go out alongside the attack, not instead of it. <code>pvp.verses</code> turns them off.</p>
 
 <h2 id="tracking">Tracking your opponent</h2>
 <p>GMCP reports only your own afflictions. Your opponent's are read from the game text: the third-person lines anyone in the room sees when an affliction shows on someone, such as their face contorting or their body staggering. Emunah reads only those fixed lines and never guesses an affliction from the move that might have caused it. Nothing confirms when an opponent cures, so each entry ages out on a timer.</p>
 
+<h2 id="sapping">Sapping toward absolve</h2>
+<p>A Priest kills with absolve, which needs the target below half their mana. <code>emset pvp</code> shows how much of the target's maximum mana a sap would take, worked out from the afflictions tracked on them, and their mana from your last <code>contemplate</code>, marked stale once you have sapped since. It shows the figures only: no contemplate, sap or absolve is sent for you yet.</p>
+
 <h2 id="safety">Safety</h2>
-<p>PvP stops below <code>pvp.stopBelowHealth</code>, 60% by default, higher than the hunting floor on purpose. Starting PvP stops a hunt, and starting a hunt stops PvP: a player and a denizen cannot share one balance.</p>
+<p>PvP stops below <code>pvp.stopBelowHealth</code>, 25% by default. That floor replaces the shared critical one, and a fast drop in health does not stop PvP the way it stops a hunt, because stopping does not stop the person hitting you.</p>
+<p>While you are locked (slickness, anorexia and asthma together, and the worse locks built on them), the lock is named on your prompt and the attack is held, so your cures get balance and equilibrium. Verses carry on, since prayer is shared with no cure. When the lock breaks, the attack resumes.</p>
+<p>Starting PvP stops a hunt, the walking as well as the fighting, and starting a hunt stops PvP: a player and a denizen cannot share one balance.</p>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">
   <a href="hunting.html"><small>Previous</small>Automated hunting</a>
@@ -127,6 +136,7 @@ emset pvp target off         <span class="c"># clear the target</span></code></p
   <a href="#targeting">Only the player you name</a>
   <a href="#afflictions">Afflictions before damage</a>
   <a href="#tracking">Tracking your opponent</a>
+  <a href="#sapping">Sapping toward absolve</a>
   <a href="#safety">Safety</a>
 </aside>
 </div>

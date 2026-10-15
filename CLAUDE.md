@@ -97,9 +97,10 @@ There is one prefix, `emset`, plus `emhelp`. Keep it that way:
   voluntary sleep), `emreload` (works when commands fail to load), `buy [qty] <number>` (the
   user's request; it only catches a digits-only item, which the game refuses anyway), `pp`
   (the user's request: pause/resume curing and defences), `goto`, `rf` and `rl` (the
-  user's request: walking, room search and room details, the words mmp taught them), and `stop` and `go` (the
+  user's request: walking, room search and room details, the words mmp taught them), `stop` and `go` (the
   user's request: pause a walk keeping its route, and carry on; both pass to the game when
-  there is no walk) are the only exceptions.
+  there is no walk), and `t <name>` (the user's request: target them and turn PvP on; one word
+  only, so anything longer passes to the game) are the only exceptions.
 - After changing `help.lua`, run `lua tools/build-commands-page.lua` to regenerate
   `website/commands.html`.
 

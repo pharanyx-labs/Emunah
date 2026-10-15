@@ -60,17 +60,10 @@ local function consumption()
    return value
 end
 
---- Send the attack at a specific target.
----
---- `target` is a REPLICA NUMBER, not a name -- see denizens.lua for why that distinction
---- is load-bearing. Passing "pixie" here would let Achaea pick which pixie, and its choice
---- shifts as they move and die.
-function M.attack(target)
+--- Send an attack at a target: the one sender behind both the hunt's attack and PvP's,
+--- which differ only in what they pass in -- see M.attack and M.pvpAttack below.
+local function sendAttack(command, target, needs, consumes)
    if not target then return false end
-   local command = emunah.config.get("bashing.attack", "angel sear")
-   local needs = requirement()
-   local consumes = consumption()
-
    local sent = emunah.act.send(string.format("%s %s", command, target), {
       standing = true,
       bal      = (needs == "bal" or needs == "both"),
@@ -117,12 +110,11 @@ function M.attack(target)
    return true
 end
 
---- Is an attack possible right now?
-function M.canAttack()
+--- Is an attack needing `needs` ("eq" | "bal" | "both") possible right now?
+local function attackReady(needs)
    local vitals = emunah.gmcp.vitals
    if not vitals then return false end
 
-   local needs = requirement()
    if not emunah.act.can({ standing = true }) then return false end
 
    -- The in-flight/cooldown timer is required alongside the GMCP flag, never instead of it:
@@ -140,6 +132,47 @@ function M.canAttack()
    if needs == "eq" then return eqReady end
    if needs == "both" then return balReady and eqReady end
    return balReady
+end
+
+--- The hunt's attack, at a denizen.
+---
+--- `target` is a REPLICA NUMBER, not a name -- see denizens.lua for why that distinction
+--- is load-bearing. Passing "pixie" here would let Achaea pick which pixie, and its choice
+--- shifts as they move and die.
+function M.attack(target)
+   return sendAttack(emunah.config.get("bashing.attack", "angel sear"), target,
+      requirement(), consumption())
+end
+
+function M.canAttack()
+   return attackReady(requirement())
+end
+
+-- PVP'S OWN ATTACK. "Completely divest hunting mode from pvp mode. they are entirely
+-- different" (the user, 2026-10-15): PvP borrowed the hunt's attack and its `bashing.*`
+-- settings, so changing what you hunt with silently changed what you fight people with.
+-- It has its own now, `pvp.attack` / `pvp.balance` / `pvp.consumes`, shipped with the same
+-- values (Angel Sear works on adventurers too, HELP SEAR) until the sap-and-absolve
+-- offence replaces it. The target is a player's NAME.
+local function pvpRequirement()
+   local value = emunah.config.get("pvp.balance", "both")
+   if value ~= "bal" and value ~= "eq" and value ~= "both" then return "both" end
+   return value
+end
+
+local function pvpConsumption()
+   local value = emunah.config.get("pvp.consumes", "eq")
+   if value ~= "bal" and value ~= "eq" then return "eq" end
+   return value
+end
+
+function M.pvpAttack(name)
+   return sendAttack(emunah.config.get("pvp.attack", "angel sear"), name,
+      pvpRequirement(), pvpConsumption())
+end
+
+function M.canPvpAttack()
+   return attackReady(pvpRequirement())
 end
 
 -- ---------------------------------------------------------------------------
@@ -354,6 +387,8 @@ M.VERSES = {
 function M.canRecite(verse)
    if not (verse and M.VERSES[verse]) then return false end
    if not emunah.have.skill(M.VERSES[verse]) then return false end
+   if M.ONCE_PER_PRAYER[verse] and M.prayerSpent[verse] then return false end
+   if not M.prayerAllows(verse) then return false end
    if not emunah.act.can({ standing = true }) then return false end
    return emunah.timers.ready("pvp.prayer")
 end
@@ -369,7 +404,252 @@ function M.recite(verse, target)
       return false
    end
    emunah.timers.start("pvp.prayer", M.RECITE_BALANCE_GUESS)
+   if M.ONCE_PER_PRAYER[verse] then M.prayerSpent[verse] = true end
    return true
+end
+
+-- ---------------------------------------------------------------------------
+-- the prayer: length, conviction, and verses spent until it ends
+-- ---------------------------------------------------------------------------
+--
+-- AB PRAYER: verses recited close together chain into a prayer; "certain verses can only be
+-- utilised once per prayer, and others may require a prayer of a certain length". The game
+-- reports the chain as `prayer_length` and `conviction` in charstats (Char.Vitals,
+-- 2026-08-04), parsed to numbers by gmcp/vitals.lua.
+--
+-- Tracking the once-per-prayer verses is Anzerloi's method, in party chat 2026-10-15
+-- 12:49:38-12:49:55: mark one unusable when you recite it; free them all "on a successful
+-- rebuke, any of them, or upon prayer length resetting to 0 for any other reason".
+--
+-- Marked ON SEND, so the next tick cannot recite it again before the game has answered.
+-- Freed on the TRANSITION to 0, not on reading 0: the prompt between sending a prayer's
+-- first verse and the game executing it still says 0, and clearing there would forget the
+-- verse just sent.
+--
+-- VERSES (docs/game/help/verses.txt, 2026-10-15) gives each limited verse's needs: a
+-- conviction percentage and a prayer length, and all seven are once per prayer. Guilt and
+-- Condemnation are not in it, so neither needs nor is limited by anything here.
+--
+-- NOT YET KNOWN: the line a successful rebuke prints (M.prayerReset() is the hook for its
+-- trigger), and whether reciting one of these spends conviction.
+
+--- verse -> { conviction = %, length = verses }, from VERSES.
+M.VERSE_NEEDS = {
+   glory       = { conviction = 0,  length = 2 },
+   light       = { conviction = 0,  length = 0 },
+   purge       = { conviction = 5,  length = 0 },
+   reflection  = { conviction = 5,  length = 2 },
+   revelations = { conviction = 10, length = 3 },
+   salvation   = { conviction = 10, length = 0 },
+   wrath       = { conviction = 20, length = 1 },
+}
+
+--- verse -> true, for verses limited to once per prayer. VERSES says Yes for all seven.
+M.ONCE_PER_PRAYER = {}
+for verse in pairs(M.VERSE_NEEDS) do M.ONCE_PER_PRAYER[verse] = true end
+
+--- rebuke sin -> the prayer length it needs, and what it gives (AB ZEAL REBUKE). Heresy's
+--- inquisition only lands on a target with both guilt and spiritburn. A rebuke ends the
+--- prayer, so the drop to 0 that follows frees the once-per-prayer verses on its own.
+M.REBUKES = {
+   darkness = { length = 2, gives = "paranoia" },
+   chaos    = { length = 3, gives = "hallucinations" },
+   evil     = { length = 3, gives = "masochism" },
+   heresy   = { length = 4, gives = "inquisition" },
+}
+
+--- Does the current prayer meet this verse's (or rebuke's) needs? True for anything with
+--- none listed.
+---
+--- A REBUKE COUNTS THE VERSE IT RIDES ON. Anzerloi, 2026-10-15 13:24:48: "if your prayer
+--- length is 1, you can, for instance, recite guilt rebuke darkness. The guilt before it IS
+--- the prayer length 2 achieved, and then it is immediately reset by the rebuke." So a
+--- rebuke needs one less than its stated length already in the prayer. A verse's own
+--- length (VERSES) is what the prayer must already be, as in his "if prayer length >= 3 ...
+--- you can recite revelations".
+function M.prayerAllows(verse)
+   local prayer = M.prayer()
+   local rebuke = M.REBUKES[verse]
+   if rebuke then return prayer.length + 1 >= rebuke.length end
+   local needs = M.VERSE_NEEDS[verse]
+   if not needs then return true end
+   return prayer.length >= needs.length and prayer.conviction >= needs.conviction
+end
+
+--- verse -> true, once-per-prayer verses recited in the current prayer.
+M.prayerSpent = {}
+
+--- The current prayer, from charstats. Absent stats read as 0: no prayer.
+function M.prayer()
+   local vitals = emunah.gmcp.vitals
+   local stat = vitals and vitals.stat
+   return {
+      length     = tonumber(stat and stat("prayer_length", 0)) or 0,
+      conviction = tonumber(stat and stat("conviction", 0)) or 0,
+   }
+end
+
+--- The prayer is over: every once-per-prayer verse is usable again.
+function M.prayerReset()
+   M.prayerSpent = {}
+end
+
+local lastPrayerLength = 0
+-- The adapter can load this file again without a full reload (a class re-detected), so the
+-- previous generation's handler goes first.
+emunah.event.kill("priest")
+emunah.event.register("emunah.vitals", function()
+   local length = M.prayer().length
+   if length == 0 and lastPrayerLength > 0 then M.prayerReset() end
+   lastPrayerLength = length
+end, "priest")
+
+-- ---------------------------------------------------------------------------
+-- sapping: how much mana a sap takes, from what the target carries
+-- ---------------------------------------------------------------------------
+--
+-- Absolve kills when the target's mana is below 50% as it lands; exactly 50 fails. A sap
+-- is what drives it there, and its size depends on the target's afflictions. These figures
+-- are Anzerloi's, in party chat 2026-10-15 12:30:55-12:39:26 -- an informant, not HELP; see
+-- docs/game/priest-abilities.md (Priest: absolve). Each is a share of the target's MAXIMUM
+-- mana, added together:
+--
+--   guilt, spiritburn, tenderskin, burning   3.5 each
+--   each level of a limb break               3
+--   each mental affliction (focus cures it)  2
+--   prone                                    2
+--   any other affliction                     1
+--
+-- and inquisition adds half again to an ANGEL sap, not to `recite wrath`.
+--
+-- Whether a sap does anything with none of these present is not stated, so `base` is a
+-- parameter defaulting to 0 rather than a figure. NOTHING SENDS A SAP YET: the syntax,
+-- cost and replies of ANGEL SAP, RECITE WRATH and ABSOLVE are not captured. This is the
+-- calculation the offence will decide with once they are.
+
+M.ABSOLVE_BELOW = 50
+
+M.SAP = {
+   heavy  = 3.5,
+   level  = 3,
+   mental = 2,
+   prone  = 2,
+   other  = 1,
+   inquisition = 1.5,
+}
+
+M.SAP_HEAVY = { guilt = true, spiritburn = true, tenderskin = true, burning = true, ablaze = true }
+
+-- Tier of each break name. Arms and legs go broken, damaged, mangled; head and torso have
+-- no "broken" and go damaged, mangled (the same informant, 2026-08-05 -- see Limb breaks in
+-- priest-abilities.md). `crippled`/`mutilated` are left out: whether they are the same scale
+-- is unresolved, so they count as ordinary afflictions.
+local LIMB_TIERS = { broken = 1, damaged = 2, mangled = 3 }
+local CORE_TIERS = { damaged = 1, mangled = 2 }
+local CORE = { head = true, torso = true }
+
+local function breakTier(name)
+   for prefix in pairs(LIMB_TIERS) do
+      if name:sub(1, #prefix) == prefix then
+         local limb = name:sub(#prefix + 1)
+         if CORE[limb] then
+            if CORE_TIERS[prefix] then return limb, CORE_TIERS[prefix] end
+            return nil
+         end
+         if limb:find("arm$") or limb:find("leg$") then return limb, LIMB_TIERS[prefix] end
+      end
+   end
+   return nil
+end
+
+--- How much of the target's maximum mana one sap takes, as a percentage.
+---
+--- @param afflictions table a list of names, or a set (name -> true)
+--- @param opts table|nil { via = "angel"|"wrath" (default angel), base = number }
+--- @return number percent
+--- @return table breakdown { heavy, levels, mental, prone, other, inquisition }
+function M.sapPercent(afflictions, opts)
+   opts = opts or {}
+   local afflist = emunah.curing.afflist
+   local names = {}
+   for key, value in pairs(afflictions or {}) do
+      local name = type(key) == "number" and value or key
+      if value and type(name) == "string" then names[#names + 1] = name:lower() end
+   end
+
+   local tally = { heavy = 0, levels = 0, mental = 0, prone = 0, other = 0, inquisition = false }
+   local limbs = {}
+   for _, name in ipairs(names) do
+      local limb, tier = breakTier(name)
+      if M.SAP_HEAVY[name] then
+         tally.heavy = tally.heavy + 1
+      elseif limb then
+         -- A higher tier sits on top of the lower ones, so a limb is worth its worst tier
+         -- once, however many of its tiers are listed.
+         if tier > (limbs[limb] or 0) then limbs[limb] = tier end
+      elseif name == "prone" then
+         tally.prone = 1
+      elseif #afflist.curesVia(name, "focus") > 0 then
+         tally.mental = tally.mental + 1
+      else
+         -- Inquisition too: it is an affliction like any other here, and its multiplier
+         -- below is separate.
+         tally.other = tally.other + 1
+      end
+      if name == "inquisition" then tally.inquisition = true end
+   end
+   for _, tier in pairs(limbs) do tally.levels = tally.levels + tier end
+
+   local percent = (tonumber(opts.base) or 0)
+      + tally.heavy  * M.SAP.heavy
+      + tally.levels * M.SAP.level
+      + tally.mental * M.SAP.mental
+      + tally.prone  * M.SAP.prone
+      + tally.other  * M.SAP.other
+   if tally.inquisition and (opts.via or "angel") == "angel" then
+      percent = percent * M.SAP.inquisition
+   end
+   return percent, tally
+end
+
+--- The target's mana, as a percentage of maximum, after one sap. Never below 0.
+function M.sapAfter(manaPercent, afflictions, opts)
+   local after = (tonumber(manaPercent) or 100) - M.sapPercent(afflictions, opts)
+   return after > 0 and after or 0
+end
+
+-- ---------------------------------------------------------------------------
+-- contemplate: the target's real mana
+-- ---------------------------------------------------------------------------
+--
+-- Captured 2026-10-15 against Anzerloi, verbatim:
+--
+--   13:31:27  contemplate Anzerloi
+--             Anzerloi's mana stands at 5337/5405 [98%].
+--             Equilibrium used: 1.00s.
+--   13:31:45  angel sap Anzerloi
+--             Your guardian angel casts a piercing glance at Anzerloi.
+--             Equilibrium used: 2.75s.
+--
+-- The sap reports no figure to the caster, so the only measure of what it took is the next
+-- contemplate. A sap therefore marks the reading it follows as stale rather than guessing
+-- a new number. Both are read whoever sent them, by hand or not; nothing sends either yet.
+
+--- name (lower) -> { current, max, percent, at, sappedAt }
+M.targetMana = {}
+
+--- The last contemplate reading for a target, or nil. `stale` when a sap has landed since.
+function M.mana(name)
+   local reading = M.targetMana[tostring(name or ""):lower()]
+   if not reading then return nil end
+   reading.stale = reading.sappedAt ~= nil and reading.sappedAt >= reading.at
+   return reading
+end
+
+--- Would absolve kill at this mana? Strictly below the threshold.
+function M.absolveKills(manaPercent)
+   manaPercent = tonumber(manaPercent)
+   return manaPercent ~= nil and manaPercent < M.ABSOLVE_BELOW
 end
 
 --- Priest has no generic shield-break, so this stays unimplemented rather than guessing.
@@ -481,6 +761,45 @@ local function installTriggers()
          emunah.timers.stop("pvp.prayer")
          emunah.log.warn("Zeal verses refused -- not anointed yet (AB ZEAL ANOINT).")
       end))
+
+   -- CONTEMPLATE and ANGEL SAP: see M.targetMana for the captures.
+   keep(tempRegexTrigger([[^(\w+)'s mana stands at (\d+)/(\d+) \[(\d+)%\]\.$]], function()
+      local name = matches[2]:lower()
+      M.targetMana[name] = {
+         current = tonumber(matches[3]),
+         max     = tonumber(matches[4]),
+         percent = tonumber(matches[5]),
+         at      = emunah.util.now(),
+      }
+      emunah.event.raise("priest.contemplated", name, M.targetMana[name])
+   end))
+   keep(tempRegexTrigger([[^Your guardian angel casts a piercing glance at (\w+)\.$]], function()
+      local name = matches[2]:lower()
+      local reading = M.targetMana[name]
+      if reading then reading.sappedAt = emunah.util.now() end
+      emunah.event.raise("priest.sapped", name)
+   end))
+
+   -- CHASTEN SAYS WHAT LANDED. Captured 2026-10-15 13:58:03, `smite anzerloi head chasten
+   -- asthma` (the smite rebounded; the chasten still landed):
+   --
+   --   You direct a dark bolt of energy through your mace towards Anzerloi. The curse of
+   --   asthma is brought down on to your victim.
+   --
+   -- The game naming the affliction it gave is a statement, not an inference from the move,
+   -- so it goes to the opponent tracker the way a symptom line does. The name is in the
+   -- first sentence and the affliction in the second; unanchored, so the line wrapping
+   -- between them does not matter. A multi-word affliction would not match (\w+) and is
+   -- left untracked rather than guessed.
+   local chastened
+   keep(tempRegexTrigger([[dark bolt of energy through your mace towards (\w+)\.]], function()
+      chastened = matches[2]:lower()
+   end))
+   keep(tempRegexTrigger([[The curse of (\w+) is brought]], function()
+      local opponent = emunah.curing.detect.opponent
+      if chastened and opponent then opponent.assert(chastened, matches[2]) end
+      chastened = nil
+   end))
 
    keep(tempRegexTrigger([[^You can use Desolation again\.$]], function()
       emunah.timers.stop("bashing.desolation")

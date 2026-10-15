@@ -450,12 +450,17 @@ do
    keep(tempRegexTrigger([[^You are riding (.+)\.$]], function()
       if listing then listing.riding = true end
    end))
-   keep(tempRegexTrigger([[^You are protected by ]], function()
+   -- Anchored to the count: "You are protected by the power of an Earth Spiritshield." is a
+   -- defence line, and ending the listing on it read "You are riding X." below it as absent
+   -- -- a vault onto the horse you were on (2026-10-15 14:42:51). See patterns.lua.
+   keep(tempRegexTrigger([[^You are protected by \d+ defences?\.$]], function()
       if not listing then return end
       local riding = listing.riding
       listing = nil
       M.setRiding(riding)
    end))
+   event.kill("riding-deflisting")
+   event.register("emunah.prompt", function() listing = nil end, "riding-deflisting")
 end
 
 -- ---------------------------------------------------------------------------

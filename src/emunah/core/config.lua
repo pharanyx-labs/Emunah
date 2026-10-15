@@ -295,9 +295,14 @@ local DEFAULTS = {
    },
 
    pvp = {
-      -- Higher than bashing's: a PvP loss costs more than a bashing one, and there is no
-      -- "room is clear" backstop to catch a late stop the way there is in bashing.
-      stopBelowHealth = 60,
+      -- Lowered from 60 by the user, 2026-10-15: stopping does not stop a person hitting
+      -- you, so PvP fights on further than a hunt does. See pvp.lua's unsafe().
+      stopBelowHealth = 25,
+      -- PvP's own attack, apart from the hunt's (the user, 2026-10-15: "they are entirely
+      -- different"). Same meaning as bashing.attack/balance/consumes; see class/priest.lua.
+      attack   = "angel sear",
+      balance  = "both",
+      consumes = "eq",
    },
 
    -- Per-affliction priority overrides; the defaults live in curing/afflist.lua.

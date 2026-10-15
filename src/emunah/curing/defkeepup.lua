@@ -293,10 +293,12 @@ local function raisePending(name)
    return now - r.sent < M.EAT_PENDING
 end
 
---- How long sileris (or quicksilver) takes to harden after the apply [svof:
---- waitingforsileris, customwait = 8]. Applied, it is not up yet: keep-up must not apply a
---- second one into the gap.
-M.SILERIS_HARDEN = 8.0
+--- How long sileris (or quicksilver) takes to harden after the apply. Applied, it is not up
+--- yet: keep-up must not apply a second one into the gap. svof waits 8s
+--- (waitingforsileris, customwait = 8), but on 2026-10-15 it took 10.05s -- applied
+--- 18:26:21.16, hardened 18:26:31.21 -- and at 8 the hardening fell outside the window and
+--- was thrown away as an illusion, leaving the defence red. 12 covers it with room.
+M.SILERIS_HARDEN = 12.0
 
 -- The eat line starts the wait. Any "You eat ..." counts for every raise still waiting on
 -- one: an item raise is at most one per vector in flight, and a line about another herb
@@ -345,6 +347,10 @@ do
       raising.fangbarrier = nil
       M.resetBudget("fangbarrier")
       if M.mode("fangbarrier") == "defup" then M.satisfied.fangbarrier = true end
+      -- Up on the line, as svof has it (defences.got("sileris")), whether or not
+      -- Char.Defences says so too: the shell is on.
+      local defences = emunah.gmcp.defences
+      if defences and defences.got then defences.got("fangbarrier") end
    end
    for _, pattern in ipairs({
       [[^The sileris berry juice hardens into a supple purple shell\.$]],

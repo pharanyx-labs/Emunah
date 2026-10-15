@@ -124,6 +124,12 @@ end
 --- bookkeeping -- see M.restockableSalves() below.
 local restockCache = {}
 
+--- Salve-vector items that come out of the rift with OUTR, not FILL. Sileris is a berry:
+--- "outr sileris" -> "You remove 1 sileris, bringing the total in the rift to 820.", then
+--- "apply sileris to body" -> "You apply a sileris berry to yourself." (2026-10-15
+--- 18:26:11-18:26:21). Filed with the salves, it was never pulled at all.
+M.PULLED_SALVES = { sileris = true }
+
 function M.restockables()
    -- Memoised per method: this walks every affliction in the table, and with restocking on
    -- every tick that is a scan of a few hundred entries per prompt for a list that only
@@ -133,7 +139,9 @@ function M.restockables()
 
    local seen, out = {}, {}
    local function collect(item, vector)
-      if (vector == "herb" or vector == "smoke") and item and not seen[item] then
+      local pulled = vector == "herb" or vector == "smoke"
+         or (vector == "salve" and M.PULLED_SALVES[item])
+      if pulled and item and not seen[item] then
          seen[item] = true
          out[#out + 1] = item
       end
@@ -202,7 +210,7 @@ end
 --- restocked at all, so `have.cure()`'s "in the rift" answer was structurally permanent
 --- rather than a round trip away.
 ---
---- The other salves (mending, restoration, caloric, mass, sileris) are extended the same
+--- The other salves (mending, restoration, caloric, mass) are extended the same
 --- command on the strength of the pattern rather than individual confirmation -- Achaea
 --- already uses `FILL <container> WITH <fluid> FROM RIFT` for elixir vials (see
 --- engine.elixirMissing()'s warning text), and "EMPTY" reads as the generic empty-container
@@ -217,7 +225,7 @@ function M.restockableSalves()
 
    local seen, out = {}, {}
    local function collect(item, vector)
-      if vector == "salve" and item and not seen[item] then
+      if vector == "salve" and item and not seen[item] and not M.PULLED_SALVES[item] then
          seen[item] = true
          out[#out + 1] = item
       end

@@ -148,6 +148,12 @@ emunah.act.send("perform penitence " .. target, { standing = true, eq = true })<
   </tbody>
 </table></div>
 <p>Balances: <code>free</code>, <code>balance</code>, <code>equilibrium</code>, <code>herb</code>, <code>salve</code>, <code>elixir</code>, <code>purgative</code>, <code>smoke</code>, <code>focus</code>, <code>tree</code>, <code>moss</code>, <code>writhe</code>, <code>special</code> and <code>rift</code>.</p>
+<h3 id="queue-yours">Your own command or function</h3>
+<p><code>queue.user(kind, what, label)</code> puts a command, or a Lua function, on the balance it needs, ahead of everything Emunah queued. <code>kind</code> is <code>bal</code>, <code>eq</code>, <code>eqbal</code> or <code>free</code>. While it waits, Emunah's own sends that want the same balance hold for it, the attacks included. A function runs as Emunah's own, so what it sends does not count as typed. <code>emset queue &lt;kind&gt; &lt;command&gt;</code> does the same from the command line, and <code>queue.clearUser()</code> or <code>emset queue clear</code> drops what has not gone yet.</p>
+<pre><code>emunah.queue.user("eq", function()
+  send("angel strip " .. emunah.bashing.target)
+end, "strip")</code></pre>
+<p>After you type a command, Emunah's balance and equilibrium sends wait <code>queue.typedHold</code> seconds (0.5 by default) plus your latency, so yours goes first.</p>
 
 <h2 id="have">emunah.have</h2>
 <p>"Can I actually do this?", answered from tracked state. It never sends anything, and when data has not arrived yet the answer is the cautious one.</p>

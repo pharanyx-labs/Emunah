@@ -1,0 +1,36 @@
+Source: AB ZEAL, in-game, pasted by the user 2026-10-15. Every ability is known (the user,
+2026-10-15).
+
+H:100% M:85% E:100% W:99%  exckdb  T:  13:10:54.82-ab zeal
+Abilities in Zeal:
+-------------------------------------------------------------------------------
+Anoint               Your pledge.
+Verses               Knowledge of the holy verses.
+Will                 A verse to bolster the mind.
+Endurance            May the protectors of Creation never falter.
+Attend               They shall hear what you have to say.
+Fire                 The verse of the righteous.
+Void                 A verse to stave off the outer cold.
+Protection           The verse of protection.
+Fragility            The profane are weak in body as with mind.
+Prayer               Chaining the holy verses.
+Condemnation         There will be a reckoning.
+Guilt                Remind them of their failings.
+Persevere            There will be barriers to overcome.
+Unflinching          You will not back away from what must be done.
+Ash                  Consign them to their fate.
+Penance              Let them gaze upon their sins.
+Reflection           The verse of self reflection.
+Rebuke               Punish their transgressions.
+Burn                 Let the fire speak for you.
+Light                The rallying cry of the Light.
+Wrath                Righteous fury is a thing to behold.
+Purge                Let the disease be burned away.
+Rejection            You will not stand for such corruption.
+Oration              Creation shall flourish.
+Salvation            The verse of salvation.
+Benediction          A holy blessing to protect the righteous.
+Glory                The verse of glory.
+Revelations          Show them Evil's horror.
+-------------------------------------------------------------------------------
+To gain further information on an ability, AB <ability>.

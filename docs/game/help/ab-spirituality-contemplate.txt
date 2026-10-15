@@ -1,0 +1,12 @@
+Source: AB SPIRITUALITY CONTEMPLATE, in-game, pasted by the user 2026-10-15.
+
+H:100% M:92% E:100% W:100%  exckdb  T:  13:06:33.47-ab Spirituality contemplate
+Contemplate (Spirituality)                    Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            CONTEMPLATE <target>
+Works on/against:  Adventurers
+Cooldown:          1.00 seconds of equilibrium
+Resource:          50 mana
+Details:
+With this ability, you may see how much mana an adventurer has.
+-------------------------------------------------------------------------------

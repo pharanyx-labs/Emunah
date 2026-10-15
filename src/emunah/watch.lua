@@ -101,15 +101,21 @@ end
 
 --- A reason to stop, or nil. Ordered most-serious first so the reported reason is the
 --- most useful one when several are true at once.
+---
+--- `opts.fighting` says the caller is engaged whether or not a denizen is in the room (PvP:
+--- inCombat() only sees denizens), so the spike is advisory for it too. `opts.critical`
+--- replaces the critical floor for a caller that keeps its own -- PvP's is lower (the
+--- user, 2026-10-15), and this one would otherwise stop it first.
+--- @param opts table|nil { fighting = boolean, critical = number }
 --- @return string|nil
-function M.unsafe()
+function M.unsafe(opts)
    local vitals = emunah.gmcp.vitals
    if not vitals then return nil end
 
    -- Dead. Nothing below this matters, and every loop should already be stopping.
    if vitals.maxhp > 0 and vitals.hp <= 0 then return "you are dead" end
 
-   local critical = tonumber(setting("critical")) or 0
+   local critical = tonumber(opts and opts.critical) or tonumber(setting("critical")) or 0
    if critical > 0 and vitals.percent.hp < critical then
       return ("health critical (%d%%)"):format(vitals.percent.hp)
    end
@@ -126,7 +132,7 @@ function M.unsafe()
    -- still applies. Out of combat it stands, because a drain nothing is fighting back
    -- against -- bleeding, poison, a room effect -- is exactly the case where stopping is
    -- the whole remedy.
-   if not M.inCombat() then
+   if not (opts and opts.fighting) and not M.inCombat() then
       local spike  = tonumber(setting("damageSpike")) or 0
       local buffer = tonumber(setting("damageSpikeBelow")) or 0
       if spike > 0 and M.damageRate() >= spike and vitals.percent.hp < buffer then
@@ -175,6 +181,99 @@ function M.resource()
    if type(value) ~= "number" then return nil end
    return value, name
 end
+
+-- ---------------------------------------------------------------------------
+-- locks
+-- ---------------------------------------------------------------------------
+--
+-- A LOCK is a set of afflictions that shuts every way of curing them: slickness stops the
+-- salve, anorexia the herb, asthma the pipe, and each lock adds whatever takes away what is
+-- left. Ported from the reference system's cnrl.lockdata (svof raw-svo.controllers.lua),
+-- which names them on the prompt the same way. Its `dragon` lock is left out: it needs
+-- dragonform.
+--
+-- Not a reason to stop, the way low health is: a lock is a reason for an offence to give
+-- its balance and equilibrium to the cures that break it (pvp.lua), and to tell you.
+--
+-- Read on every prompt. Each test is a chain of `and`s over hash lookups, ordered so the
+-- common no-lock case fails on the first one.
+
+local function has(name)
+   local engine = emunah.curing and emunah.curing.engine
+   return (engine and engine.has and engine.has(name)) or emunah.have.affliction(name)
+end
+
+local function armsOut() return emunah.have.bothArmsBroken() end
+
+local function concussed() return has("mildconcussion") or has("seriousconcussion") end
+
+-- The reference system's can_usemana(): mana above its manause share, kept here as
+-- curing.focusMinMana, with the willpower half have.vectorBlocked("focus") also checks.
+local function manaUnusable()
+   local vitals = emunah.gmcp.vitals
+   if not vitals then return false end
+   local have = emunah.have
+   local floor = tonumber(emunah.config.get("curing.focusMinMana", have.FOCUS_MIN_MANA))
+      or have.FOCUS_MIN_MANA
+   if vitals.maxmp > 0 and (vitals.percent.mp or 100) <= floor then return true end
+   return vitals.maxwp > 0 and vitals.wp <= have.FOCUS_MIN_WILLPOWER
+end
+
+local function soft() return has("slickness") and has("anorexia") and has("asthma") end
+
+-- No kelp or aurum anywhere means asthma has no cure. Only once the rift has actually been
+-- listed: an unlisted rift reads as empty, which is not the same as having none.
+local function noAsthmaCure()
+   local ire = emunah.gmcp.ire
+   if not (ire and ire.riftKnown and ire.riftKnown()) then return false end
+   local have = emunah.have
+   return have.supply("kelp") == 0 and have.supply("aurum") == 0
+end
+
+--- Most severe first, so the first one named is the one that matters.
+M.LOCKS = {
+   { name = "true", test = function()
+      return soft() and has("paralysis") and has("impatience") and has("disrupted")
+         and has("confusion")
+   end },
+   { name = "hard", test = function()
+      return soft() and (has("impatience") or manaUnusable())
+   end },
+   { name = "venom", test = function() return soft() and has("paralysis") end },
+   { name = "soft",  test = soft },
+   { name = "rift 2", test = function()
+      return soft() and (has("paralysis") or (has("disrupted") and not emunah.have.balance("eq")))
+         and armsOut()
+   end },
+   { name = "rift", test = function()
+      return has("asthma") and has("slickness") and armsOut() and noAsthmaCure()
+   end },
+   { name = "slow", test = function()
+      return has("asthma") and has("slickness") and has("aeon") and concussed() and armsOut()
+   end },
+   { name = "stain", test = function()
+      return has("stain") and has("slickness") and armsOut() and not emunah.have.pipe("valerian")
+   end },
+}
+
+--- The locks you are in, most severe first. Empty when none.
+--- @return table
+function M.locks()
+   local found = {}
+   for _, lock in ipairs(M.LOCKS) do
+      if lock.test() then found[#found + 1] = lock.name end
+   end
+   return found
+end
+
+-- Named on the prompt while it lasts, as the reference system does: "(lock: soft)".
+event.register("emunah.prompt", function()
+   local locks = M.locks()
+   if #locks == 0 then return end
+   local theme = emunah.ui.theme
+   decho((" %s(%slock%s: %s%s%s)"):format(theme.dc("textDim"), theme.dc("danger"),
+      theme.dc("textDim"), theme.dc("warning"), table.concat(locks, ", "), theme.dc("textDim")))
+end, "watch")
 
 -- ---------------------------------------------------------------------------
 -- observations

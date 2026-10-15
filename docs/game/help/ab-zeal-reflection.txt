@@ -1,0 +1,14 @@
+Source: AB ZEAL REFLECTION, in-game, pasted by the user 2026-10-15 (13:11:46).
+
+Reflection (Zeal)                             Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE REFLECTION <target>
+Works on/against:  Adventurers
+Cooldown:          2.70 seconds of prayer balance
+Details:
+Recite this verse against one of the profane and they shall share in the
+suffering they would seek to bring upon you. Some of the afflictions
+dealt to you shall be gifted back to them in turn for a short time(*).
+
+* Ten seconds.
+-------------------------------------------------------------------------------

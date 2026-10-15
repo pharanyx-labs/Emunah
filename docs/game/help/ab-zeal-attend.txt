@@ -1,0 +1,13 @@
+Source: AB ZEAL ATTEND, in-game, pasted by the user 2026-10-15 (13:13:06).
+
+Attend (Zeal)                                 Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE ATTEND <target>
+Works on/against:  Adventurers
+Cooldown:          1.60 seconds of prayer balance
+Details:
+Some would seek to close their ears as well as their hearts to the holy
+truth of the Light and Fire. No matter. With this verse you may force
+them to attend you, stripping away such protections with a simple
+sentence.
+-------------------------------------------------------------------------------

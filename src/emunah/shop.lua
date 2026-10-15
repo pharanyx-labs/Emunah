@@ -332,8 +332,10 @@ function M.purchase(repnum, qty, mode)
    -- Held BEFORE the GET goes out: its Char.Items.Add arrives with the reply, and loot
    -- answers that with a PUT unless the gold is already spoken for.
    holdGold()
+   -- `user`: a purchase is yours, clicked or typed, and sent once with no retry -- the
+   -- hold after a typed command (act.typed) would lose it, not delay it.
    if not emunah.act.send(string.format("get %d gold from %s", cost, container),
-         { standing = true, bal = true, eq = true }) then
+         { standing = true, bal = true, eq = true, user = true }) then
       emunah.timers.stop("shop.paying")
       return false
    end

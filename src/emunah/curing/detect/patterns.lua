@@ -1202,7 +1202,13 @@ do
    persist(tempRegexTrigger([[^You have the following defences:]], function()
       listing = {}
    end))
-   persist(tempRegexTrigger([[^You are protected by ]], function()
+   -- THE COUNT LINE, ANCHORED. Unanchored, `^You are protected by ` also matched the
+   -- defence lines that begin the same way -- "You are protected by the power of an Earth
+   -- Spiritshield." (2026-10-15 14:42:39), the bell tattoo, the other spiritshields -- and
+   -- ended the listing there. Every defence listed after it read as gone: inspiration was
+   -- raised three times over a defence that was up, and riding vaulted onto a horse you
+   -- were sitting on.
+   persist(tempRegexTrigger([[^You are protected by \d+ defences?\.$]], function()
       if not listing then return end
       local names = listing
       listing = nil
@@ -1215,6 +1221,12 @@ do
       local name = emunah.curing.deflist.DEF_LINES[getCurrentLine()]
       if name then listing[#listing + 1] = name end
    end))
+
+   -- A listing the prompt reaches unfinished is dropped, never applied: an incomplete
+   -- listing says the defences it did not reach are gone. The reference system applies its
+   -- at the prompt for the same reason (svof defs.defline, process_defs).
+   emunah.event.kill("detect-deflisting")
+   emunah.event.register("emunah.prompt", function() listing = nil end, "detect-deflisting")
 
    -- BLISS, which neither Char.Defences nor DEF ever shows (deflist.SYNTHETIC.bliss). Its
    -- lines, verbatim from the reference system's defs_data.bliss.

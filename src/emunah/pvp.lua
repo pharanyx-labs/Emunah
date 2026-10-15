@@ -23,8 +23,8 @@
 ---
 --- WHAT THIS DOES NOT DO YET
 --- -------------------------
---- No offensive-affliction sequencing -- `class.attack(target)` sends whatever single
---- attack the loaded class module knows, same as bashing. No detection of an opponent
+--- No offensive-affliction sequencing yet -- the class's PvP attack (`pvp.attack`, its own
+--- setting, never the hunt's) goes out alongside the verses. No detection of an opponent
 --- fleeing or conceding -- a PvP session otherwise runs until you stop it or your own
 --- health trips the safety threshold. Guessing either of those is exactly the kind of
 --- plausible-but-wrong assertion the rest of this codebase avoids -- see curing/detect/
@@ -42,12 +42,14 @@ local event = emunah.event
 
 M.enabled = false
 M.target  = nil   -- opponent name (lower), or nil -- never auto-acquired
+M.held    = nil   -- the locks holding the attack back, as shown, or nil
 M.stats   = { attacks = 0, recited = 0, startedAt = 0 }
 
 M.config = {
-   -- Higher than bashing's default: a PvP loss is a worse outcome than a PvE one, and
-   -- there is no "room is clear" backstop to fall back on if this fires late.
-   stopBelowHealth = 60,
+   -- Lowered from 60 by the user, 2026-10-15. A fight against a person is not over when it
+   -- hurts, and stopping does not stop them hitting. It replaces watch.critical for PvP
+   -- (see unsafe() below), which would otherwise stop it at 30 first.
+   stopBelowHealth = 25,
    -- Recite Zeal verses (currently Guilt/Condemnation) at the target whenever prayer balance
    -- is free -- see class/priest.lua's header for why this never competes with the attack.
    verses = true,
@@ -122,20 +124,35 @@ function M.start()
    end
 
    local class = emunah.class
-   if not (class and class.active and class.active.attack) then
+   if not (class and class.active) then
       log.error("No class module loaded -- nothing knows how to attack.")
       log.error("Detected class: %s", tostring(emunah.gmcp.status.class() or "unknown"))
+      return false
+   end
+   -- PvP's attack is the class's PvP attack, never the hunt's (see class/priest.lua's
+   -- M.pvpAttack). A class without one has no PvP here yet.
+   if not class.active.pvpAttack then
+      log.error("%s has no PvP attack yet.", tostring(class.name))
       return false
    end
 
    M.enabled = true
    M.stats = { attacks = 0, recited = 0, startedAt = emunah.util.now() }
 
+   -- A HUNT IS BASHING AND THE WALKER. The pause below stops bashing, which hands the walker
+   -- its pacing back, and an unclaimed walker steps on by itself -- so PvP started with you
+   -- still wandering the area. Stop the walk outright, without the walk home.
+   local walker = emunah.walker
+   if walker and walker.enabled then walker.stop("pvp", true) end
+
    -- event.raise() prefixes with "emunah.", so this produces "emunah.bashing.pause" --
    -- exactly the raw name bashing.lua already registers a listener for.
    event.raise("bashing.pause")
 
    log.info("PvP <ansi_light_green>on<ansi_yellow>.")
+   if not M.target then
+      log.warn("No target yet -- nothing is sent until 'emset pvp target <name>'.")
+   end
    event.raise("pvp.started")
    return true
 end
@@ -143,6 +160,7 @@ end
 function M.stop(reason)
    if not M.enabled then return false end
    M.enabled = false
+   M.held = nil
 
    local elapsed = emunah.util.now() - (M.stats.startedAt or emunah.util.now())
    log.info("PvP stopped: %d attack%s in %s%s.",
@@ -161,19 +179,37 @@ end
 -- the loop
 -- ---------------------------------------------------------------------------
 
---- Should we stop for safety? Own health only -- see the module header for why this does
+--- Should we stop for safety? Own state only -- see the module header for why this does
 --- not also try to infer that the fight is over from the room's player list.
+---
+--- The health floor here REPLACES watch.critical rather than sitting beside it: at 30 that
+--- would stop PvP before its own 25 was ever reached. And PvP is always fighting, so the
+--- damage spike is advisory, for the reason watch.lua gives for denizens: stopping does not
+--- stop the person hitting you.
 local function unsafe()
    local vitals = emunah.gmcp.vitals
-   local threshold = tonumber(setting("stopBelowHealth")) or 60
+   local threshold = tonumber(setting("stopBelowHealth")) or 25
 
    if vitals and threshold > 0 and vitals.percent.hp < threshold then
       return ("health below %d%%"):format(threshold)
    end
 
-   local watched = emunah.watch and emunah.watch.unsafe()
+   local watched = emunah.watch and emunah.watch.unsafe({ fighting = true, critical = 0 })
    if watched then return watched end
    return nil
+end
+
+--- The locks you are in (watch.locks()), or nil when none.
+---
+--- A lock holds the ATTACK, not the session: the attack sends straight past the cure queue
+--- (see handsWanted() below), and the cures that break a lock -- standing, writhing,
+--- concentrating, `perform hands` -- want the same balance and equilibrium. When it breaks,
+--- the attack carries on. Verses are not held: prayer balance is shared with no cure.
+local function locked()
+   local watch = emunah.watch
+   local locks = watch and watch.locks and watch.locks()
+   if not locks or #locks == 0 then return nil end
+   return table.concat(locks, ", ")
 end
 
 --- Is `perform hands` actually wanted right now?
@@ -217,10 +253,21 @@ function M.tick()
 
    if not M.target then return end
 
+   local lock = locked()
+   if lock ~= M.held then
+      if lock then
+         log.warn("Locked (%s): holding the attack for your cures.", lock)
+      else
+         log.info("Lock broken: attacking again.")
+      end
+      M.held = lock
+   end
+
    local class = emunah.class
-   if class.canAttack() and not handsWanted() and targetVulnerableEnoughToAttack() then
-      class.attack(M.target)
-      M.stats.attacks = M.stats.attacks + 1
+   local active = class.active
+   if not lock and active.canPvpAttack() and not handsWanted()
+      and targetVulnerableEnoughToAttack() then
+      if active.pvpAttack(M.target) then M.stats.attacks = M.stats.attacks + 1 end
    end
 
    -- Verses spend PRAYER balance, a resource independent of the attack above -- see
@@ -232,8 +279,7 @@ function M.tick()
    -- as shouldPenitence/shouldDesolation in bashing.lua -- the adapter (class/adapter.lua)
    -- only forwards the universal interface (attack, canAttack, handleShield, onTick, stats),
    -- so a class with no Zeal-equivalent simply has no canRecite/recite and this is a no-op.
-   local active = class.active
-   if setting("verses") ~= false and active and active.canRecite and active.recite then
+   if setting("verses") ~= false and active.canRecite and active.recite then
       if active.canRecite("condemnation") then
          if active.recite("condemnation", M.target) then
             M.stats.recited = M.stats.recited + 1
@@ -252,6 +298,7 @@ function M.report()
    return {
       running     = M.enabled,
       target      = M.target,
+      held        = M.held,
       attacks     = M.stats.attacks,
       recited     = M.stats.recited,
       elapsed     = elapsed,

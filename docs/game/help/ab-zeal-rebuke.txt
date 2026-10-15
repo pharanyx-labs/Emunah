@@ -1,0 +1,26 @@
+Source: AB ZEAL REBUKE, in-game, pasted by the user 2026-10-15.
+
+H:100% M:93% E:100% W:100%  exckdb  T:  13:05:57.93-ab zeal rebuke
+Rebuke (Zeal)                                 Known: Yes
+-------------------------------------------------------------------------------
+Syntax:            RECITE <verse> <target> REBUKE <sin>
+Details:
+Your mastery of the holy verses now grants you the ability to conclude
+your prayer with a punishment of one of a heretic's sins. Certain
+punishments require a prayer of longer length than others. The
+punishment is given alongside the standard verse effect:
+
+Chaos: requires a prayer of at least three verses, gives hallucinations.
+
+Darkness: requires a prayer of at least two verses, gives paranoia.
+
+Evil: requires a prayer of at least three verses, gives masochism.
+
+Heresy: requires a prayer of at least four verses. Gives the inquisition
+affliction to a target suffering from both the guilt and spiritburn
+afflictions.
+
+Note that you may only couple rebuke with a verse that also targets a
+specific enemy.
+
+-------------------------------------------------------------------------------

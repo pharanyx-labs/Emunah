@@ -541,8 +541,8 @@ function mock.install(homeDir)
       Asterisk = 0x2a, Plus = 0x2b, Minus = 0x2d, Period = 0x2e, Slash = 0x2f,
       ["0"] = 0x30, ["1"] = 0x31, ["2"] = 0x32, ["3"] = 0x33, ["4"] = 0x34,
       ["5"] = 0x35, ["6"] = 0x36, ["7"] = 0x37, ["8"] = 0x38, ["9"] = 0x39,
-      -- Qt::Key_F1.. F5/F11/F12 are the ones keys.lua's action bindings need.
-      F5 = 0x01000034, F11 = 0x0100003a, F12 = 0x0100003b,
+      -- Qt::Key_F1.. F1/F5/F11/F12 are the ones keys.lua's action bindings need.
+      F1 = 0x01000030, F5 = 0x01000034, F11 = 0x0100003a, F12 = 0x0100003b,
    }
 
    function _G.tempKey(modifier, code, fn)

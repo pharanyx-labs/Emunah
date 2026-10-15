@@ -11,7 +11,10 @@ no single HELP topic covers them.
 
 Captured so far: `shops.txt` (`HELP SHOPS`), `who-listings.txt` (`CW`/`CLWHO`/`QW`/`HONOURS`/
 `DIAG` output), `ab-spirituality-mace.txt` (`AB SPIRITUALITY MACE`). These are in-game
-captures.
+captures. Priest PvP, 2026-10-15: `verses.txt` (`VERSES`), `ab-zeal-wrath.txt`,
+`ab-zeal-rebuke.txt`, `ab-spirituality-chasten.txt`, `ab-spirituality-absolve.txt`,
+`ab-spirituality-sap.txt`, `ab-spirituality-contemplate.txt`, `ab-devotion-sloth.txt`,
+`ab-zeal.txt` (the full list), and `ab-zeal-{revelations,glory,light,purge,reflection,salvation,fire,fragility,ash,penance,burn,rejection,attend}.txt`.
 
 Fetched 2026-09-28 from the website copy of the help (achaea.com/game-help), one file per
 page, body verbatim below a two-line source header: HELP 13 *The Principles of Battle*
