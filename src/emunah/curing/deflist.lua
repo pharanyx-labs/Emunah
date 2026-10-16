@@ -548,6 +548,29 @@ event.register("emunah.items.list", function(_, key)
    end
 end, "curing.deflist")
 
+-- THE MACE GOING UP OR DOWN IS SAID, as a real defence's is. Char.Defences never mentions
+-- it, so nothing else tells the panel or keep-up when an inventory change makes it wielded
+-- or not. After a reload the inventory comes a second or two late; the mace, wielded all
+-- along, stayed yellow in the defence panel until some unrelated defence event repainted
+-- it, "after a minute or so" (the user, 2026-10-16).
+local maceWasUp = nil
+local function maceChanged(_, key)
+   if key ~= nil and key ~= "inv" then return end
+   local items = emunah.gmcp.items
+   if not (items and items.inventoryListed) then return end
+   local up = M.SYNTHETIC.trackmace() and true or false
+   if up == maceWasUp then return end
+   local was = maceWasUp
+   maceWasUp = up
+   -- The first reading after a load only matters when it is up: down is what everything
+   -- already assumes of a defence it has not heard about.
+   if up or was ~= nil then event.raise(up and "defence.added" or "defence.lost", "trackmace") end
+end
+for _, name in ipairs({ "emunah.items.list", "emunah.items.added", "emunah.items.updated",
+                        "emunah.items.removed" }) do
+   event.register(name, maceChanged, "curing.deflist")
+end
+
 event.register("sysDisconnectionEvent", function()
    if emunah._persist then
       emunah._persist.maceSummoned = nil
@@ -606,6 +629,7 @@ end
 function M.noteMaceWielded()
    rememberMace("wielded")
    if emunah.queue then emunah.queue.confirm("free") end
+   maceWasUp = true
    event.raise("defence.added", "trackmace")
 end
 
