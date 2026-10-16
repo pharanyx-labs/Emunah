@@ -466,6 +466,11 @@ M.settings = {
 { key = "curing.textConfirm", default = 2.0, type = "number", unit = "s", topic = "curing",
   shipped = false, detail = "How long an affliction reported by text waits for the server to "
        .. "confirm it before it is dropped as an illusion." },
+{ key = "curing.idlePoll", default = 15, type = "number", unit = "s", topic = "curing",
+  shipped = false,
+  detail = "With no prompt for this long, send a blank line for one, so curing sees health "
+       .. "and mana that defences drained while idle. Its prompt is hidden when nothing "
+       .. "else came with it. 0 turns it off." },
 { key = "curing.focusMinMana", default = 35, type = "number", unit = "% of max",
   topic = "curing", shipped = false,
   detail = "FOCUS is held at or below this mana (the reference system's `manause`)." },

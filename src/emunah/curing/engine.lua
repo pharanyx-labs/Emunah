@@ -1593,8 +1593,69 @@ end
 
 -- The heartbeat.
 event.register("emunah.tick", function()
+   M.heardAt = util.now()
+   if not emunah._persist.idlePollTimer then M.armIdlePoll() end
    M.tick()
 end, "curing.engine")
+
+-- ---------------------------------------------------------------------------
+-- idle poll
+-- ---------------------------------------------------------------------------
+
+--- ASK FOR A PROMPT WHEN NONE HAS COME. Everything here decides on a prompt's Char.Vitals,
+--- and an idle character gets almost none: 81 seconds between two, standing in a shop
+--- (pipes.lua). Defences that cost mana drain it through that silence, so the first prompt
+--- after a few quiet minutes arrived with mana yellow at about 20%, and nothing sipped
+--- until then (the user, 2026-10-16). A blank line gets a prompt with its Char.Vitals
+--- straight away (curing/defkeepup.lua's nudge), and the tick that comes with it sips.
+---
+--- The prompt it brings is hidden when nothing else came with it (ui/gag.lua's
+--- nextPrompt), so standing idle does not fill the window with prompts.
+
+--- When the last tick ran, or nil before the first.
+M.heardAt = nil
+
+--- Seconds without a prompt before one is asked for. 0 turns it off.
+function M.idlePollEvery()
+   return tonumber(emunah.config.get("curing.idlePoll", 15)) or 0
+end
+
+--- Send the blank line, if anything may be sent at all. act.send() refuses an empty
+--- command, so this checks act.blocked() itself: halted, logged out, dead, stunned.
+function M.idleNudge()
+   if not M.enabled or emunah.act.blocked() then return false end
+   send("", false)
+   emunah.ui.gag.nextPrompt()
+   log.debug("-> (blank line: no prompt for %ss)", M.idlePollEvery())
+   return true
+end
+
+--- One timer, re-armed as it fires, rather than one restarted on every prompt: the tick
+--- only stores the time. It stops re-arming while curing is off or the setting is 0, and
+--- the next tick starts it again.
+function M.armIdlePoll(delay)
+   emunah._persist = emunah._persist or {}
+   local every = M.idlePollEvery()
+   if every <= 0 or not M.enabled then return end
+   emunah._persist.idlePollTimer = tempTimer(delay or every, function()
+      emunah._persist.idlePollTimer = nil
+      local quiet = util.now() - (M.heardAt or 0)
+      local wanted = M.idlePollEvery()
+      if wanted <= 0 or not M.enabled then return end
+      if quiet >= wanted then
+         M.idleNudge()
+         M.armIdlePoll(wanted)
+      else
+         M.armIdlePoll(wanted - quiet)
+      end
+   end)
+end
+
+do
+   emunah._persist = emunah._persist or {}
+   if emunah._persist.idlePollTimer then killTimer(emunah._persist.idlePollTimer) end
+   emunah._persist.idlePollTimer = nil
+end
 
 --- WRITHE ONCE, THEN WAIT.
 ---
