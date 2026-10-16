@@ -9283,6 +9283,11 @@ ok(table.concat(mock.sent, " | "):find("get gold"),
 -- OUR COMPANIONS ARE NOT ALIVE-AND-HOSTILE. 11:52:09 (2026-10-04), verbatim payloads: the
 -- last sentinel died, its gold landed, and the pickup said "something is still alive here"
 -- -- the guardian angel and the horse -- until the walker left without it.
+-- The shipped mount is the user's pegasus (2026-10-16); the tests below ride a horse set
+-- by hand, so they say nothing about the default.
+emunah.config.set("riding.mount", nil)
+eq(select(1, emunah.riding.mount()), "pegasus510623", "the default mount is the pegasus")
+eq(select(2, emunah.riding.mount()), "510623", "...known in the room list by its number")
 emunah.config.set("riding.mount", "horse368644")
 emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
 den2.add("an apathetic gnoll sentinel", nil, true)

@@ -636,7 +636,7 @@ M.settings = {
      .. "asks only when the pipes are not known, e.g. after login or a reload." },
 { key = "riding.keepup", default = false, type = "boolean", topic = "riding", shipped = false,
   detail = "Vault back onto the mount whenever you are off it and the balance is idle." },
-{ key = "riding.mount", default = "horse368644", type = "string", topic = "riding",
+{ key = "riding.mount", default = "pegasus510623", type = "string", topic = "riding",
   shipped = false, detail = "The mount, as VAULT takes it. Its number is how the room list "
        .. "and ORDER name it." },
 { key = "riding.follow", default = true, type = "boolean", topic = "riding", shipped = false,

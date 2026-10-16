@@ -107,10 +107,12 @@ end
 function M.keepupOn() return config("riding.keepup", false) == true end
 function M.followOn() return config("riding.follow", true) ~= false end
 
---- The mount as VAULT wants it ("horse368644"), its bare replica number ("368644", which
---- is how Char.Items and ORDER name it), and the word for the prompt ("horse").
+--- The mount as VAULT wants it ("pegasus510623"), its bare replica number ("510623", which
+--- is how Char.Items and ORDER name it), and the word for the prompt ("pegasus"). The
+--- pegasus is the user's mount since 2026-10-16, from the horse before it; its number is
+--- the one in their own `whistle mount pegasus510623`.
 function M.mount()
-   local token = tostring(config("riding.mount", "horse368644") or "")
+   local token = tostring(config("riding.mount", "pegasus510623") or "")
    if token == "" or token == "(unset)" then return nil end
    local id = token:match("(%d+)$")
    local word = token:match("^(%a+)") or "mount"
