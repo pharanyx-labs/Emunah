@@ -36,6 +36,7 @@ mock.clock = 0
 function mock.reset()
    mock.sent, mock.gmcpSent, mock.echoed = {}, {}, {}
    mock.timers, mock.aliases, mock.triggers = {}, {}, {}
+   mock.lineTriggers = {}
    mock.handlers = {}
    mock.links = {}
    mock.popups = {}
@@ -113,17 +114,22 @@ function mock.install(homeDir)
    mock.deletedLines = 0
    -- A real buffer for the main window, so a gag can be checked for WHICH lines it removed.
    -- mock.line() appends to it and makes that line current; moveCursor/deleteLine then act
-   -- on it by number, as Mudlet's do. Deleting shifts the lines below up, exactly the
-   -- behaviour that makes deleting mid-packet dangerous (see pipes.lua).
+   -- on it by number, as Mudlet's do. Deleting shifts the lines below up.
    mock.buffer = {}
    mock.cursor = nil
+   -- The line triggers are running on, while mock.line() runs them. Mudlet's cursor stays
+   -- on that index after a trigger deletes the line, so the index is then past the end of
+   -- the buffer: getLineNumber() still reports it, and a second deleteLine() does nothing
+   -- (TBuffer::deleteLines range-checks). Falling back to the last line instead would
+   -- delete the line ABOVE, which Mudlet never does.
+   mock.lineIndex = nil
    mock.deletedText = {}
    -- Whole-line foreground set by selectCurrentLine + setFgColor, keyed by buffer index.
    -- Pipes conceals a gag by painting the line in its own background; the text stays so
    -- the timer can still find it. deselect() must not forget that colour.
    mock.lineFg = {}
    mock.bgColor = { 0, 0, 0 }
-   function _G.getLineNumber() return mock.cursor or #mock.buffer end
+   function _G.getLineNumber() return mock.cursor or mock.lineIndex or #mock.buffer end
    function _G.getLineCount() return #mock.buffer end
    function _G.moveCursor(window, x, y)
       if type(window) ~= "string" then x, y = window, x end
@@ -144,7 +150,7 @@ function mock.install(homeDir)
    end
    function _G.deleteLine()
       mock.deletedLines = mock.deletedLines + 1
-      local line = mock.cursor or #mock.buffer
+      local line = mock.cursor or mock.lineIndex or #mock.buffer
       -- ~= nil, not a truthiness check: an empty string is a real buffer row, and the
       -- gag's bug was exactly a row that looked empty and never went away.
       if mock.buffer[line] ~= nil then
@@ -541,6 +547,16 @@ function mock.install(homeDir)
    function _G.killTrigger(id)
       if mock.triggers[id] then mock.triggers[id] = nil return true end
       return false
+   end
+
+   -- tempLineTrigger(from, howMany, fn): fn runs on `howMany` lines, starting `from` lines
+   -- after the one being processed. mock.line() runs them after the regex triggers.
+   mock.lineTriggers = mock.lineTriggers or {}
+   function _G.tempLineTrigger(from, howMany, fn)
+      local id = newId()
+      mock.lineTriggers[#mock.lineTriggers + 1] =
+         { id = id, wait = math.max(tonumber(from) or 1, 1), left = tonumber(howMany) or 1, fn = fn }
+      return id
    end
 
    -- Keybindings. mudlet.key holds real Qt key codes; the numpad ones matter because a
@@ -1422,6 +1438,11 @@ function mock.line(text)
    mock.currentLine, mock.formatted = tostring(text), {}
    mock.buffer[#mock.buffer + 1] = mock.currentLine
    mock.cursor = nil
+   mock.lineIndex = #mock.buffer
+   -- Line triggers armed on an earlier line. One armed while this line runs waits for the
+   -- next, as tempLineTrigger(1, ...) does in Mudlet.
+   local armed = {}
+   for index, entry in ipairs(mock.lineTriggers or {}) do armed[index] = entry end
    for _, trigger in ipairs(triggersInOrder()) do
       -- A list, not a single pattern: an alternation regex is several Lua patterns, and the
       -- trigger fires on the FIRST that matches -- once, not once per branch, which is what
@@ -1441,6 +1462,19 @@ function mock.line(text)
       end
    end
    mock.matchTime = mock.matchTime + (clock() - segment)
+   for _, entry in ipairs(armed) do
+      entry.wait = entry.wait - 1
+      if entry.wait <= 0 and entry.left > 0 then
+         entry.left = entry.left - 1
+         entry.fn()
+      end
+   end
+   local live = {}
+   for _, entry in ipairs(mock.lineTriggers or {}) do
+      if entry.left > 0 then live[#live + 1] = entry end
+   end
+   mock.lineTriggers = live
+   mock.lineIndex = nil
    return fired
 end
 

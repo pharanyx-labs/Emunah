@@ -10084,13 +10084,11 @@ ok(table.concat(mock.sent, " | "):find("light pipes", 1, true),
    "a pipe that changed state is worth trying again", table.concat(mock.sent, " | "))
 
 -- ---------------------------------------------------------------------------
--- NOTHING IS EVER GAGGED, and this is the regression pin for it.
+-- EVERY ROW IS RECORDED WHILE OUR POLL IS HIDDEN.
 --
--- An earlier version deleted the output of its own polls. Reported in play as "it's also
--- only lighting the skullcap pipe" -- the FIRST row. Deleting a line while Mudlet is still
--- working through the lines that arrived in the same packet shifts the buffer under it, and
--- the rows after the deleted one never reached the trigger at all, so only pipe one was ever
--- recorded. The state machine was fine; it was being fed one pipe.
+-- An earlier version deleted the output of its own polls, and was reported in play as
+-- "it's also only lighting the skullcap pipe" -- the FIRST row. The rows are now deleted in
+-- their triggers, as the reference system gags, and each is parsed before it goes.
 pipes.forget()
 emunah.timers.stop("pipes.poll")
 mock.sent = {}
@@ -10103,8 +10101,8 @@ pipelist({
    "out     pipe408402   slippery elm                   9     250",
    "out     pipe422328   a valerian leaf                10    250",
 })
-eq(mock.deletedLines, before, "our own poll output is left on screen, not deleted")
-eq(#pipes.list(), 3, "...so every row after the first is still recorded")
+ok(mock.deletedLines > before, "our own poll output is hidden")
+eq(#pipes.list(), 3, "...and every row after the first is still recorded")
 
 -- ---------------------------------------------------------------------------
 -- LIGHTING HAS TWO SUCCESS MESSAGES and only one was matched. `light pipes` answers "You
@@ -12910,26 +12908,6 @@ local function inBuffer(text)
    for index = start + 1, #mock.buffer do if mock.buffer[index] == text then return true end end
    return false
 end
-local function matchesBg(index)
-   local fg = mock.lineFg[index]
-   local bg = mock.bgColor or { 0, 0, 0 }
-   return fg and fg[1] == bg[1] and fg[2] == bg[2] and fg[3] == bg[3]
-end
--- Hidden means painted in the line's own background. The sentence has to still be the
--- buffer row: a zero-width stand-in looks like an empty line and is what a copy collapses.
-local function concealed(text)
-   for index = start + 1, #mock.buffer do
-      if mock.buffer[index] == text and matchesBg(index) then return true end
-   end
-   return false
-end
-local function concealedCount(text)
-   local n = 0
-   for index = start + 1, #mock.buffer do
-      if mock.buffer[index] == text and matchesBg(index) then n = n + 1 end
-   end
-   return n
-end
 local function noGhosts()
    for index = start + 1, #mock.buffer do
       local line = mock.buffer[index]
@@ -12952,27 +12930,18 @@ local rows = {
    "out     pipe422328   a valerian leaf                9     195",
    "-------------------------------------------------------------------------------",
 }
-mock.line("The celestial flowers of the aurora bloom and fade slowly, their rhythm steady and soothing.")
+local aurora = "The celestial flowers of the aurora bloom and fade slowly, their rhythm steady and soothing."
+mock.line(aurora)
 for _, row in ipairs(rows) do mock.line(row) end
--- THE REGRESSION THAT BANNED GAGGING HERE: every row must be parsed, not just the first.
+-- Deleted in the trigger, and every row still parsed: the regression that once banned it.
 eq(#pipes.list(), 3, "all three rows parsed while being gagged")
--- Hidden as the line arrives: the words are painted out, and the sentence is still the
--- row. Replacing it left an empty line that vanished only when the text was copied.
 for _, row in ipairs(rows) do
-   ok(inBuffer(row), "still the original row, so the delete can find it: " .. row)
-   ok(concealed(row), "hidden as it arrives: " .. row)
-end
-ok(noGhosts(), "nothing is replaced with an empty or zero-width row")
-mock.advance(0)
-for _, row in ipairs(rows) do
-   ok(not inBuffer(row), "gagged: " .. row)
+   ok(not inBuffer(row), "gone as it arrives, with no timer: " .. row)
 end
 ok(noGhosts(), "removing the listing leaves no empty row")
-ok(inBuffer("The celestial flowers of the aurora bloom and fade slowly, their rhythm steady and soothing."),
-   "...and the unrelated line around them is left alone")
+ok(inBuffer(aurora), "...and the unrelated line before it is left alone")
 
--- A LIGHT of ours is SHOWN. Hiding it still drew blank rows that collapsed a moment later:
--- "we're still gagging lines when we relight pipes, though. fix this".
+-- A LIGHT of ours is SHOWN: "we're still gagging lines when we relight pipes, though. fix this".
 mock.sent, mock.echoed_sends = {}, {}
 pipes.keep()
 eq(mock.sent[1], "light pipes", "the cold pipes are lit")
@@ -12980,105 +12949,60 @@ eq(mock.echoed_sends[1], true, "...echoed, like every other keep-up command")
 mock.line("You use a soot-blackened tinderbox to make fire.")
 mock.line("You carefully light your treasured pipe until it is smoking nicely.")
 eq(pipes.pipes["367581"].status, "lit", "the light is still recorded")
-ok(not concealed("You use a soot-blackened tinderbox to make fire.")
-   and not concealed("You carefully light your treasured pipe until it is smoking nicely."),
-   "a relight's lines are not painted out")
-mock.advance(0)
 ok(inBuffer("You use a soot-blackened tinderbox to make fire."), "the tinderbox line stays")
 ok(inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
    "...and so does the lit line")
 
--- The gag itself still serves PIPELIST and PUT. A quiet fill's one-line reply is the
--- example below.
+-- The gag serves PIPELIST and PUT. A quiet fill's one-line reply is the example below.
 local fillReply = "You fill your pipe with a skullcap flower."
 local function quietFill()
    pipes.quietly("fill")
    mock.line(fillReply)
 end
 
--- THE BUFFER MOVES BETWEEN THE GAG AND THE DELETE (2026-09-28: "overgagging on some lines
--- and not gagging others"). Mudlet trimming full scrollback removes lines from the top, so
--- every recorded number is now one too high: by number, the gag deleted the line BELOW
--- each reply and left the reply. By text, it finds the reply and nothing else goes.
+-- Only the reply goes: "overgagging on some lines and not gagging others" (2026-09-28)
+-- came from deleting later, by a line number that had moved.
 do
    local before = "Anzerloi continues to circle you, slipping in and out of your blindspot."
    local after = "A lost visitor enters from the east."
    mock.line(before)
    quietFill()
    mock.line(after)
-   ok(concealed(fillReply), "a quiet fill's reply is hidden before the timer, text intact")
-   table.remove(mock.buffer, 1)                   -- the scrollback trims one line
-   start = start - 1
-   mock.advance(0)
-   ok(not inBuffer(fillReply), "after a trim, the fill reply is still the one gagged")
+   ok(not inBuffer(fillReply), "a quiet fill's reply is hidden")
    ok(inBuffer(before) and inBuffer(after), "...and the lines around it are untouched")
    ok(noGhosts(), "a gag leaves no empty row")
 end
 
--- TWO OF THE SAME REPLY, THEN A TRIM. Searching by that text settled both copies on the
--- first one and left the second on screen. The search skips a line it has already removed
--- and keeps looking, so a shift still removes both and nothing next to them.
-do
-   local before = "Anzerloi continues to circle you, slipping in and out of your blindspot."
-   local after = "A lost visitor enters from the east."
-   mock.line(before)
-   quietFill()
-   quietFill()
-   mock.line(after)
-   eq(concealedCount(fillReply), 2, "both replies are hidden before the delete, text intact")
-   ok(noGhosts(), "two replies do not leave an empty or zero-width row")
-   table.remove(mock.buffer, 1)
-   start = start - 1
-   mock.advance(0)
-   ok(not inBuffer(fillReply), "after a trim, both copies are gone")
-   ok(inBuffer(before) and inBuffer(after), "...and the lines around the pair are untouched")
-end
-
--- ONE LINE, GAGGED TWICE, COUNTS ONCE. Otherwise a block of one gagged line and one of
--- yours reads as "all ours", and the prompt above it is collapsed away.
+-- ONE LINE, GAGGED BY TWO TRIGGERS, IS ONE LINE GONE. Mudlet leaves the cursor on the
+-- deleted index, past the end of the buffer, so the second deleteLine() does nothing.
 do
    local pa = "H:100% M:100% E:100% W:100%  ex-  T:  15:30:00.00-"
    local pb = "H:100% M:100% E:100% W:100%  ex-  T:  15:30:01.00-"
    local mine = "Maajida arrives from the north."
+   local second = tempRegexTrigger([[^You fill your pipe with ]], function() pipes.gag() end)
    mock.prompt(pa)
    quietFill()
-   pipes.gag()                                    -- a second trigger on the same line
+   killTrigger(second)
    mock.line(mine)
    mock.prompt(pb)
-   mock.advance(0)
-   ok(inBuffer(pa), "a prompt above a line you should see is kept")
-   ok(inBuffer(mine), "...and so is that line")
+   ok(inBuffer(pa), "the prompt above a line gagged twice is kept")
+   ok(not inBuffer(fillReply), "...the line itself is gone")
+   ok(inBuffer(mine) and inBuffer(pb), "...and what came after it stays, prompt and all")
 end
 
--- THE LAST LINE IS ALWAYS A CURRENT PROMPT. Reported 13:23:14.92-13:23:17.41: five bare
--- prompts in a row, one per piece of housekeeping, because only the replies were gagged.
--- Now a run of it collapses into one prompt -- the newest -- at the bottom of the window.
+-- NO BARE PROMPT PER COMMAND. Reported 13:23:14.92-13:23:17.41: five bare prompts in a row,
+-- one per piece of housekeeping, because only the replies were gagged. Each reply now takes
+-- its prompt with it, so a run of them leaves the prompt before it as the last line.
 local p1 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:14.92-"
 local p2 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:15.13-"
 local p3 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:15.90-"
-local visitor = "Glancing around for the Iron Carnival, a lost visitor enters from the southwest."
 mock.prompt(p1)
 quietFill()
 mock.prompt(p2)
-mock.advance(0)
 quietFill()
 mock.prompt(p3)
-mock.advance(0)
-ok(not inBuffer(p1) and not inBuffer(p2), "the prompts our housekeeping stranded are removed")
-eq(mock.buffer[#mock.buffer], p3, "...and the newest prompt is the last line in the window")
-
--- Mudlet finishes a prompt -- which arrived without its own newline -- with a trailing
--- space before the delete runs. That space is not a typed command; the prompt still goes.
-local pSpace = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:16.00-"
-local pNext = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:16.40-"
-mock.prompt(pSpace)
-local spaceAt = #mock.buffer
-quietFill()
-mock.buffer[spaceAt] = pSpace .. " "
-mock.prompt(pNext)
-mock.advance(0)
-ok(not inBuffer(pSpace .. " "), "a prompt finished with a trailing space is still removed")
-eq(mock.buffer[#mock.buffer], pNext, "...and the prompt after that reply is the last line")
+ok(not inBuffer(p2) and not inBuffer(p3), "the prompts after our housekeeping go with it")
+eq(mock.buffer[#mock.buffer], p1, "...and the prompt before the run is the last line")
 
 -- TWO IN FLIGHT AT ONCE. The first reply used to clear the single "ours" slot, so the
 -- second was shown. Each kind counts its own outstanding commands.
@@ -13088,7 +13012,6 @@ do
    local before = #mock.buffer
    mock.line(fillReply)
    mock.line(fillReply)
-   mock.advance(0)
    eq(#mock.buffer, before, "both replies are gagged, not just the first one's")
 end
 
@@ -13102,33 +13025,22 @@ mock.line("out     pipe367581   a skullcap flower              8     195")
 pipes.quietly("fill")
 mock.line("lit     pipe408402   slippery elm                   9     195")
 mock.line("-------------------------------------------------------------------------------")
-mock.advance(0)
 eq(#mock.buffer, before, "a fill sent mid-listing leaves the whole listing gagged")
 mock.line(fillReply)                              -- that fill's own reply, so it is answered
-mock.advance(0)
 
--- A block with anything else in it keeps its prompt.
-mock.line(visitor)
+-- Anything shown after our reply keeps the prompt.
+local visitor = "Glancing around for the Iron Carnival, a lost visitor enters from the southwest."
 local p4 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:17.41-"
-mock.prompt(p4)
-mock.advance(0)
-ok(inBuffer(visitor) and inBuffer(p3), "an ordinary block leaves the prompt before it alone")
-eq(mock.buffer[#mock.buffer], p4, "...and ends on its own prompt")
-
--- A prompt you typed a command onto is yours, and stays.
-mock.typedEcho("score")
 quietFill()
-local p5 = "H:100% M:100% E:100% W:100%  ex-  T:  13:23:18.20-"
-mock.prompt(p5)
-mock.advance(0)
-ok(inBuffer(p4 .. "score"), "a prompt carrying a typed command is never removed")
-eq(mock.buffer[#mock.buffer], p5, "...and the newest prompt is still last")
+mock.line(visitor)
+mock.prompt(p4)
+ok(inBuffer(visitor), "a line that is not ours is shown")
+eq(mock.buffer[#mock.buffer], p4, "...and the block ends on its own prompt")
 
 -- YOURS ARE NOT: a PIPELIST you typed, or `emunah pipes now`, is shown in full.
 mock.advance(pipes.QUIET_WINDOW + 0.1)
 before = #mock.buffer
 for _, row in ipairs(rows) do mock.line(row) end
-mock.advance(0)
 eq(#mock.buffer, before + #rows, "a PIPELIST we did not send is not gagged")
 mock.sent, mock.echoed_sends = {}, {}
 emunah.timers.stop("pipes.poll")
@@ -13136,8 +13048,7 @@ pipes.poll(true, true)
 eq(mock.echoed_sends[#mock.echoed_sends], true, "`emunah pipes now` echoes, as asked for")
 
 -- THE LINE THAT SHOWS UP ON ITS OWN. It names the contents and arrives the moment the pipe
--- goes out. It is shown, keep-up or not: the relight that follows it is shown too, and
--- hiding the one ahead of it was the same flash.
+-- goes out. It is shown, keep-up or not: the relight that follows it is shown too.
 for _, keepup in ipairs({ true, false }) do
    emunah.config.set("pipes.enabled", keepup)
    emunah.timers.stop("pipes.action")
@@ -13146,7 +13057,6 @@ for _, keepup in ipairs({ true, false }) do
    mock.sent = {}
    local gone = "Your pipe, containing a skullcap flower, has gone cold and dark."
    local at = #mock.buffer + 1
-   local previous = mock.lineFg[at]
    local label = keepup and " (keep-up on)" or " (keep-up off)"
    mock.line(gone)
    eq(pipes.pipes["367581"].status, "out", "the announcement still marks the pipe out" .. label)
@@ -13156,11 +13066,88 @@ for _, keepup in ipairs({ true, false }) do
    end
    mock.advance(0)
    eq(mock.buffer[at], gone, "the announcement stays on screen" .. label)
-   ok(mock.lineFg[at] == previous, "...and it is not painted out" .. label)
 end
 emunah.config.set("pipes.enabled", true)
 
 emunah.timers.stopAll()
+end)()
+
+suite("curing: an idle character is asked for a prompt")
+
+-- "sometimes when i am idle and a prompt doesn't arrive for a few minutes and then i
+-- suddenly receive one, i'm finding my mana is yellow and at like 20%" (2026-10-16). Defences
+-- drain mana, and curing only decides on a prompt's Char.Vitals, so nothing sipped through
+-- the silence. A blank line after curing.idlePoll seconds gets a prompt, and its tick sips.
+;(function()
+local engine = emunah.curing.engine
+local queue = emunah.queue
+local wasEnabled = engine.enabled
+queue.reset(); emunah.timers.stopAll()
+engine.start(true)
+emunah.config.set("curing.idlePoll", 15)
+local full = { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "1000", bal = "1", eq = "1" }
+local function blanks()
+   local n = 0
+   for _, command in ipairs(mock.sent) do if command == "" then n = n + 1 end end
+   return n
+end
+
+mock.feed("Char.Vitals", full)
+mock.sent, mock.echoed_sends = {}, {}
+mock.advance(14)
+eq(blanks(), 0, "nothing is asked for before curing.idlePoll has passed")
+mock.advance(1.1)
+eq(blanks(), 1, "fifteen quiet seconds send one blank line", table.concat(mock.sent, " | "))
+eq(mock.echoed_sends[#mock.echoed_sends], false, "...unechoed")
+
+-- The game answers with Char.Vitals, mana drained, and then its prompt.
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "200", maxmp = "1000" })
+local sent = table.concat(mock.sent, " | ")
+ok(sent:find("drink mana", 1, true) or sent:find("eat irid", 1, true),
+   "the tick that answer brings cures the drained mana", sent)
+local before = #mock.buffer
+local answer = "H:100% M:20% E:100% W:100%  ex-  T:  09:00:15.10-"
+mock.prompt(answer)
+eq(#mock.buffer, before, "the prompt it brought is hidden")
+
+-- A prompt keeps the poll quiet: it only fires after silence.
+mock.sent = {}
+mock.advance(10)
+mock.feed("Char.Vitals", full)
+mock.advance(10)
+eq(blanks(), 0, "a prompt within the window puts the next poll off")
+mock.advance(5.1)
+eq(blanks(), 1, "...until there has been silence for the whole of it")
+
+-- Something else arriving first means the prompt is not only ours, and it stays.
+local tell = "Maajida tells you, \"Still there?\""
+local kept = "H:100% M:100% E:100% W:100%  ex-  T:  09:00:41.00-"
+mock.line(tell)
+mock.prompt(kept)
+eq(mock.buffer[#mock.buffer], kept, "a prompt with another line ahead of it is shown")
+
+-- Off when curing is off, when set to 0, and when nothing may be sent.
+mock.feed("Char.Vitals", full)
+mock.sent = {}
+engine.stop(true)
+mock.advance(40)
+eq(blanks(), 0, "curing off asks for nothing")
+engine.start(true)
+emunah.config.set("curing.idlePoll", 0)
+mock.feed("Char.Vitals", full)
+mock.advance(40)
+eq(blanks(), 0, "curing.idlePoll 0 asks for nothing")
+emunah.config.set("curing.idlePoll", 15)
+mock.feed("Char.Vitals", full)
+emunah.act.halt("test")
+mock.advance(16)
+eq(blanks(), 0, "a halted system asks for nothing")
+emunah.act.resume()
+
+emunah.config.set("curing.idlePoll", nil)
+if not wasEnabled then engine.stop(true) end
+queue.reset(); emunah.timers.stopAll()
 end)()
 
 suite("EmunahTriggers.xml: svof's lines, feeding Emunah")

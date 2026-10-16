@@ -277,14 +277,12 @@ end
 -- never gagged.
 --
 -- LIGHT IS NOT HIDDEN, and neither is "Your pipe, containing a skullcap flower, has gone
--- cold and dark." that comes before it. The hiding below still draws the lines as blank
--- rows that collapse a moment later, and a relight is the one that happens through play,
--- so it was the flash seen most: "we're still gagging lines when we relight pipes,
+-- cold and dark." that comes before it: "we're still gagging lines when we relight pipes,
 -- though. fix this". LIGHT is echoed and its two lines (the tinderbox, then "You
 -- carefully light your treasured pipe until it is smoking nicely.") are shown as they are.
 --
--- How a line is hidden without breaking the packet it arrived in -- never deleteLine()
--- or replace() inside a trigger -- is ui/gag.lua, moved out of here so ELIST can use it.
+-- Each hidden line is deleted in its trigger, and the prompt after the last one with it
+-- (ui/gag.lua's withPrompt, the way the reference system gags).
 -- ---------------------------------------------------------------------------
 
 --- How long after sending a quiet command its reply is still treated as ours.
@@ -298,13 +296,6 @@ M.QUIET_WINDOW = 3.0
 --- sent during a PIPELIST overwrote the slot the same way, and the rest of the listing
 --- showed. Each kind now counts its own outstanding commands.
 local quiet = {}
-
---- Lines since the last prompt, and how many of them were gagged. See M.onLine.
-local block = { lines = 0, gagged = 0 }
-
---- The last prompt seen: its line number (kept current as lines above it are deleted) and
---- its text, so a command typed onto it afterwards can be noticed.
-local lastPrompt = nil
 
 function M.quietly(kind)
    local entry = quiet[kind]
@@ -329,41 +320,14 @@ local function ours(kind)
    return entry ~= nil and entry.n > 0 and emunah.util.now() <= entry.untilAt
 end
 
---- After a flush, the prompt we remember sits higher by however many lines above it went.
-emunah.ui.gag.onFlush("pipes", function(removed)
-   if not lastPrompt then return end
-   local above = 0
-   for _, at in ipairs(removed) do
-      if at < lastPrompt.line then above = above + 1 end
-   end
-   lastPrompt.line = lastPrompt.line - above
-end)
-
---- Hide the line being processed, once the packet it arrived in has been dealt with.
-function M.gag()
-   if emunah.ui.gag.current() then block.gagged = block.gagged + 1 end
-end
-
---- Every line passes through here (see the `^` trigger below).
+--- Hide the line being processed, and the prompt after it if nothing else comes first.
 ---
---- THE LAST LINE IS ALWAYS A CURRENT PROMPT. Gagging the replies alone left a bare prompt
---- behind for every relight -- five in a row at 13:23:14.92-13:23:17.41 -- but gagging the
---- new prompt instead would leave a stale one at the bottom of the window. So when a whole
---- block was ours and gagged, its prompt is KEPT, and the prompt before it -- which that
---- block would otherwise have left stranded above it -- is the one removed. Any run of
---- housekeeping collapses into the one, current, prompt. A block with anything else in it
---- (someone arriving, a line you typed) leaves both prompts alone.
-function M.onLine()
-   if type(isPrompt) == "function" and isPrompt() then
-      if block.gagged > 0 and block.lines == block.gagged and lastPrompt then
-         emunah.ui.gag.add({ line = lastPrompt.line, text = lastPrompt.text, prompt = true })
-      end
-      local line = type(getLineNumber) == "function" and getLineNumber("main") or nil
-      lastPrompt = line and { line = line, text = getCurrentLine() } or nil
-      block.lines, block.gagged = 0, 0
-   else
-      block.lines = block.lines + 1
-   end
+--- A run of housekeeping used to leave a bare prompt per command -- five in a row at
+--- 13:23:14.92-13:23:17.41. Each reply now takes its own prompt with it, so the prompt
+--- before the run is the last line left; a block with anything shown after our reply
+--- keeps its prompt.
+function M.gag()
+   emunah.ui.gag.withPrompt()
 end
 
 -- ---------------------------------------------------------------------------
@@ -605,21 +569,15 @@ do
       if id then table.insert(emunah._persist.pipeTriggers, id) end
    end
 
-   -- NOTHING HERE CALLS deleteLine() DIRECTLY, AND THAT IS DELIBERATE.
+   -- EVERY ROW IS PARSED BEFORE IT IS HIDDEN, AND A TEST HOLDS THAT.
    --
-   -- An earlier version hid the output of its own polls: the header, the rules and each row
-   -- were deleted when the poll was ours. Reported in play as "it's also only lighting the
-   -- skullcap pipe" -- which is the FIRST row of PIPELIST. Deleting a line while Mudlet is
-   -- still working through the lines that arrived in the same packet shifts the buffer under
-   -- it, and the rows after the deleted one never reached this trigger at all. Only pipe one
-   -- was ever recorded, so only pipe one was ever lit.
-   --
-   -- The state machine was never at fault and a test drives it end to end. Parsing every
-   -- row is the entire feature, so the gag that replaced it (M.gag, above) never deletes
-   -- from inside a trigger: it records the line and deletes after the packet is done.
-
-   -- Every line, for M.onLine's per-block count.
-   keep(tempRegexTrigger([[^]], function() M.onLine() end))
+   -- An earlier version hid the output of its own polls and was reported in play as "it's
+   -- also only lighting the skullcap pipe" -- the FIRST row of PIPELIST. It was put down to
+   -- deleteLine() shifting the buffer mid-packet, and gagging moved to a deferred delete.
+   -- Mudlet's source does not bear that out (ui/gag.lua): it runs triggers line by line
+   -- as each is committed, and expects a trigger to delete its own line. That code is not
+   -- in the history, so what really lost the rows is not known. The suite feeds a whole
+   -- listing through these triggers and checks every row was recorded.
 
    -- A PIPELIST row.
    --
