@@ -18,6 +18,12 @@
 ---    Steps are spaced at least map.stepGap apart: steps about one round trip apart drew
 ---    "Now now, don't be so hasty!" (docs/game/balance.md, Rate limiting).
 ---
+---    AND NOT BEFORE THE ARRIVAL'S PROMPT. Room.Info comes ahead of the room's text and its
+---    prompt, while the game is still finishing the move. mmp steps on the prompt after the
+---    arrival (`tempPromptTrigger(mmp.move, 1)` in mmp.speedwalking), and so does this, or
+---    M.PROMPT_WAIT after the arrival if no prompt comes. Not what draws "hasty" -- in the
+---    walk that showed it, every step already went after the prompt (docs/game/balance.md).
+---
 --- 3. SCRIPT EXITS ARE TRANSLATED, NEVER RUN. 58 special exits in the crowdmap are Lua:
 ---    `script: sendAll("pull vine", "e")`, `script: send("say Letum") mmp.customwalkdelay(4)`.
 ---    mmp runs them with loadstring, which needs mmp's functions and bypasses every gate.
@@ -53,6 +59,8 @@ M.CACHE_SIZE = 128
 M.REROUTES = 5
 --- How many times one step is re-sent when no arrival follows, before giving up.
 M.RESENDS = 2
+--- How long after an arrival to wait for its prompt before stepping anyway.
+M.PROMPT_WAIT = 1.0
 
 -- ---------------------------------------------------------------------------
 -- the path cache
@@ -431,6 +439,7 @@ local function finish(reason, arrived)
    carried.paused = nil
    timers.stop("map.step")
    timers.stop("map.arrival")
+   timers.stop("map.prompt")
    clearRoute()
    if arrived then
       -- Said on the next prompt (see the prompt tag below), not as a line of its own.
@@ -458,6 +467,7 @@ end
 function step()
    local walk = M.walk
    if not walk or M.paused then return end
+   if walk.awaitPrompt then return end   -- the arrival's prompt sends it (M.onPrompt)
    if timers.active("map.step") then return end
    while walk.queue[1] do
       local item = walk.queue[1]
@@ -502,6 +512,7 @@ local function begin(walk, i)
    end
    walk.queue = M.plan(walk.dirs[i]) or {}
    walk.sentAt, walk.extra, walk.held, walk.onFerry = nil, 0, false, false
+   walk.hasty = false
    timers.stop("map.arrival")
    walk.from = i == 1 and walk.origin or walk.rooms[i - 1]
    timers.stop("map.step")
@@ -563,8 +574,10 @@ end
 function M.pause()
    if not M.walk or M.paused then return false end
    M.paused = true
+   M.walk.awaitPrompt = false
    timers.stop("map.step")
    timers.stop("map.arrival")
+   timers.stop("map.prompt")
    carried.paused = M.walk
    log.info("Walk to %s paused; %d step%s left. `go` carries on.", M.walk.label,
       #M.walk.dirs - M.walk.i + 1, #M.walk.dirs - M.walk.i + 1 == 1 and "" or "s")
@@ -575,6 +588,7 @@ function M.resume()
    if not M.walk or not M.paused then return false end
    M.paused = false
    carried.paused = nil
+   M.walk.awaitPrompt = false
    log.info("Walk to %s resumed.", M.walk.label)
    -- Plan again from wherever we are now: anything may have moved us while paused, and a
    -- half-sent special exit is safer started over than finished from the middle.
@@ -603,12 +617,27 @@ local function reroute(walk, now, why)
    begin(walk, 1)
 end
 
+--- The prompt after an arrival: the move is over, and the next step can go.
+function M.onPrompt()
+   local walk = M.walk
+   if not walk or not walk.awaitPrompt then return end
+   walk.awaitPrompt = false
+   timers.stop("map.prompt")
+   step()
+end
+
 local function onRoom(_, num)
    num = tonumber(num)
    local walk = M.walk
    if not walk or not num then return end
    if num == walk.from then return end   -- a LOOK, or Room.Info's duplicate
    if num == walk.target then return finish(nil, true) end
+   -- Whatever is sent next from here waits for this move's prompt (see the header). Not
+   -- while paused: `go` plans again and steps when you ask, whenever that is.
+   if not M.paused then
+      walk.awaitPrompt = true
+      timers.start("map.prompt", M.PROMPT_WAIT, function() M.onPrompt() end)
+   end
    -- A room a gallop passes through: still on its way, and moving.
    local passing = walk.via and walk.via[walk.i]
    if passing and passing[num] then
@@ -672,8 +701,9 @@ function M.checkArrival()
             tostring(walk.from)))
       end
       -- A gallop is never sent twice: what refuses it is not known, and a refused one sent
-      -- again is refused again. Plan again from wherever we are, on foot.
-      if walk.dirs[walk.i]:find("^gallop ") then
+      -- again is refused again. Plan again from wherever we are, on foot. Unless what refused
+      -- it was "hasty" (mapper/moves.lua), which says nothing about the gallop itself.
+      if walk.dirs[walk.i]:find("^gallop ") and not walk.hasty then
          walk.noGallop = true
          log.debug("No arrival after %s; walking instead.", walk.dirs[walk.i])
          local now = here() or walk.from
@@ -830,6 +860,8 @@ function M.promptTag()
    end
    return nil
 end
+
+event.register("emunah.prompt", function() M.onPrompt() end, "mapper-route-step")
 
 event.register("emunah.prompt", function()
    if not config.get("map.showSteps", true) then M.arrivedAt = nil return end

@@ -86,14 +86,29 @@ end
 --- and loot each pace themselves against their own resource, and none of them can see the
 --- others -- so each can be individually reasonable while the total is too fast. The game
 --- is complaining about the sum, so the sum is what has to slow down.
+---
+--- HOW LONG: half a second plus the round trip. It was a flat 1.5s, and a walk lost about
+--- two seconds to each "hasty" -- three in one 27-second walk through Targossas (09:06:58,
+--- 09:07:11, 09:07:22 on 2026-10-16). mmp tries again 0.5s plus latency after the same line
+--- (its "Too quick" trigger, `mmp.setmovetimer(0.5)`), and walked without the complaint.
 function M.rateLimited(seconds)
-   seconds = tonumber(seconds) or M.BACKOFF
+   seconds = tonumber(seconds) or M.backoff()
    M.backoffUntil = emunah.util.now() + seconds
-   emunah.log.debug("Rate limited -- holding all commands for %.1fs.", seconds)
+   emunah.log.debug("Rate limited -- holding all commands for %.2fs.", seconds)
    emunah.event.raise("rateLimited", seconds)
 end
 
-M.BACKOFF = 1.5
+M.BACKOFF = 0.5
+
+--- The hold after "hasty": M.BACKOFF plus the network latency.
+function M.backoff()
+   local latency = 0
+   if type(getNetworkLatency) == "function" then
+      local ok, value = pcall(getNetworkLatency)
+      if ok then latency = tonumber(value) or 0 end
+   end
+   return M.BACKOFF + latency
+end
 
 -- TYPED COMMANDS WIN (the user, 2026-10-15). A command you type goes straight to the game,
 -- and Emunah's next send could take the balance it needed first. So for a moment after

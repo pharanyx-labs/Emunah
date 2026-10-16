@@ -61,9 +61,20 @@ function handle.hasty()
    -- step is still waiting for its arrival, look again just after act's backoff
    -- (patterns.lua) instead of resending now; if it was still to go out, the gate is
    -- already holding it.
+   --
+   -- As soon as that backoff lapses: nothing can be sent before it, and every moment after
+   -- it is the walk standing still. It was BACKOFF + 0.3s, a fixed third of a second on top
+   -- of each one. mmp tries again 0.5s plus latency after the line.
+   --
+   -- A gallop refused this way is sent again as a gallop. Without the mark, a gallop with no
+   -- arrival was taken as one the game will not allow, and the walk went on foot instead:
+   -- `gallop sw 2` drew "hasty" at 09:07:22 (2026-10-16), and 5 steps left became 7.
    local walk = route.walk
    if walk and walk.sentAt then
-      route.recheckSoon((emunah.act.BACKOFF or 1.5) + 0.3)
+      walk.hasty = true
+      local act = emunah.act
+      local left = act.backoffUntil and (act.backoffUntil - emunah.util.now()) or act.backoff()
+      route.recheckSoon(math.max(0, left) + 0.05)
    end
 end
 

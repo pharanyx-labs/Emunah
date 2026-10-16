@@ -15131,7 +15131,12 @@ local function vitals(bal, eq)
    mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
                               bal = bal or "1", eq = eq or "1" })
 end
-local function at(num) mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} }) end
+-- An arrival, as the game sends it: Room.Info, then the move's prompt. `at(n, true)` is
+-- Room.Info alone.
+local function at(num, noPrompt)
+   mock.feed("Room.Info", { num = num, name = "Room " .. num, exits = {} })
+   if not noPrompt then raiseEvent("emunah.prompt") end
+end
 local function last() return mock.sent[#mock.sent] end
 local arrived, stopped = {}, {}
 registerAnonymousEventHandler("emunah.map.arrived", function(_, t) arrived[#arrived + 1] = t end)
@@ -15182,6 +15187,28 @@ at(5)
 eq(arrived[#arrived], 5, "arriving raises emunah.map.arrived")
 eq(route.walk, nil, "...and ends the walk")
 
+-- NOT BEFORE THE ARRIVAL'S PROMPT. Room.Info comes ahead of the room's text and prompt, while
+-- the game is still finishing the move; a step sent from inside it drew "Now now, don't be so
+-- hasty!" (2026-10-16). mmp steps on the prompt after the arrival, and so does this.
+reset()
+route.go(5)
+mock.advance(1)
+at(2, true)
+eq(#mock.sent, 1, "Room.Info alone sends nothing: the move is not over yet")
+raiseEvent("emunah.prompt")
+eq(#mock.sent, 2, "...its prompt sends the next step")
+eq(last(), "e", "(the next step)")
+mock.advance(1)
+at(3, true)
+mock.advance(route.PROMPT_WAIT - 0.1)
+eq(#mock.sent, 2, "no prompt: the step still waits...")
+mock.advance(0.2)
+eq(#mock.sent, 3, "...until PROMPT_WAIT after the arrival, and then goes")
+mock.advance(1)
+raiseEvent("emunah.prompt")
+eq(#mock.sent, 3, "a prompt with no arrival before it sends nothing")
+route.stop("test")
+
 -- ON THE PROMPT, not a line of its own (the user, 2026-10-12: "(0 left)" sat under the
 -- command, and "Arrived at" on a line of its own).
 do
@@ -15193,7 +15220,7 @@ do
    ok(tag:find("room 4", 1, true) and tag:find("3", 1, true) and tag:find("left", 1, true),
       "the prompt ends with where the walk is going and the steps left", tag)
    mock.echoed = {}
-   at(2); mock.advance(0.5); at(3); mock.advance(0.5); at(4)
+   at(2); mock.advance(0.5); at(3); mock.advance(0.5); at(4, true)
    ok(not table.concat(mock.echoed, "\n"):find("Arrived", 1, true), "arriving is not a line of its own")
    mock.echoed = {}
    raiseEvent("emunah.prompt")
@@ -15226,8 +15253,10 @@ do
    eq(last(), "e", "...and goes out when the backoff lapses, with no prompt in between")
    mock.sent = {}
    mock.line("Now now, don't be so hasty!")     -- the step just sent was refused
-   mock.advance(5)
-   eq(last(), "e", "a step the game refused is sent again with no prompt in between")
+   mock.advance(act.BACKOFF - 0.1)
+   eq(#mock.sent, 0, "a refused step waits out the backoff")
+   mock.advance(0.2)
+   eq(last(), "e", "...and is sent again the moment it lapses, with no prompt in between")
    route.stop("test")
 end
 
@@ -15936,6 +15965,22 @@ route.go(6)
 mock.advance(3.5); vitals()
 eq(mock.sent[#mock.sent], "e", "no arrival after a gallop: the walk goes on foot")
 eq(#mock.sent, 2, "...without a second gallop")
+route.stop("test")
+
+-- ...UNLESS WHAT REFUSED IT WAS "HASTY", which says nothing about the gallop: `gallop sw 2`
+-- drew it at 09:07:22 (2026-10-16), the walk went on foot, and 5 steps left became 7. Sent
+-- again as a gallop, the moment the hold lapses (0.5s plus latency, as mmp retries).
+at(1)
+mock.sent = {}
+route.go(6)
+mock.line("Now now, don't be so hasty!")
+local hold = emunah.act.backoff()
+eq(hold, emunah.act.BACKOFF + mock.latency, "the hold after hasty is 0.5s plus latency", hold)
+mock.advance(hold - 0.05)
+eq(#mock.sent, 1, "nothing goes during the hold", table.concat(mock.sent, " | "))
+mock.advance(0.2)
+eq(table.concat(mock.sent, " | "), "gallop e 5 | gallop e 5",
+   "a gallop refused as hasty is sent again as a gallop, as soon as the hold lapses")
 route.stop("test")
 
 emunah.config.set("map.gallop", false)
