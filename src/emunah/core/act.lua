@@ -232,6 +232,99 @@ function M.can(needs)
    return M.blocked(needs) == nil
 end
 
+-- ---------------------------------------------------------------------------
+-- ONE SEND PER PROMPT
+-- ---------------------------------------------------------------------------
+--
+-- What a prompt decides goes out together. The reference system collects every command of a
+-- prompt and sends them at the end of it as one line joined by the command separator, ten
+-- to a line. Here the batch is open from the
+-- balance changes of a Char.Vitals to the end of its tick (gmcp/vitals.lua), so the cures,
+-- keep-up, the attack and the walk of one prompt leave in one send(), in the order they
+-- were decided.
+--
+-- Mudlet splits it again: "Send honours command separator defined within Mudlet settings."
+-- (Mudlet's own documentation of send(), CoreMudlet.lua). So the game still receives each
+-- command on its own, and sysDataSendRequest still fires for each.
+--
+-- NOTHING ABOUT BALANCE CHANGES. Every command in a batch passed M.blocked() when it was
+-- added, and whatever it spends was marked spent then -- the queue's in-flight slot, the
+-- attack's balance -- so a later command of the same prompt that wants that balance is held
+-- exactly as it was when each went out on its own. A batch never holds two commands on one
+-- balance; the separator only removes the gaps between commands that could all go anyway.
+
+--- Mudlet's command separator, as `queue.separator` (default `;;`, Mudlet's own default).
+--- Empty sends every command on its own, and nothing is chained.
+M.SEPARATOR = ";;"
+
+function M.separator()
+   local sep = emunah.config.get("queue.separator", M.SEPARATOR)
+   if type(sep) ~= "string" then return M.SEPARATOR end
+   return sep
+end
+
+--- The most commands joined into one send: ten, as the reference system joins them.
+M.BATCH_MAX = 10
+
+local batch, depth = nil, 0
+
+local function transmit(text, echo)
+   -- `sending` tells core/outgoing.lua these are ours, not typed: Mudlet raises
+   -- sysDataSendRequest from inside send(), before it returns.
+   M.sending = true
+   if echo then send(text) else send(text, false) end
+   M.sending = false
+end
+
+--- Send what a batch collected: joined, ten at a time, never mixing an echoed command with
+--- a quiet one (`quiet` housekeeping stays off the screen), and in the order it was decided.
+local function flush(pending)
+   local sep = M.separator()
+   if sep == "" then
+      for _, entry in ipairs(pending) do transmit(entry.command, entry.echo) end
+      return
+   end
+   local chunk, echo = {}, nil
+   for _, entry in ipairs(pending) do
+      if #chunk > 0 and (entry.echo ~= echo or #chunk >= M.BATCH_MAX) then
+         transmit(table.concat(chunk, sep), echo)
+         chunk = {}
+      end
+      echo = entry.echo
+      chunk[#chunk + 1] = entry.command
+   end
+   if #chunk > 0 then transmit(table.concat(chunk, sep), echo) end
+end
+
+--- Open a batch: until the matching M.endBatch(), M.send() collects instead of sending.
+function M.beginBatch()
+   depth = depth + 1
+   batch = batch or {}
+end
+
+--- Close a batch, and send what it collected once the outermost one closes.
+function M.endBatch()
+   depth = depth - 1
+   if depth > 0 then return end
+   depth = 0
+   local pending = batch
+   batch = nil
+   if pending and #pending > 0 then flush(pending) end
+end
+
+--- Run `fn` inside a batch. The batch is sent even if `fn` fails, and the error rethrown.
+function M.batched(fn, ...)
+   M.beginBatch()
+   local ok, err = pcall(fn, ...)
+   M.endBatch()
+   if not ok then error(err, 0) end
+end
+
+--- Is a batch open? For anything that has to know whether its send has left yet.
+function M.batching()
+   return batch ~= nil
+end
+
 --- Send a command, or don't. Returns whether it actually went.
 ---
 --- The debug line is deliberately on BOTH paths: `emunah debug` is how you tell "the bot
@@ -258,11 +351,12 @@ function M.send(command, needs)
 
    -- `quiet`: don't echo the command locally. For housekeeping whose output is gagged too
    -- (pipes.lua), where a lone echoed "light pipe367581" is the noise left behind.
-   -- `sending` tells core/outgoing.lua this one is ours, not typed: Mudlet raises
-   -- sysDataSendRequest from inside send(), before it returns.
-   M.sending = true
-   if needs and needs.quiet then send(command, false) else send(command) end
-   M.sending = false
+   local echo = not (needs and needs.quiet)
+   if batch then
+      batch[#batch + 1] = { command = command, echo = echo }
+   else
+      transmit(command, echo)
+   end
    -- Logged AFTER the send. With `emset debug` on this is a console print -- Qt work on the
    -- thread that has not yet handed the command to the socket -- so before the send it
    -- delayed every command by exactly the cost of describing it.

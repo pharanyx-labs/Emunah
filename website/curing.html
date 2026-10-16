@@ -217,8 +217,9 @@
 <p>Some defences look like afflictions to the game. If you are deliberately blind or deaf, GMCP reports blindness or deafness, and a naive engine would cure it and then do it again every time keep-up restored the defence. Emunah knows which afflictions are defences you are holding, and leaves them alone for exactly as long as the defence is up.</p>
 
 <h2 id="in-hand">Cures in hand</h2>
-<p>Cures live in the rift, and pulling one out takes a round trip. A herb pulled at the moment you need it arrives too late, so Emunah keeps cures in your inventory, pulling the next as soon as one is used, and puts any surplus back: inventory is lost on death and the rift is not.</p>
-<p>One of each is kept by default, and two of ash, because a Bard's crescendo takes two in a row. <code>emset keep &lt;herb&gt; &lt;number&gt;</code> changes it for one herb, and <code>IR</code> shows every herb with a toggle. Pulls go one at a time, never while you are entangled, and still while you are paralysed, because the bloodroot that cures paralysis may be in the rift.</p>
+<p>Cures live in the rift. Emunah keeps them in your inventory, pulling the next as soon as one is used, and puts any surplus back: inventory is lost on death and the rift is not. Every trip due goes together in one send, so topping up four herbs is one command line, not four round trips.</p>
+<p>A herb you need that is only in the rift is not a reason to wait. Emunah sends the pull and the eat together, <code>outr kelp;;eat kelp</code>, and the game runs them in that order: the herb is in your hand by the time you eat it. Pulling costs no balance, so this spends exactly what the eat alone would.</p>
+<p>One of each is kept by default, and two of ash, because a Bard's crescendo takes two in a row. <code>emset keep &lt;herb&gt; &lt;number&gt;</code> changes it for one herb, and <code>IR</code> shows every herb with a toggle. Nothing is pulled while you are entangled or with both arms out of use, and pulls still go while you are paralysed, because the bloodroot that cures paralysis may be in the rift.</p>
 
 <h2 id="sleep">Sleep</h2>
 <p>Emunah wakes you from a sleep you did not choose. For one you do choose, type <code>sleep</code>: it relaxes insomnia, sends SLEEP, and holds both the wake and insomnia until you are up.</p>

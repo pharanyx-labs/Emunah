@@ -370,6 +370,10 @@ M.settings = {
 { key = "queue.typedHold", default = 0.5, type = "number", unit = "s", topic = "system",
   shipped = false, detail = "After you type a command, Emunah's balance and equilibrium "
      .. "sends wait this long, plus your latency, so yours goes first. 0 turns it off." },
+{ key = "queue.separator", default = ";;", type = "string", topic = "system", shipped = true,
+  detail = "Mudlet's command separator (Preferences, Input line). The commands of one prompt "
+     .. "leave joined with it, and a herb only in the rift is pulled and eaten in one go. "
+     .. "Empty sends each command on its own." },
 { key = "logLevel", default = "info", type = "string", topic = "system", shipped = true,
   detail = "debug, info, warn or error. `emset debug` toggles between info and debug." },
 { key = "system.update", default = true, type = "boolean", topic = "system", shipped = true,

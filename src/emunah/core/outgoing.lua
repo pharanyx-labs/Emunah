@@ -61,7 +61,20 @@ function M.isQuit(command)
 end
 
 function M.record(command)
-   command = tostring(command or ""):lower():match("^%s*(.-)%s*$")
+   command = tostring(command or "")
+   -- One entry per command, whether Mudlet hands this over already split at the command
+   -- separator or whole: `sentRecently("^eat ")` has to see the eat in "outr kelp;;eat kelp".
+   local sep = emunah.act and emunah.act.separator and emunah.act.separator() or ""
+   if sep ~= "" and command:find(sep, 1, true) then
+      local from = 1
+      while true do
+         local at = command:find(sep, from, true)
+         M.record(command:sub(from, at and at - 1 or nil))
+         if not at then return end
+         from = at + #sep
+      end
+   end
+   command = command:lower():match("^%s*(.-)%s*$")
    if command == "" then return end
    local now = emunah.util.now()
    local recent = M.recent

@@ -13,7 +13,7 @@
 --- tick, from the engine's classify(), and the engine reads the answer through M.rank() and
 --- M.held(); nothing else about curing changes. Every rule carries the evidence for it:
 --- they are rulings on transcripts and on what the game says, not svof's, and the same bar
---- applies to adding one as to any other game mechanic (CLAUDE.md, docs/game/curing.md
+--- applies to adding one as to any other game mechanic (CONTRIBUTING.md, docs/game/curing.md
 --- *Situational rules*).
 ---
 --- Names here are afflist's own keys. The server's names reach them through afflist.ALIASES

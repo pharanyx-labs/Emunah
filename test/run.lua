@@ -576,10 +576,19 @@ ok(tostring(reason2):find("out of"), "refusal explains why", reason2)
 -- going out every two seconds against "What do you want to eat?" while paralysis never
 -- cleared.
 mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = 500 } })
+-- Unless it can be pulled in the same send: then it is usable, and names what to pull
+-- (as the reference system does: `outr <herb>` then `eat <herb>`).
+do
+   local usable, _, pull = emunah.have.cure(bloodrootCure)
+   ok(usable, "a herb only in the rift is usable when it can be pulled in the same send")
+   eq(pull, "bloodroot", "...and says what to pull first")
+end
+emunah.config.set("queue.separator", "")
 local riftUsable, riftReason = emunah.have.cure(bloodrootCure)
-ok(not riftUsable, "rift stock alone does not make a cure performable")
+ok(not riftUsable, "with no separator to join them, rift stock alone does not make it performable")
 ok(tostring(riftReason):find("in the rift, not in hand"),
    "...and says which of the two situations it is", riftReason)
+emunah.config.set("queue.separator", nil)
 eq(emunah.have.supply("bloodroot"), 500, "supply still counts the rift, for restocking")
 eq(emunah.have.supply("bloodroot"), 500, "supply counts the rift")
 
@@ -611,10 +620,10 @@ do
       "...same reason, since the rift is still unheard from")
 
    mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = 500 } })
-   usable, reason = emunah.have.cure(cure)
-   ok(not usable, "still refused -- in hand is what matters, and there is none")
-   ok(tostring(reason):find("in the rift, not in hand"),
-      "...but now the real answer, once both lists are actually in", reason)
+   local pull
+   usable, reason, pull = emunah.have.cure(cure)
+   ok(usable and pull == "bloodroot",
+      "once both lists are in, the real answer: pull it and eat it", tostring(reason))
 end
 
 -- ===========================================================================
@@ -1233,6 +1242,19 @@ mock.feed("IRE.Rift.List", {
 -- vector already. Clear it before the listing this case is actually about.
 queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
 mock.sent = {}
+do
+   local sendsAt = mock.sends
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+   ok(table.concat(mock.sent, " | "):find("outr 3 bloodroot", 1, true)
+      and table.concat(mock.sent, " | "):find("outr 3 irid", 1, true),
+      "everything due is pulled together on the listing", table.concat(mock.sent, " | "))
+   eq(mock.sends - sendsAt, 1, "...in one send, not one per round trip")
+end
+
+-- One trip per send when nothing can join them: then the confirmation drives the next.
+emunah.config.set("queue.separator", "")
+queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+mock.sent = {}
 mock.feed("Char.Items.List", { location = "inv", items = {} })
 ok(table.concat(mock.sent, " | "):find("outr 3 bloodroot"),
    "the first pull goes out on the listing", table.concat(mock.sent, " | "))
@@ -1247,6 +1269,7 @@ mock.advance(engine.RESTOCK_CHAIN + 0.01)
 ok(table.concat(mock.sent, " | "):find("outr 3 irid"),
    "...it follows the confirmation, without waiting for a prompt",
    table.concat(mock.sent, " | "))
+emunah.config.set("queue.separator", nil)
 
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 engine.forgetStock()
@@ -2130,12 +2153,30 @@ suite("a cure you cannot reach is not a cure")
 -- After a death dropped the pack, `eat bloodroot` went out every two seconds against "What
 -- do you want to eat?" while paralysis never cleared. The rift still held 750 bloodroot, so
 -- the cure read as performable -- but you cannot eat from the rift.
+--
+-- Unless the pull goes first, in the same send, as the reference system does: `outr <herb>`
+-- then `eat <herb>`, run by the game in that order (the user, 2026-10-16: "we can use for this
+-- the prerifting"). Both in one send, the pull ahead of the eat.
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
 engine.enabled = true
 mock.feed("Char.Items.List", { location = "inv", items = {} })
 mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = 750 } })
 engine.add("paralysis", "trigger")
+mock.sent = {}
+do
+   local sendsBefore = mock.sends
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   eq(mock.sent[1] .. " | " .. mock.sent[2], "outr bloodroot | eat bloodroot",
+      "only in the rift: pulled and eaten together, the pull first", table.concat(mock.sent, " | "))
+   ok(emunah.util.contains(mock.rawSends, "outr bloodroot;;eat bloodroot"),
+      "...in one send", table.concat(mock.rawSends, " | "))
+end
+eq(engine.refusals["paralysis"], nil, "...and nothing is refused")
 
+-- With no separator to join them, the old rule: never eat what is only in the rift.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+emunah.config.set("queue.separator", "")
+engine.add("paralysis", "trigger")
 mock.sent = {}
 for _ = 1, 4 do
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
@@ -2147,6 +2188,8 @@ ok(not table.concat(mock.sent, " | "):find("eat bloodroot"),
 eq(engine.refusals["paralysis"], "bloodroot is in the rift, not in hand",
    "...and the reason distinguishes that from being out of it entirely",
    tostring(engine.refusals["paralysis"]))
+
+emunah.config.set("queue.separator", nil)
 
 -- Once the restocker has pulled it, the cure becomes possible.
 mock.feed("Char.Items.Add", { location = "inv",
@@ -4001,6 +4044,7 @@ mock.feed("IRE.Rift.List", {
 -- restock now, so it will have taken the vector with a pull of its own -- and left that
 -- item settling, which is what forgetStock() clears.
 queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
+emunah.config.set("queue.separator", "")   -- one trip at a time: what this case is about
 mock.sent = {}
 mock.feed("Char.Items.List", { location = "inv", items = {} })
 ok(table.concat(mock.sent, " | "):find("outr 3 bloodroot"),
@@ -4016,6 +4060,7 @@ mock.feed("Char.Vitals", healthy)
 ok(table.concat(mock.sent, " | "):find("outr 3 irid"),
    "and the next one goes out on the very next tick", table.concat(mock.sent, " | "))
 mock.line("You remove 3 irid, bringing the total in the rift to 495.")
+emunah.config.set("queue.separator", nil)
 
 -- OVER the target, the difference goes back. Reloads pulled three of everything afresh
 -- each time -- `INR ALL` at 12:07:37 emptied 9 ash and 6 bloodroot out of the pack against
@@ -7528,12 +7573,13 @@ do
       "...and the lock line names what paralysis shuts", affs())
 
    -- A refusal reason is shown rather than leaving the row looking hung.
+   -- (Out of it altogether: a herb only in the rift is now pulled and eaten together.)
    engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
    mock.feed("Char.Items.List", { location = "inv", items = {} })
-   mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = "10" } })
+   mock.feed("IRE.Rift.List", {})
    engine.add("paralysis", "trigger")
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
-   ok(affs():find("in the rift", 1, true), "a refused cure says why", affs())
+   ok(affs():find("out of", 1, true), "a refused cure says why", affs())
 
    -- The switches: what is on.
    local strip = tostring(mock.widgets["emunah.balances"].contents)
@@ -16322,6 +16368,82 @@ mock.line("The reflective barrier surrounding Sobriquet reflects part of your at
 ok(pvp.reflecting.sobriquet, "a reflected blow marks the barrier")
 mock.line("As your attack falls, Sobriquet's reflective barrier shatters and reflects the attack.")
 ok(not pvp.reflecting.sobriquet, "...and the blow that shatters it clears it")
+end)()
+
+-- ===========================================================================
+suite("one send per prompt: commands joined by the separator")
+
+-- The reference system's way of sending, in Emunah's terms (core/act.lua): what one prompt decides leaves in one
+-- send(), joined by Mudlet's command separator, which Mudlet splits again ("Send honours
+-- command separator defined within Mudlet settings."). The user, 2026-10-16: "start using
+-- this method but be aware that we still need to be aware of balances".
+;(function()
+local act = emunah.act
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+emunah.queue.reset(); emunah.timers.stopAll()
+
+mock.rawSends = {}; mock.sent = {}
+act.batched(function()
+   act.send("stand")
+   act.send("light pipes", { quiet = true })
+   act.send("touch shield")
+   act.send("say hello")
+end)
+eq(table.concat(mock.rawSends, " | "), "stand | light pipes | touch shield;;say hello",
+   "a batch joins its commands, in order, keeping a quiet one apart from echoed ones")
+eq(table.concat(mock.sent, " | "), "stand | light pipes | touch shield | say hello",
+   "...and the game still gets each command on its own")
+ok(emunah.outgoing.sentRecently("^say hello"), "...each recorded as sent, one by one")
+
+-- BALANCE STILL HOLDS INSIDE A BATCH: a command that spends balance marks it spent when it
+-- is added, so a later one of the same prompt that needs it waits, as it did alone.
+mock.rawSends = {}
+act.batched(function()
+   ok(act.send("smite sarapis", { bal = true }), "the first balance command joins the batch")
+   emunah.gmcp.vitals.spend("bal")
+   ok(not act.send("vault horse", { bal = true }), "...and a second that needs balance is held")
+end)
+eq(table.concat(mock.rawSends, " | "), "smite sarapis", "...so it never goes out behind the first")
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+
+-- Ten to a send, as the reference system sends.
+mock.rawSends = {}
+act.batched(function()
+   for index = 1, 12 do act.send("look " .. index) end
+end)
+eq(#mock.rawSends, 2, "more than ten commands go in two sends")
+
+-- No separator: each command its own send, nothing joined.
+emunah.config.set("queue.separator", "")
+mock.rawSends = {}
+act.batched(function() act.send("stand"); act.send("look") end)
+eq(table.concat(mock.rawSends, " | "), "stand | look", "with no separator, each goes alone")
+emunah.config.set("queue.separator", nil)
+
+-- Outside a prompt nothing waits: a send goes at once.
+mock.rawSends = {}
+act.send("look")
+eq(table.concat(mock.rawSends, " | "), "look", "outside a batch, a send goes at once")
+
+-- A WHOLE PROMPT: cures on two balances leave together.
+local engine = emunah.curing.engine
+engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+engine.enabled = true
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "71", name = "some kelp", attrib = "e" },
+   { id = "72", name = "a vial of mending salve", attrib = "" },
+} })
+mock.feed("Char.Afflictions.Add", { name = "asthma", cure = "", desc = "" })
+mock.feed("Char.Afflictions.Add", { name = "stupidity", cure = "", desc = "" })
+mock.rawSends = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "3000", maxmp = "3000",
+   wp = "3000", maxwp = "3000", bal = "1", eq = "1" })
+local joined
+for _, raw in ipairs(mock.rawSends) do if raw:find(";;", 1, true) then joined = raw end end
+ok(joined and joined:find("eat kelp", 1, true) and joined:find("focus", 1, true),
+   "a prompt's cures on two balances leave in one send", table.concat(mock.rawSends, " | "))
+engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+mock.feed("Char.Afflictions.List", {})
 end)()
 
 -- ===========================================================================
