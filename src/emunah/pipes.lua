@@ -272,14 +272,16 @@ end
 -- ---------------------------------------------------------------------------
 -- gagging our own housekeeping
 --
--- PIPELIST and PUT that Emunah sends for itself go out unechoed and their replies are
--- hidden: a poll prints six lines. A command you typed yourself, or `emunah pipes now`, is
--- never gagged.
+-- PIPELIST, PUT and LIGHT that Emunah sends for itself go out unechoed and their replies
+-- are hidden: a poll prints six lines. A command you typed yourself, or `emunah pipes now`,
+-- is never gagged.
 --
--- LIGHT IS NOT HIDDEN, and neither is "Your pipe, containing a skullcap flower, has gone
--- cold and dark." that comes before it: "we're still gagging lines when we relight pipes,
--- though. fix this". LIGHT is echoed and its two lines (the tinderbox, then "You
--- carefully light your treasured pipe until it is smoking nicely.") are shown as they are.
+-- A RELIGHT IS HIDDEN TOO, with the "Your pipe, containing a skullcap flower, has gone cold
+-- and dark." that sets it off -- but only while keep-up is on to relight it. It was shown
+-- from 2026-10-03 ("we're still gagging lines when we relight pipes, though. fix this")
+-- because the deferred delete of the day left blank rows behind it; ui/gag.lua deletes in
+-- the trigger now, and the user asked why the lines still appeared (08:29:52, 2026-10-16).
+-- Anything else LIGHT answers -- no tinderbox, say -- has no trigger here and is shown.
 --
 -- Each hidden line is deleted in its trigger, and the prompt after the last one with it
 -- (ui/gag.lua's withPrompt, the way the reference system gags).
@@ -524,11 +526,11 @@ function M.keep()
       end
    end
 
-   -- Echoed, and its replies shown: hiding them drew blank rows that collapsed a moment later
-   -- ("we're still gagging lines when we relight pipes, though. fix this"). The same as every
-   -- other keep-up command, `wield mace` or `perform bliss`.
-   if #cold > 0 and emunah.act.send("light pipes", {}) then
+   -- Quiet, and its replies hidden, like the fill and the poll (see "gagging our own
+   -- housekeeping" above).
+   if #cold > 0 and emunah.act.send("light pipes", { quiet = true }) then
       M.actedAll(cold)
+      M.quietly("light")
       return true
    end
 
@@ -627,8 +629,10 @@ do
    --     Your pipe, containing a skullcap flower, has gone cold and dark.
    keep(tempRegexTrigger([[^Your pipe, containing (.+), has gone cold and dark\.$]], function()
       local herb = M.herbIn(matches[2])
+      local known = false
       for _, pipe in ipairs(M.list()) do
          if pipe.herb == herb then
+            known = true
             pipe.status = "out"
             attempts[pipe.id] = 0
             warnedStuck[pipe.id] = nil
@@ -636,6 +640,8 @@ do
             log.debug("Pipe %s has gone out.", pipe.token)
          end
       end
+      -- Hidden only when it is about to be relit: with keep-up off, it is news.
+      if known and enabled() then M.gag() end
       M.keep()
       M.chain()
    end))
@@ -663,6 +669,7 @@ do
       [[^You have no pipes that require lighting\.$]],
    }) do
       keep(tempRegexTrigger(pattern, function()
+         if ours("light") then M.gag() end
          local last = M.lastAction
          if last and last.kind == "light" then
             if last.all then
@@ -675,6 +682,11 @@ do
          M.chain()
       end))
    end
+
+   -- The first line of every LIGHT: "You use a soot-blackened tinderbox to make fire."
+   keep(tempRegexTrigger([[^You use .+ to make fire\.$]], function()
+      if ours("light") then M.gag() end
+   end))
 
    -- Nothing in it after all: our puff count was stale. Mark it empty so the next pass fills
    -- rather than trying to light it again.

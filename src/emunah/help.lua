@@ -131,8 +131,8 @@ M.modules = {
   state = function() return config("pipes.enabled", true) end,
   does = "Keeps your pipes filled and lit so smoking cures are always ready: refills an "
       .. "empty pipe with the herb it holds, relights one that has gone out, and reads "
-      .. "PIPELIST now and then to stay honest. PIPELIST and refills are hidden; a relight is "
-      .. "shown. Also toggled from the `emset defs` grid.",
+      .. "PIPELIST now and then to stay honest. All of it is hidden, the pipe going out included; a "
+      .. "PIPELIST you ask for is shown. Also toggled from the `emset defs` grid.",
   commands = {
    { syntax = "emset pipes", handler = "pipes",
      summary = "each pipe: lit or out, what it holds, puffs left" },

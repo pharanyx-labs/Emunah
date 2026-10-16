@@ -161,6 +161,26 @@ function M.onRow(name, owner, seconds)
    M.listing.rows[name:lower()] = { name = name, owner = owner, seconds = tonumber(seconds) }
 end
 
+--- 1224 -> "20:24".
+function M.clock(seconds)
+   seconds = math.floor(tonumber(seconds) or 0)
+   return ("%d:%02d"):format(math.floor(seconds / 60), seconds % 60)
+end
+
+--- Say it once the block it came in has been drawn. The listing closes on the prompt's
+--- Char.Vitals, and our own listing hides that prompt: said there and then, the line went
+--- with it -- Revitalisation was read and kept at 08:29:48 (2026-10-16), and nothing said so.
+function M.say(fmt, ...)
+   local message = fmt:format(...)
+   tempTimer(0, function() log.info("%s", message) end)
+end
+
+--- The same, as a warning.
+function M.warn(fmt, ...)
+   local message = fmt:format(...)
+   tempTimer(0, function() log.warn("%s", message) end)
+end
+
 --- The listing is over: arm a renewal for each of our rites in it, and perform again each
 --- one kept that it does not show.
 function M.close()
@@ -177,7 +197,7 @@ function M.close()
    if not M.enabled() then return end
 
    local ndb = emunah.namedb
-   local started = {}
+   local started, reset = {}, {}
    for key, row in pairs(listing.rows) do
       if M.KEEP[key] and row.seconds and ndb and ndb.isSelf(row.owner) then
          local entry = keep(key, row.name)
@@ -188,11 +208,18 @@ function M.close()
          entry.attempts, entry.due, entry.seen = 0, false, true
          emunah.timers.start(timerName(key), row.seconds + M.SLACK,
             function() M.expired(key) end)
+         reset[#reset + 1] = key
       end
    end
-   if #started > 0 then
+   if #reset > 0 then
       table.sort(started)
-      log.info("Rites: keeping %s up while you stay in this room.", names(started))
+      table.sort(reset)
+      local times = {}
+      for index, key in ipairs(reset) do
+         times[index] = ("%s %s"):format(M.kept[key].name, M.clock(listing.rows[key].seconds))
+      end
+      M.say("Rites: %stimers reset -- %s.",
+         #started > 0 and ("added " .. names(started) .. "; ") or "", table.concat(times, ", "))
    end
 
    local given = {}
@@ -209,7 +236,7 @@ function M.close()
       end
    end
    if #given > 0 then
-      log.warn("Rites: %s still not up after %d tries -- no longer keeping %s up.",
+      M.warn("Rites: %s still not up after %d tries -- no longer keeping %s up.",
          names(given), M.ATTEMPTS, #given > 1 and "them" or "it")
    end
 end
