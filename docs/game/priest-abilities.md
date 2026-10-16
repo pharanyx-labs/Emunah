@@ -228,6 +228,25 @@ cure lines."
 bypasses shields and prismatic barriers. HELP says equilibrium; Anzerloi called it a balance
 move. HELP wins.
 
+## RITES: what is up in the room
+
+Verbatim, 2026-10-16 08:01:41 (`rites.lua` reads it):
+
+```
+You reach out to sense for holy rites:
+Rite                Owner                         Seconds left
+-------------------------------------------------------------
+Well-being          Saemora                       1224
+Revitalisation      Saemora                       346
+Equilibrium used: 1.00s.
+```
+
+Costs 1.00s of equilibrium. Seconds are whole. Still not captured: what an empty room
+prints, the line a rite prints when performed, the line when one lapses, and whether
+performing a rite that is still up refreshes it or is refused. A Rite of Revitalisation
+prints "The Rite of Revitalisation refreshes your body and mind." every 15 seconds
+(hidden, `ui/gag.lua`).
+
 ## Devotion
 
 Priest's class resource, reported by `charstats` as a **percentage only** -- so an ability

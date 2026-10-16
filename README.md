@@ -137,12 +137,12 @@ code, so a command or setting added without being documented fails `lua test/run
 | curing | `emset curing [on\|off]`, `emset pause`, `emset prio <affliction> <balance> <rank>`, `sleep` |
 | defences | `emset defs` (the grid), `emset defs on\|off\|add\|remove\|mode` |
 | pipes | `emset pipes [on\|off\|now]` |
-| manna | `emset manna` |
 | hunting | `emset hunt [off]`, `emset bash [on\|off\|attack <command>]`, `emset walk [start\|stop]` |
 | pvp | `emset pvp [on\|off\|target <name>\|target off\|mode <mode>]`, `t <name>` |
 | allies | `emset ally [add\|remove <name>]` |
 | loot | `emset loot [on\|off\|now]`, `buy [qty] <number>` |
 | antitheft | `emset antitheft [on\|off\|now]` |
+| rites | `emset rites [on\|off\|stop]` |
 | people | `emset whois <person>`, `emset iff <person> ally\|enemy\|auto` |
 | map | `goto <where>`, `stop`, `go`, `rf <text>`, `rl [room]`, `emset flee`, `emset map ...` |
 | interface | `emset ui [rebuild]`, `emset ui auto`, `emset ui map on\|off` |

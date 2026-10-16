@@ -20,7 +20,7 @@ because a gap prompts a question and a guess ships a bug.
 | `pvp-locks.md` | Locks: Anzerloi's lesson on afflicting a target, and an opponent's cures and defences seen from outside |
 | `alchemist.md` | An Alchemist's lines against svof, a Bard ally's moves, from Anzerloi's arena log |
 | `defences.md` | Tattoos, FOCUS, TOUCH TREE, DIAG, and defence-naming mismatches |
-| `sustenance.md` | Rift, containers, shops, pipes, the manna rite |
+| `sustenance.md` | Rift, containers, shops, pipes |
 | `prompt.md` | `CONFIG PROMPT CUSTOM` tokens |
 | `gmcp.md` | What GMCP actually sends, with real payloads |
 | `api.md` | The Achaea web API: real payloads, and what is NOT in them |

@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Upkeep and economy | Emunah</title>
-<meta name="description" content="The upkeep Emunah does for you: pipes kept lit, cures kept in hand, the manna rite, clickable shops, gold collected and packed, and antitheft.">
+<meta name="description" content="The upkeep Emunah does for you: pipes kept lit, cures kept in hand, your rites kept up, clickable shops, gold collected and packed, and antitheft.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/sustenance.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Upkeep and economy | Emunah">
-<meta property="og:description" content="The upkeep Emunah does for you: pipes kept lit, cures kept in hand, the manna rite, clickable shops, gold collected and packed, and antitheft.">
+<meta property="og:description" content="The upkeep Emunah does for you: pipes kept lit, cures kept in hand, your rites kept up, clickable shops, gold collected and packed, and antitheft.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -102,7 +102,7 @@
 <!-- doc:start -->
 <p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
 <h1>Upkeep and economy</h1>
-<p class="lede">The things that keep a character ready: pipes that are always lit, cures in hand, the manna rite in one command, shops you can buy from with a click, gold collected and stowed, and a pack thieves cannot empty.</p>
+<p class="lede">The things that keep a character ready: pipes that are always lit, cures in hand, rites that stay up, shops you can buy from with a click, gold collected and stowed, and a pack thieves cannot empty.</p>
 
 <h2 id="pipes">Pipes</h2>
 <p>Smoking cures need a lit pipe with the right herb in it. When pipes are not maintained, the failure does not look like a pipe problem; it looks like a cure that never fires. Emunah refills an empty pipe with the herb it holds, relights one that has gone out, and reads <code>PIPELIST</code> when it does not know the state, such as after login or a reload.</p>
@@ -126,8 +126,8 @@ emset keep ash 3         <span class="c"># keep three ash</span>
 emset keep kelp off      <span class="c"># keep none in hand</span></code></pre>
 <p><code>IR</code> is redrawn with a toggle beside every herb, and <code>ELIST</code> as a table, one row per fluid, so you can see at a glance which vials are running low. See <a href="curing.html#in-hand">cures in hand</a> for how pulls are timed.</p>
 
-<h2 id="manna">The manna rite</h2>
-<p><code>emset manna</code> performs the rite, gets the bowl and drinks it, each step as soon as the game allows. Each step goes through the same gate as everything else, so a step the game would refuse waits instead of being lost.</p>
+<h2 id="rites">Rites</h2>
+<p>Perform Well-being or Revitalisation, or type <code>RITES</code> where yours are up, and each is performed again whenever it runs out, for as long as you stay in that room. Leaving the room stops it. How long each one has left is read from <code>RITES</code>, quietly, once equilibrium is back after every perform. Renewals wait while PvP is on, and three tries that do not bring a rite up stop it with a message. <code>emset rites</code> shows what is being kept and for how long.</p>
 
 <h2 id="shops">Shops</h2>
 <p><code>WARES</code> listings are made clickable. Under each item, an action line buys one, fills your rift from a tun, or opens a choice of quantities. You can also buy by the item's number directly:</p>
@@ -175,7 +175,7 @@ emset antitheft now      <span class="c"># put loose gold and valuables away now
   <h4>On this page</h4>
   <a href="#pipes">Pipes</a>
   <a href="#rift">The rift and cures in hand</a>
-  <a href="#manna">The manna rite</a>
+  <a href="#rites">Rites</a>
   <a href="#shops">Shops</a>
   <a href="#loot">Loot</a>
   <a href="#antitheft">Antitheft</a>

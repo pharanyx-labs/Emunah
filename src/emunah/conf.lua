@@ -28,7 +28,7 @@ local config = emunah.config
 --- reported.
 M.FILES = {
    "system", "interface", "map", "healing", "curing", "defences", "hunting", "pvp", "loot",
-   "antitheft", "pipes", "riding", "people", "priorities", "situations",
+   "antitheft", "pipes", "riding", "rites", "people", "priorities", "situations",
 }
 
 --- The files `emset ownprios` switches.

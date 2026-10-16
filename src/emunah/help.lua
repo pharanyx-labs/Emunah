@@ -158,12 +158,20 @@ M.modules = {
      summary = "switch riding keep-up (vaulting back on) on or off" },
   } },
 
-{ id = "manna", title = "Manna", summary = "performs the manna rite",
-  does = "Performs the manna rite: the three commands, with the waits between them, done "
-      .. "for you once each is possible.",
+{ id = "rites", title = "Rites", summary = "keeps the rites you perform up until you leave the room",
+  state = function() return config("rites.keepup", true) end,
+  does = "Keeps Well-being and Revitalisation up. Perform one, or type RITES where yours are "
+      .. "up, and it is performed again each time it runs out, for as long as you stay in "
+      .. "that room: leaving the room stops it. How long each has left comes from RITES, "
+      .. "read (hidden) once equilibrium is back after each perform. Held while PvP is on. "
+      .. "Three tries that do not bring a rite up and it stops, and says so.",
   commands = {
-   { syntax = "emset manna", handler = "manna",
-     summary = "perform the manna rite" },
+   { syntax = "emset rites", handler = "rites",
+     summary = "the rites being kept up, and how long each has left" },
+   { syntax = "emset rites on|off",
+     summary = "switch rite keep-up on or off (off forgets the ones kept now)" },
+   { syntax = "emset rites stop",
+     summary = "stop keeping up the rites kept now, leaving keep-up on" },
   } },
 
 { id = "hunting", title = "Hunting", summary = "bashing, and walking an area to clear it",
@@ -643,6 +651,8 @@ M.settings = {
 { key = "pipes.poll", default = 0, type = "number", unit = "s", topic = "pipes",
   shipped = false, detail = "Re-check every pipe this often with PIPELIST. 0 (the default) "
      .. "asks only when the pipes are not known, e.g. after login or a reload." },
+{ key = "rites.keepup", default = true, type = "boolean", topic = "rites", shipped = false,
+  detail = "Perform the rites you perform again as they run out, until you leave the room." },
 { key = "riding.keepup", default = false, type = "boolean", topic = "riding", shipped = false,
   detail = "Vault back onto the mount whenever you are off it and the balance is idle." },
 { key = "riding.mount", default = "pegasus510623", type = "string", topic = "riding",

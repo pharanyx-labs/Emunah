@@ -317,12 +317,25 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>riding.follow</code></td><td>true</td><td>Order the mount to follow you whenever it is here and not ridden, and warn on the prompt while it is not with you.</td></tr>
 </tbody></table></div>
 
-<h2 id="manna">Manna</h2>
-<p>Performs the manna rite: the three commands, with the waits between them, done for you once each is possible.</p>
+<h2 id="rites">Rites</h2>
+<p>Keeps Well-being and Revitalisation up. Perform one, or type RITES where yours are up, and it is performed again each time it runs out, for as long as you stay in that room: leaving the room stops it. How long each has left comes from RITES, read (hidden) once equilibrium is back after each perform. Held while PvP is on. Three tries that do not bring a rite up and it stops, and says so.</p>
 <div class="cmd-block">
-<span class="cmd-syntax">emset manna</span>
-<p>perform the manna rite</p>
+<span class="cmd-syntax">emset rites</span>
+<p>the rites being kept up, and how long each has left</p>
 </div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset rites on|off</span>
+<p>switch rite keep-up on or off (off forgets the ones kept now)</p>
+</div>
+<div class="cmd-block">
+<span class="cmd-syntax">emset rites stop</span>
+<p>stop keeping up the rites kept now, leaving keep-up on</p>
+</div>
+
+<div class="table-wrap"><table>
+<thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>rites.keepup</code></td><td>true</td><td>Perform the rites you perform again as they run out, until you leave the room.</td></tr>
+</tbody></table></div>
 
 <h2 id="hunting">Hunting</h2>
 <p>Bashing and walking. Bashing attacks the denizens in the room, one at a time by replica number, on the balance and equilibrium your attack uses. The walker explores an area room by room. <code>hunt</code> runs both: clear a room, move on. Support mode follows a leader instead: it attacks what they attack and nothing else. Stops itself when health drops below its floor, when a player arrives, or when damage comes in too fast.</p>
@@ -686,7 +699,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
   <a href="#defences">Defences</a>
   <a href="#pipes">Pipes</a>
   <a href="#riding">Riding</a>
-  <a href="#manna">Manna</a>
+  <a href="#rites">Rites</a>
   <a href="#hunting">Hunting</a>
   <a href="#pvp">PvP</a>
   <a href="#allies">Allies</a>
