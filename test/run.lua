@@ -13165,6 +13165,7 @@ local function blanks()
 end
 
 mock.feed("Char.Vitals", full)
+mock.prompt("H:100% M:100% E:100% W:100%  ex-  T:  09:00:00.00-")   -- idle, on a prompt
 mock.sent, mock.echoed_sends = {}, {}
 mock.advance(14)
 eq(blanks(), 0, "nothing is asked for before curing.idlePoll has passed")
@@ -13198,6 +13199,43 @@ local kept = "H:100% M:100% E:100% W:100%  ex-  T:  09:00:41.00-"
 mock.line(tell)
 mock.prompt(kept)
 eq(mock.buffer[#mock.buffer], kept, "a prompt with another line ahead of it is shown")
+
+-- THE POLL AND THE RITE OF REVITALISATION, 15 seconds apart each (2026-10-16): the blank
+-- line went out just before the Rite's own block, so its answer came second, 0.27s later,
+-- and was shown as a second prompt every 30 seconds. The Rite's line goes with its prompt,
+-- and the answer -- a prompt straight after a prompt -- goes too.
+do
+   local rite = "The Rite of Revitalisation refreshes your body and mind."
+   local last = "H:100% M:100% E:100% W:100%  exckdb  T:  07:54:12.90-"
+   mock.advance(emunah.ui.gag.PROMPT_WINDOW + 0.1)   -- nothing of ours still expected
+   mock.prompt(last)
+   mock.sent = {}
+   emunah.curing.engine.idleNudge()
+   eq(blanks(), 1, "(the blank line goes out)")
+   local before = #mock.buffer
+   mock.line(rite)
+   mock.prompt("H:100% M:100% E:100% W:100%  exckdb  T:  07:54:27.90-")
+   mock.prompt("H:100% M:100% E:100% W:100%  exckdb  T:  07:54:28.17-")
+   eq(#mock.buffer, before, "the Rite's line, its prompt and the answer are all hidden")
+   eq(mock.buffer[#mock.buffer], last, "...leaving the last prompt as it was")
+
+   -- Without a blank line of ours, two prompts in a row are both shown.
+   before = #mock.buffer
+   mock.advance(emunah.ui.gag.PROMPT_WINDOW + 0.1)
+   mock.prompt("H:100% M:100% E:100% W:100%  exckdb  T:  07:55:00.00-")
+   mock.prompt("H:100% M:100% E:100% W:100%  exckdb  T:  07:55:00.30-")
+   eq(#mock.buffer, before + 2, "a prompt we did not ask for is never hidden")
+
+   -- The Rite on its own: the line and the prompt it brings.
+   before = #mock.buffer
+   mock.line(rite)
+   mock.prompt("H:100% M:100% E:100% W:100%  exckdb  T:  07:55:12.92-")
+   eq(#mock.buffer, before, "the Rite's line is hidden with its prompt")
+   mock.line(rite)
+   mock.line("Maajida arrives from the north.")
+   mock.prompt("H:100% M:100% E:100% W:100%  exckdb  T:  07:55:27.93-")
+   eq(#mock.buffer, before + 2, "...but a block with anything else in it keeps its prompt")
+end
 
 -- Off when curing is off, when set to 0, and when nothing may be sent.
 mock.feed("Char.Vitals", full)

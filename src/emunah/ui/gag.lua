@@ -48,33 +48,59 @@ end
 -- A prompt we asked for
 -- ---------------------------------------------------------------------------
 
---- How long after asking for a prompt the next one is still taken to be the answer.
+--- How long after asking for a prompt the answer is still expected.
 M.PROMPT_WINDOW = 3.0
 
 --- When the prompt we asked for stops being expected, or nil when none is.
 local awaitingUntil = nil
 
---- Hide the next line if it is a bare prompt arriving within M.PROMPT_WINDOW. For a blank
---- line sent from a timer (curing/engine.lua's idle poll), where there is no line to hang
---- a tempLineTrigger off. Anything else arriving first means the block is not only ours,
---- and the prompt stays.
+--- Was the last line through M.onLine() a prompt? Counts lines that were hidden, too.
+local afterPrompt = false
+
+--- Hide the answer to a blank line sent from a timer (curing/engine.lua's idle poll), where
+--- there is no line to hang a tempLineTrigger off.
+---
+--- THE ANSWER IS THE PROMPT WITH NOTHING ABOVE IT, not merely the next prompt. The poll
+--- fired a moment before the Rite of Revitalisation's own 15-second prompt was handled
+--- (07:54:27.90, 07:54:57.92, ... 2026-10-16), so the Rite's line came first and the gag
+--- gave up, and its answer drew a second prompt 0.27s later, every 30 seconds. Whatever
+--- arrives in between, the answer is the prompt straight after another one: an empty block
+--- says nothing a gauge does not.
 function M.nextPrompt()
    awaitingUntil = emunah.util.now() + M.PROMPT_WINDOW
 end
 
 --- Every line. See M.nextPrompt().
 function M.onLine()
-   if not awaitingUntil then return end
-   local ours = emunah.util.now() <= awaitingUntil
-      and type(isPrompt) == "function" and isPrompt()
-   awaitingUntil = nil
-   if ours then M.current() end
+   local prompt = type(isPrompt) == "function" and isPrompt() or false
+   if awaitingUntil and emunah.util.now() > awaitingUntil then awaitingUntil = nil end
+   if prompt and afterPrompt and awaitingUntil then
+      awaitingUntil = nil
+      M.current()
+   end
+   afterPrompt = prompt
 end
+
+-- ---------------------------------------------------------------------------
+-- Lines nobody needs to read
+-- ---------------------------------------------------------------------------
+
+--- Hidden with the prompt after them. Nothing in Emunah reads these.
+M.LINES = {
+   -- Every 15 seconds in a Rite of Revitalisation (2026-10-16, 07:54:12.90 onwards).
+   [[^The Rite of Revitalisation refreshes your body and mind\.$]],
+}
 
 do
    emunah._persist = emunah._persist or {}
+   for _, id in ipairs(emunah._persist.gagTriggers or {}) do killTrigger(id) end
    if emunah._persist.gagTrigger then killTrigger(emunah._persist.gagTrigger) end
-   emunah._persist.gagTrigger = tempRegexTrigger([[^]], function() M.onLine() end)
+   emunah._persist.gagTrigger = nil
+   local ids = { tempRegexTrigger([[^]], function() M.onLine() end) }
+   for _, pattern in ipairs(M.LINES) do
+      ids[#ids + 1] = tempRegexTrigger(pattern, function() M.withPrompt() end)
+   end
+   emunah._persist.gagTriggers = ids
 end
 
 return M
