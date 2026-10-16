@@ -22,8 +22,8 @@
 --- shut and by what -- a lock, read off in one line.
 ---
 --- DEFENCES files every defence under what raises it -- Elixirs, Herbs, Salves, then each
---- skillset by the server's name for it (deflist.raisedBy()) -- with the item or command
---- beside it, and within each heading what keep-up is owed first, then what is up.
+--- skillset by the server's name for it (deflist.raisedBy()) -- alphabetically, and every
+--- defence keeps its place for the session once it has been shown (see `slots`).
 ---
 --- Both are Labels drawing rich text (see ui/theme.lua for why), each painted in one call and
 --- not at all when unchanged, after the packet (theme.later).
@@ -288,55 +288,69 @@ local function categoryBefore(a, b)
    return a < b
 end
 
---- One defence's cell: its dot and name, and what raises it unless that is just its name
---- again (`insomnia` is raised by `insomnia`).
-local function defenceCell(entry, keepingUp, withSource)
-   local cell
+--- One defence's cell: its dot and name. Filled when it is up; hollow when it is down, amber
+--- when keep-up owes it, dim when nothing does.
+---
+--- No "· venom" beside poisonresist: the item or command that raised it repeated what the
+--- heading already says, and widened every cell (the user, 2026-10-16).
+local function defenceCell(entry, keepingUp)
    if entry.up then
-      cell = theme.span("defence", "&#9679; ") .. theme.span("text", theme.esc(entry.name))
-   else
-      cell = theme.span(keepingUp and "warning" or "textDim", "&#9675; " .. theme.esc(entry.name))
+      return theme.span("defence", "&#9679; ") .. theme.span("text", theme.esc(entry.name))
    end
-   if withSource and entry.source and entry.source ~= entry.name then
-      cell = cell .. theme.span("textDim", " &middot; " .. theme.esc(entry.source))
-   end
-   return cell
+   local colour = (entry.owed and keepingUp) and "warning" or "textDim"
+   return theme.span(colour, "&#9675; " .. theme.esc(entry.name))
 end
 
---- The defences, filed by category (deflist.raisedBy()): owed first within each, then up.
+--- Every defence shown this session: name -> true. A defence keeps its place once it has
+--- appeared, hollow while it is down, so one dropping or coming back moves nothing else
+--- on the panel (the user, 2026-10-16). Carried across `emreload` on _persist, like the
+--- layout, so a reload redraws the same rows; a disconnect empties it.
+emunah._persist = emunah._persist or {}
+emunah._persist.defenceSlots = emunah._persist.defenceSlots or {}
+local slots = emunah._persist.defenceSlots
+
+--- The defences, filed by category (deflist.raisedBy()), alphabetically within each.
+---
+--- ALPHABETICAL, NOT OWED-FIRST. Owed-first moved a kept-up defence to the top of its
+--- heading the moment it dropped and back when it was raised, and every row between moved
+--- twice: the panel jumped on every refresh of a defence.
 --- @return table categories in display order, table category -> entries
 local function groupDefences(active, missing)
    local deflist = emunah.curing.deflist
    local byCategory, order = {}, {}
    local seen = {}
-   local function add(name, up)
+   local function add(name, up, owed)
       if seen[name] then return end
       seen[name] = true
-      local category, source = deflist.raisedBy(name)
+      slots[name] = true
+      local category = deflist.raisedBy(name)
       local list = byCategory[category]
       if not list then
          list = {}
          byCategory[category] = list
          order[#order + 1] = category
       end
-      list[#list + 1] = { name = name, up = up, source = source }
+      list[#list + 1] = { name = name, up = up, owed = owed }
    end
-   for _, name in ipairs(missing) do add(name, false) end
    for _, record in ipairs(active) do add(record.name, true) end
    -- Up by their own lines, never in Char.Defences (deflist.SYNTHETIC): bliss, the angel,
    -- the mace. Listed so the panel shows every defence Emunah knows is up.
    for name in pairs(deflist.SYNTHETIC) do
       if deflist.isUp(name) then add(name, true) end
    end
+   for _, name in ipairs(missing) do add(name, false, true) end
+   for name in pairs(slots) do add(name, false) end
    table.sort(order, categoryBefore)
    for _, category in ipairs(order) do
-      table.sort(byCategory[category], function(a, b)
-         if a.up ~= b.up then return not a.up end
-         return a.name < b.name
-      end)
+      table.sort(byCategory[category], function(a, b) return a.name < b.name end)
    end
    return order, byCategory
 end
+
+-- A disconnect ends the session.
+emunah.event.register("sysDisconnectionEvent", function()
+   for name in pairs(slots) do slots[name] = nil end
+end, "ui.affpanel")
 
 --- Repaint the defences section.
 local function updateDefences()
@@ -367,13 +381,18 @@ local function updateDefences()
    if not keepingUp and #missing > 0 then summary = summary .. " \194\183 keep-up off" end
    layout.header("defences", M.widgets.defencesHeader, "Defences", summary, summaryColour)
 
-   -- Three densities, most spacious first, for layout.reflow() to choose between: one a
-   -- row with what raised it beside it; two a row, still with it; three a row, names only.
-   -- Each category's heading is a line of its own in all three.
-   local level = layout.compact("defences")
-   local columns = level >= 3 and 3 or level
-   local withSource = level < 3
+   -- Three densities, most spacious first, for layout.reflow() to choose between: one, two
+   -- or three defences a row. Each category's heading is a line of its own in all three.
+   -- Reported before painting, so the density read below is the one this paints at.
    local lines = { 0, 0, 0 }
+   for _, category in ipairs(order) do
+      for density = 1, 3 do
+         lines[density] = lines[density] + 1 + math.ceil(#byCategory[category] / density)
+      end
+   end
+   layout.need("defences", { math.max(1, lines[1]), math.max(1, lines[2]), math.max(1, lines[3]) })
+   local columns = math.min(math.max(layout.compact("defences"), 1), 3)
+
    local n = 0
    if #order == 0 then
       n = 1
@@ -384,9 +403,6 @@ local function updateDefences()
       local width = math.floor(100 / columns)
       for _, category in ipairs(order) do
          local entries = byCategory[category]
-         for density = 1, 3 do
-            lines[density] = lines[density] + 1 + math.ceil(#entries / density)
-         end
          n = n + 1
          html[n] = string.format('<tr><td colspan="%d">%s</td></tr>', columns,
             theme.span("accent", theme.esc(category)))
@@ -395,7 +411,7 @@ local function updateDefences()
             for offset = 0, columns - 1 do
                local entry = entries[index + offset]
                row[#row + 1] = string.format('<td width="%d%%">%s</td>', width,
-                  entry and defenceCell(entry, keepingUp, withSource) or "")
+                  entry and defenceCell(entry, keepingUp) or "")
             end
             n = n + 1
             html[n] = "<tr>" .. table.concat(row) .. "</tr>"
@@ -404,7 +420,6 @@ local function updateDefences()
       n = n + 1
       html[n] = "</table>"
    end
-   layout.need("defences", { math.max(1, lines[1]), math.max(1, lines[2]), math.max(1, lines[3]) })
    theme.paintLabel(body, "body.defences", table.concat(html, "", 1, n))
 end
 

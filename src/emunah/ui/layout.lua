@@ -22,10 +22,20 @@ local theme = emunah.ui.theme
 -- State for the left column's content-sized layout (see "Sizing the left column" below).
 -- Declared up here, above M.build() and M.section(), which reset and write it.
 M.sections = {}
+-- needs, held and density are CARRIED ACROSS A RELOAD (_persist.layout): the panels are
+-- rebuilt, and laying them out from nothing put every section at its starting share and the
+-- defences one to a row until each had painted and reported again (2026-10-16).
+emunah._persist = emunah._persist or {}
+local carried = emunah._persist.layout or {}
+emunah._persist.layout = carried
+carried.needs, carried.held, carried.density =
+   carried.needs or {}, carried.held or {}, carried.density or {}
 --- key -> { lines at density 1, lines at density 2, ... }
-local needs = {}
+local needs = carried.needs
+--- key -> { levels, untilAt }: room a section has stopped needing, kept until untilAt.
+local held = carried.held
 --- key -> the density chosen
-local density = {}
+local density = carried.density
 --- key -> "y:height" last applied, so an unchanged section is not moved
 local placed = {}
 --- Whether the room console's scrollbar is on.
@@ -442,6 +452,9 @@ function M.section(parent, spec)
                      refresh = spec.refresh, divider = divider }
    M.sections[spec.key] = section
    placed[spec.key] = nil
+   -- Sized from what it needed before a reload, not from its starting share, so it does not
+   -- open at one size and jump to another once it has painted.
+   if needs[spec.key] then M.reflow() end
    return section
 end
 
@@ -602,19 +615,69 @@ function M.lineHeight()
    return math.ceil(theme.font.small * 96 / 72 * 1.5)
 end
 
---- Report a section's line counts. Lays the column out again once this packet is done.
-function M.need(key, levels)
-   local previous = needs[key]
-   if previous and #previous == #levels then
-      local same = true
-      for index = 1, #levels do
-         if previous[index] ~= levels[index] then same = false break end
-      end
-      -- The clock repaints afflictions five times a second; their line count rarely moves.
-      if same then return end
+--- How long a section keeps room it has stopped needing, in seconds. A fight adds and
+--- cures afflictions every few hundred milliseconds; sizing the column to each one moved
+--- every section below on every change, and flipped the defences between densities.
+--- Room is taken the moment it is needed, so nothing is ever cut off, and given back once
+--- the section has been smaller for this long.
+M.SHRINK_AFTER = 3.0
+
+--- Spare lines the column must have before a section goes back to a sparser density.
+--- Without it a section on the edge flips back and forth as one line comes and goes.
+M.SPARSER_MARGIN = 2
+
+--- What the column is sized for: what was asked for, or more while a shrink is held.
+local function effective(key)
+   local want, hold = needs[key], held[key]
+   if not want then return nil end
+   if not hold or emunah.util.now() >= hold.untilAt then return want end
+   local out = {}
+   for index = 1, math.max(#want, #hold.levels) do
+      out[index] = math.max(want[index] or want[#want], hold.levels[index] or hold.levels[#hold.levels])
    end
+   return out
+end
+
+local function sameLevels(a, b)
+   if not a or not b or #a ~= #b then return false end
+   for index = 1, #a do
+      if a[index] ~= b[index] then return false end
+   end
+   return true
+end
+
+--- Report a section's line counts, and lay the column out again NOW.
+---
+--- Now rather than after the packet: a section paints at layout.compact(), so if the reflow
+--- came after its paint, a change of density painted it twice -- once as it was, once as it
+--- should be. Calling need() before painting gets the density right the first time.
+function M.need(key, levels)
+   -- The clock repaints afflictions five times a second; their line count rarely moves.
+   if sameLevels(needs[key], levels) then return end
+   local shown = effective(key)
    needs[key] = levels
-   theme.later("layout.reflow", M.reflow)
+   local shrinking = false
+   if shown then
+      for index = 1, #levels do
+         if levels[index] < (shown[index] or shown[#shown]) then shrinking = true break end
+      end
+   end
+   if shrinking then
+      held[key] = { levels = shown, untilAt = emunah.util.now() + M.SHRINK_AFTER }
+      -- One timer per section: a shared one, restarted by another section shrinking, put
+      -- off this one's give-back with it.
+      emunah._persist = emunah._persist or {}
+      local timers = emunah._persist.shrinkTimers or {}
+      emunah._persist.shrinkTimers = timers
+      if timers[key] then killTimer(timers[key]) end
+      timers[key] = tempTimer(M.SHRINK_AFTER, function()
+         timers[key] = nil
+         M.reflow()
+      end)
+   else
+      held[key] = nil
+   end
+   M.reflow()
 end
 
 --- The density a section should render at (1 = most spacious).
@@ -642,7 +705,7 @@ function M.reflow()
    for _, spec in ipairs(M.LEFT_SECTIONS) do level[spec.key] = 1 end
 
    local function linesHeight(key, at)
-      local levels = needs[key]
+      local levels = effective(key)
       local lines = levels and (levels[at] or levels[#levels]) or 1
       return chrome + math.max(lines, 1) * line
    end
@@ -662,6 +725,15 @@ function M.reflow()
       while total() > available and not M.manualHeight(key) and needs[key]
          and level[key] < #needs[key] do
          level[key] = level[key] + 1
+      end
+   end
+   -- Back to sparser only with room to spare (M.SPARSER_MARGIN).
+   for _, key in ipairs(M.COMPACT_ORDER) do
+      local was = density[key]
+      if was and needs[key] and level[key] < was and not M.manualHeight(key) then
+         if total() + M.SPARSER_MARGIN * line > available then
+            level[key] = math.min(was, #needs[key])
+         end
       end
    end
 

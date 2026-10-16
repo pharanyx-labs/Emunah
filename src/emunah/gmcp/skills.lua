@@ -31,6 +31,21 @@ M.complete = false
 
 local pending = {}   -- group names we have asked for but not yet received
 
+--- CARRIED ACROSS A RELOAD, on _persist. Reloading Emunah does not change what the
+--- character knows, and starting empty filed every skill defence under "Abilities" until
+--- the index came back, 5-10s after `emreload`, when the panel re-filed them all
+--- (2026-10-16). The refresh after a reload still asks again; nothing here is cleared
+--- while it does. A disconnect forgets it: the next login may be someone else.
+local function save()
+   emunah._persist = emunah._persist or {}
+   emunah._persist.skills = { groups = M.groups, index = M.index }
+end
+
+do
+   local saved = emunah._persist and emunah._persist.skills
+   if saved then M.groups, M.index = saved.groups or {}, saved.index or {} end
+end
+
 local function onGroups()
    local groups = gmcp.Char.Skills.Groups
    if type(groups) ~= "table" then return end
@@ -39,6 +54,7 @@ local function onGroups()
    M.index    = {}
    M.complete = false
    pending    = {}
+   save()
 
    for _, group in ipairs(groups) do
       if group.name then
@@ -291,10 +307,15 @@ end, "gmcp.skills")
 
 event.register("sysDisconnectionEvent", function()
    M.complete = false
+   M.groups, M.index = {}, {}
+   save()
 end, "gmcp.skills")
 
-if gmcp and gmcp.Char and gmcp.Char.Skills and gmcp.Char.Skills.Groups then
+-- Only with nothing carried over: onGroups() starts the index empty, which is the re-filing
+-- the carried copy is there to avoid. gmcp/init.lua's refresh asks for every group anyway.
+if not next(M.groups) and gmcp and gmcp.Char and gmcp.Char.Skills and gmcp.Char.Skills.Groups then
    onGroups()
 end
+save()
 
 return M
