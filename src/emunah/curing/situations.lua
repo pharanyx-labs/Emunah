@@ -1,6 +1,6 @@
 --- Situational curing: rules that move or hold a cure while a particular situation holds.
 ---
---- afflist's ranks are svof's, and fixed: weariness is always 33, guilt always 59. That is
+--- afflist's ranks are the reference system's, and fixed: weariness is always 33, guilt always 59. That is
 --- right on average and wrong in particular fights, and the fight that showed it was an
 --- arena loss to a Priest (2026-10-05, 07:33:12-07:33:38): weariness re-applied every round
 --- took 6 of 13 herb eats, guilt and spiritburn were never eaten once, and so inquisition --
@@ -12,7 +12,7 @@
 --- vector, or hold it -- on some vectors, or on all of them. M.evaluate() runs once per
 --- tick, from the engine's classify(), and the engine reads the answer through M.rank() and
 --- M.held(); nothing else about curing changes. Every rule carries the evidence for it:
---- they are rulings on transcripts and on what the game says, not svof's, and the same bar
+--- they are rulings on transcripts and on what the game says, not the reference system's, and the same bar
 --- applies to adding one as to any other game mechanic (CONTRIBUTING.md, docs/game/curing.md
 --- *Situational rules*).
 ---
@@ -33,7 +33,7 @@ M.RULES = {
    -- .Add, 07:33:19.64): "It cures once the victim has rid themselves of both guilt and
    -- spiritburn afflictions, and is no longer prone." Confirmed by the Priest who cast it
    -- (tell, 07:50:06): "Inquisition is cured when you clear all of - guilt, spiritburn,
-   -- prone." It shuts focus and keeps valerian off hellsight, and at svof's ranks (guilt 59,
+   -- prone." It shuts focus and keeps valerian off hellsight, and at the reference system's ranks (guilt 59,
    -- spiritburn 61) both sat behind weariness and justice for the whole fight. Ranked just
    -- behind paralysis and the 7s; ahead of impatience (8), which shuts focus too but cannot
    -- reopen it while inquisition holds it shut. Prone is the third key, and already has its
@@ -75,7 +75,7 @@ M.RULES = {
    -- locked within 2 seconds, it's to get rid of the impatience." Eating for asthma instead
    -- lets the pipe clear the slickness and the salve go on a broken leg -- "He would've
    -- replaced the slickness with being off salve balance" -- while impatience still shuts
-   -- focus when the anorexia lands. At svof's ranks asthma (4) and bloodroot (5) went first;
+   -- focus when the anorexia lands. At the reference system's ranks asthma (4) and bloodroot (5) went first;
    -- impatience (8) comes ahead of both while the three hold.
    {
       id   = "impatience-before-hard-lock",

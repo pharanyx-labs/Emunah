@@ -3,7 +3,7 @@
 Source: **Anzerloi teaching in party, 2026-10-15 20:22:48–20:32:20**, walking the user through his
 arena win over Sobriquet (`alchemist.md`), and **Synbios raising his defences** in front of the
 user at 20:29:34–20:29:45. Quotes are verbatim from the user's log, with its timestamps. Tags as
-in `curing.md`: **[player]** a player's account, **[play]** a line seen in play, **[svof]**,
+in `curing.md`: **[player]** a player's account, **[play]** a line seen in play, **[reference]**,
 **[open]**.
 
 ## What a lock is
@@ -18,14 +18,14 @@ Every cure has a route, and each route can be shut by an affliction (`afflist.bl
 | focus | impatience |
 | the tree tattoo | paralysis |
 
-A lock is enough shut routes that the afflictions shutting them cannot be cured. svof's
+A lock is enough shut routes that the afflictions shutting them cannot be cured. The reference system's
 definitions (`cnrl.lockdata`), which Emunah uses on both sides (`watch.LOCK_AFFLICTIONS`):
 
 | Lock | Afflictions |
 |---|---|
 | soft | slickness, anorexia, asthma |
 | venom | soft + paralysis |
-| hard | soft + impatience (svof also: focus unusable for mana) |
+| hard | soft + impatience (the reference system also: focus unusable for mana) |
 | true | soft + paralysis, impatience, disrupted, confusion |
 
 The lock Anzerloi builds is hard and venom together: slickness, anorexia, asthma, impatience,
@@ -67,7 +67,7 @@ was prone, asthmatic, slick and impatient.
 
 **Defending.** `impatience-before-hard-lock` (`curing/situations.lua`, `curing.md`): with
 asthma, slickness and impatience together, goldenseal goes ahead of kelp and bloodroot. At
-svof's ranks it was the other way round, the mistake the lesson describes.
+the reference system's ranks it was the other way round, the mistake the lesson describes.
 
 **Attacking.** For the PvP target, from the afflictions the tracker has confirmed
 (`curing/detect/opponent.lua`):
@@ -87,7 +87,7 @@ svof's ranks it was the other way round, the mistake the lesson describes.
 
 | Line | Read as |
 |---|---|
-| `Synbios clenches his fists and grits his teeth.` | insomnia: our own is "You clench your fists, grit your teeth, and banish all possibility of sleep." **[svof]** |
+| `Synbios clenches his fists and grits his teeth.` | insomnia: our own is "You clench your fists, grit your teeth, and banish all possibility of sleep." **[reference]** |
 | `Synbios eats a kola nut.` | kola; his herb balance used |
 | `Synbios eats a hawthorn berry.` | deafness, as keep-up raises it |
 | `Synbios eats an arsenic pellet.` | **[open]**: no cure Emunah knows uses arsenic |

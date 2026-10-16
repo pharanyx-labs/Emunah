@@ -188,7 +188,7 @@ end
 --
 -- A LOCK is a set of afflictions that shuts every way of curing them: slickness stops the
 -- salve, anorexia the herb, asthma the pipe, and each lock adds whatever takes away what is
--- left. Ported from the reference system's cnrl.lockdata (svof raw-svo.controllers.lua),
+-- left. Ported from the reference system's cnrl.lockdata (its controllers file),
 -- which names them on the prompt the same way. Its `dragon` lock is left out: it needs
 -- dragonform.
 --
@@ -256,10 +256,10 @@ M.LOCKS = {
    end },
 }
 
---- The locks made of afflictions alone, as svof's cnrl.lockdata has them, most severe first:
+--- The locks made of afflictions alone, as the reference system's cnrl.lockdata has them, most severe first:
 --- what can be judged from a list of afflictions, so of an opponent as much as of you. (The
 --- rest of M.LOCKS needs your mana, your arms, your rift or your pipes.) `hard` here is
---- impatience only; svof's own also counts focus being unusable for mana.
+--- impatience only; the reference system's own also counts focus being unusable for mana.
 M.LOCK_AFFLICTIONS = {
    { name = "true",  needs = { "slickness", "anorexia", "asthma", "paralysis", "impatience",
                                "disrupted", "confusion" } },
@@ -298,7 +298,7 @@ end
 -- dangers: what an opponent can kill you with right now
 -- ---------------------------------------------------------------------------
 --
--- svof's sk.warnings, each raised where its afflictions land (raw-svo.dict.lua): the
+-- The reference system's sk.warnings, each raised where its afflictions land (its dictionary file): the
 -- states an instant kill needs. Nothing here acts; it is named on the prompt, so the
 -- moment it is true is the moment you see it.
 
@@ -306,7 +306,7 @@ local TEMPERED = { "temperedcholeric", "temperedmelancholic", "temperedphlegmati
                    "temperedsanguine" }
 
 --- How long an Alchemist's REAVE takes against you, by how many of your four humours are
---- tempered [svof: checkreavekill and sk.warnings]: two, 10s; three, 8s; all four, 4s.
+--- tempered [reference: checkreavekill and sk.warnings]: two, 10s; three, 8s; all four, 4s.
 M.REAVE_SECONDS = { [2] = 10, [3] = 8, [4] = 4 }
 
 function M.temperedHumours()
@@ -322,7 +322,7 @@ M.DANGERS = {
       local seconds = M.REAVE_SECONDS[M.temperedHumours()]
       return seconds and ("reave " .. seconds .. "s") or nil
    end },
-   -- svof warns of this only while it is fighting a Sentinel (enabledclasses). Named here
+   -- The reference system warns of this only while it is fighting a Sentinel (enabledclasses). Named here
    -- whenever it is true: both afflictions are a Sentinel's, and missing the warning is the
    -- worse mistake.
    { name = "dismember", test = function() return has("bound") and has("impaled") end },

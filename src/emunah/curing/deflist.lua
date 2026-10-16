@@ -21,11 +21,11 @@ local event   = emunah.event
 M.commands = {
    -- name        = { vector, command }
    -- THE SKILL, NOT COHOSH (the user, 2026-10-04: "stop using cohosh as we can send the
-   -- commands insomnia and relax insomnia"). svof's dict.insomnia.misc sends the same bare
+   -- commands insomnia and relax insomnia"). The reference system's dict.insomnia.misc sends the same bare
    -- `insomnia` when its `conf.insomnia` is on, as a misc action: check_misc refuses it only
    -- while stunned, unconscious or asleep, never for balance or equilibrium, so it rides the
-   -- free vector. svof's isadvisable also wants mana above `manause` and no hypersomnia;
-   -- those are M.HOLDS.insomnia, with the voluntary sleep the user asked for. Lines [svof]:
+   -- free vector. The reference system's isadvisable also wants mana above `manause` and no hypersomnia;
+   -- those are M.HOLDS.insomnia, with the voluntary sleep the user asked for. Lines [reference]:
    -- "You clench your fists, grit your teeth, and banish all possibility of sleep." and
    -- "You are already an insomniac." Confirmed in play 10:38:23.09: Char.Defences.Add
    -- insomnia, about 3% mana, no balance or equilibrium spent.
@@ -145,7 +145,7 @@ M.commands = {
    blindness    = { vector = "herb", command = "eat bayberry", item = "bayberry",
                     requires = "mindseye" },
    -- `fangbarrier` was here as a skill command of its own, never seen working. It is what
-   -- sileris grants [svof: sileris.gamename], so it is raised by the salve now --
+   -- sileris grants [reference: sileris.gamename], so it is raised by the salve now --
    -- afflist.defenceCures.fangbarrier.
 
    -- Priest (Devotion). `perform inspiration`, equilibrium 3.50s -- both verified, see
@@ -205,7 +205,7 @@ M.commands = {
 ---
 --- Char.Defences and Char.Afflictions use `blindness`/`deafness` for each state, confirmed
 --- live for both (see M.commands.blindness / .deafness). The affliction's other name is
---- `blind`/`deaf`: svof's gamename (blindaff -> "blind"), the darkness trigger
+--- `blind`/`deaf`: the reference system's gamename (blindaff -> "blind"), the darkness trigger
 --- (`textGain("blind")`), and DIAG's bare word. Those share the epidermal cure through
 --- afflist.ALIASES. Without a key here, classify() treats a tracked `blind` as a real
 --- affliction and have.cure() then refuses the salve, which is the warning at 17:31:33.81:
@@ -223,7 +223,7 @@ M.commands = {
 M.DELIBERATE = {
    blindness = "blindness",
    deafness  = "deafness",
-   -- The text/svof name of the same state. Value is the Char.Defences name.
+   -- The text/the reference system name of the same state. Value is the Char.Defences name.
    blind     = "blindness",
    deaf      = "deafness",
    insomnia  = "insomnia",
@@ -289,7 +289,7 @@ M.ALIASES = {
    -- `blindness`/`deafness`. Keeps typing and config under the old, natural names working.
    blind = "blindness",
    deaf  = "deafness",
-   -- The item, not the defence [svof: gamename]. See afflist.defenceCures.
+   -- The item, not the defence [reference: gamename]. See afflist.defenceCures.
    sileris     = "fangbarrier",
    quicksilver = "fangbarrier",
    myrrh       = "scholasticism",
@@ -356,8 +356,8 @@ M.IMPORTED = {
    curseward      = { vector = "balance", command = "curseward" },
    hypersight     = { vector = "balance", command = "hypersight on" },
    -- Antitheft: a pickpocket fails against it, and stripping it is the thief's opening
-   -- move (HELP THIEVERY: "setup selfishness as a defence"). Command and lines are svof's
-   -- (raw-svo.defs.lua), and the cost is from play, 2026-10-04 08:09:39.34:
+   -- move (HELP THIEVERY: "setup selfishness as a defence"). Command and lines are the reference system's
+   -- (its defs file), and the cost is from play, 2026-10-04 08:09:39.34:
    --   selfishness -> "You rub your hands together greedily." "Equilibrium used: 0.50s."
    -- with the prompt going excdb -> xcdb. Whether it also NEEDS balance has not been seen
    -- (balance was up), so both are required, per HELP's default for bal/eq abilities.
@@ -409,8 +409,8 @@ M.IMPORTED = {
 -- three attempts. The real cost timer still comes from the game's own
 -- "Equilibrium used: N.NNs." / "Balance used: N.NNs." line.
 --
--- COSTING NOTHING DOES NOT MEAN NEEDING NOTHING. svof sends its balanceless defences only
--- with balance, equilibrium and both arms ([svof] check_balanceless_acts), and `vigilance on`
+-- COSTING NOTHING DOES NOT MEAN NEEDING NOTHING. The reference system sends its balanceless defences only
+-- with balance, equilibrium and both arms ([reference] check_balanceless_acts), and `vigilance on`
 -- went out here without equilibrium and was refused (11:36:49.41, 2026-10-04). So the free
 -- ones need both as well, until play shows one does not -- as vigilance has, for balance.
 for _, entry in pairs(M.IMPORTED) do
@@ -609,11 +609,11 @@ function M.noteMaceInLand()
 end
 
 --- Seconds a summon may take from its start line before it counts as not happening, and
---- keep-up may summon again. svof's waitingformace `customwait`; play took 2.48s (the start
+--- keep-up may summon again. The reference system's waitingformace `customwait`; play took 2.48s (the start
 --- line at 11:36:47.39, the mace at 11:36:49.87, 2026-10-04).
 M.MACE_SUMMON_WAIT = 3.0
 
---- A summon has started (svof's "Mace start" line), or the game says one already has.
+--- A summon has started (the reference system's "Mace start" line), or the game says one already has.
 --- Keep-up's confirm wait runs from the SEND, and is shorter than the summon: at 11:36:49.22
 --- it lapsed and `summon mace` went again, answered "You are already summoning your mace."
 function M.noteMaceSummoning()
@@ -621,7 +621,7 @@ function M.noteMaceSummoning()
    emunah._persist.maceSummoning = util.now()
 end
 
---- svof's "Mace interrupted": nothing is coming, so summoning may go again.
+--- The reference system's "Mace interrupted": nothing is coming, so summoning may go again.
 function M.noteMaceSummonFoiled()
    if emunah._persist then emunah._persist.maceSummoning = nil end
 end
@@ -730,9 +730,9 @@ M.HOLDS = {
       -- SLEEP is typed (RELAX INSOMNIA goes first) until the character wakes.
       local detect = emunah.curing.detect
       if detect and detect.sleepWanted() then return "you are going to sleep" end
-      -- svof: `not affs.hypersomnia` -- "Your hypersomnia prevents your insomnia."
+      -- The reference system: `not affs.hypersomnia` -- "Your hypersomnia prevents your insomnia."
       if emunah.act.afflicted("hypersomnia") then return "hypersomnia prevents it" end
-      -- svof: can_usemana() -- the skill costs mana, and it stops above `manause`. The same
+      -- The reference system: can_usemana() -- the skill costs mana, and it stops above `manause`. The same
       -- floor FOCUS uses (have.vectorBlocked).
       local vitals = emunah.gmcp.vitals
       local floor = tonumber(emunah.config.get("curing.focusMinMana", have.FOCUS_MIN_MANA))

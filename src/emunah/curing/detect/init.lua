@@ -166,24 +166,24 @@ end
 --      illusions -- which is exactly what GMCP is.
 --
 -- Emunah's own lines (patterns.lua) act the moment they arrive, because most of them answer
--- a command and the answer is what frees the slot. Three more layers cover them, from svof's
--- per-line checks (raw-svo.valid.main.lua):
+-- a command and the answer is what frees the slot. Three more layers cover them, from the reference system's
+-- per-line checks (its valid.main file):
 --
 --   5. A REPLY NEEDS A QUESTION. A refusal ("You are afflicted with anorexia and cannot eat
 --      anything.", "You must regain balance first.", "You are asleep and can do nothing.")
 --      only answers a command, so with no command of ours sent in the last M.REPLY_WINDOW it
 --      cannot be real. Where the refusal names its verb, only that verb counts: the
---      anorexia line needs an EAT, the WAKE struggle line needs a WAKE. svof: "We aren't
+--      anorexia line needs an EAT, the WAKE struggle line needs a WAKE. The reference system: "We aren't
 --      eating goldenseal at the moment", "Not actually trying to focus right now". See
 --      M.reply().
 --   6. NOT SO SOON. A herb balance announced back less than M.MIN_HERB_BALANCE after the
---      eat is an illusion. svof: "Couldnt've possibly recovered herb balance so soon"
+--      eat is an illusion. The reference system: "Couldnt've possibly recovered herb balance so soon"
 --      (conf.ai_minherbbal). Believed, it sends the next herb inside the balance -- eaten
 --      for nothing, "The plant has no effect."
 --   7. THE QUIT PRAYER NEEDS A QUIT. See engine.onQuitPrayerLine().
 --
 -- Whatever is ignored is marked on the line itself with an "(i)" whose tooltip says why,
--- as svof's ignore_illusion() does: an illusion that changes nothing is otherwise
+-- as the reference system's ignore_illusion() does: an illusion that changes nothing is otherwise
 -- indistinguishable from a trigger that is broken.
 --
 -- `emunah set curing.antiIllusion false` applies reports the moment they arrive instead
@@ -200,7 +200,7 @@ end
 
 M.antiIllusion = antiIllusion
 
---- Say, on the line itself, that it was ignored and why. svof's ignore_illusion() does the
+--- Say, on the line itself, that it was ignored and why. The reference system's ignore_illusion() does the
 --- same with an "(i)" link. Printed during a trigger, cecho text joins the end of the line
 --- being processed (shop.lua relies on the same thing, with a newline, to start a fresh one).
 function M.markIllusion(why)
@@ -235,13 +235,13 @@ function M.reply(verb, what, fn)
    end
 end
 
---- The fastest a herb balance comes back after an eat [svof: conf.ai_minherbbal, raised
---- from its shipped 1.0 to 1.1 by svof's own config migration].
+--- The fastest a herb balance comes back after an eat [reference: conf.ai_minherbbal, raised
+--- from its shipped 1.0 to 1.1 by the reference system's own config migration].
 M.MIN_HERB_BALANCE = 1.1
 
 --- An EAT that spends the herb balance: anything but irid moss and potash, which have a
 --- balance of their own (docs/game/balance.md). Measured from the command going out, as
---- svof measures from the eat, and NOT from have.spend(): "The plant has no effect" spends
+--- the reference system measures from the eat, and NOT from have.spend(): "The plant has no effect" spends
 --- the balance again on the reply, and timing from that would reject the real announcement
 --- that follows it a moment later.
 local function herbEat(command)
@@ -321,7 +321,7 @@ local function apply(report)
    elseif kind == "foe" then
       M.noteFoe(report[3], name)
    elseif kind == "spent" then
-      -- svof's lostbal_focus(): nothing if the balance is already down.
+      -- the reference system's lostbal_focus(): nothing if the balance is already down.
       if emunah.timers.remaining("cure." .. name) <= 0 then emunah.have.spend(name) end
    end
 end
@@ -351,7 +351,7 @@ function M.textState(state, on)
    report({ "state", state, on and true or false })
 end
 
---- Someone attacked you with a line only `class` sends: svof's startedfighting(), from the
+--- Someone attacked you with a line only `class` sends: the reference system's startedfighting(), from the
 --- class attack lines in the imported package. Who is fighting you, and as what, is what the
 --- fight warnings and an ally need to know (watch.lua, allies.lua).
 function M.textFoe(class, name)
@@ -360,7 +360,7 @@ function M.textFoe(class, name)
 end
 
 --- A curing balance taken from you by an attack: the Alchemist homunculus's shriek takes
---- focus [svof: homunculus_throat]. Counted as spent, so nothing tries to focus into it.
+--- focus [reference: homunculus_throat]. Counted as spent, so nothing tries to focus into it.
 function M.textSpent(vector)
    report({ "spent", tostring(vector or ""):lower() })
 end
@@ -448,7 +448,7 @@ end
 --- So does a block whose Char.Vitals came BEFORE some of its lines. The heartbeat ran on
 --- Char.Vitals, and whatever those later lines did -- a balance announced, an affliction
 --- committed here -- was then sat on until the NEXT prompt: in test/latency.lua, a herb
---- balance announced after Char.Vitals sent nothing at all that block. svof runs everything
+--- balance announced after Char.Vitals sent nothing at all that block. The reference system runs everything
 --- off the prompt line for exactly this reason: it is the one thing guaranteed to come last.
 --- Whether Achaea ever orders a block that way is not established; when it does not, this
 --- costs nothing, because no line has arrived since Char.Vitals.
@@ -460,7 +460,7 @@ function M.textPrompt()
    local vitals = emunah.gmcp and emunah.gmcp.vitals
    if vitals and vitals.onPrompt then vitals.onPrompt(after) end
    -- Raised on the prompt LINE, so a handler's echo lands on the end of the prompt itself
-   -- (riding.lua's warning) -- the place svof puts its own tags. Char.Vitals arrives before
+   -- (riding.lua's warning) -- the place the reference system puts its own tags. Char.Vitals arrives before
    -- the prompt is drawn, so `tick` cannot do this.
    emunah.event.raise("prompt")
 end
@@ -587,7 +587,7 @@ end
 
 --- SLEEP, typed. With insomnia up it cannot work (the DEF line: "You have insomnia, and
 --- cannot easily go to sleep."), so RELAX INSOMNIA goes first and SLEEP follows its answer
---- (the user, 2026-10-04). The answers are svof's ("svo relaxed insomnia"): "You relax your
+--- (the user, 2026-10-04). The answers are the reference system's (its relaxed-insomnia trigger): "You relax your
 --- mind and feel as if you could sleep." or "You are not an insomniac." -- see M.onRelaxed().
 --- Free: no balance line, prompt unchanged (10:33:32.62), so ordinary blocks only.
 function M.goToSleep()

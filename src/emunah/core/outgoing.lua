@@ -7,7 +7,7 @@
 ---   * ANTI-ILLUSION. A line describing something we did is only believable if we did it.
 ---     The quit prayer answered with INR ALL, and stopped restocking for the session, on
 ---     the strength of one line anybody can fake; it only ever follows a QUIT (the user,
----     2026-10-04), so it is believed only after one. svof applies the same test throughout
+---     2026-10-04), so it is believed only after one. The reference system applies the same test throughout
 ---     ("Didn't send the 'angel sacrifice' command recently.").
 ---   * ANTITHEFT. An item leaving the inventory is ordinary when we just sent GIVE, PUT,
 ---     DROP, SELL or EAT, and alarming when nothing we sent explains it.

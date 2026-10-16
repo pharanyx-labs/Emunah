@@ -1,7 +1,6 @@
 # Build output
 package/build/
 *.mpackage
-svof/
 
 # Per-profile runtime state.
 #

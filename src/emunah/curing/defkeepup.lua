@@ -294,7 +294,7 @@ local function raisePending(name)
 end
 
 --- How long sileris (or quicksilver) takes to harden after the apply. Applied, it is not up
---- yet: keep-up must not apply a second one into the gap. svof waits 8s
+--- yet: keep-up must not apply a second one into the gap. The reference system waits 8s
 --- (waitingforsileris, customwait = 8), but on 2026-10-15 it took 10.05s -- applied
 --- 18:26:21.16, hardened 18:26:31.21 -- and at 8 the hardening fell outside the window and
 --- was thrown away as an illusion, leaving the defence red. 12 covers it with room.
@@ -316,7 +316,7 @@ do
    end
 end
 
--- SILERIS IS APPLIED, THEN HARDENS -- svof's "sileris/quicksilver start" and "finished"
+-- SILERIS IS APPLIED, THEN HARDENS -- the reference system's "sileris/quicksilver start" and "finished"
 -- triggers, verbatim. The apply line starts the wait the way an eat line does; the
 -- hardening line (seen in play, 2026-10-04) is the defence landing, as `fangbarrier`. It is
 -- believed only after an APPLY of ours (anti-illusion layer 5, curing/detect/init.lua).
@@ -347,7 +347,7 @@ do
       raising.fangbarrier = nil
       M.resetBudget("fangbarrier")
       if M.mode("fangbarrier") == "defup" then M.satisfied.fangbarrier = true end
-      -- Up on the line, as svof has it (defences.got("sileris")), whether or not
+      -- Up on the line, as the reference system has it (defences.got("sileris")), whether or not
       -- Char.Defences says so too: the shell is on.
       local defences = emunah.gmcp.defences
       if defences and defences.got then defences.got("fangbarrier") end

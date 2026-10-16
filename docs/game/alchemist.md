@@ -11,7 +11,7 @@ Lines below are verbatim. Tags:
 
 - **[log]** the game's own line, as it appears in the log
 - **[anzerloi]** what his system's echo says the line meant
-- **[svof]** svof's trigger or dictionary for the same line (`svof/`)
+- **[reference]** the reference system's trigger or dictionary for the same line (`the reference system/`)
 - **[guess]** an educated reading, the user's instruction for this log; nothing acts on one
 - **[open]** not known
 
@@ -30,33 +30,33 @@ Lines below are verbatim. Tags:
 | ` Bleeding: 18` | his own bleeding |
 | `ENTERED:` / `LEFT:` / `HERE:` / `Alerted:   SE  Sobriquet` | people arriving, leaving, present, and approaching from a direction |
 
-## The Alchemist's lines, against svof and Emunah
+## The Alchemist's lines, against the reference system and Emunah
 
 | Line [log] | Meaning | Emunah now |
 |---|---|---|
-| `A diminutive homunculus resembling Sobriquet claws into your flesh with dirty nails. The surrounding flesh begins to swell with fluid.` | svof's "Homunculus mercury (swellskin) bite" **[svof]**; tagged `homunculusmercury` **[anzerloi]**, the server's name in svof's own serverside table | gain + attacker (generated) |
-| `Your flesh begins to swell as a diminutive homunculus resembling Sobriquet sinks its teeth into you.` | the same affliction **[anzerloi]**; **not in svof** | **[open]**: needs a second sighting before it gets a trigger |
-| `Eating is suddenly less difficult again.` | homunculusmercury ends on the next herb eaten, of any kind **[svof: swellskin]**; seen after plumbum, antimony and magnesium **[log]**. While it lasts it "increases next herb balance" (svof's DIAG note) | cure (generated); `afflist.wearsOff` |
-| `A diminutive homunculus resembling Sobriquet turns its head towards you, ... lets out an ear-piercing shriek that disrupts your thoughts.` | takes your focus balance **[svof: homunculus_throat → lostbal_focus]** | focus spent (generated) |
-| `A diminutive homunculus resembling Sobriquet stares menacingly at you, its eyes flashing brightly.` | starts every homunculus-and-humour combo in the log **[log]**; svof only uses it as context for a haemophilia line | nothing |
+| `A diminutive homunculus resembling Sobriquet claws into your flesh with dirty nails. The surrounding flesh begins to swell with fluid.` | the reference system's "Homunculus mercury (swellskin) bite" **[reference]**; tagged `homunculusmercury` **[anzerloi]**, the server's name in the reference system's own serverside table | gain + attacker (generated) |
+| `Your flesh begins to swell as a diminutive homunculus resembling Sobriquet sinks its teeth into you.` | the same affliction **[anzerloi]**; **not in the reference system** | **[open]**: needs a second sighting before it gets a trigger |
+| `Eating is suddenly less difficult again.` | homunculusmercury ends on the next herb eaten, of any kind **[reference: swellskin]**; seen after plumbum, antimony and magnesium **[log]**. While it lasts it "increases next herb balance" (the reference system's DIAG note) | cure (generated); `afflist.wearsOff` |
+| `A diminutive homunculus resembling Sobriquet turns its head towards you, ... lets out an ear-piercing shriek that disrupts your thoughts.` | takes your focus balance **[reference: homunculus_throat → lostbal_focus]** | focus spent (generated) |
+| `A diminutive homunculus resembling Sobriquet stares menacingly at you, its eyes flashing brightly.` | starts every homunculus-and-humour combo in the log **[log]**; the reference system only uses it as context for a haemophilia line | nothing |
 | `Sobriquet glowers at you with a look of repressed disgust before making a slight gesture toward you.` | the humour attack's first line; there are two, one each for the temper and the wrack **[log]** | nothing |
-| `You feel a sudden wave of malaise as your sanguine humour is tempered.` | `temperedsanguine`, and choleric, melancholic, phlegmatic alike **[svof, anzerloi]**. Stacks up to 3 in one go **[svof: got_humour]** | by GMCP (`afflist.temperedX`); svof's trigger takes an argument and is not generated |
-| `Your sanguine humour drains some.` / `Your sanguine humour drains back to normal levels.` | one level cured, the last one cured. Antimony each time **[log]**, the mineral of ginger **[svof]** | by GMCP |
-| `A short convulsion sweeps through your body as Sobriquet wracks your sanguine humour.` | one affliction from that humour's three **[svof: got_humour's table]**: choleric illness/sensitivity/slickness, melancholic anorexia/impatience/stupidity, phlegmatic asthma/clumsiness/disloyalty, sanguine haemophilia/recklessness/paralysis. Every wrack in the log agrees: sanguine → paralysis, phlegmatic+melancholic → asthma+impatience, melancholic+choleric → anorexia+slickness **[anzerloi]** | afflictions by GMCP; the line names the attacker (generated) |
-| `... wracks your melancholic and choleric humours.` | a truewrack: two at once **[svof]** | as above |
-| `Your blood is wracked by residual energy.` / `Your blood and body are ...` / `Your blood, body, and mind are ...` | damage, unblockable, 514–774 **[log]**. More words as more humours are tempered **[guess]**. **Not in svof** | nothing |
-| `Sobriquet sketches out a symbol in the air with his finger in the shape of two overlapping hexagons.` then `Sobriquet sends myriad russet streams towards you, shattering your shield.` | your shield tattoo is gone **[svof: defs, shield off]** | GMCP removes it; keep-up raises it |
+| `You feel a sudden wave of malaise as your sanguine humour is tempered.` | `temperedsanguine`, and choleric, melancholic, phlegmatic alike **[the reference system, anzerloi]**. Stacks up to 3 in one go **[reference: got_humour]** | by GMCP (`afflist.temperedX`); the reference system's trigger takes an argument and is not generated |
+| `Your sanguine humour drains some.` / `Your sanguine humour drains back to normal levels.` | one level cured, the last one cured. Antimony each time **[log]**, the mineral of ginger **[reference]** | by GMCP |
+| `A short convulsion sweeps through your body as Sobriquet wracks your sanguine humour.` | one affliction from that humour's three **[reference: got_humour's table]**: choleric illness/sensitivity/slickness, melancholic anorexia/impatience/stupidity, phlegmatic asthma/clumsiness/disloyalty, sanguine haemophilia/recklessness/paralysis. Every wrack in the log agrees: sanguine → paralysis, phlegmatic+melancholic → asthma+impatience, melancholic+choleric → anorexia+slickness **[anzerloi]** | afflictions by GMCP; the line names the attacker (generated) |
+| `... wracks your melancholic and choleric humours.` | a truewrack: two at once **[reference]** | as above |
+| `Your blood is wracked by residual energy.` / `Your blood and body are ...` / `Your blood, body, and mind are ...` | damage, unblockable, 514–774 **[log]**. More words as more humours are tempered **[guess]**. **Not in the reference system** | nothing |
+| `Sobriquet sketches out a symbol in the air with his finger in the shape of two overlapping hexagons.` then `Sobriquet sends myriad russet streams towards you, shattering your shield.` | your shield tattoo is gone **[reference: defs, shield off]** | GMCP removes it; keep-up raises it |
 | `Sobriquet sketches out a symbol ... in the shape of a bisected circle.` then `Sobriquet surrounds himself with a translucent achromatic aura.` | **[open]** — a defence of his. The next residual-energy hit was 514, down from 774 **[log]** | nothing |
-| `The reflective barrier surrounding Sobriquet reflects part of your attack back at you.` / `As your attack falls, Sobriquet's reflective barrier shatters and reflects the attack.` | his `tin` barrier (svof: "You are protected by a reflective barrier."). The first blow comes partly back, the next breaks it and comes back too: 477 each **[log]** | `pvp.reflecting` |
+| `The reflective barrier surrounding Sobriquet reflects part of your attack back at you.` / `As your attack falls, Sobriquet's reflective barrier shatters and reflects the attack.` | his `tin` barrier (the reference system: "You are protected by a reflective barrier."). The first blow comes partly back, the next breaks it and comes back too: 477 each **[log]** | `pvp.reflecting` |
 | `You yelp in pain as E'thernal, the black crystalline crocodile bashes you.` / `E'thernal, the black crystalline crocodile wounds you with a glancing cut.` | the pet: 62–95 blunt or cutting damage a hit **[log]** | nothing |
 
 **Reave.** An Alchemist's finisher, faster the more of your humours are tempered: two, 10s;
-three, 8s; four, 4s **[svof: sk.warnings]**. Emunah names it on the prompt (`watch.dangers()`),
-with svof's other instant-kill states: dismember (bound and impaled), pulp (prone and serious
+three, 8s; four, 4s **[reference: sk.warnings]**. Emunah names it on the prompt (`watch.dangers()`),
+with the reference system's other instant-kill states: dismember (bound and impaled), pulp (prone and serious
 concussion), golem destroy (melting burn).
 
 **How the combo arrives.** One paragraph held the homunculus's stare, its shriek, two glowers,
-a temper, a truewrack and the residual damage **[log]**. svof refuses a shriek that is not
+a temper, a truewrack and the residual damage **[log]**. The reference system refuses a shriek that is not
 alone on its line; that check would discard the real one, so Emunah does not carry it.
 
 ## The Bard's side: what Anzerloi brings

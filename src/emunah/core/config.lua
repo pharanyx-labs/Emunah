@@ -163,7 +163,7 @@ local MIGRATIONS = {
    end,
 
    -- Same family as [4]-[9]: sileris grants `fangbarrier` and myrrh `scholasticism`
-   -- [svof: gamename]. A mode saved under the item's name never matched, so keep-up applied
+   -- [reference: gamename]. A mode saved under the item's name never matched, so keep-up applied
    -- sileris until its attempt budget ran out (2026-10-04). See afflist.defenceCures.
    [11] = function(data)
       local modes = data.defences and data.defences.keepup

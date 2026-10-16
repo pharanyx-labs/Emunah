@@ -415,7 +415,7 @@ local function classify()
       -- NEVER CURE A DEFENCE THE CHARACTER IS HOLDING ON PURPOSE.
       --
       -- `blind` and `deaf` are defences, and the game reports the resulting state as an
-      -- affliction too. Char.Defences says `blindness`; the darkness trigger and svof's
+      -- affliction too. Char.Defences says `blindness`; the darkness trigger and the reference system's
       -- gamename say `blind`. Watched at 13:55:02: "Cannot cure blindness: epidermal is in
       -- the rift, not in hand". Watched again at 17:31:33.81, once the text name was what
       -- got tracked: "Cannot cure blind: epidermal would also cure blind/deaf, which are
@@ -1502,7 +1502,7 @@ function M.tick()
                -- salve or focus, and whichever lands first makes the other a wasted
                -- balance at the moment the next affliction needs it. Or be curing it right
                -- now: a salve left pending on an earlier tick must not follow a focus sent
-               -- for the same anorexia since (svof: `not doingaction "anorexia"`).
+               -- for the same anorexia since (the reference system: `not doingaction "anorexia"`).
                valid    = function()
                   return M.tracked[affliction] ~= nil and not cureInFlight(affliction)
                end,

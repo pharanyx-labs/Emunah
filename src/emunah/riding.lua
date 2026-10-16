@@ -22,9 +22,9 @@
 --- "in the room" is "with me", whichever of the two it is doing.
 ---
 --- WHETHER WE ARE RIDING is NOT in GMCP: vaulting produced no Char.Defences message, only
---- Char.Vitals. It is tracked from the lines above and svof's (raw-svo.defs.lua
+--- Char.Vitals. It is tracked from the lines above and the reference system's (its defs file's
 --- defs_data.riding, and the lost_riding / "riding already on" triggers), and settled by a
---- DEFENCES listing ("You are riding (.+)." [svof defr]) -- which defkeepup already sends
+--- DEFENCES listing ("You are riding (.+)." [reference defr]) -- which defkeepup already sends
 --- after a reload.
 ---
 --- AN UNKNOWN STATE IS SETTLED BY VAULTING, because asking is free (the user, 10:21:15):
@@ -76,7 +76,7 @@ M.TAG = "no %s"
 --- says so (lose, dismount) or by the mount staying gone this long.
 M.LEFT_BEHIND = 2.0
 
---- svof's riding isadvisable() refusals beyond what `needs` already covers (prone,
+--- The reference system's riding isadvisable() refusals beyond what `needs` already covers (prone,
 --- paralysis, entanglement, balance): you cannot vault with these.
 M.CANNOT_VAULT = {
    "hamstring", "crippledleftarm", "crippledrightarm", "mangledleftarm", "mangledrightarm",
@@ -245,7 +245,7 @@ local function vault()
       tag      = "riding",
       -- Spends balance (10:09:42 "Balance used: 1.0s."). Equilibrium too, until a transcript
       -- shows otherwise -- HELP's default for balance abilities. Standing:
-      -- svof's isadvisable refuses it while prone, and `standing` also holds it through
+      -- The reference system's isadvisable refuses it while prone, and `standing` also holds it through
       -- paralysis and entanglement.
       needs    = { bal = true, eq = true, standing = true },
       valid    = function() return M.vaultHeld() == nil end,
@@ -353,7 +353,7 @@ do
    local detect = emunah.curing.detect
 
    --- A line that answers a command is believed only after one (detect layer 5). VAULT or
-   --- MOUNT: the user vaults, but svof's lines answer either, and Lua patterns have no
+   --- MOUNT: the user vaults, but the reference system's lines answer either, and Lua patterns have no
    --- alternation for detect.reply() to take.
    local function mountingReply(what, fn)
       local viaVault = detect.reply("^vault", what, fn)
@@ -366,13 +366,13 @@ do
       end
    end
 
-   -- ON. Verbatim at 10:09:42; svof's onr has both.
+   -- ON. Verbatim at 10:09:42; the reference system's onr has both.
    keep(tempRegexTrigger([[^You easily vault onto the back of (.+)\.$]],
       mountingReply("a vault landed", function() M.setRiding(true) end)))
    keep(tempRegexTrigger([[^You climb up on (.+)\.$]],
       mountingReply("a mount landed", function() M.setRiding(true) end)))
 
-   -- ALREADY ON: svof's "riding already on" trigger, answering a VAULT/MOUNT. The first
+   -- ALREADY ON: the reference system's "riding already on" trigger, answering a VAULT/MOUNT. The first
    -- line verbatim at 10:21:15, and free: no balance line, the prompt kept its `x`.
    --
    -- So the balance our vault marked spent (vitals.spend, in vault()) was never spent, and
@@ -406,8 +406,8 @@ do
          detect.reply(nil, "not riding", function() M.setRiding(false) end)))
    end
 
-   -- OFF, not by choice: svof's defs_data.riding off/offr and its lost_riding triggers. No
-   -- command to wait for -- they are attacks -- so believed as they come, as svof does. A
+   -- OFF, not by choice: the reference system's defs_data.riding off/offr and its lost_riding triggers. No
+   -- command to wait for -- they are attacks -- so believed as they come, as the reference system does. A
    -- faked one costs at most a vault the game refuses with "You must dismount...", which
    -- puts the state right.
    for _, line in ipairs({
@@ -443,7 +443,7 @@ do
          if isOurs(matches[2]) then M.setFollowing(false) end
       end)))
 
-   -- DEFENCES settles it either way: "You are riding X." among the lines, or not [svof
+   -- DEFENCES settles it either way: "You are riding X." among the lines, or not [the reference system
    -- defr]. patterns.lua reads the same listing for the defences themselves.
    local listing = nil
    keep(tempRegexTrigger([[^You have the following defences:]], function()

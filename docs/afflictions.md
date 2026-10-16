@@ -133,7 +133,7 @@ under any spelling, because no table key ever matches.
 None of these block normal use; the engine has fought on this table extensively. They are
 the concrete items to settle before relying on the data more heavily in PvP.
 
-**1. Five entries may be defences rather than afflictions.** *Answered by svof: its `gamename` table lists `mass` → `density`, `levitation` → `levitating`, `venom` → `poisonresist` as defences.* `frost`, `levitation`, `mass`,
+**1. Five entries may be defences rather than afflictions.** *Answered by the reference system: its `gamename` table lists `mass` → `density`, `levitation` → `levitating`, `venom` → `poisonresist` as defences.* `frost`, `levitation`, `mass`,
 `speed` and `venom` are each listed as cured by drinking or applying an item of the same
 name. The curatives glossary describes all five items as proactive buffs — "Speed: increases
 ability to dodge physical attacks", "Mass: prevents unwilling movement" — rather than
@@ -155,7 +155,7 @@ name suggests a location-agnostic fallback rather than a copy of the first.
 content the general pages do not cover — unverifiable from that source rather than known
 wrong.
 
-**5. (Resolved: fear now COMPOSEs first, per HELP and svof.)** `fear` resolved through the `focus` vector, but the published page names the action
+**5. (Resolved: fear now COMPOSEs first, per HELP and the reference system.)** `fear` resolved through the `focus` vector, but the published page names the action
 "Compose", and `COMPOSE` is a real command with its own help file (`docs/game/help/compose.txt`:
 "At times, you may find yourself in a state of panic ... If this happens to you, COMPOSE.").
 So this is probably a different command, not a difference in wording. Unverified whether FOCUS also works.
@@ -165,7 +165,7 @@ effects have been seen named but have no confirmed cure, so they are absent from
 rather than guessed into it. `crescendo` was in this list until 2026-08-03 -- see the change
 history below.
 
-**7. (Resolved: goldenseal restored, per HELP and svof.)** `stupidity`'s herb cure (`goldenseal`) did not work. Unlike the ~75 entries checked
+**7. (Resolved: goldenseal restored, per HELP and the reference system.)** `stupidity`'s herb cure (`goldenseal`) did not work. Unlike the ~75 entries checked
 against the published help, this one had no recorded provenance at all, and confirmed live
 20:57:29-20:58:04 (no opponent present): the engine pulled goldenseal from the rift and ate
 it every ~5 seconds for at least five cycles, and `stupidity` was still tracked after every
@@ -182,7 +182,7 @@ failed eats may have landed inside herb balance (`The plant has no effect.`, see
 
 Substantive corrections to the data, most recent first.
 
-**Situational ranks on top of svof's (2026-10-05).** An arena loss to a Priest
+**Situational ranks on top of the reference system's (2026-10-05).** An arena loss to a Priest
 (07:33:12–07:33:38) showed what fixed ranks cost. Weariness, re-applied every round, took 6 of
 13 herb eats, and guilt (59) and spiritburn (61) were never eaten, so inquisition held focus and
 the hellsight cure shut to the end. `curing/situations.lua` now re-ranks or holds cures while a
@@ -199,29 +199,29 @@ own ranks are unchanged.
 
 **The affliction-healing elixirs moved to their own balance (2026-10-03).** `voyria`
 (immunity), `frost`, `venom`, `speed` and `levitation` cure on `purgative`, not `elixir`.
-svof gates them with `check_purgative` on `bals.purgative`, independently of the health/mana
-sip [svof]. Sharing the sip's slot, a voyria cure lost to health sipping (rank 0) for as long
+The reference system gates them with `check_purgative` on `bals.purgative`, independently of the health/mana
+sip [reference]. Sharing the sip's slot, a voyria cure lost to health sipping (rank 0) for as long
 as health stayed low, which was never in 20 s in `test/latency.lua`. The keep-up raises for the
 same elixirs (`deflist.lua`) moved with them. One cure per affliction per tick now applies
-across vectors too, as svof's `doingaction` does: one stupidity no longer draws both
+across vectors too, as the reference system's `doingaction` does: one stupidity no longer draws both
 goldenseal and focus.
 
-**svof's per-cure conditions.** `CONDITIONS` carries the extra clauses of svof's
+**The reference system's per-cure conditions.** `CONDITIONS` carries the extra clauses of the reference system's
 `isadvisable` for each cure (madness, hypochondria, focus-in-flight, limb order, and the
-pairs listed in `docs/game/curing.md`). Fear lost its focus option: svof's is switched off.
+pairs listed in `docs/game/curing.md`). Fear lost its focus option: the reference system's is switched off.
 
-**Brought in line with svof, which outranks this table on curing (user's ruling).** Fear
+**Brought in line with the reference system, which outranks this table on curing (user's ruling).** Fear
 COMPOSEs before focusing; stupidity eats goldenseal again (rank 7); `disrupted`
-CONCENTRATEs unless confused. `ALIASES` adds the server's names from svof's `gamename`
+CONCENTRATEs unless confused. `ALIASES` adds the server's names from the reference system's `gamename`
 table (`lovers`, `weariness`, `pacified`, `airpocket`, `burning`, `whisperingmadness`,
-`blind`, `deaf`), and `transfixation` joins the writhes. A cross-check of every cure svof
-and this table share, with svof's names translated, found no other difference.
+`blind`, `deaf`), and `transfixation` joins the writhes. A cross-check of every cure the reference system
+and this table share, with the reference system's names translated, found no other difference.
 
-**Vector blockers brought in line with svof.** `afflist.blocks` gained `anorexia` →
+**Vector blockers brought in line with the reference system.** `afflist.blocks` gained `anorexia` →
 `elixir`, `mucous` → `smoke`, `inquisition` → `focus`, and a `tree` block for paralysis,
-each entanglement and either numb arm. The source is svof's per-balance gates
-(`raw-svo.skeleton.lua`: `check_sip`, `check_smoke`, `check_focus`) and `touchtree`'s
-`isadvisable` (`raw-svo.dict.lua`), which the user named as the reference. `M.wearsOff`
+each entanglement and either numb arm. The source is the reference system's per-balance gates
+(its skeleton file: `check_sip`, `check_smoke`, `check_focus`) and `touchtree`'s
+`isadvisable` (its dictionary file), which the user named as the reference. `M.wearsOff`
 records the blockers that end on their own, so the "every lock has a key" test can
 tell them from a real lock with no escape. The queue now re-checks these when it sends,
 not only when it chooses; the full table is in `docs/game/curing.md`.

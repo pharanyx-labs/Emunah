@@ -112,7 +112,7 @@ end
 
 -- TYPED COMMANDS WIN (the user, 2026-10-15). A command you type goes straight to the game,
 -- and Emunah's next send could take the balance it needed first. So for a moment after
--- anything you type, everything automated holds. svof's override mode does the same: it
+-- anything you type, everything automated holds. The reference system's override mode does the same: it
 -- pauses for the network latency plus `sacdelay`, 0.5s (controllers.lua, setup.lua).
 -- `queue.typedHold` sets the 0.5; 0 turns it off. Anything sent by another script counts
 -- as typed too, since Mudlet cannot tell them apart.
@@ -161,7 +161,7 @@ function M.blocked(needs)
    end
 
    -- Only what wants balance or equilibrium: that is what a typed command races for.
-   -- Holding everything, as svof does, also held Emunah's answers to what you typed --
+   -- Holding everything, as the reference system does, also held Emunah's answers to what you typed --
    -- INR ALL after QUIT, a purchase's GET GOLD -- and those are yours too. `user`: your
    -- own command off the queue (queue.user), the thing being waited for.
    if M.typedUntil and (needs.bal or needs.eq) and not needs.user then

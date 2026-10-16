@@ -102,14 +102,14 @@ M.wearsOff = {
    inquisition    = true,
    numbedleftarm  = true,
    numbedrightarm = true,
-   -- The Alchemist homunculus's bite, svof's `swellskin`: "increases next herb balance"
+   -- The Alchemist homunculus's bite, the reference system's `swellskin`: "increases next herb balance"
    -- (its DIAG line, "Struggling to process edible curatives."), and "eating any herb cures
-   -- it" with "Eating is suddenly less difficult again." [svof]. Nothing to send for it --
-   -- the next herb of any kind ends it, as svof waits for (customwait 999). Seen ended by
+   -- it" with "Eating is suddenly less difficult again." [reference]. Nothing to send for it --
+   -- the next herb of any kind ends it, as the reference system waits for (customwait 999). Seen ended by
    -- plumbum, antimony and magnesium in Anzerloi's arena log (docs/game/alchemist.md).
    homunculusmercury = true,
-   -- The homunculus's other stare: "bleeding for mana, clotting takes health" (svof's DIAG
-   -- note), ended only by "The corruption of your humours fades." [svof: corrupted]. Not in
+   -- The homunculus's other stare: "bleeding for mana, clotting takes health" (the reference system's DIAG
+   -- note), ended only by "The corruption of your humours fades." [reference: corrupted]. Not in
    -- that log; here so its lines are not dropped as an unknown name.
    corruption     = true,
 }
@@ -158,7 +158,7 @@ M.armAfflictions = {
 --- curing/defkeepup.lua can restore them with the right command, rather than duplicating
 --- the herb knowledge.
 ---
---- KEYED BY THE SERVER'S NAME, which is not always the item's. svof's gamename table:
+--- KEYED BY THE SERVER'S NAME, which is not always the item's. The reference system's gamename table:
 --- sileris grants `fangbarrier`, myrrh `scholasticism`. Keyed by the item, keep-up waited
 --- for a defence the game never names and applied berry after berry (2026-10-04). The item
 --- names still work, through deflist.ALIASES.

@@ -49,7 +49,7 @@ Anti-illusion follows the reference system:
 - a cure line needs its cure in flight;
 - an affliction is dropped unless the server confirms it within ~2 seconds.
 
-Emunah's own lines get svof's per-line checks whether or not the package is installed: a
+Emunah's own lines get the reference system's per-line checks whether or not the package is installed: a
 refusal (`You are paralysed and cannot move.`) counts only after a command it could be
 answering, a herb balance back within 1.1s of eating is ignored, and the quit prayer counts
 only after you typed QUIT. Anything ignored is marked `(i)` on its line.

@@ -39,8 +39,8 @@ not independently confirmed from a transcript — no herb was eaten in any captu
 smoke, focus and elixir each have their own too, evidenced by each having a distinct
 rejection message.
 
-**Salve, focus and tree announce their return too** [svof], verbatim from svof's `svo got
-salve balance`, `svo got focus balance` and `svo got tree balance` triggers:
+**Salve, focus and tree announce their return too** [reference], verbatim from the reference system's
+salve, focus and tree balance triggers:
 
 ```
 You may apply another salve to yourself.
@@ -54,11 +54,11 @@ estimate longer than the balance, a salve went out 0.6s late and a focus 1.5s la
 shorter, the early send was refused and the refusal re-armed the whole estimate: a focus 4.1s
 late, and a salve that had not gone at all 6s later. With the lines, 0ms in every case.
 
-**The affliction-healing elixirs have their own balance** [svof]: immunity, frost, venom,
-speed and levitation run on `bals.purgative`, which svof gates (`check_purgative`)
+**The affliction-healing elixirs have their own balance** [reference]: immunity, frost, venom,
+speed and levitation run on `bals.purgative`, which the reference system gates (`check_purgative`)
 independently of the health/mana sip (`check_sip`). HELP curing-balances lists four balances
-and does not mention these elixirs at all. Its return, from svof's `svo got purgative
-balance`:
+and does not mention these elixirs at all. Its return, from the reference system's purgative
+balance trigger:
 
 ```
 You may drink another affliction-healing elixir.
@@ -91,7 +91,7 @@ Exact wording — these are trigger patterns, so they matter verbatim.
 | `Now now, don't be so hasty!` | **Rate limited** — commands sent too fast |
 | `Clot is not a valid command.` | No `clotting` lesson (Survival). Since trained — kept as the backstop for the reverse mistake |
 | `You do not bleed, my friend.` | `CLOT` with nothing to clot. **Not a rejection** — nothing was refused and nothing was spent |
-| `You already possess equilibrium.` | `CONCENTRATE` with equilibrium not disrupted (play, 2026-09-28; [svof] `cure disrupt`). **Not a rejection**: it frees the `special` slot and drops any tracked `disrupted` |
+| `You already possess equilibrium.` | `CONCENTRATE` with equilibrium not disrupted (play, 2026-09-28; [reference] `cure disrupt`). **Not a rejection**: it frees the `special` slot and drops any tracked `disrupted` |
 | `What do you want to eat?` | The herb named is not in inventory — **being in the rift is not enough**, and a cure must check what is in hand rather than total supply. Nothing was eaten and no herb balance was spent. Observed at 18:26:51.05, right after a death dropped everything. |
 | `What is it that you wish to drink?` | **Not a balance rejection.** No vial we are carrying holds that fluid, so the noun in `drink <fluid>` did not resolve. Nothing was drunk and no sip balance was spent. Observed at 11:10:14.06 on `drink mana`, with fourteen vials held and 2000 sips of mana sitting in the rift. |
 
@@ -223,7 +223,7 @@ Frustratingly, your body won't respond to your call to action.  (perform hands)
 
 **Eating still works**, which it must — bloodroot is what cures paralysis. `core/queue.lua`
 therefore flushes only the eating vectors (plus `smoke`, `free`, `writhe` and `rift`) while it
-is up. Smoke is let through on [svof] `check_smoke`, which never checks paralysis; no smoke
+is up. Smoke is let through on [reference] `check_smoke`, which never checks paralysis; no smoke
 has been seen refused while paralysed.
 
 **`TOUCH TREE` is refused while paralysed.** Confirmed live 2026-08-03 `16:14:25.08`:
@@ -260,12 +260,12 @@ refused for balance. `vitals.spend("bal")` had marked it spent, and nothing but 
 the `balance` slot as balance spent, and the same for `equilibrium`.
 
 **Riding is not in GMCP.** The vault produced only `Char.Vitals`, no `Char.Defences.Add`.
-The state comes from the lines above, svof's (`defs_data.riding` on/off lines, its
-`lost_riding` and "riding already on" triggers) **[svof]**, and the `DEFENCES` listing line
-`You are riding (.+).` **[svof defr]**.
+The state comes from the lines above, the reference system's (`defs_data.riding` on/off lines, its
+`lost_riding` and "riding already on" triggers) **[reference]**, and the `DEFENCES` listing line
+`You are riding (.+).` **[reference defr]**.
 
 **Falling asleep throws you off** (2026-10-04, 10:33:32.81): `You close your eyes, curl up in
-a ball, and fall asleep.` then `You lose purchase on a heavy horse.` — svof's offr line, so
+a ball, and fall asleep.` then `You lose purchase on a heavy horse.` — the reference system's offr line, so
 riding goes false and the follow order goes out once awake (10:38:22.70, obeyed).
 
 **The mount is in the room's `Char.Items` list whether ridden or following** — listed in the

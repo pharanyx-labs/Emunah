@@ -142,8 +142,8 @@ detect.balance("elixir", {
 -- The affliction-healing elixirs: a balance of their own.
 --
 -- Immunity, frost, venom, speed and levitation run on the PURGATIVE balance, independent of
--- the health/mana sip [svof: bals.purgative and check_purgative, beside bals.sip and
--- check_sip; `svo got purgative balance` for both lines below]. They shared the elixir slot
+-- the health/mana sip [reference: bals.purgative and check_purgative, beside bals.sip and
+-- check_sip; its purgative balance trigger for both lines below]. They shared the elixir slot
 -- here, and two things followed. Healing outranks everything on that slot, so a voyria cure
 -- waited for health to be topped up. And the spend line below put EVERY drink on the sip
 -- balance -- whose only release is "You may drink another health or mana elixir.", which a
@@ -231,8 +231,8 @@ detect.balance("smoke", {
 })
 
 -- ---------------------------------------------------------------------------
--- Salve, focus and tree balance, announced by the game. Verbatim from svof's `svo got salve
--- balance`, `svo got focus balance` and `svo got tree balance` triggers [svof].
+-- Salve, focus and tree balance, announced by the game. Verbatim from the reference system's salve,
+-- focus and tree balance triggers [reference].
 --
 -- Nothing was listening to any of the three, so each ran ENTIRELY on its fallback estimate
 -- (curelist.lua: salve 1.8s, focus 4.5s, tree 15s), and an estimate is wrong in both
@@ -1012,7 +1012,7 @@ do
       -- on that constant for why being wrong there is cheap.
       { [[^You are asleep and can do nothing\. WAKE will attempt to wake you\.$]],
         detect.reply(nil, "a refusal for being asleep", onSleep) },
-      -- RELAX INSOMNIA's answers, verbatim from svof's "svo relaxed insomnia": relaxed, or
+      -- RELAX INSOMNIA's answers, verbatim from the reference system's relaxed-insomnia trigger: relaxed, or
       -- there was nothing to relax. Either way a SLEEP waiting on it goes (goToSleep).
       -- Answers to a RELAX only (layer 5): a faked one would send SLEEP into insomnia.
       { [[^You relax your mind and feel as if you could sleep\.$]],
@@ -1218,7 +1218,7 @@ do
 
    -- A listing the prompt reaches unfinished is dropped, never applied: an incomplete
    -- listing says the defences it did not reach are gone. The reference system applies its
-   -- at the prompt for the same reason (svof defs.defline, process_defs).
+   -- at the prompt for the same reason (the reference system's defs.defline, process_defs).
    emunah.event.kill("detect-deflisting")
    emunah.event.register("emunah.prompt", function() listing = nil end, "detect-deflisting")
 
@@ -1235,7 +1235,7 @@ do
 
    -- SELFISHNESS answered (antitheft). "You already are a selfish bastard." is the game's
    -- own reply to raising it while it is up -- given by the user, 2026-10-04 -- and "You rub
-   -- your hands together greedily." the raise landing [svof: defs_data.selfishness]. Either
+   -- your hands together greedily." the raise landing [reference: defs_data.selfishness]. Either
    -- answers the keep-up raise in flight. Already up while Char.Defences does not say so
    -- means the defence is reported under another name: stop raising it, and say which names
    -- are unclaimed, as for the elixirs above. Both answer a SELFISHNESS (anti-illusion
@@ -1263,7 +1263,7 @@ do
 
    -- MACE. trackmace has no Char.Defences entry, and while blind without mindseye
    -- Char.Items.Add does not fire either, so these lines are the whole of the state.
-   -- Wordings from svof's trigger set, matched against the 12:49 login: the summon
+   -- Wordings from the reference system's trigger set, matched against the 12:49 login: the summon
    -- success, then "you have a mace in the land, which you should call for" on the
    -- summon that followed because the success was never seen. The wield line is the
    -- user's, left hand, 12:49:24.41.
@@ -1273,9 +1273,9 @@ do
    persist(tempRegexTrigger(
       [[^You have a mace in the land, which you should call for\.$]],
       function() emunah.curing.deflist.noteMaceInLand() end))
-   -- A summon takes seconds, and these say one is under way: svof's "Mace start", and the
+   -- A summon takes seconds, and these say one is under way: the reference system's "Mace start", and the
    -- answer to a second SUMMON sent into it -- both verbatim at 11:36:47.39 and 11:36:49.41
-   -- (2026-10-04). Interrupted is svof's "Mace interrupted".
+   -- (2026-10-04). Interrupted is the reference system's "Mace interrupted".
    persist(tempRegexTrigger(
       [[^You stand with arms outstretched, your mouth moving rapidly in fervent prayer\.$]],
       detect.reply("^summon", "a mace summon started",
@@ -1289,7 +1289,7 @@ do
    persist(tempRegexTrigger(
       [[^You start to wield a spiritual mace in your left hand\.$]],
       function() emunah.curing.deflist.noteMaceWielded() end))
-   -- The refusal says the same thing [svof: "svo already wielding"], and play shows it
+   -- The refusal says the same thing [reference: its already-wielding trigger], and play shows it
    -- answering our own `wield mace` (06:31:10.97, 2026-10-16). "That" is whatever was named,
    -- so it is read as the mace only right after a WIELD MACE -- with anti-illusion off as
    -- well, which would otherwise take a typed `wield sword` for the mace.

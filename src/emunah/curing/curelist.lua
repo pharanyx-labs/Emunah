@@ -41,7 +41,7 @@ M.vectors = {
    -- wastes the vial; an over-estimate costs at most one late sip.
    elixir  = { recovery = 6.0, command = "drink %s",        needsItem = true  },
    -- The AFFLICTION-HEALING elixirs -- immunity, frost, venom, speed, levitation -- run on
-   -- a balance of their own, not the health/mana sip balance [svof: bals.purgative, gated
+   -- a balance of their own, not the health/mana sip balance [reference: bals.purgative, gated
    -- by check_purgative independently of check_sip]. Announced like the sip ("You may drink
    -- another affliction-healing elixir."), so this is a net for a missed line, sized like
    -- the elixir's for the same reason.
