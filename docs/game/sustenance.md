@@ -1,6 +1,6 @@
 # Sustenance and economy
 
-Rift, containers, shops, pipes and the manna rite. Verified from play unless marked
+Rift, containers, shops and pipes. Verified from play unless marked
 otherwise. Each entry says what established it.
 
 ## Irid moss
@@ -326,29 +326,3 @@ puff (10 → 9) and lighting does not.
 - **The message when a pipe runs out of herb**, if there is one.
 - **Whether `LIGHT` or `PUT` costs anything.** The prompt read `ex-` throughout, so probably
   not; nothing is declared for either.
-
-## The manna rite
-
-One run, verbatim, at `07:07:08` — the source for `manna.lua`:
-
-```
-perform rite of sustenance
-You utter a plea to the all-powerful gods to bless you with sustenance, and humbly place
-your empty bowl on the ground.
-A rain of nourishing manna falls from heaven, filling the bowl to the brim.
-Equilibrium used: 3.00s.                                    (prompt ex- -> x-)
-You have recovered equilibrium.
-get bowl
-You pick up an earthenware bowl.
-drink bowl
-With rapture in your heart, you lift the bowl of manna to your lips and slowly drain it,
-savouring every last drop.
-You feel utterly replete.
-```
-
-The gaps in that transcript (`:08` → `:15` → `:18`) are a player typing, **not** required
-delays. The only real constraint is the rite's 3 seconds of equilibrium, which `GET` needs
-back — and the game announces it, so nothing has to estimate it.
-
-The line that means the bowl is actually full is the **rain**, not the plea: the plea prints
-when the bowl is placed, one step earlier.

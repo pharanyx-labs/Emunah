@@ -6,7 +6,7 @@ Settings kept in plain files, for anyone who would rather edit a file than type 
 | File | Holds | In force |
 |---|---|---|
 | `healing.conf` | when to sip, eat moss, lay hands and clot | always |
-| `curing.conf`, `defences.conf`, `hunting.conf`, `pvp.conf`, `loot.conf`, `antitheft.conf`, `pipes.conf`, `riding.conf`, `people.conf`, `interface.conf`, `map.conf`, `system.conf` | every other documented setting, one file per `emhelp` module | always |
+| `curing.conf`, `defences.conf`, `hunting.conf`, `pvp.conf`, `loot.conf`, `antitheft.conf`, `pipes.conf`, `riding.conf`, `rites.conf`, `people.conf`, `interface.conf`, `map.conf`, `system.conf` | every other documented setting, one file per `emhelp` module | always |
 | `priorities.conf` | your own cure ranks | only while `emset ownprios on` |
 | `situations.conf` | the situational curing rules: switch one off, or change its ranks | only while `emset ownprios on` |
 

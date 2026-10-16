@@ -161,8 +161,9 @@ local MANIFEST = {
    -- uses ui.alert, and curing.defkeepup for selfishness, both loaded above.
    { path = "emunah.antitheft",          as = "antitheft"     },
 
-   -- the manna rite as one command; needs act, timers and have.balance
-   { path = "emunah.manna",              as = "manna"         },
+   -- keeps the room rites you perform up until you leave the room; reads gmcp.room, and
+   -- namedb (at run time) for whose rite a listing row is
+   { path = "emunah.rites",              as = "rites"         },
 
    -- keeps the pipes filled and lit; needs curing.curelist for the smoked-herb list and
    -- have.item for what is carried, so it loads after both

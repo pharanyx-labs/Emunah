@@ -10663,118 +10663,11 @@ emunah.timers.stop("pipes.action")
 emunah.timers.stop("pipes.poll")
 
 -- Keep-up polls PIPELIST from the tick, so from here on it would add a `pipelist` to
--- mock.sent in any suite that advances past the poll interval -- which is how it broke the
--- manna step-budget count below. Switched off now that its own suite is done.
+-- mock.sent in any suite that advances past the poll interval. Switched off now that its
+-- own suite is done.
 pipes.forget()
 emunah.config.set("pipes.enabled", false)
 emunah.timers.stop("pipes.poll.due")
-
--- ===========================================================================
-suite("manna")
-
-local manna = emunah.manna
-
--- The whole sequence, driven the way the game drives it: each step advances on Achaea's own
--- confirmation, and the wait between the rite and the GET is the equilibrium the rite spent.
-emunah.curing.detect.onWake()
-emunah.timers.stop("cure.equilibrium")
-emunah.timers.stop("manna.step")
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-mock.sent = {}
-ok(manna.start(), "manna starts")
-eq(table.concat(mock.sent, " | "), "perform rite of sustenance",
-   "step 1 goes out immediately", table.concat(mock.sent, " | "))
-
--- THE RITE SPENDS 3s OF EQUILIBRIUM, and GET needs it back. Char.Vitals goes on reporting
--- equilibrium as available until the game runs the command, so the flag alone is not enough
--- -- without the timer, `get bowl` would go straight out into "You must regain equilibrium
--- first." This is the reason the sequence is a module rather than three sends.
-mock.line("A rain of nourishing manna falls from heaven, filling the bowl to the brim.")
-mock.line("Equilibrium used: 3.00s.")
-mock.sent = {}
-mock.advance(manna.STEP_GUARD + 0.01)
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-eq(#mock.sent, 0, "step 2 waits out the equilibrium the rite spent",
-   table.concat(mock.sent, " | "))
-
--- ...and goes the moment it is actually back.
-mock.advance(3.0)
-mock.sent = {}
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-eq(table.concat(mock.sent, " | "), "get bowl", "step 2 goes when equilibrium returns",
-   table.concat(mock.sent, " | "))
-
-mock.line("You pick up an earthenware bowl.")
--- Advancing on the confirmation, not waiting for the next prompt.
-eq(table.concat(mock.sent, " | "), "get bowl | drink bowl",
-   "step 3 follows straight off the confirmation", table.concat(mock.sent, " | "))
-
-mock.line("You feel utterly replete.")
-ok(not manna.running(), "the sequence finishes on the last confirmation")
-
--- ---------------------------------------------------------------------------
--- The step triggers are scoped to the step they belong to. These are ordinary game lines --
--- drinking a bowl by hand must not advance a sequence nobody started.
-mock.sent = {}
-mock.line("You pick up an earthenware bowl.")
-mock.line("You feel utterly replete.")
-ok(not manna.running(), "confirmations do nothing while idle")
-eq(#mock.sent, 0, "...and send nothing", table.concat(mock.sent, " | "))
-
--- A step that is never confirmed stops after ATTEMPTS rather than retrying forever: the
--- likely causes (no bowl, rite unavailable, an unknown cost) do not improve with a fourth try.
-mock.sent = {}
-manna.start()
-for _ = 1, 12 do
-   mock.advance(manna.STEP_GUARD + 0.01)
-   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-end
-eq(#mock.sent, manna.ATTEMPTS, "an unconfirmed step stops after ATTEMPTS",
-   table.concat(mock.sent, " | "))
-ok(not manna.running(), "...and the sequence is abandoned")
-
--- The guard is what makes that budget mean three round trips rather than three prompts:
--- the 3s equilibrium wait would otherwise burn the whole budget before it was over.
-emunah.timers.stop("cure.equilibrium")
-mock.sent = {}
-manna.start()
-for _ = 1, 8 do mock.feed("Char.Vitals", { bal = "1", eq = "1" }) end
-eq(#mock.sent, 1, "prompts during a step in flight do not count as attempts",
-   table.concat(mock.sent, " | "))
-manna.stop()
-
--- Blocked states hold it like any other command -- act.send() is the single gate.
-emunah.curing.detect.onSleep()
-mock.sent = {}
-manna.start()
-eq(#mock.sent, 0, "nothing goes out while asleep", table.concat(mock.sent, " | "))
-emunah.curing.detect.onWake()
-manna.stop()
-
--- Starting it twice does not restart it or double-send.
-emunah.timers.stop("cure.equilibrium")
-mock.sent = {}
-manna.start()
-ok(not manna.start(), "a second start is refused while one is running")
-eq(#mock.sent, 1, "...and sends nothing extra", table.concat(mock.sent, " | "))
-manna.stop()
-
--- The alias is what the user actually types. The rite above marked equilibrium spent on
--- send (Char.Vitals cannot report it yet), so give it back before asking for another.
-emunah.timers.stop("cure.equilibrium")
-emunah.timers.stop("manna.step")
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-mock.sent = {}
-ok(mock.command("emset manna"), "'emset manna' is matched")
-eq(table.concat(mock.sent, " | "), "perform rite of sustenance",
-   "...and starts the sequence", table.concat(mock.sent, " | "))
-manna.stop()
-
--- That last rite marked equilibrium spent and armed its 3s timer. Hand both back, or every
--- suite after this one starts without equilibrium.
-emunah.timers.stop("cure.equilibrium")
-emunah.timers.stop("manna.step")
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 
 -- ===========================================================================
 suite("PvP targeting")
@@ -16693,6 +16586,175 @@ ok(not allies.isPartner("anzerloi"), "...and is no longer one")
 emunah.config.set("allies.calls", nil); emunah.config.set("allies.follow", nil)
 ndb.iff("anzerloi", "auto")
 pvp.clearTarget()
+end)()
+
+-- ===========================================================================
+suite("rites: kept up until you leave the room")
+
+;(function()
+local rites = emunah.rites
+local savedCharacter = emunah.gmcp.character
+emunah.gmcp.character = "Saemora"
+emunah.config.set("rites.keepup", true)
+rites.forgetAll()
+
+-- Only what this module sends: everything else ticking may add its own.
+local function riteSends()
+   local out = {}
+   for _, command in ipairs(mock.sent) do
+      if command:find("rite") then out[#out + 1] = command end
+   end
+   return table.concat(out, " | ")
+end
+local function prompt()
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+end
+-- Verbatim from play, 2026-10-16 08:01:41, with the rows given.
+local function listing(rows)
+   mock.line("You reach out to sense for holy rites:")
+   mock.line("Rite                Owner                         Seconds left")
+   mock.line("-------------------------------------------------------------")
+   for _, row in ipairs(rows) do mock.line(row) end
+   mock.line("Equilibrium used: 1.00s.")
+   prompt()
+end
+
+emunah.timers.stop("cure.equilibrium")
+mock.feed("Room.Info", { num = 4242, name = "A quiet shrine", exits = {} })
+prompt()
+
+-- PERFORMING ONE KEEPS IT: RITES is read once equilibrium is back, and gives its time.
+mock.sent = {}
+mock.command("perform rite of well-being")
+mock.line("Equilibrium used: 5.00s.")
+prompt()
+eq(riteSends(), "", "nothing goes while the rite's equilibrium is out")
+mock.advance(5.1)
+prompt()
+eq(riteSends(), "rites", "RITES goes once equilibrium is back")
+listing({ "Well-being          Saemora                       1224",
+          "Revitalisation      Saemora                       346" })
+local list = rites.list()
+eq(#list, 2, "both of your rites in the listing are kept, not only the one performed", #list)
+ok(list[2].left and list[2].left > 1224 and list[2].left <= 1225.01,
+   "...each from the seconds the listing gives", list[2].left)
+
+-- ANOTHER'S RITE IS NOT OURS to keep.
+rites.forget("revitalisation")
+mock.advance(1.1)
+listing({ "Revitalisation      Anzerloi                      900",
+          "Well-being          Saemora                       1200" })
+eq(rites.kept.revitalisation, nil, "someone else's rite is not kept")
+
+-- IT RUNS OUT: performed again, then read again.
+mock.sent = {}
+mock.advance(1201.1)
+prompt()
+eq(riteSends(), "perform rite of well-being", "the rite is performed again when it runs out")
+mock.line("Equilibrium used: 5.00s.")
+mock.advance(5.1)
+prompt()
+eq(riteSends(), "perform rite of well-being | rites", "...and RITES read after it")
+listing({ "Well-being          Saemora                       1800" })
+eq(rites.kept["well-being"].attempts, 0, "seen up again, its tries start over")
+
+-- NOT UP AFTER A PERFORM: tried again, three times in all, then given up on.
+mock.sent = {}
+mock.advance(1801.1)
+for _ = 1, 4 do
+   prompt()
+   mock.advance(5.1)
+   prompt()
+   if rites.check.sentAt then listing({}) end
+   mock.advance(1.1)
+end
+local performs = select(2, riteSends():gsub("perform rite of well%-being", ""))
+eq(performs, rites.ATTEMPTS, "a rite that will not come up is tried ATTEMPTS times", riteSends())
+eq(rites.kept["well-being"], nil, "...and then no longer kept")
+
+-- A RITES YOU TYPE is read the same way, and shown.
+mock.sent = {}
+mock.advance(2)
+listing({ "Revitalisation      Saemora                       346" })
+ok(rites.kept.revitalisation, "typing RITES where yours are up keeps them")
+eq(riteSends(), "", "...and sends nothing")
+
+-- LEAVING THE ROOM ENDS IT, and the renewal never goes.
+mock.feed("Room.Info", { num = 4242, name = "A quiet shrine", exits = {} })
+ok(rites.kept.revitalisation, "a Room.Info for the same room changes nothing")
+mock.feed("Room.Info", { num = 4243, name = "Outside the shrine", exits = {} })
+eq(next(rites.kept), nil, "another room forgets every rite kept")
+mock.sent = {}
+mock.advance(400)
+prompt()
+eq(riteSends(), "", "...and nothing is performed when it would have run out")
+
+-- HELD WHILE PVP IS ON.
+mock.feed("Room.Info", { num = 4242, name = "A quiet shrine", exits = {} })
+mock.advance(2)
+listing({ "Revitalisation      Saemora                       10" })
+emunah.pvp.enabled = true
+mock.sent = {}
+mock.advance(11.1)
+prompt()
+eq(riteSends(), "", "a renewal waits while PvP is on")
+emunah.pvp.enabled = false
+prompt()
+eq(riteSends(), "perform rite of revitalisation", "...and goes once it is off")
+
+-- A RITES THAT NEVER ANSWERS stops it too.
+mock.line("Equilibrium used: 4.00s.")
+for _ = 1, rites.ATTEMPTS do
+   mock.advance(5.1)
+   prompt()
+   mock.advance(rites.CHECK_GUARD + 0.1)
+end
+eq(next(rites.kept), nil, "RITES unanswered ATTEMPTS times gives up")
+
+-- YOUR RITES COUNTS AS OURS. The perform asked for a RITES; the one you typed answers it, and
+-- resets every timer, so no hidden one follows it (08:13:12 -> 08:13:50, 2026-10-16).
+rites.forgetAll()
+mock.advance(2)
+listing({ "Well-being          Saemora                       595" })
+mock.sent = {}
+mock.command("perform rite of Revitalisation")
+mock.line("You rub your hands together in prayer, and feel healing energy begin to emanate into your ")
+mock.line("surroundings.")
+mock.line("Equilibrium used: 4.00s.")
+prompt()
+mock.advance(4.1)
+mock.echoed = {}
+mock.command("rites")
+listing({ "Well-being          Saemora                       557",
+          "Revitalisation      Saemora                       915" })
+local revitalisation, wellbeing = rites.list()[1].left, rites.list()[2].left
+for _ = 1, 3 do mock.advance(1.1); prompt() end
+eq(riteSends(), "", "no RITES of ours follows the one you typed")
+ok(revitalisation > 915 and revitalisation <= 916.01, "...whose figures set the timers",
+   revitalisation)
+ok(wellbeing > 557 and wellbeing <= 558.01, "...every one of them, not only the new rite",
+   wellbeing)
+ok(table.concat(mock.echoed, " "):find("keeping Revitalisation up", 1, true),
+   "the rite performed is announced when the listing first shows it", table.concat(mock.echoed, " "))
+
+-- emset rites.
+mock.advance(2)
+listing({ "Revitalisation      Saemora                       100" })
+ok(pcall(emunah.commands.handlers.rites), "`emset rites` renders")
+emunah.commands.dispatch("rites stop")
+eq(next(rites.kept), nil, "`emset rites stop` forgets the rites kept")
+emunah.commands.dispatch("rites off")
+eq(rites.enabled(), false, "`emset rites off` switches it off")
+mock.advance(2)
+listing({ "Revitalisation      Saemora                       100" })
+eq(next(rites.kept), nil, "...and a listing keeps nothing while off")
+emunah.commands.dispatch("rites on")
+eq(rites.enabled(), true, "`emset rites on` switches it back on")
+
+rites.forgetAll()
+emunah.config.set("rites.keepup", nil)
+emunah.gmcp.character = savedCharacter
+emunah.timers.stop("cure.equilibrium")
 end)()
 
 io.write("\n", string.rep("-", 60), "\n")

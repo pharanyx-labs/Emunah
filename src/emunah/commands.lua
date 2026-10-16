@@ -1374,13 +1374,32 @@ M.handlers.riding = function(arg)
    end
 end
 
-M.handlers.reload = function()
-   emunahReload()
+--- `emset rites`: the rites kept up until you leave the room (rites.lua).
+M.handlers.rites = function(arg)
+   local rites = emunah.rites
+   if arg == "on" then rites.set(true)
+   elseif arg == "off" then rites.set(false)
+   elseif arg == "stop" then rites.forgetAll()
+   else
+      local on = rites.enabled()
+      header("Rites")
+      row("keep-up", on and "on" or "off", on and "ansi_light_green" or "ansi_light_red")
+      local list = rites.list()
+      if #list == 0 then
+         row("kept", "none -- perform one, or type RITES where yours are up")
+      end
+      for _, rite in ipairs(list) do
+         row(rite.name, rite.left and string.format("%ds left", math.floor(rite.left))
+            or "due", rite.left and "ansi_light_green" or "ansi_yellow")
+      end
+      decho("\n  " .. faint("emset rites on|off|stop  --  emhelp rites"))
+      return
+   end
+   log.info("Rites: keep-up %s.", rites.enabled() and "on" or "off")
 end
 
---- `emset manna`: the manna rite -- three commands with waits between them (manna.lua).
-M.handlers.manna = function()
-   emunah.manna.start()
+M.handlers.reload = function()
+   emunahReload()
 end
 
 -- ---------------------------------------------------------------------------
@@ -1461,7 +1480,7 @@ end
 killAll()
 
 -- ONE PREFIX. Everything Emunah does is `emset ...`, and `emhelp` explains it. The bare
--- shortcuts (`emdefs`, `ndb`, `pipes`, `manna`, `affpop`) and the long `emunah` prefix are
+-- shortcuts (`emdefs`, `ndb`, `pipes`, `affpop`) and the long `emunah` prefix are
 -- gone (`pp` came back at the user's request, below): a second vocabulary for the same things is the kind of thing that made
 -- the help hard to follow.
 --
