@@ -245,7 +245,7 @@ other's slot**, so neither is assumed to.
 | Command | Id form | Reply |
 |---|---|---|
 | `light pipe367581` | `pipeNNNNN` | `You use a soot-blackened tinderbox to make fire.` then **`You carefully light your treasured pipe until it is smoking nicely.`** |
-| `light pipes` | — | Lights every pipe with contents. Answers `You light a white stone pipe.` — a **different** wording from the one above. With nothing cold: `You have no pipes that require lighting.` (the user, 2026-10-04). **This is what keep-up sends**, once for every cold pipe, as [svof] `lightpipes` does |
+| `light pipes` | — | Lights every pipe with contents. Answers `You light a white stone pipe.` — a **different** wording from the one above. With nothing cold: `You have no pipes that require lighting.` (the user, 2026-10-04). **This is what keep-up sends**, once for every cold pipe, as [reference] `lightpipes` does |
 | `put skullcap in 367581` | bare `NNNNN` | `You fill your pipe with a skullcap flower.` |
 | `smoke pipe367581` | `pipeNNNNN` | `You take a long drag of skullcap off your pipe.` |
 | `smoke elm` | — | Works too: **`SMOKE` takes the herb** and resolves it to the pipe holding it. This is what every smoke cure in `curelist.lua` builds |
@@ -260,7 +260,7 @@ Other replies, all observed:
 |---|---|
 | `That pipe is already lit and burning nicely.` | `LIGHT` on a lit pipe |
 | `There is nothing in the pipe to light.` | `LIGHT` on an empty pipe — our puff count was stale |
-| `That pipe isn't lit.` | `SMOKE <herb>` when the pipe holding it has gone out. **Costs no smoke balance**: none of three refusals (2026-09-28, 15:03:32.95 / 39.12 / 55.49) was followed by `Your lungs have recovered…`. Emunah frees the slot, marks that herb's pipe out and relights it, as [svof] `unlit_pipe` does |
+| `That pipe isn't lit.` | `SMOKE <herb>` when the pipe holding it has gone out. **Costs no smoke balance**: none of three refusals (2026-09-28, 15:03:32.95 / 39.12 / 55.49) was followed by `Your lungs have recovered…`. Emunah frees the slot, marks that herb's pipe out and relights it, as [reference] `unlit_pipe` does |
 | `Your pipe, containing a skullcap flower, has gone cold and dark.` | It went out. Names the **contents**, not the pipe |
 | `Your lungs have recovered enough to smoke another mineral or plant.` | Smoke balance back |
 
@@ -304,7 +304,7 @@ a named constant (`pipes.FULL_PUFFS`) and the backstop poll corrects it if it is
 None of the confirmations name the pipe, so they are attributed to whichever pipe the last
 command was about — sound only because one pipe command is in flight at a time. After
 `light pipes` every answer (`You light ...`, `You have no pipes that require lighting.`)
-marks every loaded pipe lit, as [svof] `litallpipes` does. One `light pipeNNN` per pipe
+marks every loaded pipe lit, as [reference] `litallpipes` does. One `light pipeNNN` per pipe
 relit two pipes 1.9s apart (19:02:27.05 and 19:02:28.92, 2026-10-04), and the opponent
 watching asked "Why not at the same time?"
 

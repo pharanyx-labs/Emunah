@@ -58,7 +58,7 @@ moment, announces it with the game's line, and refuses anything sent before then
 What caused each:
 
 1. **Salve, focus and tree had no balance-return trigger.** They ran on their fallback
-   estimate alone, which is wrong in both directions. svof's verbatim lines are now matched
+   estimate alone, which is wrong in both directions. The reference system's verbatim lines are now matched
    (`docs/game/balance.md`).
 2. **A refused cure kept its same-affliction guard** (`engine.CURE_GUARD`, 1.5 s) and its
    queue slot until timeout, although the refusal is the game answering it. A refusal now
@@ -67,7 +67,7 @@ What caused each:
    stun/sleep/unconscious/arm guards, or the STAND and WAKE in-flight guards. Each now
    acts the moment it lapses (`engine.TICK_ON_EXPIRY`, `queue.timeout`, detect's
    `RETRY_ON_EXPIRY`).
-4. **Affliction-healing elixirs shared the health sip's slot.** svof gives them their own
+4. **Affliction-healing elixirs shared the health sip's slot.** The reference system gives them their own
    balance (`purgative`). Healing at rank 0 starved a voyria cure for as long as health was
    low, and every drink put the sip balance out until a line that a purgative never prints.
 5. **Lines after `Char.Vitals` waited for the next prompt.** The heartbeat runs on
@@ -104,7 +104,7 @@ What changed:
 - **The engine sends each vector's cure as soon as it resolves it** (`queue.flushVector`).
   This was a wasted balance rather than a timing issue: the same-affliction guard is armed on
   send, so two vectors could choose one affliction in one tick. `apply epidermal` and `focus`
-  both went out for one anorexia. svof forbids that (`doingaction`).
+  both went out for one anorexia. The reference system forbids that (`doingaction`).
 - **Restocking runs after the cures**, not before. It was a fifth of the tick and nothing in
   the cure loop reads it.
 - **Debug output follows the send** (`act.send`, the engine loop). With `emset debug` on,

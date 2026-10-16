@@ -72,7 +72,7 @@ opponent.watchUse("salve", [[^(\w+) takes some salve from a vial and rubs it on 
 opponent.watchUse("salve", [[^(\w+) applies an? \w+ \w+ to (?:himself|herself)\.$]])
 
 -- Our own insomnia is "You clench your fists, grit your teeth, and banish all possibility
--- of sleep." [svof]; this is the same act seen from outside.
+-- of sleep." [reference]; this is the same act seen from outside.
 opponent.watchDefence("insomnia", [[^(\w+) clenches \w+ fists and grits \w+ teeth\.$]])
 -- Applied at 20:29:35.02, formed at 20:29:45.03: the same 10s our own sileris shell takes.
 opponent.watchDefence("fangbarrier", [[^A supple metallic shell of quicksilver has formed around (\w+)\.$]])

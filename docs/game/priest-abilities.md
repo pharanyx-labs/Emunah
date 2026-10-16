@@ -541,7 +541,7 @@ target cures from the same herb:
 - **lobelia**: guilt, spiritburn, tenderskin (recites); masochism (a rebuke); recklessness
   (a chasten).
 - **kelp**: `chasten body`; `perform sloth`, which gives weariness (`weakness` in
-  `afflist`, svof's `gamename`).
+  `afflist`, the reference system's `gamename`).
 
 ### The prayer (12:45:21–12:49:55)
 
@@ -643,9 +643,9 @@ You eat a lobelia seed.
 The uncomfortable heat suffusing you fades.
 ```
 
-"Return to ash" may be Ash's line rather than Burn's. And svof files both received lines
-under **firedisrupt** ("svo got firedisrupt", and `valid.focus2`'s spirit-disrupt list), which
-Emunah's trigger package inherits as a firedisrupt cure. svof predates spiritburn and
+"Return to ash" may be Ash's line rather than Burn's. And the reference system files both received lines
+under **firedisrupt** (its firedisrupt trigger, and `valid.focus2`'s spirit-disrupt list), which
+Emunah's trigger package inherits as a firedisrupt cure. The reference system predates spiritburn and
 tenderskin, so Achaea may have reused the text; this transcript cannot tell. The GMCP
 `Char.Afflictions.Add` name would: repeat it with `emset debug gmcp`.
 

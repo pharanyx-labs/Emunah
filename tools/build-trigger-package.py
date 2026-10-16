@@ -22,7 +22,7 @@ than half the ping; and the server must confirm a gained affliction.
 WHAT IS TAKEN, AND WHAT IS NOT
 ------------------------------
 A trigger is converted only when its meaning is certain from the reference system's own script. Every
-statement has to be a bare `svo.valid.<fn>()` call whose name says what happened:
+statement has to be a bare `<ns>.valid.<fn>()` call whose name says what happened:
 
     simple<aff>, proper_<aff>, venom_<aff>            -> gained
     <balance>_cured_<aff>, generic_<aff>, cured_<aff>  -> cured
@@ -34,7 +34,7 @@ multi-line, filter, colour and chained triggers, Lua-function and line-spacer pa
 and the reference system's inactive triggers.
 
 Names are translated to the SERVER'S name through the reference system's own `gamename` table
-(raw-svo.dict.lua), because Emunah confirms a text report against Char.Afflictions by name
+(its dictionary file), because Emunah confirms a text report against Char.Afflictions by name
 (engine.TEXT_CONFIRM). A name Emunah does not know is dropped: it could never be cured,
 and would only sit in the panel.
 
@@ -43,11 +43,14 @@ action tracking, and its cure is dropped. Lines Emunah's own patterns.lua alread
 are skipped, so nothing fires twice.
 
 Usage:
-    python3 tools/build-trigger-package.py <source-dir-or-xml> [--dict raw-svo.dict.lua] [output]
+    python3 tools/build-trigger-package.py <source-dir-or-xml> [--dict <dictionary file>] [output]
 
 <source-dir-or-xml> is the reference system's checkout (the repo root, or its output/ folder after a build)
-or the path to `svo (install the zip, not me).xml` itself. Output defaults to
+or the path to its `<ns> (install the zip, not me).xml` itself. Output defaults to
 EmunahTriggers.xml at the repository root.
+
+<ns> is the reference system's Lua namespace. It is never written here: it is read from the
+main XML's file name, and the script calls, trigger names and file names are matched by it.
 """
 import argparse
 import pathlib
@@ -59,7 +62,7 @@ from xml.sax.saxutils import escape
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 AFFLIST = ROOT / "src" / "emunah" / "curing" / "afflist.lua"
 PATTERNS = ROOT / "src" / "emunah" / "curing" / "detect" / "patterns.lua"
-MAIN_XML = "svo (install the zip, not me).xml"
+MAIN_XML = " (install the zip, not me).xml"   # after the namespace
 
 # The reference system internal name -> Emunah state. These are states Emunah models directly
 # (curing/detect), not afflictions the engine cures.
@@ -81,33 +84,49 @@ GAIN = [re.compile(r"^simple(\w+)$"), re.compile(r"^proper_(\w+)$"), re.compile(
 VIA = re.compile(r"^(herb|salve|focus|smoke|tree)_cured_(\w+)$")
 CURE = [re.compile(r"^generic_(\w+)$"), re.compile(r"^cured_?(\w+)$"),
         re.compile(r"^(\w+)_woreoff$")]
-# The reference system's plain illusion flag, optionally behind its anti-illusion switch.
-ILLUSION = re.compile(r"^(?:if svo\.conf\.aillusion then )?svo\.ignore_illusion\("
-                      r"(?:\"[^\"]*\"|'[^']*')?\)(?: end)?$")
-CALL = re.compile(r"^svo\.valid\.(\w+)\(\)$")
-# The reference system's fight tracker: `svo.startedfighting("alchemist", multimatches[2][2])`
-# on a line only that class sends. Bookkeeping, not curing, so it never stops a trigger
-# converting; it becomes detect.textFoe(class, attacker) when the attacker's capture can be
-# carried over, and is dropped when it cannot.
-FOE = re.compile(r"^svo\.startedfighting\(\s*[\"'](\w+)[\"']\s*,\s*"
-                 r"(?:matches\[(\d+)\]|multimatches\[(\d+)\]\[(\d+)\])\s*\)$")
-# svof functions that are not a plain gain or cure but whose meaning is fixed, and what each
+# The reference system's namespace, and the patterns built on it (set_namespace).
+NS = None
+# Its plain illusion flag, optionally behind its anti-illusion switch.
+ILLUSION = None
+CALL = None
+# Its fight tracker: `<ns>.startedfighting("alchemist", multimatches[2][2])` on a line only
+# that class sends. Bookkeeping, not curing, so it never stops a trigger converting; it
+# becomes detect.textFoe(class, attacker) when the attacker's capture can be carried over,
+# and is dropped when it cannot.
+FOE = None
+# Its trigger names start with the namespace; Emunah's do not.
+PREFIX = None
+
+
+def set_namespace(ns):
+    global NS, ILLUSION, CALL, FOE, PREFIX
+    NS = ns
+    n = re.escape(ns)
+    ILLUSION = re.compile(rf"^(?:if {n}\.conf\.aillusion then )?{n}\.ignore_illusion\("
+                          r"(?:\"[^\"]*\"|'[^']*')?\)(?: end)?$")
+    CALL = re.compile(rf"^{n}\.valid\.(\w+)\(\)$")
+    FOE = re.compile(rf"^{n}\.startedfighting\(\s*[\"'](\w+)[\"']\s*,\s*"
+                     r"(?:matches\[(\d+)\]|multimatches\[(\d+)\]\[(\d+)\])\s*\)$")
+    PREFIX = re.compile(rf"^{n}\s+")
+
+
+# The reference system's functions that are not a plain gain or cure but whose meaning is fixed, and what each
 # becomes. Nothing here is interpreted from a name: each is read from the function's body.
 VALID_MAP = {
-    # raw-svo.valid.main.lua: homunculus_throat() is lostbal_focus() and nothing else. Its
+    # Its valid.main file: homunculus_throat() is lostbal_focus() and nothing else. Its
     # paragraph_length check (the shriek "needs to be on it's own line") is NOT carried over:
     # Anzerloi's arena log of 2026-10-15 has the real shriek second in its paragraph, after
     # the homunculus's stare and before two glowers (docs/game/alchemist.md).
     "homunculus_throat": ("spent", "focus"),
-    # Both only add svof's `unknownany` placeholder, which this generator drops anyway (the
+    # Both only add the reference system's `unknownany` placeholder, which this generator drops anyway (the
     # server never sends that name). The affliction itself comes by GMCP; the line still says
     # who is attacking, as what.
     "humour_wrack": None,
     "humour_truewrack": None,
 }
-# Names the reference system's tables do not give, from evidence. svof's swellskin is the
-# server's homunculusmercury: svof's own trigger for the bite is named "Homunculus mercury
-# (swellskin) bite", its serverside table (raw-svo.dict.lua, sstosvoa) lists
+# Names the reference system's tables do not give, from evidence. Its swellskin is the
+# server's homunculusmercury: its own trigger for the bite is named "Homunculus mercury
+# (swellskin) bite", its serverside table (in its dictionary file) lists
 # `homunculusmercury` as a server name, and Anzerloi's system tagged that same bite line
 # `homunculusmercury` (docs/game/alchemist.md).
 EXTRA_GAMENAMES = {"swellskin": "homunculusmercury"}
@@ -118,21 +137,24 @@ def find_inputs(source, dict_arg):
     if source.is_file():
         xml_path, base = source, source.parent
     else:
-        candidates = [source / MAIN_XML, source / "output" / MAIN_XML]
+        candidates = sorted(source.glob("*" + MAIN_XML)) + sorted((source / "output").glob("*" + MAIN_XML))
         xml_path = next((c for c in candidates if c.is_file()), None)
         if not xml_path:
-            sys.exit(f"no '{MAIN_XML}' under {source} (or its output/)")
+            sys.exit(f"no '<namespace>{MAIN_XML}' under {source} (or its output/)")
         base = source
+    if not xml_path.name.endswith(MAIN_XML):
+        sys.exit(f"{xml_path} is not named '<namespace>{MAIN_XML}'")
+    ns = xml_path.name[:-len(MAIN_XML)]
     if dict_arg:
         dict_path = pathlib.Path(dict_arg)
     else:
-        search = [base / "raw-svo.dict.lua", base.parent / "raw-svo.dict.lua",
-                  base / "svo", base.parent / "svo"]
+        dict_name = f"raw-{ns}.dict.lua"
+        search = [base / dict_name, base.parent / dict_name, base / ns, base.parent / ns]
         dict_path = next((c for c in search if c.is_file()), None)
         if not dict_path:
-            sys.exit("cannot find raw-svo.dict.lua (or the compiled `svo` file) for the reference system's "
+            sys.exit(f"cannot find {dict_name} (or the compiled `{ns}` file) for the reference system's "
                      "gamename table -- pass --dict")
-    return xml_path, dict_path
+    return xml_path, dict_path, ns
 
 
 def gamenames(dict_path):
@@ -142,7 +164,7 @@ def gamenames(dict_path):
     # The reference system's serverside table maps the SERVER's name to its own (`corruption =
     # "corrupted"`, `temperedsanguine = "sanguinehumour"`). Read backwards, it names the
     # afflictions whose dictionary entry carries no gamename. Never over a gamename.
-    table = re.search(r"\n\s*sstosvoa = \{(.*?)\n\s*\}", text, re.S)
+    table = re.search(rf"\n\s*ssto{re.escape(NS)}a = \{{(.*?)\n\s*\}}", text, re.S)
     if table:
         for server, own in re.findall(r"(\w+)\s*=\s*[\"'](\w+)[\"']", table.group(1)):
             names.setdefault(own, server)
@@ -226,7 +248,7 @@ def convert_illusion(trigger):
     types = [i.text for i in trigger.find("regexCodePropertyList") or []]
     if not patterns or not set(types) <= PLAIN_TYPES | {"5"}:
         return "illusion pattern type needs context"
-    name = re.sub(r"^svo\s+", "", trigger.findtext("name") or "illusion")
+    name = PREFIX.sub("", trigger.findtext("name") or "illusion")
     name = ILLUSION_NAMES.get(name, name)
     # The reason is printed mid-sentence: "Ignored as an illusion: asthma with sleep".
     return ([("illusion", name[:1].lower() + name[1:])], list(zip(patterns, types)),
@@ -311,7 +333,7 @@ def convert(trigger, names, known, native):
             continue
         call = CALL.match(statement)
         if not call:
-            return "script is more than plain svo.valid calls"
+            return "script is more than plain valid calls"
         if call.group(1) in VALID_MAP:
             mapped = VALID_MAP[call.group(1)]
             if mapped:
@@ -319,7 +341,7 @@ def convert(trigger, names, known, native):
             continue
         kind, aff, via = classify(call.group(1))
         if not kind:
-            return "svo.valid function is not a gain/cure"
+            return "valid function is not a gain/cure"
         if aff in STATES:
             actions.append(("state_on" if kind == "gain" else "state_off", STATES[aff]))
             continue
@@ -558,10 +580,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("source", help="the reference system's checkout, its output/ folder, or its main XML")
     parser.add_argument("output", nargs="?", default=str(ROOT / "EmunahTriggers.xml"))
-    parser.add_argument("--dict", help="raw-svo.dict.lua (or the compiled svo file)")
+    parser.add_argument("--dict", help="its dictionary file (or the compiled one named after its namespace)")
     args = parser.parse_args()
 
-    xml_path, dict_path = find_inputs(args.source, args.dict)
+    xml_path, dict_path, ns = find_inputs(args.source, args.dict)
+    set_namespace(ns)
     names = gamenames(dict_path)
     if not names:
         sys.exit(f"no gamename entries found in {dict_path}")
@@ -576,7 +599,7 @@ def main():
     converted = []
     for trigger in found:
         # Named without the source's own prefix: the names describe the line, not where it came from.
-        name = re.sub(r"^svo\s+", "", trigger.findtext("name") or "trigger")
+        name = PREFIX.sub("", trigger.findtext("name") or "trigger")
         result = convert_illusion(trigger)
         if result is None:
             result = convert(trigger, names, known, native)

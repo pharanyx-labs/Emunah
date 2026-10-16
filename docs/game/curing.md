@@ -6,11 +6,11 @@ and cross-checked against what play has already established in `balance.md`,
 
 - **[HELP x]**: stated in `help/x.txt`
 - **[play]**: established from a transcript, and the file that records it
-- **[svof]**: taken from [svof](https://github.com/svof/svof), the long-standing Mudlet
+- **[reference]**: taken from the reference system, the long-standing Mudlet
   curing system for Achaea, which the user has named as the reference for curing
-  methodology and balance blockers. The gates are in `raw-svo.skeleton.lua` (`check_herb`,
-  `check_salve`, `check_sip`, ...), the per-action rules in `raw-svo.dict.lua`
-  (`isadvisable`), and the game's message lines in `svo (install the zip, not me).xml`.
+  methodology and balance blockers. The gates are in its skeleton file (`check_herb`,
+  `check_salve`, `check_sip`, ...), the per-action rules in its dictionary file
+  (`isadvisable`), and the game's message lines in its main trigger XML.
   Its last commit is June 2021, so when it disagrees with a timestamped transcript the
   transcript wins. Say so here when that happens.
 - **[open]**: not settled by any source. Ask before building on it.
@@ -49,7 +49,7 @@ that waits for `eq` to come back will wait forever. See *Gaps* below.
 
 **[game, 2026-09-28]** Blackout hides a disrupted equilibrium. An NPC's advice, verbatim:
 "I've been told it's wise to CONCENTRATE after 3 seconds of blackout have passed without it
-wearing off." **[svof]** agrees in shape: `dict.blackout` assumes `disrupt` 4.5s into a
+wearing off." **[reference]** agrees in shape: `dict.blackout` assumes `disrupt` 4.5s into a
 blackout (`tempTimer(4.5, ...)`). Emunah sends one `CONCENTRATE` per blackout, 3s after it
 starts (`engine.BLACKOUT_CONCENTRATE`). It fires from a timer, so a missing prompt can't
 delay it, and it is held while confused. It is sent only once because nothing can confirm
@@ -82,21 +82,21 @@ balances of the same kind:
 | Smoke | distinct rejection `You have not yet recovered balance for smoking.` **[play, balance.md]**; `CURING TREE SCENARIO NOBAL ... SMOKE` **[HELP curingsystem]** |
 | Focus | `You have not yet regained your mental balance.` **[play]**; `NOBAL ... FOCUS` **[HELP curingsystem]** |
 | Tree | own timer, no bal/eq **[play, defences.md]** |
-| Purgative | the **affliction-healing** elixirs: immunity, frost, venom, speed, levitation. Gated by `check_purgative` beside `check_sip`, on `bals.purgative` **[svof]**. Emunah vector `purgative` |
+| Purgative | the **affliction-healing** elixirs: immunity, frost, venom, speed, levitation. Gated by `check_purgative` beside `check_sip`, on `bals.purgative` **[reference]**. Emunah vector `purgative` |
 | Writhe | not a balance: a duration, see below |
 
 Every balance but writhe's announces its own return, and Emunah frees each vector on that
 line rather than on its fallback estimate (verbatim in `balance.md`). Salve, focus, tree and
-purgative were added from svof on 2026-10-03; until then they ran on the estimate alone.
+purgative were added from the reference system on 2026-10-03; until then they ran on the estimate alone.
 
 **[HELP heal]** / **[HELP combatprinciples]**: health and mana elixirs "both use the same
 balance, [so] you must choose which to heal". One elixir slot, and health and mana compete for it.
 
 ### Do cures need balance or equilibrium?
 
-**No.** svof's curing gates (`check_herb`, `check_salve`, `check_sip`, `check_smoke`,
+**No.** The reference system's curing gates (`check_herb`, `check_salve`, `check_sip`, `check_smoke`,
 `check_moss`, `check_focus`) check their own balance and afflictions, never bal or eq
-**[svof]**. HELP doesn't say either way. The combat principles file calls these "their own type of
+**[reference]**. HELP doesn't say either way. The combat principles file calls these "their own type of
 balance", separate from bal/eq, and play agrees for every vector tested:
 
 - Eating works while off balance: `eat irid` succeeded at 12:01:19.04 while `perform hands`
@@ -111,7 +111,7 @@ What *does* block cures is the character's state rather than a balance:
 |---|---|---|
 | Stunned | everything | [play, incapacitation.md] |
 | Asleep | everything except `WAKE` | [play, incapacitation.md] |
-| Paralysed | everything except eating (herb, moss) and smoking. `touch tree` included | [play, balance.md]; [svof check_smoke] for smoking |
+| Paralysed | everything except eating (herb, moss) and smoking. `touch tree` included | [play, balance.md]; [reference check_smoke] for smoking |
 | Prone | only what needs you upright. Eating and drinking still work | [play, incapacitation.md] |
 | Both arms broken | `touch tree` | [play, afflist.lua] |
 | Anorexia | eating: the `herb` and `moss` vectors, but not `OUTR` | [play, `afflist.blocks`] |
@@ -126,40 +126,40 @@ block can land while a cure waits for its balance.
 
 | Action | Held while | Enforced in | Source |
 |---|---|---|---|
-| eat herb / mineral | anorexia; paralysis does **not** block | `afflist.blocks` | [svof check_herb], [play] |
-| eat moss / potash | anorexia | `afflist.blocks` | [svof check_moss] |
-| sip elixir | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_sip]; [play] for paralysis |
-| drink purgative | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_purgative]; paralysis by analogy with the sip |
-| apply salve | slickness; inquisition; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [svof check_salve]; [play] for paralysis; [player] for inquisition (*Situational rules*) |
-| smoke | asthma (except right behind an `eat kelp`/`eat aurum` in flight, not anorexic: *Puff behind the kelp* below), mucous. **Not** paralysis | `afflist.blocks` | [svof check_smoke]; no play evidence of a refusal. Held for paralysis until 2026-10-04, which put the earworm puff behind the bloodroot (18:48:38.91, 19:02:01.68) |
-| `outr` (rift) | webbed, bound, transfixed, roped, impaled; both arms crippled. **Not** paralysis, equilibrium, balance, prone, or blindness | `afflist.blocks`, `have.vectorBlocked` | [svof canoutr]; [play] 14:26:06–14:27:20 on 2026-09-28, where holding it for paralysis deadlocked the bloodroot pull. 17:31:34.08–17:31:37.10: the first pull waited out mindseye's equilibrium because the rift list was still behind the login refresh |
-| focus | impatience, inquisition, willpower ≤ 75, mana ≤ 35% (svof `manause`, `curing.focusMinMana`); paralysis | `afflist.blocks`, `have.vectorBlocked` | [svof check_focus] |
-| touch tree | paralysis, webbed, bound, transfixed, roped, impaled, either arm numb, both arms disabled | `afflist.blocks`, `have.vectorBlocked` | [svof touchtree], [play] |
-| writhe | a writhe already under way | `have.balance("writhe")` | [HELP entanglement], [svof] |
-| wake | a wake already under way; a sleep you chose | `detect.wakeUp` | [HELP sleeping], [svof] |
-| stand | no bal **or no eq**; paralysis; entangled; crippled/mangled/mutilated leg | `detect.standUp`, `act.blocked` | [svof prone], [play] for bal |
-| attack, move, get (anything `standing`) | prone; paralysis; entangled; its bal/eq | `act.blocked` | [svof balance_controller], [play] |
+| eat herb / mineral | anorexia; paralysis does **not** block | `afflist.blocks` | [reference check_herb], [play] |
+| eat moss / potash | anorexia | `afflist.blocks` | [reference check_moss] |
+| sip elixir | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [reference check_sip]; [play] for paralysis |
+| drink purgative | anorexia; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [reference check_purgative]; paralysis by analogy with the sip |
+| apply salve | slickness; inquisition; paralysis | `afflist.blocks`, `queue.WHILE_PARALYSED` | [reference check_salve]; [play] for paralysis; [player] for inquisition (*Situational rules*) |
+| smoke | asthma (except right behind an `eat kelp`/`eat aurum` in flight, not anorexic: *Puff behind the kelp* below), mucous. **Not** paralysis | `afflist.blocks` | [reference check_smoke]; no play evidence of a refusal. Held for paralysis until 2026-10-04, which put the earworm puff behind the bloodroot (18:48:38.91, 19:02:01.68) |
+| `outr` (rift) | webbed, bound, transfixed, roped, impaled; both arms crippled. **Not** paralysis, equilibrium, balance, prone, or blindness | `afflist.blocks`, `have.vectorBlocked` | [reference canoutr]; [play] 14:26:06–14:27:20 on 2026-09-28, where holding it for paralysis deadlocked the bloodroot pull. 17:31:34.08–17:31:37.10: the first pull waited out mindseye's equilibrium because the rift list was still behind the login refresh |
+| focus | impatience, inquisition, willpower ≤ 75, mana ≤ 35% (the reference system's `manause`, `curing.focusMinMana`); paralysis | `afflist.blocks`, `have.vectorBlocked` | [reference check_focus] |
+| touch tree | paralysis, webbed, bound, transfixed, roped, impaled, either arm numb, both arms disabled | `afflist.blocks`, `have.vectorBlocked` | [reference touchtree], [play] |
+| writhe | a writhe already under way | `have.balance("writhe")` | [HELP entanglement], [reference] |
+| wake | a wake already under way; a sleep you chose | `detect.wakeUp` | [HELP sleeping], [reference] |
+| stand | no bal **or no eq**; paralysis; entangled; crippled/mangled/mutilated leg | `detect.standUp`, `act.blocked` | [reference prone], [play] for bal |
+| attack, move, get (anything `standing`) | prone; paralysis; entangled; its bal/eq | `act.blocked` | [reference balance_controller], [play] |
 | `perform hands`, `diag` (bal/eq vectors) | paralysis; bal and eq | `queue.WHILE_PARALYSED`, `needs` | [play] |
 
-| anything at all | dead; stunned; unconscious; asleep (bar WAKE) | `act.blocked` | user's rule for death; [play] stun/sleep; [svof] unconsciousness |
-| anything needing bal or eq | either arm off balance | `act.blocked`, `detect.armBalance` | [svof check_balanceful_acts] |
+| anything at all | dead; stunned; unconscious; asleep (bar WAKE) | `act.blocked` | user's rule for death; [play] stun/sleep; [reference] unconsciousness |
+| anything needing bal or eq | either arm off balance | `act.blocked`, `detect.armBalance` | [reference check_balanceful_acts] |
 
 **Death pauses Emunah completely** (the user's rule). Nothing is sent while `Char.Vitals`
 reports 0 health. The queue is emptied, and bashing and the walker stop. On revival curing
 resumes by itself. Bashing and walking stay off until restarted by hand.
 
-**Arm balance.** Lost to arm-strike attacks, one arm at a time (svof `Lost arm balance`:
+**Arm balance.** Lost to arm-strike attacks, one arm at a time (the reference system's `Lost arm balance`:
 `You ball up one fist and hammerfist` / `You launch a powerful uppercut at` / `You form a
 spear hand and stab out towards` / `You unleash a powerful hook towards`). Regained with
-`You have recovered balance on your left arm.` / `...right arm.` [svof], or `You have
+`You have recovered balance on your left arm.` / `...right arm.` [reference], or `You have
 recovered balance on all limbs.` [play]. A 10s backstop covers a missed recovery line.
 
 **Unconsciousness.** Onset: `Your legs collapse from under you and consciousness leaves you
 as you pass out from extreme hunger.` (also prone). Clears with `You regain consciousness
-with a start.`, or after 7s (svof's `customwait = 7`). Both lines are from [svof]. Other
+with a start.`, or after 7s (the reference system's `customwait = 7`). Both lines are from [reference]. Other
 onsets are per attacker and its GMCP name is unconfirmed. Add them from a transcript.
 
-**Differences from svof, kept on purpose.** svof does not hold sips or salves for
+**Differences from the reference system, kept on purpose.** The reference system does not hold sips or salves for
 paralysis. Emunah does, because play showed each refused while paralysed (`balance.md`,
 *Paralysis blocks almost everything*). Smoking is not held: nothing showed it refused, and a
 Bard on the receiving end of the delay said "nothing should be gating your puffs by your
@@ -171,7 +171,7 @@ smoke cure goes out right behind it on the same prompt: the engine resolves herb
 and sends each as it is chosen, so the eat reaches the game first. From the Bard on the other
 end of the fight (2026-10-04): "unless you're asthmatic, and then you could in a pinch eat
 kelp/puff ... And if asthmatic gate it on anorexia too ... At worst the kelp/aurum cures
-something else like weariness and the puff fails for no penalty." Not in [svof], which
+something else like weariness and the puff fails for no penalty." Not in [reference], which
 holds smoking for asthma outright.
 
 - **Gated on anorexia**: an anorexic eat is refused, so the lungs stay shut.
@@ -202,7 +202,7 @@ harmless.
 > process, so just do it once, and wait.
 
 Both are now sent once. The game announces the start and the finish, and these lines
-come verbatim from svof's trigger set **[svof]**:
+come verbatim from the reference system's trigger set **[reference]**:
 
 | Event | Line |
 |---|---|
@@ -216,7 +216,7 @@ come verbatim from svof's trigger set **[svof]**:
 | wake started | `You begin your struggle to escape from the dreamworld.` |
 | awake | `You open your eyes and yawn mightily.` / `You already are awake.` / `You are jerked awake by the pain.` |
 
-After a writhe starts, Emunah holds the vector for 6s (svof's `customwait = 6`), or until a
+After a writhe starts, Emunah holds the vector for 6s (the reference system's `customwait = 6`), or until a
 finish line or the entanglement's GMCP removal, so the *next* entanglement gets its own
 writhe as HELP says. After a wake starts, nothing is resent until the sleep ends. Before
 either start line arrives, an unanswered command is still retried once per round trip,
@@ -275,22 +275,22 @@ Each is a candidate bug unless marked fixed.
 |---|---|---|---|
 | 1 | **Fixed**: was: `engine.lua` pushes `writhe` every tick while entangled. The only confirmation is the entanglement's removal, so if that takes longer than `curing.confirmWait` (2s) the send times out and it goes out again. `afflist.lua` describes the cure as "repeated WRITHE". | WRITHE once, then wait. Repeating makes it take longer. | Entanglement lasts longer than it should, in the fights where it matters most. |
 | 2 | **Fixed**: was: `detect/init.lua` `wakeUp()` resends WAKE every `WAKE_GUARD` (1.0s) while asleep, on the reasoning that "attempt" means it can fail. | WAKE once. "Typing WAKE repeatedly will only delay this process." | Every involuntary sleep lasts longer. |
-| 3 | **Fixed**: `fear` now COMPOSEs first, focus second (svof `dict.fear.misc`). | Fear: `COMPOSE`. | |
-| 4 | **Fixed**: goldenseal restored at rank 7 (HELP and svof agree). | Stupidity: eat goldenseal / plumbum. | The 20:57 failure predates the eat-inside-herb-balance fix. |
-| 5 | `crippled<limb>` cured with restoration. | Crippled limb: **mending**. | **Not a real disagreement.** svof's internal `crippled` is the server's `broken`, and Emunah cures `broken*` with mending. By svof's `gamename` table, `mangled` is the server's `damaged` and `mutilated` is its `mangled`. |
-| 6 | **Fixed**: `disrupted` (svof's gamename) CONCENTRATEs, never while confused. | Equilibrium won't return without `CONCENTRATE`. Confusion blocks it. | |
+| 3 | **Fixed**: `fear` now COMPOSEs first, focus second (the reference system's `dict.fear.misc`). | Fear: `COMPOSE`. | |
+| 4 | **Fixed**: goldenseal restored at rank 7 (HELP and the reference system agree). | Stupidity: eat goldenseal / plumbum. | The 20:57 failure predates the eat-inside-herb-balance fix. |
+| 5 | `crippled<limb>` cured with restoration. | Crippled limb: **mending**. | **Not a real disagreement.** The reference system's internal `crippled` is the server's `broken`, and Emunah cures `broken*` with mending. By the reference system's `gamename` table, `mangled` is the server's `damaged` and `mutilated` is its `mangled`. |
+| 6 | **Fixed**: `disrupted` (the reference system's gamename) CONCENTRATEs, never while confused. | Equilibrium won't return without `CONCENTRATE`. Confusion blocks it. | |
 | 7 | `stinky` has no cure entry. | `SCRUB`, only at a water location. | Harmless: tracked, never cured. |
 
 ## Text reports and anti-illusion
 
-`EmunahTriggers.xml` (svof's lines, see `tools/build-trigger-package.py`) reports afflictions,
-cures and states as text, and text can be faked. svof's defences, as Emunah applies them
+`EmunahTriggers.xml` (the reference system's lines, see `tools/build-trigger-package.py`) reports afflictions,
+cures and states as text, and text can be faked. The reference system's defences, as Emunah applies them
 (`curing/detect/init.lua`):
 
 1. **Nothing counts until the prompt.** Reports are held until `Char.Vitals`, or the
-   package's prompt trigger (svof's `Prompt`: fires on `isPrompt()`, counts every other
+   package's prompt trigger (the reference system's `Prompt`: fires on `isPrompt()`, counts every other
    line as `paragraphLength`).
-2. **One illusion discards the block.** svof's 23 "Generic illusions" triggers are pairs
+2. **One illusion discards the block.** The reference system's 23 "Generic illusions" triggers are pairs
    of lines that can't really arrive together, for example `The curse of the Aeon wears
    off...` with `You feel incredibly tired, and fall asleep immediately.`
 3. **A cure line needs its cure in flight.** Herb, salve, focus, smoke and tree cure lines
@@ -301,36 +301,36 @@ cures and states as text, and text can be faked. svof's defences, as Emunah appl
    exception.
 
 Emunah's own lines (`curing/detect/patterns.lua`) act the moment they arrive, because most
-of them answer a command and the answer is what frees a slot. svof's per-line checks
-(`raw-svo.valid.main.lua`) cover them instead:
+of them answer a command and the answer is what frees a slot. The reference system's per-line checks
+(its valid.main file) cover them instead:
 
-5. **A reply needs a question** [svof]. A refusal is believed only within 3s of a command
+5. **A reply needs a question** [reference]. A refusal is believed only within 3s of a command
    of ours (`detect.REPLY_WINDOW`), and of the right verb where the line names one: the
    anorexia refusal needs an `EAT`, asthma's a `SMOKE`, slickness's an `APPLY`; the WAKE
    struggle and `You already are awake.` need a `WAKE`, the writhe-start lines a `WRITHE`,
    `You are not fallen or kneeling.` a `STAND`, the self-sleep onset a `SLEEP`. Paralysis,
-   prone, asleep and balance refusals need any command. svof: "We aren't eating goldenseal
+   prone, asleep and balance refusals need any command. The reference system: "We aren't eating goldenseal
    at the moment." Commands are seen through Mudlet's `sysDataSendRequest`
    (`core/outgoing.lua`), typed or sent.
-6. **Not so soon** [svof: `conf.ai_minherbbal`, 1.1s]. `You may eat another plant or
+6. **Not so soon** [reference: `conf.ai_minherbbal`, 1.1s]. `You may eat another plant or
    mineral.` less than 1.1s after a herb `EAT` (not irid or potash, which have their own
-   balance) is ignored. svof: "Couldnt've possibly recovered herb balance so soon."
+   balance) is ignored. The reference system: "Couldnt've possibly recovered herb balance so soon."
 7. **The quit prayer needs a QUIT** *(the user, 2026-10-04: the prayer only ever follows
    QUIT)*. Otherwise a faked line would empty the pack into the rift and stop restocking.
 
-Anything ignored is marked on its own line with an `(i)` whose tooltip says why, as svof's
+Anything ignored is marked on its own line with an `(i)` whose tooltip says why, as the reference system's
 `ignore_illusion()` does. `curing.antiIllusion false` turns 1, 2, 5 and 6 off.
 
 The prompt trigger is also the heartbeat's backup. A prompt with no `Char.Vitals` since the
 last one runs the tick itself (`gmcp.vitals.onPrompt`).
 
-**[open]** The server's name for unconsciousness. svof's `gamename` table doesn't list it,
+**[open]** The server's name for unconsciousness. The reference system's `gamename` table doesn't list it,
 but it doesn't list `sleeping` either, so its absence proves nothing. Unconsciousness is
 tracked from text only until a `Char.Afflictions` capture shows the name.
 
-## Per-cure conditions (svof `isadvisable`)
+## Per-cure conditions (the reference system's `isadvisable`)
 
-Beyond whole-vector blockers, svof holds individual cures when they'd be wasted, undone or
+Beyond whole-vector blockers, the reference system holds individual cures when they'd be wasted, undone or
 done out of order. Emunah keeps these in `afflist.CONDITIONS`, checked by `have.cure()`:
 
 - **Whispering madness** blocks the herb and focus cures of confusion, dementia,
@@ -350,18 +350,18 @@ done out of order. Emunah keeps these in `afflist.CONDITIONS`, checked by `have.
   - mild trauma blocks heartseed and hypothermia;
   - frozen and hypothermia come before shivering;
   - blind comes before scalded.
-- **Fear** is COMPOSE only. svof has its focus cure switched off.
+- **Fear** is COMPOSE only. The reference system has its focus cure switched off.
 
 ## Situational rules (`curing/situations.lua`)
 
-svof's ranks are fixed, and the fight that showed what that costs was an arena loss to a
+The reference system's ranks are fixed, and the fight that showed what that costs was an arena loss to a
 Priest (2026-10-05, 07:33:12–07:33:38). Weariness, re-applied every round, took 6 of 13 herb
 eats. Guilt and spiritburn were never eaten, so inquisition held focus and the hellsight
 cure shut until the end. Situational rules re-rank or hold a cure **while a situation
 holds**. They are evaluated once per tick, ahead of the engine's per-vector resolve. A rule
 re-ranks only a vector that already cures the affliction, and its rank beats a user
 `priorities` override for as long as it applies. These are rulings on transcripts and on players who cast the afflictions,
-not svof's: svof has no equivalent for any of them.
+not the reference system's: the reference system has no equivalent for any of them.
 
 | Rule | While | Effect | Evidence |
 |---|---|---|---|
@@ -372,7 +372,7 @@ not svof's: svof has no equivalent for any of them.
 | `weariness-reapplied` | weariness back within 6s of its cure | weariness → herb 69 (last) until 15s pass without it returning | [play] sin of sloth re-applied it 0.4–4s after each cure (14.18→15.78, 17.78→19.64, 21.44→25.50, 27.00→27.42, 28.80→29.33) |
 | `justice-not-attacking` | neither PvP nor bashing running | justice held outright | [gmcp] 07:33:15.78: "any damaging attack by you against the afflictor … partially returned to you" |
 
-Inquisition stays in `afflist.wearsOff`: no item cures it directly. svof's wear-off line
+Inquisition stays in `afflist.wearsOff`: no item cures it directly. The reference system's wear-off line
 ("Clarity returns to your mind as the echoing accusations fade from memory.") printed at
 the defeat, the moment guilt and spiritburn were cleared with everything else, which is
 consistent with both sources above.
@@ -380,19 +380,19 @@ consistent with both sources above.
 A new rule follows the same rules as any other game mechanic here: evidence first, cited in
 this table.
 
-## Locks (svof `cnrl.lockdata`)
+## Locks (the reference system's `cnrl.lockdata`)
 
-A lock is a set of afflictions that shuts every way of curing them. svof names them on the
+A lock is a set of afflictions that shuts every way of curing them. The reference system names them on the
 prompt; Emunah does the same (`watch.locks()`, `(lock: soft)` on the prompt), and PvP
 holds its attack while one is up so the cures that break it get balance and equilibrium
 (the user, 2026-10-15: "use the reference system to check if we're safe to continue").
-[svof] `raw-svo.controllers.lua`, `cnrl.lockdata`:
+[reference] its controllers file, `cnrl.lockdata`:
 
 | Lock | Afflictions |
 |---|---|
 | soft | slickness, anorexia, asthma |
 | venom | soft + paralysis |
-| hard | soft + (impatience, or mana/willpower too low to focus: svof `can_usemana`) |
+| hard | soft + (impatience, or mana/willpower too low to focus: the reference system's `can_usemana`) |
 | true | soft + paralysis, impatience, disrupt, confusion |
 | slow | asthma, slickness, both arms broken, a concussion, aeon |
 | stain | stain, slickness, both arms broken, no valerian puffs |
@@ -400,13 +400,13 @@ holds its attack while one is up so the cures that break it get balance and equi
 | rift 2 | soft + (paralysis, or disrupt without equilibrium), both arms broken |
 | dragon | not ported: needs dragonform |
 
-Emunah's names differ in two places: svof's `disrupt` is `disrupted`, and its arm states
+Emunah's names differ in two places: the reference system's `disrupt` is `disrupted`, and its arm states
 are `afflist.armAfflictions`. The rift lock waits for the rift to have been listed, since an
 unlisted rift reads as empty.
 
-## Server names (svof `gamename`)
+## Server names (the reference system's `gamename`)
 
-svof records what the server calls each affliction where its own name differs. Emunah
+The reference system records what the server calls each affliction where its own name differs. Emunah
 accepts both (`afflist.ALIASES`): `lovers`, `weariness`, `pacified`, `airpocket`, `burning`,
 `whisperingmadness`, `transfixation`, and the affliction `blind`/`deaf`. Note that
 `blindness`/`deafness` are the **defences** from bayberry and hawthorn. `weariness` is also

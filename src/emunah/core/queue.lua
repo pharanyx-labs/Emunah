@@ -218,7 +218,7 @@ end
 -- can_eat_for`. Those real blockers are in afflist.blocks and have.vectorBlocked().
 --
 -- `smoke` too. Nothing ever showed a smoke refused while paralysed: it was held by analogy
--- with the sip. [svof] check_smoke refuses only on stun, unconsciousness, sleep, asthma and
+-- with the sip. [reference] check_smoke refuses only on stun, unconsciousness, sleep, asthma and
 -- mucous. Holding it put every puff behind the bloodroot -- `smoke elm` for earworm went out
 -- with the drink the instant paralysis cleared (18:48:38.91 and 19:02:01.68 on 2026-10-04),
 -- and the Bard on the other end said so: "nothing should be gating your puffs by your eats,
@@ -345,7 +345,7 @@ end
 --- SAME affliction in one tick -- `apply epidermal to body` and `focus` both went out for one
 --- anorexia, spending a focus balance on something the salve was already curing. The guard
 --- that stops that (engine's CURE_GUARD) is armed on send, so the send has to come before
---- the next vector is resolved. svof gets the same effect from `doingaction`.
+--- the next vector is resolved. The reference system gets the same effect from `doingaction`.
 --- @return number actions sent (0 or 1)
 ---
 --- Cheapest test first. The engine calls this for every cure vector on every tick, and in a

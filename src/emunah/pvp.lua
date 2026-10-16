@@ -403,7 +403,7 @@ table.insert(registry(), tempRegexTrigger(
 -- 477 of it, and the next broke the barrier and was turned back as well, 477 again --
 --   The reflective barrier surrounding Sobriquet reflects part of your attack back at you.
 --   As your attack falls, Sobriquet's reflective barrier shatters and reflects the attack.
--- The barrier is svof's `tin` defence ("You are protected by a reflective barrier."). Kept
+-- The barrier is the reference system's `tin` defence ("You are protected by a reflective barrier."). Kept
 -- for whoever we hit, target or not: an ally's target is often not ours yet.
 table.insert(registry(), tempRegexTrigger(
    [[^The reflective barrier surrounding (\w+) reflects part of your attack back at you\.$]],

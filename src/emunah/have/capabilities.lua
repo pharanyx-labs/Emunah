@@ -229,7 +229,7 @@ end
 --- (herb 3.5s: curelist.lua has the bloodroot it cost at 1.8). Shown as a countdown it read
 --- as a prediction, and a wrong one: at 07:33:35.10 on 2026-10-05 every herb row of the
 --- affliction panel said "herb 2.4s", and "You may eat another plant or mineral." came at
---- 35.94, 0.8s later. svof's own note on the herb balance: "normally at 1.6". This is the
+--- 35.94, 0.8s later. The reference system's own note on the herb balance: "normally at 1.6". This is the
 --- send-to-announcement time the game has been giving, smoothed, so the panel can say when
 --- the balance is expected rather than when the net would give up on it.
 M.spentAt, M.measured = {}, {}
@@ -353,7 +353,7 @@ end
 --- kelp/aurum cures something else like weariness and the puff fails for no penalty." Kelp
 --- cures one of several afflictions, so that "at worst" is real: the asthma refusal in
 --- detect/patterns.lua hands the smoke balance back and marks that eat `noPuff`, so one eat
---- buys one puff. Not in [svof], which holds smoking for asthma outright.
+--- buys one puff. Not in [reference], which holds smoking for asthma outright.
 ---
 --- Not while anorexic (the eat is refused, so the lungs stay shut), and only for asthma:
 --- mucous is not something kelp cures.

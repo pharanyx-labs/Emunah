@@ -585,7 +585,7 @@ local function checkSight()
       log.info("Sight restored -- resyncing inventory against whatever Char.Items missed.")
       resync("inv")
       -- THE LIST MAY ALREADY BE IN. Char.Items.Inv answers while blind; what goes silent
-      -- is the incremental stream. inventoryKnown() flips true on this edge, and svof's
+      -- is the incremental stream. inventoryKnown() flips true on this edge, and the reference system's
       -- canoutr does not wait on equilibrium, balance, or the next prompt. Waiting for the
       -- next Char.Vitals left the first outr idle until mindseye's 3.00s came back
       -- (17:31:34.08 sight restored, 17:31:37.10 `outr 1 ash` on the same prompt as

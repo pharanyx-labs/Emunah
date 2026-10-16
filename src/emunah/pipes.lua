@@ -447,7 +447,7 @@ local function lit(pipe)
    emunah.timers.stop("pipes.pipe." .. pipe.id)
 end
 
---- LIGHT PIPES answered: every loaded pipe is burning. [svof] `lightpipes` marks all three
+--- LIGHT PIPES answered: every loaded pipe is burning. [reference] `lightpipes` marks all three
 --- lit on its completion the same way, from either answer (`litallpipes`).
 local function litAll()
    for _, pipe in ipairs(M.list()) do
@@ -465,7 +465,7 @@ end
 --- EVERY COLD PIPE IS LIT WITH ONE `LIGHT PIPES`. One `light pipeNNN` each meant two relights
 --- two seconds apart (19:02:27.05 skullcap, 19:02:28.92 valerian, 2026-10-04), and the Bard
 --- watching asked "Why not at the same time?" -- the user: "we can simply 'light pipes' it
---- seems to light them all". [svof] `lightpipes` is the same: whenever any loaded pipe is out.
+--- seems to light them all". [reference] `lightpipes` is the same: whenever any loaded pipe is out.
 --- A fill still goes first, one pipe at a time, and the pass after it lights.
 function M.keep()
    if not enabled() then return false end
@@ -660,7 +660,7 @@ do
    --
    -- After LIGHT PIPES every answer is about all of them, including "You have no pipes that
    -- require lighting." (from the game, 2026-10-04): nothing was cold, so everything is lit.
-   -- [svof] reads that line and `^You light (.+)\.$` alike, as all pipes lit (`litallpipes`).
+   -- [reference] reads that line and `^You light (.+)\.$` alike, as all pipes lit (`litallpipes`).
    -- The general `You light ...` is only believed straight after LIGHT PIPES.
    for _, pattern in ipairs({
       [[^You carefully light your treasured pipe until it is smoking nicely\.$]],

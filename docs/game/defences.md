@@ -122,7 +122,7 @@ for as long as keep-up kept restoring it.
 
 `deflist.DELIBERATE` maps each affliction name onto the defence that means it was wanted.
 Char.Defences and Char.Afflictions say `blindness` / `deafness`. The darkness trigger and
-svof's gamename say `blind` / `deaf` (`textGain("blind")`, [svof] `blindaff` → `"blind"`).
+the reference system's gamename say `blind` / `deaf` (`textGain("blind")`, [reference] `blindaff` → `"blind"`).
 Both names are skipped while that defence is in `Char.Defences` or keep-up intends it, so
 epidermal is never applied for either. Watched at 17:31:33.81, with only the GMCP name
 mapped: `Cannot cure blind: epidermal would also cure blind/deaf, which are held on purpose.`
@@ -143,7 +143,7 @@ after the user typed `touch mindseye` by hand (`Sight restored -- resyncing inve
 `touch mindseye` ahead of other equilibrium keep-up. Sight returning calls `restockNow()`
 on lists already in hand; `outr` does not wait for the equilibrium that mindseye just
 spent (17:31:34.08 sight restored and `Equilibrium used: 3.00s.`, first `outr` previously
-held until 17:31:37.10). [svof canoutr] does not consult equilibrium.
+held until 17:31:37.10). [reference canoutr] does not consult equilibrium.
 
 Herb defences (`deathsight`, `thirdeye`) are eaten only when that herb is
 already in the pack. They are not announced as waiting on restock: at 12:49:20 that
@@ -154,13 +154,13 @@ announcement fired while restock could not run, because sight was still down.
 Raised with `INSOMNIA`, not cohosh (the user, 2026-10-04: "we can send the commands
 insomnia and relax insomnia"). Cohosh is off the restock list.
 
-- **`INSOMNIA`** **[svof dict.insomnia.misc]**: a misc action, which `check_misc` refuses
+- **`INSOMNIA`** **[reference dict.insomnia.misc]**: a misc action, which `check_misc` refuses
   only while stunned, unconscious or asleep. Emunah sends it on the free vector with
-  ordinary blocks. svof also holds it below `manause` (Emunah uses `curing.focusMinMana`,
+  ordinary blocks. The reference system also holds it below `manause` (Emunah uses `curing.focusMinMana`,
   the same floor as FOCUS) and while hypersomnic (`Your hypersomnia prevents your
-  insomnia.`). Lines **[svof]**: `You clench your fists, grit your teeth, and banish all
+  insomnia.`). Lines **[reference]**: `You clench your fists, grit your teeth, and banish all
   possibility of sleep.` / `You are already an insomniac.`
-- **`RELAX INSOMNIA`** answers **[svof "svo relaxed insomnia"]**: `You relax your mind and
+- **`RELAX INSOMNIA`** answers **[reference: its relaxed-insomnia trigger]**: `You relax your mind and
   feel as if you could sleep.` / `You are not an insomniac.` **Free** (play, 2026-10-04
   10:33:32.62: the first line, with `Char.Afflictions.Remove` and `Char.Defences.Remove`,
   no balance line, prompt `exckdb` either side).
@@ -188,7 +188,7 @@ mace is:
 | In inventory, unwielded | `wield mace` | No cost line; needs balance and equilibrium |
 
 `You have a mace in the land, which you should call for.` (12:49:20.11) is the summon
-refusal for the middle row. [svof] names that line `Mace somewhere`. While blind without
+refusal for the middle row. [reference] names that line `Mace somewhere`. While blind without
 mindseye, `Char.Items.Add` does not fire, so a summon that **did** work (`White strands of
 light weave themselves together before your eyes, and within seconds you hold a spiritual
 mace within your grasp.`) never marked the mace as seen, and keep-up summoned again until
@@ -200,8 +200,8 @@ mace in your left hand.` (12:49:24.41).
 rapidly in fervent prayer.` at 11:36:47.39, the mace at 11:36:49.87. Keep-up's 2s confirm
 wait runs from the send, so it lapsed first and a second `summon mace` went out at
 11:36:49.22, answered `You are already summoning your mace.` Both lines now hold the summon
-for svof's `waitingformace` wait (3s, `deflist.MACE_SUMMON_WAIT`), and
-`Your action foils your attempt at summoning your spiritual mace.` [svof] releases it.
+for the reference system's `waitingformace` wait (3s, `deflist.MACE_SUMMON_WAIT`), and
+`Your action foils your attempt at summoning your spiritual mace.` [reference] releases it.
 
 What a summon costs: `AB SPIRITUALITY MACE` gives `Cooldown: 2.90 seconds of balance`, and the
 user adds that it costs balance only when it actually summons one. With a mace held or in the
@@ -215,8 +215,8 @@ and a vault took balance at 11:36:50.52.
 balance up, and raised at 11:36:51.40 (`You squint your eyes, more alert to potential
 danger.`) with balance down from a vault. It cost nothing: the prompt kept its `e`. The other
 free imported defences (watches, resistances, `telesense`, `softfocus`, `bell`) have not been
-seen. They need balance and equilibrium both, because svof sends its balanceless defences
-only with both ([svof] `check_balanceless_acts`). `insomnia` is the exception, on evidence:
+seen. They need balance and equilibrium both, because the reference system sends its balanceless defences
+only with both ([reference] `check_balanceless_acts`). `insomnia` is the exception, on evidence:
 it went through at 11:36:47.39 after mindseye had spent equilibrium.
 
 ## The shield, and `WIELDED`
@@ -398,10 +398,10 @@ still reachable through the ordinary toggle but is a poor fit — nothing gates 
 before this fix, just bounded rather than silent. `satiation` has not been given the same
 treatment and stays out.
 
-**Bliss is now tracked from its own lines, like svof (2026-09-28).** Its up state used to
+**Bliss is now tracked from its own lines, like the reference system (2026-09-28).** Its up state used to
 be "satisfied on send", held only in memory, so every `emreload` forgot it and sent
-`perform bliss` again. svof marks bliss `invisibledef` and reads it from these lines
-**[svof]**, which Emunah now does too (`deflist.SYNTHETIC.bliss`). The state is kept across
+`perform bliss` again. The reference system marks bliss `invisibledef` and reads it from these lines
+**[reference]**, which Emunah now does too (`deflist.SYNTHETIC.bliss`). The state is kept across
 reloads and cleared on death or disconnect.
 
 ```
@@ -433,7 +433,7 @@ The heavenly visions fade as the bliss leaves you.
 
 ### `DEFENCES` output, and the check after a reload
 
-The listing is bracketed by these two lines **[svof]**:
+The listing is bracketed by these two lines **[reference]**:
 
 ```
 You have the following defences:
@@ -447,14 +447,14 @@ barrier, flexible armour, the three Spiritshields. Matched on the prefix alone, 
 protected by the power of an Earth Spiritshield." ended the user's listing early (2026-10-15
 14:42:39). Inspiration and riding, listed after it, read as gone: inspiration was raised
 three times while up, and riding vaulted onto the horse being ridden. A listing that the
-prompt reaches unfinished is dropped, not applied; svof applies its listing at the prompt
+prompt reaches unfinished is dropped, not applied; the reference system applies its listing at the prompt
 for the same reason.
 
 No line names its defence. `deflist.DEF_LINES` maps each one to the server's name: 199 lines,
-generated from svof's `defs_data`, with invisible defences left out. After `emreload`,
+generated from the reference system's `defs_data`, with invisible defences left out. After `emreload`,
 keep-up sends `DEFENCES` and raises nothing until the listing has been read, or for 10s at
 most. A reload rebuilds the defence list from the last full `Char.Defences.List`, which
-misses every change since. The listing is applied the way svof's `process_defs` does:
+misses every change since. The listing is applied the way the reference system's `process_defs` does:
 - a known line that's missing means that defence is down;
 - a listed line means it's up;
 - a defence whose line isn't known is left as it was.
@@ -546,13 +546,13 @@ keep-up exists for, so it is in `defkeepup.M.commands` and needs only
 
 ## Selfishness (antitheft)
 
-`SELFISHNESS` raises it and `GENEROSITY` drops it [svof: `defs_data.selfishness`]. Lines:
+`SELFISHNESS` raises it and `GENEROSITY` drops it [reference: `defs_data.selfishness`]. Lines:
 
 | | |
 |---|---|
-| raised | `You rub your hands together greedily.` [svof] |
-| already up | `You already are a selfish bastard.` *(the user, 2026-10-04; also svof)* |
-| dropped | `A feeling of generosity spreads throughout you.` [svof] |
+| raised | `You rub your hands together greedily.` [reference] |
+| already up | `You already are a selfish bastard.` *(the user, 2026-10-04; also the reference system)* |
+| dropped | `A feeling of generosity spreads throughout you.` [reference] |
 | DEF | `You are feeling quite selfish.` |
 
 HELP THIEVERY: "Turn on your curing and setup selfishness as a defence." It is the one
@@ -576,12 +576,12 @@ so both are required, per HELP's default for bal/eq abilities. It competes with
 `perform hands` for equilibrium, but only for half a second.
 
 **`GET` and `PUT` of gold with your own pack work while selfish** *(the user, 2026-10-04)*.
-svof refuses `EMPTY` (pipes) and `BOIL` while selfish, and Emunah sends neither.
+The reference system refuses `EMPTY` (pipes) and `BOIL` while selfish, and Emunah sends neither.
 
 ## Sileris and myrrh: named after what they do
 
-The game names these defences after their effect, not the item [svof: `gamename` in
-`raw-svo.dict.lua`]:
+The game names these defences after their effect, not the item [reference: `gamename` in
+its dictionary file]:
 
 | item | `Char.Defences` name | DEF line |
 |---|---|---|
@@ -593,7 +593,7 @@ the same bug as venom/poisonresist, and the same fix: `afflist.defenceCures` is 
 the server's name, `deflist.ALIASES` maps the item names onto it, and config migration 11
 moves a saved mode across. The `emset defs` grid still shows them as `sileris` and `myrrh`.
 
-Sileris hardens a few seconds after it's applied [svof: `waitingforsileris`,
+Sileris hardens a few seconds after it's applied [reference: `waitingforsileris`,
 `customwait = 8`]:
 
 ```
@@ -602,12 +602,12 @@ The sileris berry juice hardens into a supple purple shell.    <- up (seen in pl
 ```
 
 and for quicksilver, `You apply a quicksilver droplet to yourself.` /
-`The quicksilver hardens into a supple metallic shell.` [svof]. svof waits 8s; on
+`The quicksilver hardens into a supple metallic shell.` [reference]. The reference system waits 8s; on
 2026-10-15 the shell took **10.05s** (applied 18:26:21.16, hardened 18:26:31.21). At 8s
 Emunah threw the hardening away as an illusion and the defence stayed red. Keep-up now
 won't apply again for 12s after the apply line, and the hardening line only counts after an
 `APPLY` of ours within that window (anti-illusion). A believed hardening marks `fangbarrier`
-up on its own, as svof's `defences.got("sileris")` does, without waiting for
+up on its own, as the reference system's `defences.got("sileris")` does, without waiting for
 `Char.Defences`.
 
 **Sileris comes out of the rift with OUTR, like a herb**, not FILL like a salve:

@@ -236,7 +236,7 @@ event.gmcp("Char.Name", function()
    -- OUTR DOES NOT WAIT ON THE SKILL INDEX. The two-second pause below is there because
    -- skill-group requests issued into login spam are frequently dropped. Inventory and
    -- the rift are not skill groups, and prerift cannot start until both lists have been
-   -- seen. svof's canoutr is false only while webbed, bound, transfixed, roped, impaled,
+   -- seen. The reference system's canoutr is false only while webbed, bound, transfixed, roped, impaled,
    -- or both arms are crippled -- never for equilibrium. Asking now, and asking again
    -- inside the delayed refresh, means a dropped early reply is retried and a delivered
    -- one lets the pull chain start the moment sight is back (17:31:34.08) instead of

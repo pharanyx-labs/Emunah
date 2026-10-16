@@ -18,7 +18,7 @@ because a gap prompts a question and a guess ships a bug.
 | `incapacitation.md` | Stun, prone, sleep — what blocks a command and what clears it |
 | `priest-abilities.md` | Priest attacks, Devotion, Zeal verses, limb breaks, absolve |
 | `pvp-locks.md` | Locks: Anzerloi's lesson on afflicting a target, and an opponent's cures and defences seen from outside |
-| `alchemist.md` | An Alchemist's lines against svof, a Bard ally's moves, from Anzerloi's arena log |
+| `alchemist.md` | An Alchemist's lines against the reference system, a Bard ally's moves, from Anzerloi's arena log |
 | `defences.md` | Tattoos, FOCUS, TOUCH TREE, DIAG, and defence-naming mismatches |
 | `sustenance.md` | Rift, containers, shops, pipes |
 | `prompt.md` | `CONFIG PROMPT CUSTOM` tokens |
