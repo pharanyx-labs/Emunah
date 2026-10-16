@@ -5954,11 +5954,21 @@ do
       "after a reload, nothing is sent for the mace before the inventory is listed",
       table.concat(mock.sent, " | "))
    eq(deflist.held("trackmace"), "the inventory is not listed yet", "...and keep-up says why")
+   local announced = {}
+   emunah.event.register("emunah.defence.added", function(_, name)
+      announced[#announced + 1] = name
+   end, "test.maceup")
    mock.feed("Char.Items.List", { location = "inv", items = {
       { id = "616546", name = "a spiritual mace", attrib = "wl" } } })
    tick()
    ok(not table.concat(mock.sent, " | "):find("mace", 1, true),
       "...and once it is, a wielded mace is up", table.concat(mock.sent, " | "))
+   -- Said at once, as a real defence's arrival is, so the panel stops showing it owed
+   -- ("it did fix itself after a minute or so", the user, 2026-10-16).
+   ok(table.concat(announced, ","):find("trackmace", 1, true),
+      "...and its arriving with the inventory is announced as a defence going up",
+      table.concat(announced, ","))
+   emunah.event.kill("test.maceup")
 
    -- "You are already wielding that." answers a WIELD MACE as the wield itself does.
    emunah._persist.macePlace = nil
