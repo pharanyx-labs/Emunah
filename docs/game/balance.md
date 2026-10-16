@@ -164,6 +164,28 @@ vector, `have.pipe()` — confirms it is actually in hand.
 Achaea throttles fast command streams with `Now now, don't be so hasty!`. Steps roughly one
 round trip apart (~300ms) triggered it. Anything driving movement itself must pace it.
 
+**What draws it while walking** (one walk through Targossas, 2026-10-16, every step sent
+after the arrival's prompt and at least 0.5s after the one before):
+
+| "hasty" on | Just before it |
+|---|---|
+| `ne`, 09:06:58.69 | `gallop ne 3`, `e`, `se`, `gallop e 2`: 7 rooms in 2s |
+| `down`, 09:07:11.79 | `gallop s 2`, `se`, `sw`, `w`, `s`: 6 rooms in 2s |
+| `gallop sw 2`, 09:07:22.34 | `gallop w 2`, `gallop nw 2`, back to back |
+
+Each follows a burst of rooms, gallops in most. Steady 0.5s steps on foot drew none. The
+rule behind it is not known; three samples do not fit a simple rooms-per-window count
+(`e` at 09:06:57.20 came after 7 rooms in 2s too, and was not refused).
+
+What it costs is the hold after it. At 1.5s, each cost the walk about two seconds. mmp tries
+again 0.5s plus latency after the line (`mmp.setmovetimer(0.5)` in its "Too quick" trigger),
+and that is now the hold (`core/act.lua`). The refused command is the one sent last, so a
+refused gallop is sent again as a gallop, not walked (`mapper/moves.lua`).
+
+The router also waits for the prompt after an arrival before stepping, as mmp does
+(`tempPromptTrigger(mmp.move, 1)`). It made no difference to the walk above, where the step
+gap already put every step after the prompt.
+
 ## Eating inside the herb balance
 
 `The plant has no effect.` is what Achaea says when a herb is eaten **while still off herb
