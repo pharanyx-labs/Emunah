@@ -378,16 +378,16 @@ M.settings = {
 { key = "queue.typedHold", default = 0.5, type = "number", unit = "s", topic = "system",
   shipped = false, detail = "After you type a command, Emunah's balance and equilibrium "
      .. "sends wait this long, plus your latency, so yours goes first. 0 turns it off." },
-{ key = "queue.separator", default = ";;", type = "string", topic = "system", shipped = true,
-  detail = "Mudlet's command separator (Preferences, Input line). The commands of one prompt "
-     .. "leave joined with it, and a herb only in the rift is pulled and eaten in one go. "
-     .. "Empty sends each command on its own." },
+{ key = "queue.chain", default = true, type = "boolean", topic = "system", shipped = true,
+  detail = "Send commands together: a herb only in the rift is pulled and eaten in one go, "
+     .. "every restock trip goes at once, and once the game has named its CONFIG SEPARATOR "
+     .. "the commands of one prompt leave as one line. Off, each command goes on its own." },
 { key = "logLevel", default = "info", type = "string", topic = "system", shipped = true,
   detail = "debug, info, warn or error. `emset debug` toggles between info and debug." },
 { key = "system.update", default = true, type = "boolean", topic = "system", shipped = true,
   detail = "Pull main (fast-forward only) before every reload. Off, a reload loads what is "
      .. "on disk." },
-{ key = "schema", default = 11, type = "number", topic = "system", shipped = true,
+{ key = "schema", default = 12, type = "number", topic = "system", shipped = true,
   detail = "Config format version. Managed by the migrations; do not set this by hand." },
 
 -- interface

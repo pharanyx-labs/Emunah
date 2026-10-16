@@ -248,19 +248,32 @@ function M.can(needs)
 end
 
 -- ---------------------------------------------------------------------------
--- ONE SEND PER PROMPT
+-- ONE LINE PER PROMPT
 -- ---------------------------------------------------------------------------
 --
 -- What a prompt decides goes out together. The reference system collects every command of a
--- prompt and sends them at the end of it as one line joined by the command separator, ten
--- to a line. Here the batch is open from the
--- balance changes of a Char.Vitals to the end of its tick (gmcp/vitals.lua), so the cures,
--- keep-up, the attack and the walk of one prompt leave in one send(), in the order they
--- were decided.
+-- prompt and sends them at the end of it as one line, joined by the IN-GAME command
+-- separator (its `commandseparator`: "Will use | as the in-game command separator."), ten
+-- to a line and never over 2048 characters. Here the batch is open from the balance changes
+-- of a Char.Vitals to the end of its tick (gmcp/vitals.lua), and around every timer that
+-- ticks (core/timers.lua) and every confirmation that lapses (core/queue.lua), so the
+-- cures, keep-up, the attack and the walk of one moment leave in one send(), in the order
+-- they were decided.
 --
--- Mudlet splits it again: "Send honours command separator defined within Mudlet settings."
--- (Mudlet's own documentation of send(), CoreMudlet.lua). So the game still receives each
--- command on its own, and sysDataSendRequest still fires for each.
+-- THE GAME'S SEPARATOR, NOT MUDLET'S. This used to join with Mudlet's `;;`, and Mudlet
+-- splits that again before anything leaves ("Send honours command separator defined within
+-- Mudlet settings.", its documentation of send()), so the game still received one line per
+-- command and the join saved nothing but send() calls. CONFIG SEPARATOR (the user,
+-- 2026-10-16: "Your command separator is now: |") makes the GAME split: one line goes out
+-- and the server runs every command in it. core/separator.lua learns it from the game,
+-- each session, and until the game has said what it is, every command goes on a line of its
+-- own -- a guessed separator the game does not have would turn "eat kelp|apply mending"
+-- into one command it cannot run.
+--
+-- M.JOIN is how Emunah writes two commands as one when it composes them (`outr kelp;;eat
+-- kelp`, a batch of restock trips). It never reaches the game: M.send() splits at it, and
+-- each part goes out as a command of its own, joined again with the game's separator or not
+-- at all. So nothing depends on what Mudlet's own separator happens to be set to.
 --
 -- NOTHING ABOUT BALANCE CHANGES. Every command in a batch passed M.blocked() when it was
 -- added, and whatever it spends was marked spent then -- the queue's in-flight slot, the
@@ -268,18 +281,29 @@ end
 -- exactly as it was when each went out on its own. A batch never holds two commands on one
 -- balance; the separator only removes the gaps between commands that could all go anyway.
 
---- Mudlet's command separator, as `queue.separator` (default `;;`, Mudlet's own default).
---- Empty sends every command on its own, and nothing is chained.
-M.SEPARATOR = ";;"
+--- How Emunah writes several commands as one. Split again before anything is sent.
+M.JOIN = ";;"
 
+--- The joiner for composing chained commands, or "" when chaining is off (`queue.chain`).
+--- Callers test it against "" to decide whether two commands may go as one.
 function M.separator()
-   local sep = emunah.config.get("queue.separator", M.SEPARATOR)
-   if type(sep) ~= "string" then return M.SEPARATOR end
-   return sep
+   if emunah.config.get("queue.chain", true) == false then return "" end
+   return M.JOIN
 end
 
---- The most commands joined into one send: ten, as the reference system joins them.
+--- The game's own command separator, when it has confirmed one this session and chaining
+--- is on; nil otherwise, and then every command goes on a line of its own.
+function M.gameSeparator()
+   if emunah.config.get("queue.chain", true) == false then return nil end
+   local separator = emunah.separator
+   return separator and separator.get() or nil
+end
+
+--- The most commands joined into one line: ten, as the reference system joins them.
 M.BATCH_MAX = 10
+
+--- The longest line joined: the reference system's `achaea_command_max_length` is 2048.
+M.LINE_MAX = 2000
 
 local batch, depth = nil, 0
 
@@ -291,24 +315,43 @@ local function transmit(text, echo)
    M.sending = false
 end
 
---- Send what a batch collected: joined, ten at a time, never mixing an echoed command with
---- a quiet one (`quiet` housekeeping stays off the screen), and in the order it was decided.
+--- Send what a batch collected: joined with the game's separator, ten at a time, never
+--- mixing an echoed command with a quiet one (`quiet` housekeeping stays off the screen),
+--- and in the order it was decided. With no separator, one line per command.
 local function flush(pending)
-   local sep = M.separator()
-   if sep == "" then
+   local sep = M.gameSeparator()
+   if not sep then
       for _, entry in ipairs(pending) do transmit(entry.command, entry.echo) end
       return
    end
-   local chunk, echo = {}, nil
+   local chunk, echo, length = {}, nil, 0
    for _, entry in ipairs(pending) do
-      if #chunk > 0 and (entry.echo ~= echo or #chunk >= M.BATCH_MAX) then
+      if #chunk > 0 and (entry.echo ~= echo or #chunk >= M.BATCH_MAX
+                         or length + #sep + #entry.command > M.LINE_MAX) then
          transmit(table.concat(chunk, sep), echo)
-         chunk = {}
+         chunk, length = {}, 0
       end
       echo = entry.echo
+      length = length + (#chunk > 0 and #sep or 0) + #entry.command
       chunk[#chunk + 1] = entry.command
    end
    if #chunk > 0 then transmit(table.concat(chunk, sep), echo) end
+end
+
+--- Add a command to `list`, one entry per command written into it with M.JOIN.
+local function collect(list, command, echo)
+   if not command:find(M.JOIN, 1, true) then
+      list[#list + 1] = { command = command, echo = echo }
+      return
+   end
+   local from = 1
+   while true do
+      local at = command:find(M.JOIN, from, true)
+      local part = command:sub(from, at and at - 1 or nil):match("^%s*(.-)%s*$")
+      if part ~= "" then list[#list + 1] = { command = part, echo = echo } end
+      if not at then return end
+      from = at + #M.JOIN
+   end
 end
 
 --- Open a batch: until the matching M.endBatch(), M.send() collects instead of sending.
@@ -368,7 +411,11 @@ function M.send(command, needs)
    -- (pipes.lua), where a lone echoed "light pipe367581" is the noise left behind.
    local echo = not (needs and needs.quiet)
    if batch then
-      batch[#batch + 1] = { command = command, echo = echo }
+      collect(batch, command, echo)
+   elseif command:find(M.JOIN, 1, true) then
+      local parts = {}
+      collect(parts, command, echo)
+      flush(parts)
    else
       transmit(command, echo)
    end

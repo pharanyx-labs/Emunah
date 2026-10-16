@@ -128,8 +128,9 @@ emunah.act.send("perform penitence " .. target, { standing = true, eq = true })<
   <tbody>
     <tr><td><code>act.send(command, needs)</code></td><td>Sends if it can, and returns whether it did. Under <code>emset debug</code> a held command is logged with its reason.</td></tr>
     <tr><td><code>act.can(needs)</code></td><td>Whether it could go now, without sending.</td></tr>
-    <tr><td><code>act.batched(fn)</code></td><td>Run <code>fn</code> with its sends collected, and send them as one line joined by the separator when it returns. Every prompt's tick already runs inside one.</td></tr>
-    <tr><td><code>act.separator()</code></td><td>The command separator in use, <code>queue.separator</code>; empty when nothing is joined.</td></tr>
+    <tr><td><code>act.batched(fn)</code></td><td>Run <code>fn</code> with its sends collected, and send them as one line joined by the game's separator when it returns. Every prompt's tick, every timer lapsing and every confirmation timing out already runs inside one.</td></tr>
+    <tr><td><code>act.separator()</code></td><td>What to join two commands with when composing one that carries both (<code>act.JOIN</code>, <code>;;</code>); empty when <code>queue.chain</code> is off. <code>act.send()</code> splits it again before sending.</td></tr>
+    <tr><td><code>act.gameSeparator()</code></td><td>The game's CONFIG SEPARATOR, once the game has named it this session; nil before then, or with none set, and every command goes on its own line.</td></tr>
     <tr><td><code>act.blocked(needs)</code></td><td>Why not, as a short reason, or nil. For logging; do not branch on the wording.</td></tr>
   </tbody>
 </table></div>

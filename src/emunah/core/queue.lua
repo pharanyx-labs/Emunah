@@ -308,7 +308,7 @@ local function dispatch(vector)
             -- it waited for whatever unrelated prompt arrived next -- in test/latency.lua's
             -- scripted fight, a salve the game would have taken at 2.2s had not gone out by
             -- 8.2s.
-            emunah.event.raise("queue.timeout", vector)
+            emunah.act.batched(emunah.event.raise, "queue.timeout", vector)
          end)
       end
 
