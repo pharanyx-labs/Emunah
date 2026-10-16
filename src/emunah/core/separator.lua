@@ -21,16 +21,15 @@
 --- stops the joining at once; the game's answer, or Emunah's own question after it, settles
 --- it again.
 ---
---- The game's answers, from the user's session (2026-10-16 16:24):
+--- The game's answers, from the user's session (2026-10-16 16:24 and 16:59:57):
 ---
 ---     You can set a separator to be able to send multiple commands to Achaea at once.
 ---     You currently have no separator set. Use CONFIG SEPARATOR <separator> to set one.
----     Your command separator is now: |
+---     Your command separator is now: |        <- CONFIG SEPARATOR |
+---     Your current separator is: |            <- CONFIG COMMANDSEPARATOR, with one set
 ---
---- How the game words the question's answer when a separator IS set has not been seen. The
---- pattern below takes any "Your ... separator is ...: X" line, which covers the `is now:`
---- form above; if the answer is worded some other way, nothing is read and nothing is
---- joined -- the safe way to be wrong.
+--- One pattern reads both "Your ... separator is ...: X" lines. If the game ever words them
+--- some other way, nothing is read and nothing is joined -- the safe way to be wrong.
 
 local M = {}
 
@@ -175,8 +174,8 @@ do
       if hide then emunah.ui.gag.withPrompt() end
    end))
 
-   -- "Your command separator is now: |", and whatever the question's own answer says when
-   -- one is set. The separator is the last word: a separator has no spaces in it.
+   -- "Your command separator is now: |" (setting it) and "Your current separator is: |"
+   -- (asking). The separator is the last word: a separator has no spaces in it.
    keep(tempRegexTrigger([[^Your [\w ]*separator is[^:]*: ?(\S+)$]],
       function()
          local hide = asking()

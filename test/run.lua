@@ -16667,7 +16667,7 @@ ok(not emunah.util.contains(mock.sent, "config commandseparator"), "...asking on
 -- The answer: read, and hidden, because Emunah asked.
 mock.deletedLines = 0
 mock.line("You can set a separator to be able to send multiple commands to Achaea at once.")
-mock.line("Your command separator is now: |")
+mock.line("Your current separator is: |")
 eq(act.gameSeparator(), "|", "the answer is read: the game splits at |")
 eq(mock.deletedLines, 2, "...and both lines of the answer to Emunah's question are hidden")
 
