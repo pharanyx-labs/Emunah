@@ -200,6 +200,8 @@ local MANIFEST = {
    -- PvP targeting: explicit opt-in only, mutually exclusive with bashing via the
    -- emunah.bashing.pause / bashing.started event pair (see pvp.lua's header)
    { path = "emunah.pvp",                as = "pvp"           },
+   -- the people you fight beside: after pvp, whose target a partner's call sets
+   { path = "emunah.allies",             as = "allies"        },
 
    -- the command reference. Ahead of commands.lua, which renders it; it reads config and
    -- keys at RENDER time rather than load time, so it only needs theme to be present.

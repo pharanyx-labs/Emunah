@@ -182,6 +182,52 @@ condemning ...`; and the kill, `A crazed prison guard has been slain by Anzerloi
 `perform purity` as the balance move instead of smite, when "they raise shield and their
 health is low enough" (Anzerloi, 14:36:57). **Hunting only** (the user). HELP not captured.
 
+## From the ability dump (2026-10-15)
+
+`help/abilities-2026-10-15.txt` holds every ability's text from GMCP (`emset skills dump`).
+What is trained changes, so code checks `have.skill()` at runtime; this section records what
+the abilities *do*.
+
+**Nothing reveals a target's afflictions.** `DIAGNOSE` is self only; `ANGEL MINDREAD` reads
+tells. The offence's confirmed sources stay landing lines, symptom lines, `contemplate`
+(mana) and `ASSESS <target>` (health: 2.50s equilibrium, 50 mana, Survival).
+
+PvP, Spirituality and Devotion:
+
+| Command | Costs | Does |
+|---|---|---|
+| `smash arms\|legs <target> [chasten <body\|mind\|aff>]` | balance 2.20s | Crushes a limb, "rendering it useless". With chasten, as smite |
+| `angel panic <target>` | equilibrium 2.40s | Fear |
+| `perform visions <target>` | equilibrium 2.50s, 100 devotion, 50 mana | Dementia; shyness if already demented |
+| `perform dazzle <target>` | equilibrium 2.50s, 250 devotion | Stupidity |
+| `judge <target>` | equilibrium 5.00s | Seeks a death sentence; faster against justice |
+| `perform rite of piety` | equilibrium 3.80s, 600 devotion | Enemies struggle to leave; a balance penalty when it holds them |
+
+Weaponry `TARGET <body part>`: HEAD, TORSO, RIGHT/LEFT ARM, RIGHT/LEFT LEG, NOTHING. Torso
+hits cause internal bleeding, head hits concussion. The smite's own limb words still need a
+capture (`head` is the only one seen).
+
+Hunting (Battlerage, denizens only, rage not balance):
+
+| Command | Costs | Does |
+|---|---|---|
+| `crack <target>` | 17 rage | **Shatters a denizen's shield**: the "rage" case of Anzerloi's shield rule |
+| `angel torment <target>` | 14 rage, 16s cooldown | Damage |
+| `hammer <target>` | 25 rage, 23s cooldown | More damage against clumsiness or amnesia |
+
+**Heresy** (`hunt heresy`: 4.00s of equilibrium, 400 mana) puts fire on the mace. Against
+denizens a smite burns through their magical shield, at half damage and as fire. **Against
+adventurers a smite burns away their aura of rebounding**, which is the answer to
+smiting into rebounding (13:58:03, above). `recite unflinching <target>` (1.60s prayer)
+also conveys heresy, shorter-lived, when you are not already hunting heretics, and the
+target's next parry fails. Anzerloi (19:26:04–19:27:11): crack is the hunting attack "if
+got the rage and no heresy"; with heresy, smite. "As for pvp you go on afflict lines and
+cure lines."
+
+`perform purity <target>`: **4.00s of equilibrium**, 250 devotion (none against denizens),
+bypasses shields and prismatic barriers. HELP says equilibrium; Anzerloi called it a balance
+move. HELP wins.
+
 ## Devotion
 
 Priest's class resource, reported by `charstats` as a **percentage only** -- so an ability

@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Upkeep and economy | Emunah</title>
-<meta name="description" content="Pipes kept filled and lit, the manna rite, shops and purchases, gold picked up and stowed, and antitheft.">
+<meta name="description" content="The upkeep Emunah does for you: pipes kept lit, cures kept in hand, the manna rite, clickable shops, gold collected and packed, and antitheft.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/sustenance.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Upkeep and economy | Emunah">
-<meta property="og:description" content="Pipes kept filled and lit, the manna rite, shops and purchases, gold picked up and stowed, and antitheft.">
+<meta property="og:description" content="The upkeep Emunah does for you: pipes kept lit, cures kept in hand, the manna rite, clickable shops, gold collected and packed, and antitheft.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html" aria-current="page">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html" aria-current="page">Upkeep and economy</a></li>
   </ul>
@@ -96,10 +102,11 @@
 <!-- doc:start -->
 <p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
 <h1>Upkeep and economy</h1>
-<p class="lede">The things that keep a character ready: pipes that are always lit, the manna rite in one command, shops you can buy from with a click, gold collected and stowed, and a pack thieves cannot empty.</p>
+<p class="lede">The things that keep a character ready: pipes that are always lit, cures in hand, the manna rite in one command, shops you can buy from with a click, gold collected and stowed, and a pack thieves cannot empty.</p>
+
 <h2 id="pipes">Pipes</h2>
-<p>Smoking cures need a lit pipe with the right herb in it. When pipes are not maintained, the failure does not look like a pipe problem; it looks like a cure that never fires. Emunah refills an empty pipe with the herb it holds, relights one that has gone out, and reads PIPELIST when it does not know the state, such as after login or a reload.</p>
-<p>The PIPELIST and the refills are hidden from the game text; a relight is shown. Relighting is also switched from the <code>emset defs</code> grid.</p>
+<p>Smoking cures need a lit pipe with the right herb in it. When pipes are not maintained, the failure does not look like a pipe problem; it looks like a cure that never fires. Emunah refills an empty pipe with the herb it holds, relights one that has gone out, and reads <code>PIPELIST</code> when it does not know the state, such as after login or a reload.</p>
+<p>The <code>PIPELIST</code> and the refills are hidden from the game text; a relight is shown. Relighting is also switched from the <code>emset defs</code> grid.</p>
 <pre><code>emset pipes              <span class="c"># each pipe: lit or out, what it holds, puffs left</span>
 emset pipes on|off
 emset pipes now          <span class="c"># send PIPELIST now, and show it</span></code></pre>
@@ -112,19 +119,25 @@ emset pipes now          <span class="c"># send PIPELIST now, and show it</span>
   </tbody>
 </table></div>
 
+<h2 id="rift">The rift and cures in hand</h2>
+<p>Emunah keeps your cures stocked in both directions: it pulls the next herb out of the rift as soon as one is eaten, and puts any surplus back, because inventory is lost on death and the rift is not. How many of each to keep is yours to choose:</p>
+<pre><code>emset keep               <span class="c"># the herbs kept in hand, and how many of each</span>
+emset keep ash 3         <span class="c"># keep three ash</span>
+emset keep kelp off      <span class="c"># keep none in hand</span></code></pre>
+<p><code>IR</code> is redrawn with a toggle beside every herb, and <code>ELIST</code> as a table, one row per fluid, so you can see at a glance which vials are running low. See <a href="curing.html#in-hand">cures in hand</a> for how pulls are timed.</p>
+
 <h2 id="manna">The manna rite</h2>
-<p><code>emset manna</code> performs the rite, gets the bowl and drinks it, each step as soon as the game allows it. Each step goes through the same gate as everything else, so a step the game would refuse waits instead of being lost.</p>
+<p><code>emset manna</code> performs the rite, gets the bowl and drinks it, each step as soon as the game allows. Each step goes through the same gate as everything else, so a step the game would refuse waits instead of being lost.</p>
 
 <h2 id="shops">Shops</h2>
-<p>WARES listings are made clickable. Under each item, an action line buys one, fills your rift from a tun, or opens a choice of quantities. You can also buy by the item's number directly:</p>
+<p><code>WARES</code> listings are made clickable. Under each item, an action line buys one, fills your rift from a tun, or opens a choice of quantities. You can also buy by the item's number directly:</p>
 <pre><code>buy 476321               <span class="c"># one</span>
 buy 50 476321            <span class="c"># fifty</span>
 emset shop.confirmAbove 5000   <span class="c"># ask before any purchase over 5,000 gold</span></code></pre>
 <p>The gold comes out of your pack for the purchase, exactly the price, and anything not spent goes back in. With <code>shop.confirmAbove</code> set, a purchase over that price waits for you to confirm it.</p>
-<p>ELIST is redrawn as a table, one row per fluid, so you can see at a glance which vials are running low.</p>
 
 <h2 id="loot">Loot</h2>
-<p>When the last denizen in the room is down, Emunah sends <code>get gold</code>, which takes every pile in the room, and puts the gold in your pack once it is in your hands. Denizens that are not on the kill list do not hold it up, and nor do your guardian angel, your mount and your pegasus.</p>
+<p>When the last denizen on the kill list in the room is down, Emunah sends <code>get gold</code>, which takes every pile in the room, and puts the gold in your pack once it is in your hands. Denizens that are not on the kill list do not hold it up, and nor do your guardian angel, your mount and your pegasus.</p>
 <pre><code>emset loot               <span class="c"># on or off, and how much has been picked up</span>
 emset loot on|off
 emset loot now           <span class="c"># sweep the room now</span></code></pre>
@@ -161,6 +174,7 @@ emset antitheft now      <span class="c"># put loose gold and valuables away now
 <aside class="toc" aria-label="On this page">
   <h4>On this page</h4>
   <a href="#pipes">Pipes</a>
+  <a href="#rift">The rift and cures in hand</a>
   <a href="#manna">The manna rite</a>
   <a href="#shops">Shops</a>
   <a href="#loot">Loot</a>
@@ -178,9 +192,11 @@ emset antitheft now      <span class="c"># put loose gold and valuables away now
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

@@ -21,11 +21,17 @@
 --- unconditionally on every start) and stops itself in turn. Neither file has to know the
 --- other exists beyond that shared event vocabulary.
 ---
+--- MODES AND LANES
+--- ---------------
+--- "Overwhelm my pvp opponent with a range of afflictions, damage, and finisher moves ...
+--- set rules via f5-8 that will enter various pvp modes" (the user, 2026-10-15). F5-F8
+--- choose a mode (M.MODES); each tick, every balance that is free -- prayer, balance,
+--- equilibrium -- asks the class what this mode sends on it (class/priest_pvp.lua), and
+--- sends it. Nothing here knows a Priest from any other class.
+---
 --- WHAT THIS DOES NOT DO YET
 --- -------------------------
---- No offensive-affliction sequencing yet -- the class's PvP attack (`pvp.attack`, its own
---- setting, never the hunt's) goes out alongside the verses. No detection of an opponent
---- fleeing or conceding -- a PvP session otherwise runs until you stop it or your own
+--- No detection of an opponent fleeing or conceding -- a PvP session otherwise runs until you stop it or your own
 --- health trips the safety threshold. Guessing either of those is exactly the kind of
 --- plausible-but-wrong assertion the rest of this codebase avoids -- see curing/detect/
 --- patterns.lua's header for the same principle applied to affliction messages.
@@ -45,28 +51,21 @@ M.target  = nil   -- opponent name (lower), or nil -- never auto-acquired
 M.held    = nil   -- the locks holding the attack back, as shown, or nil
 M.stats   = { attacks = 0, recited = 0, startedAt = 0 }
 
+--- The modes, in key order: F5, F6, F7, F8. What each sends is the class's (M.MODES there).
+M.MODES = { "attack", "offence", "hinder", "finish" }
+
+--- Opponents whose aura of rebounding turned our mace back, until it is seen going down.
+M.rebounding = {}
+--- Opponents behind an Alchemist's reflective barrier (tin), until it is seen shattering.
+M.reflecting = {}
+
 M.config = {
    -- Lowered from 60 by the user, 2026-10-15. A fight against a person is not over when it
    -- hurts, and stopping does not stop them hitting. It replaces watch.critical for PvP
    -- (see unsafe() below), which would otherwise stop it at 30 first.
    stopBelowHealth = 25,
-   -- Recite Zeal verses (currently Guilt/Condemnation) at the target whenever prayer balance
-   -- is free -- see class/priest.lua's header for why this never competes with the attack.
-   verses = true,
-   -- Angel Sear is not the kill route here -- afflictions are (see the verse-reciting
-   -- above). Racing raw damage the whole fight is exactly the strategy already established
-   -- as unwinnable (~300 dmg/s incoming vs ~100-150 hp/s max sustainable healing, in the
-   -- fight that motivated building the verse offense at all) -- so the attack is withheld
-   -- until the opponent looks vulnerable enough, where it becomes a realistic finishing
-   -- blow rather than a race.
-   --
-   -- NOT health -- confirmed by the user, 2026-08-06: IRE.Target.Info does not report a
-   -- player's vitals, so there is no reliable way to read a player opponent's health from
-   -- here at all (denizens are a different matter; bashing.lua's own use of the same feed is
-   -- unaffected). Their tracked affliction LOAD (curing/detect/opponent.lua) is what is
-   -- actually available, so that is the signal used instead -- see
-   -- targetVulnerableEnoughToAttack() below.
-   attackAtAfflictions = 2,
+   -- The mode a fresh session starts in; F5-F8 change it.
+   mode = "offence",
 }
 
 local function setting(key)
@@ -129,15 +128,15 @@ function M.start()
       log.error("Detected class: %s", tostring(emunah.gmcp.status.class() or "unknown"))
       return false
    end
-   -- PvP's attack is the class's PvP attack, never the hunt's (see class/priest.lua's
-   -- M.pvpAttack). A class without one has no PvP here yet.
-   if not class.active.pvpAttack then
-      log.error("%s has no PvP attack yet.", tostring(class.name))
+   -- PvP is the class's PvP offence, never the hunt's attack (class/priest_pvp.lua). A
+   -- class without one has no PvP here yet.
+   if not class.active.pvpPlan then
+      log.error("%s has no PvP offence yet.", tostring(class.name))
       return false
    end
 
    M.enabled = true
-   M.stats = { attacks = 0, recited = 0, startedAt = emunah.util.now() }
+   M.stats = { attacks = 0, recited = 0, startedAt = emunah.util.now(), lanes = {} }
 
    -- A HUNT IS BASHING AND THE WALKER. The pause below stops bashing, which hands the walker
    -- its pacing back, and an unclaimed walker steps on by itself -- so PvP started with you
@@ -149,7 +148,7 @@ function M.start()
    -- exactly the raw name bashing.lua already registers a listener for.
    event.raise("bashing.pause")
 
-   log.info("PvP <ansi_light_green>on<ansi_yellow>.")
+   log.info("PvP <ansi_light_green>on<ansi_yellow> (%s).", M.mode())
    if not M.target then
       log.warn("No target yet -- nothing is sent until 'emset pvp target <name>'.")
    end
@@ -173,6 +172,31 @@ end
 function M.toggle()
    if M.enabled then M.stop("requested") else M.start() end
    return M.enabled
+end
+
+--- The mode in force.
+function M.mode()
+   local mode = emunah.config.get("pvp.mode", M.config.mode)
+   for _, known in ipairs(M.MODES) do
+      if known == mode then return mode end
+   end
+   return M.config.mode
+end
+
+--- Enter a mode (F5-F8), turning PvP on if it is off.
+function M.setMode(mode)
+   mode = tostring(mode or ""):lower()
+   local known = false
+   for _, name in ipairs(M.MODES) do if name == mode then known = true end end
+   if not known then
+      log.warn("No PvP mode %q. Modes: %s.", mode, table.concat(M.MODES, ", "))
+      return false
+   end
+   emunah.config.set("pvp.mode", mode); emunah.config.save()
+   log.info("PvP mode: <ansi_light_green>%s<ansi_yellow>.", mode)
+   event.raise("pvp.mode", mode)
+   if not M.enabled then M.start() end
+   return true
 end
 
 -- ---------------------------------------------------------------------------
@@ -227,19 +251,41 @@ local function handsWanted()
    return vitals.trusted("hp") and vitals.percent.hp < handsAt
 end
 
---- Is the opponent vulnerable enough that the attack is a realistic finishing blow rather
---- than a damage race? See M.config.attackAtAfflictions for why this exists, and why it is
---- affliction count rather than health.
----
---- No target, or nothing tracked on them yet, counts as NOT vulnerable enough. Attacking on
---- a guess is exactly the race this is meant to avoid; better to withhold one tick than
---- swing blind.
-local function targetVulnerableEnoughToAttack()
+--- What the class decides on: the target as the game has confirmed it. Afflictions are the
+--- opponent tracker's (landing, symptom and cure lines); nothing is assumed.
+local function context(mode)
    local opponent = emunah.curing and emunah.curing.detect and emunah.curing.detect.opponent
-   if not (opponent and M.target) then return false end
-   local at = tonumber(setting("attackAtAfflictions")) or 2
-   return opponent.count(M.target) >= at
+   local afflictions = {}
+   if opponent then
+      for _, name in ipairs(opponent.list(M.target)) do afflictions[name] = true end
+   end
+   local active = emunah.class.active
+   local locks, lockNeeds, blocked, defences = {}, {}, {}, {}
+   if opponent and M.target then
+      locks = opponent.lockProgress(M.target)
+      lockNeeds = opponent.lockNeeds(M.target)
+      blocked = opponent.blockedVectors(M.target)
+      for _, name in ipairs(opponent.defenceList(M.target)) do defences[name] = true end
+   end
+   return {
+      target      = M.target,
+      mode        = mode,
+      afflictions = afflictions,
+      -- The locks they are in, what closing the hard and venom locks still needs (in that
+      -- order), their curing routes shut and by what, and their defences seen going up.
+      locks       = locks,
+      lockNeeds   = lockNeeds,
+      blocked     = blocked,
+      defences    = defences,
+      mana        = active and active.mana and active.mana(M.target) or nil,
+      heresy      = emunah.have.def("heresy"),
+      rebounding  = M.rebounding[M.target] == true,
+      reflecting  = M.reflecting[M.target] == true,
+   }
 end
+
+--- The lanes, in the order they are offered a turn.
+M.LANES = { "prayer", "balance", "equilibrium" }
 
 --- One pass. Driven by the prompt, like bashing.tick().
 function M.tick()
@@ -263,30 +309,24 @@ function M.tick()
       M.held = lock
    end
 
-   local class = emunah.class
-   local active = class.active
-   if not lock and active.canPvpAttack() and not handsWanted()
-      and targetVulnerableEnoughToAttack() then
-      if active.pvpAttack(M.target) then M.stats.attacks = M.stats.attacks + 1 end
-   end
-
-   -- Verses spend PRAYER balance, a resource independent of the attack above -- see
-   -- class/priest.lua's header. This is deliberately not an elseif: both can go out on the
-   -- same tick. Condemnation first -- HELP states its affliction outright (justice), where
-   -- Guilt's payoff depends on the target choosing to FOCUS.
+   -- EVERY FREE BALANCE, EVERY TICK. The lanes do not wait on one another: a verse, a mace
+   -- blow and an equilibrium move can all go out on the same prompt.
    --
-   -- class.active.xxx, not class.xxx: canRecite/recite are Priest-specific, the same shape
-   -- as shouldPenitence/shouldDesolation in bashing.lua -- the adapter (class/adapter.lua)
-   -- only forwards the universal interface (attack, canAttack, handleShield, onTick, stats),
-   -- so a class with no Zeal-equivalent simply has no canRecite/recite and this is a no-op.
-   if setting("verses") ~= false and active.canRecite and active.recite then
-      if active.canRecite("condemnation") then
-         if active.recite("condemnation", M.target) then
-            M.stats.recited = M.stats.recited + 1
-         end
-      elseif active.canRecite("guilt") then
-         if active.recite("guilt", M.target) then
-            M.stats.recited = M.stats.recited + 1
+   -- Balance and equilibrium sit out a lock (the cures that break it want them), and
+   -- equilibrium sits out while `perform hands` is wanted. Prayer is shared with no cure.
+   local active = emunah.class.active
+   if not (active and active.pvpPlan) then return end
+   local mode = M.mode()
+   local ctx = context(mode)
+   for _, lane in ipairs(M.LANES) do
+      local held = lane ~= "prayer" and lock ~= nil
+      if lane == "equilibrium" and handsWanted() then held = true end
+      if not held then
+         local move, name = active.pvpPlan(mode, lane, ctx)
+         if move and active.pvpSend(move, name, ctx) then
+            M.stats.lanes[lane] = (M.stats.lanes[lane] or 0) + 1
+            if lane == "prayer" then M.stats.recited = M.stats.recited + 1
+            else M.stats.attacks = M.stats.attacks + 1 end
          end
       end
    end
@@ -299,6 +339,9 @@ function M.report()
       running     = M.enabled,
       target      = M.target,
       held        = M.held,
+      mode        = M.mode(),
+      rebounding  = M.target and M.rebounding[M.target] == true or false,
+      reflecting  = M.target and M.reflecting[M.target] == true or false,
       attacks     = M.stats.attacks,
       recited     = M.stats.recited,
       elapsed     = elapsed,
@@ -340,6 +383,43 @@ local function killAllTriggers()
 end
 
 killAllTriggers()
+
+-- REBOUNDING, from both ends. Our mace turned back -- "The attack rebounds back onto you!"
+-- (2026-10-15 13:58:03, a smite into Anzerloi's aura) -- marks the target, and their aura
+-- going down clears it: "Anzerloi's aura of weapons rebounding disappears." (13:58:12).
+-- The class reads it to raise heresy, which burns rebounding away (HELP HERESY), or to
+-- hold the mace.
+table.insert(registry(), tempRegexTrigger([[^The attack rebounds back onto you!$]], function()
+   if M.enabled and M.target then M.rebounding[M.target] = true end
+end))
+table.insert(registry(), tempRegexTrigger(
+   [[^(\w+)'s aura of weapons rebounding disappears\.$]], function()
+      local name = matches and matches[2]
+      if name then M.rebounding[name:lower()] = nil end
+   end))
+
+-- THE REFLECTIVE BARRIER, from the attacking end. Anzerloi's arena log of 2026-10-15, his
+-- blows on an Alchemist (docs/game/alchemist.md): the first turned part of the damage back,
+-- 477 of it, and the next broke the barrier and was turned back as well, 477 again --
+--   The reflective barrier surrounding Sobriquet reflects part of your attack back at you.
+--   As your attack falls, Sobriquet's reflective barrier shatters and reflects the attack.
+-- The barrier is svof's `tin` defence ("You are protected by a reflective barrier."). Kept
+-- for whoever we hit, target or not: an ally's target is often not ours yet.
+table.insert(registry(), tempRegexTrigger(
+   [[^The reflective barrier surrounding (\w+) reflects part of your attack back at you\.$]],
+   function()
+      local name = matches and matches[2] and matches[2]:lower()
+      if not name or M.reflecting[name] then return end
+      M.reflecting[name] = true
+      log.info("%s is behind a reflective barrier: the next blow breaks it, and comes back "
+         .. "to you too.", emunah.util.capitalise(name))
+   end))
+table.insert(registry(), tempRegexTrigger(
+   [[^As your attack falls, (\w+)'s reflective barrier shatters and reflects the attack\.$]],
+   function()
+      local name = matches and matches[2]
+      if name then M.reflecting[name:lower()] = nil end
+   end))
 
 -- "You have slain <name>." is Achaea's own kill confirmation. Only acts when the slain
 -- name matches the current target -- killing a denizen mid-bash should not be mistaken

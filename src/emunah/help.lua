@@ -41,8 +41,8 @@ M.modules = {
 { id = "system", title = "System", summary = "status, settings, reloading and debugging",
   does = "Emunah runs off GMCP: vitals, afflictions, defences, inventory and the room arrive "
       .. "from the game and everything else reacts to them once per prompt. Every command "
-      .. "goes through one gate that knows when the game would refuse it -- stunned, asleep, "
-      .. "unconscious, dead, off balance, prone, paralysed, entangled -- and holds it rather "
+      .. "goes through one gate that knows when the game would refuse it (stunned, asleep, "
+      .. "unconscious, dead, off balance, prone, paralysed, entangled) and holds it rather "
       .. "than wasting it. Death pauses everything until you are alive again. Settings are "
       .. "saved per profile.",
   commands = {
@@ -146,7 +146,7 @@ M.modules = {
   state = function() return emunah.config.get("riding.keepup", false) == true end,
   does = "Keeps your mount with you: whenever it is in the room and you are not riding it, "
       .. "it is ordered to follow you (free). With keep-up on, you vault back onto it "
-      .. "whenever you are off it -- but only when the balance is idle: never while "
+      .. "whenever you are off it, but only when the balance is idle: never while "
       .. "anything needs curing, never while bashing or PvP is running, never while it is "
       .. "not in the room. (Not knowing whether you are already riding is no bar: the game "
       .. "refuses a vault onto a horse you are on for free.) While it is not with you, the end of your prompt says so. Also toggled "
@@ -180,7 +180,7 @@ M.modules = {
    { syntax = "emset hunt retreat",
      summary = "stop both, go back three rooms the way you came, and stay there" },
    { syntax = "emset support [<name>|off]", handler = "support",
-     summary = "support mode: attack what <name> attacks, never walking. F5 toggles it" },
+     summary = "support mode: attack what <name> attacks, never walking. F9 toggles it" },
    { syntax = "emset bash", handler = "bash",
      summary = "bashing: target, kills, damage, whether it is running" },
    { syntax = "emset bash on|off",
@@ -196,8 +196,10 @@ M.modules = {
 { id = "pvp", title = "PvP", summary = "attacks the player you name, and no one else",
   state = function() return emunah.pvp.enabled end,
   does = "Attacks the player you name, and only that player: it never picks a target by "
-      .. "itself. Nothing offensive is sent while it is off. Tracks the afflictions you have "
-      .. "given them. Holds the attack while you are locked, and stops below its health floor.",
+      .. "itself. Nothing offensive is sent while it is off. Every free balance (prayer, "
+      .. "balance, equilibrium) sends what the mode calls for (F5 attack, F6 offence, F7 "
+      .. "hinder, F8 finish), choosing by the afflictions the game has confirmed on them. "
+      .. "Holds balance and equilibrium while you are locked, and stops below its health floor.",
   commands = {
    { syntax = "emset pvp", handler = "pvp",
      summary = "target, their afflictions and mana, attacks sent" },
@@ -205,10 +207,25 @@ M.modules = {
      summary = "start or stop attacking the target. F1 toggles it" },
    { syntax = "emset pvp target <name>|off",
      summary = "choose the target, or clear it" },
+   { syntax = "emset pvp mode attack|offence|hinder|finish",
+     summary = "enter a PvP mode and turn PvP on. F5 attack, F6 offence, F7 hinder, F8 finish" },
    { syntax = "emset pvp attack <command>",
      summary = "PvP's own attack command; the hunt's is `emset bash attack`" },
    { syntax = "t <name>", alias = "t",
      summary = "target them and start the fight: `emset pvp target <name>`, then PvP on" },
+  } },
+
+{ id = "allies", title = "Allies", summary = "the partners you fight beside",
+  state = function() return #emunah.allies.partners() > 0 end,
+  does = "A partner is never a target: adding one marks them an ally. While you fight, "
+      .. "their arrivals and departures are said. A partner's message that matches one of "
+      .. "`allies.calls` sets your PvP target to the name it calls. Lines only one class "
+      .. "sends name who is attacking you, and as what.",
+  commands = {
+   { syntax = "emset ally", handler = "ally",
+     summary = "your partners, who is here, the last call, and who is attacking you" },
+   { syntax = "emset ally add|remove <name>",
+     summary = "add a partner (and mark them an ally), or remove one" },
   } },
 
 { id = "loot", title = "Loot & shop", summary = "picks up gold; asks before costly purchases",
@@ -263,7 +280,7 @@ M.modules = {
       .. "the game refuses an exit; double-clicking a room on the map walks there too. "
       .. "Swims, opens and unlocks doors, goes round a door that will not open, waits out "
       .. "rubble and ferries, and gallops straight runs while mounted. "
-      .. "Locator lines -- farsee, mindsense, the angel, alertness and the rest -- get the "
+      .. "Locator lines (farsee, mindsense, the angel, alertness and the rest) get the "
       .. "room numbers they name as links, and who was where is remembered. "
       .. "The map is the crowd-sourced Achaea map, the same one the IRE Mudlet Mapper uses. "
       .. "Emunah checks for a new version when it loads and every hour, shows what changed, "
@@ -336,6 +353,9 @@ M.modules = {
      summary = "rebuild the panels; also fixes one that is missing or stuck" },
    { syntax = "emset ui map on|off",
      summary = "show or hide the map" },
+   { syntax = "emset ui auto [afflictions|defences]",
+     summary = "size a panel you resized by dragging its divider to its content again "
+        .. "(both when none is named); double-clicking the divider does the same" },
   } },
 
 }
@@ -374,6 +394,13 @@ M.settings = {
   shipped = true, detail = "How often balance countdowns redraw while one is running. "
        .. "0 turns the live countdowns off." },
 
+-- allies
+{ key = "allies.follow", default = true, type = "boolean", topic = "allies", shipped = true,
+  detail = "Set your PvP target to the name a partner calls." },
+{ key = "allies.calls", default = "", type = "list", topic = "allies", shipped = false,
+  detail = "Lua patterns a partner's message is read with as a call, each capturing the "
+     .. "name called, matched anywhere in the message, e.g. Target:? (%a+). None by default." },
+
 -- curing
 { key = "curing.enabled", default = false, type = "boolean", topic = "curing", shipped = true,
   detail = "Off by default, deliberately. Curing is opt-in." },
@@ -398,7 +425,7 @@ M.settings = {
 { key = "curing.ownprios", default = false, type = "boolean", topic = "curing", shipped = false,
   detail = "Use conf/priorities.conf and conf/situations.conf. Set with `emset ownprios`." },
 { key = "curing.diag", default = true, type = "boolean", topic = "curing", shipped = false,
-  detail = "Send DIAG when the affliction list is in doubt -- which is what answers `loki`, "
+  detail = "Send DIAG when the affliction list is in doubt. That is what answers `loki`, "
        .. "the one affliction GMCP does not report honestly." },
 { key = "curing.clotThreshold", default = 30, type = "number", topic = "curing",
   shipped = false, detail = "Bleeding above this is clotted." },
@@ -414,7 +441,7 @@ M.settings = {
   detail = "Pull consumables out of the rift as they run low." },
 { key = "curing.restockEvery", default = 1, type = "number", unit = "ticks", topic = "curing",
   shipped = false, detail = "Every prompt by default. It used to be every tenth, which made "
-       .. "each pull ten prompts apart for no benefit -- only one pull can be in flight "
+       .. "each pull ten prompts apart for no benefit: only one pull can be in flight "
        .. "anyway." },
 { key = "curing.restockSalves", default = false, type = "boolean", topic = "curing",
   shipped = false },
@@ -550,10 +577,8 @@ M.settings = {
   detail = "What the attack REQUIRES: eq, bal or both." },
 { key = "pvp.consumes", default = "eq", type = "string", topic = "pvp", shipped = true,
   detail = "What the attack SPENDS: eq or bal." },
-{ key = "pvp.verses", default = true, type = "boolean", topic = "pvp", shipped = false,
-  detail = "Recite Zeal verses to apply afflictions." },
-{ key = "pvp.attackAtAfflictions", default = 2, type = "number", topic = "pvp",
-  shipped = false, detail = "Switch from afflicting to damage at this many stacked." },
+{ key = "pvp.mode", default = "offence", type = "string", topic = "pvp", shipped = false,
+  detail = "attack, offence, hinder or finish: what each balance sends. F5-F8 set it." },
 
 -- watch
 { key = "watch.critical", default = 30, type = "number", unit = "%", topic = "hunting",
@@ -611,7 +636,7 @@ M.settings = {
      .. "asks only when the pipes are not known, e.g. after login or a reload." },
 { key = "riding.keepup", default = false, type = "boolean", topic = "riding", shipped = false,
   detail = "Vault back onto the mount whenever you are off it and the balance is idle." },
-{ key = "riding.mount", default = "horse368644", type = "string", topic = "riding",
+{ key = "riding.mount", default = "pegasus510623", type = "string", topic = "riding",
   shipped = false, detail = "The mount, as VAULT takes it. Its number is how the room list "
        .. "and ORDER name it." },
 { key = "riding.follow", default = true, type = "boolean", topic = "riding", shipped = false,

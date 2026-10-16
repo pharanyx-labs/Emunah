@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Architecture | Emunah</title>
-<meta name="description" content="How Emunah is built: the module tree, one gate for every command, one queue slot per balance, the reload model, and the test discipline behind it.">
+<meta name="description" content="How Emunah is built: plain Lua modules loaded from a git checkout, one gate for every command, one slot per balance, sent is not executed, generated game lines, and a strict test suite.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/architecture.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Architecture | Emunah">
-<meta property="og:description" content="How Emunah is built: the module tree, one gate for every command, one queue slot per balance, the reload model, and the test discipline behind it.">
+<meta property="og:description" content="How Emunah is built: plain Lua modules loaded from a git checkout, one gate for every command, one slot per balance, sent is not executed, generated game lines, and a strict test suite.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -96,44 +102,59 @@
 <!-- doc:start -->
 <p class="crumb"><a href="getting-started.html">Documentation</a> / Under the hood</p>
 <h1>Architecture</h1>
-<p class="lede">Emunah is a tree of plain Lua modules loaded straight from a git checkout. Four ideas carry most of the design, and each exists because of a specific failure it closed off.</p>
+<p class="lede">Emunah is a tree of plain Lua modules loaded straight from a git checkout. A handful of ideas carry most of the design, and each exists because of a specific failure it closed off.</p>
+
 <h2 id="layout">Module layout</h2>
 <pre><code>src/emunah.lua            the loader: the manifest, loading and reloading
 src/emunah/
   core/      util log event config timers queue act outgoing
   gmcp/      init vitals status afflictions defences items skills room comm ire
   have/      capabilities         <span class="c">-- "can I actually do this right now"</span>
-  curing/    curelist afflist deflist engine defkeepup
+  curing/    curelist afflist deflist situations engine defkeepup
              detect/  init patterns opponent opponent_patterns diag
-  ui/        theme gag echo alert layout chyron vitals affpanel chat roompanel map names
+  ui/        theme gag echo alert layout chyron vitals affpanel chat roompanel map roomarea names
+  mapper/    data route info lines locate moves guard   <span class="c">-- the map, walks, locator lines</span>
   namedb/    api capture          <span class="c">-- with namedb.lua: who everyone is</span>
-  class/     adapter priest       <span class="c">-- the class interface, and Priest</span>
-  walker  denizens  ih  watch  bashing  pvp     <span class="c">-- hunting and PvP</span>
-  loot  shop  elist  shield  antitheft  manna  pipes  riding  keys  presences
-  help  commands                 <span class="c">-- every command, as data, and its dispatcher</span>
+  class/     adapter priest priest_pvp   <span class="c">-- the class interface, and Priest</span>
+  walker  denizens  ih  watch  bashing  pvp  allies    <span class="c">-- hunting and fighting</span>
+  loot  shop  elist  riftlist  shield  antitheft  manna  pipes  riding  keys  presences
+  help  conf  commands           <span class="c">-- every command and setting as data, files, the dispatcher</span>
+conf/        one file of settings per area, and your own cure ranks and rules
 test/        mock_mudlet  run  bench  profile  latency  ui_preview
-tools/       build-xml  build-trigger-package  build-commands-page  run_tests  syntax_check</code></pre>
-<p>The load order is written out in the manifest rather than inferred, because later modules read earlier ones as they load: the interface reads the theme, curing reads the affliction table.</p>
+tools/       build-xml  build-trigger-package  build-mapper-lines  build-commands-page
+             fight-report  run_tests  syntax_check</code></pre>
+<p>The load order is written out in the manifest rather than inferred, because later modules read earlier ones as they load: the interface reads the theme, curing reads the affliction table, PvP reads the name database.</p>
 
-<h2 id="one-gate">One gate for every command</h2>
+<h2 id="gate">One gate for every command</h2>
 <p>Achaea refuses commands for reasons that have nothing to do with the command: you are stunned, lying down, entangled, or the balance it needs has not come back. Those rules once lived at each call site, and whichever copy missed a new rule went on firing into refusals once per prompt.</p>
 <p><code>core/act.lua</code> is now the only place that knows them. Every automated command declares what it needs, and the gate decides when that can be met:</p>
 <pre><code>emunah.act.send("perform penitence " .. target, { standing = true, eq = true })
 emunah.act.send("order " .. id .. " follow me", { bal = true, eq = true })</code></pre>
-<p>Stun, sleep, unconsciousness and death hold everything, whatever a command declares. Prone holds only what needs you upright, so curing carries on while you are knocked down, which is exactly when it matters most.</p>
+<p>Stun, sleep, unconsciousness and death hold everything, whatever a command declares. Prone holds only what needs you upright, so curing carries on while you are knocked down, which is exactly when it matters most. A walk's every step goes through the same gate.</p>
 
-<h2 id="one-slot">One slot per balance</h2>
-<p><code>core/queue.lua</code> is not one queue but one slot per balance. A more urgent action replaces what is waiting in its slot; a less urgent one is dropped rather than stacked, because a backlog of stale cures is worse than none. A queued action is checked again at the moment it would send, since the reason for it, or a block on it, can change while it waits.</p>
+<h2 id="queue">One slot per balance</h2>
+<p><code>core/queue.lua</code> is not one queue but one slot per balance. A more urgent action replaces what is waiting in its slot; a less urgent one is dropped rather than stacked, because a backlog of stale cures is worse than none. A queued action is checked again at the moment it would send, since the reason for it, or a block on it, can change while it waits. A command you type goes first: Emunah's own sends on the same balance wait a moment behind it.</p>
 
-<h2 id="sent-is-not-executed">Sent is not executed</h2>
+<h2 id="sent">Sent is not executed</h2>
 <p>The game runs a command some time after it arrives, and until then it goes on reporting the balance that command is about to spend as available. Two systems reading that honestly would both send, and the second would be refused.</p>
 <p>So a balance is treated as spent from the moment something of Emunah's goes out on it until the game answers: the queue holds the slot, and any other command that needs that balance waits behind it, whatever the next GMCP update says. When the game states the cost, such as "Balance used: 3.2s.", the exact figure replaces the estimate.</p>
 
+<h2 id="generated">Generated, never hand-edited</h2>
+<p>Three files are built from a source and must be regenerated, not edited:</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>File</th><th>Built from</th></tr></thead>
+  <tbody>
+    <tr><td><code>EmunahTriggers.xml</code></td><td>The reference system's trigger set, by <code>tools/build-trigger-package.py</code>. Only lines whose meaning is certain from the source are taken, translated to the server's names, and every one only reports to Emunah's detection, which applies the anti-illusion rules.</td></tr>
+    <tr><td><code>src/emunah/mapper/lines.lua</code></td><td>The IRE Mudlet Mapper's locator lines, by <code>tools/build-mapper-lines.py</code>.</td></tr>
+    <tr><td><code>website/commands.html</code></td><td><code>src/emunah/help.lua</code>, by <code>tools/build-commands-page.lua</code>.</td></tr>
+  </tbody>
+</table></div>
+
 <h2 id="reload">The reload model</h2>
-<p><code>emreload</code> pulls the latest <code>main</code>, then rebuilds the whole namespace from disk: every module is dropped and required again in manifest order. Only a short, explicit list survives: event handlers, timers, and a small scratch space modules use to carry state across a reload, such as which pipes are lit.</p>
+<p><code>emreload</code> pulls the latest <code>main</code>, then rebuilds the whole namespace from disk: every module is dropped and required again in manifest order. Only a short, explicit list survives: event handlers, timers, and a small scratch space modules use to carry state across a reload, such as which pipes are lit or whether bliss is up.</p>
 <p>It re-executes the loader file itself rather than calling the loader already in memory. That function was built around the manifest as it was when first read, so a module just added to the manifest would otherwise be silently skipped while everything else looked up to date.</p>
 
-<h2 id="failure-modes">Failure modes closed off</h2>
+<h2 id="failures">Failure modes closed off</h2>
 <p>Each of these was a real bug, and each is pinned by a test.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Failure</th><th>What prevents it</th></tr></thead>
@@ -147,11 +168,12 @@ emunah.act.send("order " .. id .. " follow me", { bal = true, eq = true })</code
 </table></div>
 
 <h2 id="evidence">Evidence before code</h2>
-<p>Every game mechanic Emunah relies on is recorded in <code>docs/game/</code> with the transcript or GMCP trace that established it: what a command costs, what it needs, the exact text that confirms or refuses it. Where the reference system and Emunah disagree on curing or balances, the reference system wins unless a timestamped transcript shows the game has changed. A plausible guess about the game is never shipped as fact.</p>
+<p>Every game mechanic Emunah relies on is recorded in <code>docs/game/</code> with what established it: a HELP file, a GMCP trace, a timestamped transcript, or the account of a player who cast it. A plausible guess about the game is never shipped as fact; where the exact text or mechanic is unknown, the feature waits.</p>
+<p>On curing and balances the reference system's logic is trusted over Emunah's own. But it is several years old and the game has moved on, so where a transcript from today's game disagrees, the transcript wins, and the disagreement is written down where the code departs from the reference. A line the reference system lacks is recorded and asked about, never guessed at.</p>
 
-<h2 id="tests">Testing</h2>
-<p>The suite of 2433 behavioural tests runs the real modules against <code>test/mock_mudlet.lua</code>, with no client involved. The mock is strict on purpose: each mocked widget has only the methods the real one has, and trigger patterns are matched as the regular expressions Mudlet actually uses. Two shipped bugs once got past a looser mock that accepted anything; a strict one turns "silently wrong in the client" into a failing test.</p>
-<p>Every behavioural fix carries a test that would have caught the original report, and the suite must be green before anything is committed. The suite also checks the documentation against the code: every command is documented, nothing documented is missing, and the figures on this site match their sources.</p>
+<h2 id="testing">Testing</h2>
+<p>The suite of 3242 behavioural tests runs the real modules against <code>test/mock_mudlet.lua</code>, with no client involved. The mock is strict on purpose: each mocked widget has only the methods the real one has, and trigger patterns are matched as the regular expressions Mudlet actually uses. Two shipped bugs once got past a looser mock that accepted anything; a strict one turns "silently wrong in the client" into a failing test.</p>
+<p>Every behavioural fix carries a test that would have caught the original report, and the suite must be green before anything is committed. The suite also checks the documentation against the code: every command is documented, nothing documented is missing, the figures on this site match their sources, and no page on it has an em dash.</p>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">
   <a href="sustenance.html"><small>Previous</small>Upkeep and economy</a>
@@ -161,13 +183,14 @@ emunah.act.send("order " .. id .. " follow me", { bal = true, eq = true })</code
 <aside class="toc" aria-label="On this page">
   <h4>On this page</h4>
   <a href="#layout">Module layout</a>
-  <a href="#one-gate">One gate for every command</a>
-  <a href="#one-slot">One slot per balance</a>
-  <a href="#sent-is-not-executed">Sent is not executed</a>
+  <a href="#gate">One gate for every command</a>
+  <a href="#queue">One slot per balance</a>
+  <a href="#sent">Sent is not executed</a>
+  <a href="#generated">Generated, never hand-edited</a>
   <a href="#reload">The reload model</a>
-  <a href="#failure-modes">Failure modes closed off</a>
+  <a href="#failures">Failure modes closed off</a>
   <a href="#evidence">Evidence before code</a>
-  <a href="#tests">Testing</a>
+  <a href="#testing">Testing</a>
 </aside>
 </div>
 <!-- site:footer -->
@@ -181,9 +204,11 @@ emunah.act.send("order " .. id .. " follow me", { bal = true, eq = true })</code
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

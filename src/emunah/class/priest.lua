@@ -855,4 +855,16 @@ local function installTriggers()
 end
 installTriggers()
 
+-- PvP: its moves and modes, in their own file (class/priest_pvp.lua), which installs
+-- pvpPlan()/pvpSend() on this module for pvp.lua to drive.
+do
+   local path = (emunah._root or ".") .. "/src/emunah/class/priest_pvp.lua"
+   local ok, install = pcall(dofile, path)
+   if ok and type(install) == "function" then
+      install(M)
+   else
+      emunah.log.error("Priest PvP failed to load: %s", tostring(install))
+   end
+end
+
 return M

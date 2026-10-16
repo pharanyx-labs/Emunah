@@ -25,6 +25,28 @@ Before writing code that depends on how the game behaves:
    logic is more credible than Emunah's own** (the user's ruling). Where they disagree,
    change Emunah to match unless a timestamped transcript shows svof is wrong for today's
    game (it dates from 2021). Cite it as `[svof]` in `docs/game/`.
+
+   **svof is old, and the game has moved on since.** Classes have been reworked, lines
+   reworded, abilities and afflictions added, so svof can be wrong or silent:
+   - **Wrong.** When a log from today's game contradicts svof, the log wins. Write down
+     where they disagree and the evidence, in `docs/game/` and in a comment where the code
+     departs from svof, so a later session doesn't "fix" Emunah back to svof. Example: svof
+     only believes the homunculus shriek when it arrives alone, but today it comes second in
+     a combo (`docs/game/alchemist.md`; `VALID_MAP` in `tools/build-trigger-package.py`).
+   - **Silent.** A line svof doesn't have isn't a line that doesn't exist. Example: the
+     second homunculus bite, "Your flesh begins to swell as ... sinks its teeth into you."
+     Don't drop a line from a log because svof lacks it, and don't invent its meaning
+     either. Record it as `[open]` and ask.
+   - **Its timing and numbers are the most likely to have drifted.** Balance lengths, the
+     Reave timings, how long a shell takes to form: check them against a timestamped
+     transcript before building on one. The sileris shell took 10.05s in play against svof's
+     8s, and was thrown away as an illusion until that was fixed.
+   - **Other evidence.** Valid evidence for today's game: a timestamped transcript, a GMCP
+     payload, verbatim HELP, or a player's account of something they cast or saw. A
+     player's account is tagged `[player]` and quoted with its timestamp, like Anzerloi's in
+     `docs/game/pvp-locks.md`. It can outrank svof. It cannot outrank HELP or a transcript.
+   - **Don't go the other way.** "svof is outdated" is not permission to guess. Without
+     evidence against svof, svof still stands.
    For mapping and movement (doors, swimming, ferries, wormholes, sewers, flying, locator
    lines), the IRE Mudlet Mapper is the equivalent reference, by the user's ruling
    (2026-10-12): its game lines and command syntax are in the profile's

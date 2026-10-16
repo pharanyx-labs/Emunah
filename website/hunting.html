@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Automated hunting | Emunah</title>
-<meta name="description" content="Emunah&#x27;s automated hunting: walk an area room by room, fight the denizens on your kill list by replica number, collect the gold, and stop safely on its own.">
+<meta name="description" content="How Emunah hunts: walking an area room by room, kill lists by replica number, Priest openers, support mode behind a leader, safety stops and gold.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/hunting.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Automated hunting | Emunah">
-<meta property="og:description" content="Emunah&#x27;s automated hunting: walk an area room by room, fight the denizens on your kill list by replica number, collect the gold, and stop safely on its own.">
+<meta property="og:description" content="How Emunah hunts: walking an area room by room, kill lists by replica number, Priest openers, support mode behind a leader, safety stops and gold.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html" aria-current="page">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html" aria-current="page">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -99,8 +105,9 @@
 <p class="lede">One command walks an area room by room, fights whatever is on your kill list, collects the gold, and moves on when the room is clear. Curing and defence keep-up carry on underneath it the whole time.</p>
 <pre><code>emset hunt              <span class="c"># walk and bash together (F11)</span>
 emset hunt off          <span class="c"># stop both</span>
-emset hunt retreat      <span class="c"># stop, go back three rooms the way you came, and stay (F12)</span>
-emset support anzerloi  <span class="c"># hunt alongside a leader, attacking what they attack (F5)</span></code></pre>
+emset hunt retreat      <span class="c"># stop, go back three rooms the way you came, and stay</span>
+emset flee              <span class="c"># stop and walk to your safe room (F12)</span>
+emset support anzerloi  <span class="c"># hunt behind a leader, attacking what they attack (F9)</span></code></pre>
 
 <h2 id="loop">The loop</h2>
 <ol class="loop" aria-label="The hunting loop">
@@ -108,23 +115,18 @@ emset support anzerloi  <span class="c"># hunt alongside a leader, attacking wha
   <li><div><strong>Choose a target</strong><span>The next denizen in the room whose kind is on the area's kill list, by replica number.</span></div></li>
   <li><div><strong>Attack</strong><span>Whenever the attack's balance allows, with your class's openers first when they are worth it.</span></div></li>
   <li><div><strong>Confirm the kill</strong><span>The target leaving the room ends the fight: dead, fled, or taken by someone else all mean the same thing.</span></div></li>
-  <li><div><strong>Collect</strong><span>When the last one is down, <code>get gold</code>. The room is held for a few seconds so the gold is never left behind.</span></div></li>
+  <li><div><strong>Collect</strong><span>When the last one is down, the gold is picked up. The room is held for a few seconds so the gold is never left behind.</span></div></li>
   <li class="back"><div><strong>Move on</strong><span>Back to the walker for the next room, until the area is done.</span></div></li>
 </ol>
 
-<h2 id="support">Support mode</h2>
-<p>Hunting with someone else leading: <code>emset support &lt;name&gt;</code>, or <kbd>F5</kbd> for the last leader. Nothing is attacked until the leader hits something; then you attack the same mob, and switch when they do. It never walks, since the leader moves, and the rule against attacking with another player in the room stands down, since they are always there. Everything else is the hunt's: the attack, its openers, and its safety stops. Starting a hunt ends it, and <code>emset support off</code> or <kbd>F5</kbd> again stops it.</p>
-<p>The leader's attacks are read from what the room sees. Only a Priest leader's are known so far (smite, desolation, penitence); another class's need their lines captured before they can be followed.</p>
-
 <h2 id="walker">The walker</h2>
-<p>The walker visits every room in the area, always heading for the nearest one left. It uses Mudlet's own map and speedwalking, so no mapper script is needed, though it uses the IRE mapper's arrival events when that is installed. Candidates are ranked by map distance first and only the closest few are pathfound, so a large area does not stall the client.</p>
-<p>While the hunt is running, the walker steps one room at a time and waits to be told to move on. A speedwalk would cross several rooms in one go and walk straight past the denizens in them. On its own, <code>emset walk start</code> explores an area at its own pace.</p>
+<p>The walker visits every room in the area, always heading for the nearest one left, on Emunah's own map router (see <a href="map.html">Map and walking</a>). While the hunt runs it steps one room at a time and waits to be told to move on, because a speedwalk would cross several rooms in one go and walk straight past the denizens in them. On its own, <code>emset walk start</code> explores an area at its own pace.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Setting</th><th>Default</th><th>What it does</th></tr></thead>
   <tbody>
     <tr><td><code>walker.stepDelay</code></td><td>0.6 s</td><td>The pause between steps when the walker paces itself.</td></tr>
     <tr><td><code>walker.avoid</code></td><td>none</td><td>Rooms the walk never enters.</td></tr>
-    <tr><td><code>walker.transitTimeout</code></td><td>8 s</td><td>How long to keep trying for a room the game will not let you reach, across water or through a closed door, before skipping it.</td></tr>
+    <tr><td><code>walker.transitTimeout</code></td><td>8 s</td><td>How long to keep trying for a room the game will not let you reach before skipping it.</td></tr>
   </tbody>
 </table></div>
 
@@ -133,13 +135,17 @@ emset support anzerloi  <span class="c"># hunt alongside a leader, attacking wha
 <p>Targets are always chosen by replica number, the game's unique number for each creature. Two identical rats in a room are two different targets, and the attack always goes to the one being fought.</p>
 
 <h2 id="attack">The attack</h2>
-<p>The attack is <code>bashing.attack</code>, sent as <code>&lt;attack&gt; &lt;replica&gt;</code>. It goes when the balance it needs is up, and nothing else of Emunah's is about to spend it. Your target's health comes from the game after every hit, so Emunah knows whether the attack is landing.</p>
+<p>The attack is <code>bashing.attack</code>, sent as <code>&lt;attack&gt; &lt;replica&gt;</code>. It goes when the balance it needs is up and nothing else of Emunah's is about to spend it. Your target's health comes from the game after every hit, so Emunah knows whether the attack is landing. The hunt's attack is its own: changing PvP's attack never changes it.</p>
 <p>For a Priest, the default is Angel Sear, with two openers when they pay for themselves:</p>
 <ul>
   <li><strong>Penitence</strong> brands the target to take more damage from smiting. It is sent only when enough hits are left to make it worth the equilibrium, devotion and mana, and never at a target someone else has already branded.</li>
   <li><strong>The rite of desolation</strong>, on its own cooldown, against denizens only.</li>
 </ul>
 <p>A target still standing after <code>bashing.maxAttempts</code> attacks (40 by default) is given up on, so the hunt never grinds forever on something it cannot hurt.</p>
+
+<h2 id="support">Support mode</h2>
+<p>Hunting with someone else leading: <code>emset support &lt;name&gt;</code>, or <kbd>F9</kbd> for the last leader. Nothing is attacked until the leader hits something; then you attack the same denizen, and switch when they do. It never walks, since the leader moves, and the rule against attacking with another player in the room stands down, since they are always there. Everything else is the hunt's: the attack, its openers, and its safety stops. Starting a hunt ends it, and <code>emset support off</code> or <kbd>F9</kbd> again stops it.</p>
+<p>The leader's attacks are read from what the room sees. Only a Priest leader's are known so far (smite, desolation, penitence); another class's lines have to be captured before they can be followed.</p>
 
 <h2 id="safety">Stopping safely</h2>
 <p>An unattended hunt has to be able to stop itself. It stops:</p>
@@ -150,13 +156,13 @@ emset support anzerloi  <span class="c"># hunt alongside a leader, attacking wha
   <li>out of combat, when health drains faster than it should, from bleeding or poison;</li>
   <li>when the area has been walked, or you move by hand.</li>
 </ul>
-<p>Inside a fight, a fast drop in health is not a reason to stop: standing still does not stop a denizen hitting you, so the critical floor is what applies. After a health stop, the hunt resumes on its own once you have recovered ten points above the floor, attacking only and never walking. Any other stop waits for you.</p>
-<p>It will not attack with another player in the room; it moves on instead of standing there. <code>bashing.stopOnPlayer</code> ends the hunt outright when someone arrives.</p>
+<p>Inside a fight, a fast drop in health is not a reason to stop: standing still does not stop a denizen hitting you, so the critical floor is what applies. After a health stop, the hunt resumes on its own once you have recovered <code>bashing.resumeMargin</code> points above the floor (ten by default), attacking only and never walking. Any other stop waits for you.</p>
+<p>It will not attack with another player in the room (<code>bashing.soloOnly</code>); it moves on instead. <code>bashing.stopOnPlayer</code> ends the hunt outright when someone arrives. <kbd>F12</kbd>, or <code>emset flee</code>, stops any hunt and walks you to your safe room.</p>
 
 <h2 id="gold">Gold</h2>
-<p>When the last denizen in the room is down, Emunah sends <code>get gold</code> and puts the gold in your pack. It waits until nothing is left alive and nobody else is in the room, and holds the room for up to four seconds so the walker never leaves gold on the floor. Your guardian angel and your mount do not count as anything alive. See <a href="sustenance.html#loot">Loot</a>.</p>
+<p>When the last denizen on the kill list is down, Emunah sends <code>get gold</code> and puts the gold in your pack. It waits until nothing on the list is left alive and nobody else is in the room, and holds the room for up to four seconds so the walker never leaves gold on the floor. Your guardian angel, your mount and your pegasus do not count as anything alive. See <a href="sustenance.html#loot">Loot</a>.</p>
 
-<h2 id="watching">Seeing what it decided</h2>
+<h2 id="seeing">Seeing what it decided</h2>
 <p><code>emset bash</code> shows the target, the kills, damage dealt and taken, and whether it is running. <code>emset debug</code> prints every command sent and every command held with the reason, so a hunt that is deliberately waiting never looks like one that has hung.</p>
 <pre><code>emset bash                     <span class="c"># target, kills, damage, running or not</span>
 emset bash attack angel sear   <span class="c"># the attack</span>
@@ -164,23 +170,23 @@ emset walk                     <span class="c"># the area, rooms left, rooms vis
 emset bashing.stopBelowHealth 60</code></pre>
 
 <h2 id="classes">Classes</h2>
-<p>Offence sits behind a small class interface: the hunt asks the class whether it can attack, tells it to attack, and reads its resources for the HUD. The class is detected when you log in. Priest is implemented today; see the <a href="roadmap.html">roadmap</a> for what comes next.</p>
+<p>Offence sits behind a small class interface: the hunt asks the class whether it can attack, tells it to attack, and reads its resources for the HUD. The class is detected when you log in, and every ability is checked against what you actually know at the moment it is used. Priest is implemented today; see the <a href="roadmap.html">roadmap</a> for what comes next.</p>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">
   <a href="defences.html"><small>Previous</small>Defence maintenance</a>
-  <a class="next" href="pvp.html"><small>Next</small>PvP</a>
+  <a class="next" href="map.html"><small>Next</small>Map and walking</a>
 </nav>
 </main>
 <aside class="toc" aria-label="On this page">
   <h4>On this page</h4>
   <a href="#loop">The loop</a>
-  <a href="#support">Support mode</a>
   <a href="#walker">The walker</a>
   <a href="#kill-list">The kill list</a>
   <a href="#attack">The attack</a>
+  <a href="#support">Support mode</a>
   <a href="#safety">Stopping safely</a>
   <a href="#gold">Gold</a>
-  <a href="#watching">Seeing what it decided</a>
+  <a href="#seeing">Seeing what it decided</a>
   <a href="#classes">Classes</a>
 </aside>
 </div>
@@ -195,9 +201,11 @@ emset bashing.stopBelowHealth 60</code></pre>
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

@@ -56,4 +56,27 @@ opponent.addCure("transfixed", [[^(\w+) has writhed free of \w+ state of transfi
 -- Zeal verses for why no M.add() gain pattern exists for either yet.
 opponent.addCure("guilt", [[^(\w+) straightens, as if some great burden had been lifted from \w+ shoulders\.$]])
 
+-- What they eat retracts what it cures, raises what it raises, and spends their herb
+-- balance (opponent.lua's cure-lines section).
+opponent.watchEats()
+
+-- ---------------------------------------------------------------------------
+-- What an opponent is seen using, and the defences seen going up. Verbatim from Synbios
+-- raising his defences in front of the user, 2026-10-15 20:29:34.40-20:29:45.03
+-- (docs/game/pvp-locks.md). A drink and a salve do not say which, so they only mark the
+-- balance used.
+-- ---------------------------------------------------------------------------
+
+opponent.watchUse("sip", [[^(\w+) takes a drink from .+ vial\.$]])
+opponent.watchUse("salve", [[^(\w+) takes some salve from a vial and rubs it on (?:his|her) skin\.$]])
+opponent.watchUse("salve", [[^(\w+) applies an? \w+ \w+ to (?:himself|herself)\.$]])
+
+-- Our own insomnia is "You clench your fists, grit your teeth, and banish all possibility
+-- of sleep." [svof]; this is the same act seen from outside.
+opponent.watchDefence("insomnia", [[^(\w+) clenches \w+ fists and grits \w+ teeth\.$]])
+-- Applied at 20:29:35.02, formed at 20:29:45.03: the same 10s our own sileris shell takes.
+opponent.watchDefence("fangbarrier", [[^A supple metallic shell of quicksilver has formed around (\w+)\.$]])
+-- Touching cloak and mindseye (20:29:35.02, 20:29:35.77); shield by keep-up's same rule.
+opponent.watchTattoos()
+
 return true

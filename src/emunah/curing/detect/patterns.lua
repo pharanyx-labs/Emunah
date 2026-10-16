@@ -629,10 +629,7 @@ end
 
 do
    local function onAngelUp()
-      if not detect.angel then
-         detect.angel = true
-         emunah.event.raise("defence.added", "trackangel")
-      end
+      detect.setAngel(true)
       -- NOTHING ELSE CONFIRMS THE EQUILIBRIUM VECTOR for this command -- same gap
       -- documented below at "perform hands landed": "Equilibrium used: N.NNs." arms the
       -- fallback timer but never calls queue.confirm(), so without this the vector sits
@@ -647,7 +644,7 @@ do
    -- REGRESSION: a cold summon and a redundant one answer with DIFFERENT text, and only the
    -- first was covered. Confirmed live 08:32:09.28-08:32:16.27: `angel summon` sent while
    -- already summoned answered "You feel confusion radiate from your guardian, who hovers
-   -- already at your side." -- which never touched detect.angel, so isUp("trackangel") stayed
+   -- already at your side." -- which never set the angel flag, so isUp("trackangel") stayed
    -- false forever and keep-up resent ANGEL SUMMON every equilibrium cycle indefinitely,
    -- stopped only by the user pausing keep-up by hand (`pp`). Both mean the same thing --
    -- the angel is up -- and both have to set the flag.
@@ -665,10 +662,7 @@ end
 
 do
    local id = tempRegexTrigger([[^Your guardian angel shimmers silently away\.$]], function()
-      if detect.angel then
-         detect.angel = false
-         emunah.event.raise("defence.lost", "trackangel")
-      end
+      detect.setAngel(false)
    end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
@@ -1295,6 +1289,16 @@ do
    persist(tempRegexTrigger(
       [[^You start to wield a spiritual mace in your left hand\.$]],
       function() emunah.curing.deflist.noteMaceWielded() end))
+   -- The refusal says the same thing [svof: "svo already wielding"], and play shows it
+   -- answering our own `wield mace` (06:31:10.97, 2026-10-16). "That" is whatever was named,
+   -- so it is read as the mace only right after a WIELD MACE -- with anti-illusion off as
+   -- well, which would otherwise take a typed `wield sword` for the mace.
+   persist(tempRegexTrigger([[^You are already wielding that\.$]], function()
+      local outgoing = emunah.outgoing
+      if outgoing and outgoing.sentRecently("^wield mace", detect.REPLY_WINDOW) then
+         emunah.curing.deflist.noteMaceWielded()
+      end
+   end))
 end
 
 return true

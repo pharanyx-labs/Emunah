@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Interface | Emunah</title>
-<meta name="description" content="Emunah&#x27;s interface: the room, afflictions and defences panels, the combat HUD and its balance strip, chat tabs, the map, and names highlighted in the game text.">
+<meta name="description" content="Emunah's interface: the room, afflictions and defences panels, the combat HUD and its balance strip, chat tabs, the map, names highlighted in the game text, and the keys.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/interface.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Interface | Emunah">
-<meta property="og:description" content="Emunah&#x27;s interface: the room, afflictions and defences panels, the combat HUD and its balance strip, chat tabs, the map, and names highlighted in the game text.">
+<meta property="og:description" content="Emunah's interface: the room, afflictions and defences panels, the combat HUD and its balance strip, chat tabs, the map, names highlighted in the game text, and the keys.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html" aria-current="page">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html" aria-current="page">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -108,37 +114,42 @@
   <tbody>
     <tr><td>Left</td><td>The room, your afflictions and your defences, one above the other.</td></tr>
     <tr><td>Right</td><td>Chat in tabs, and the map beneath it.</td></tr>
-    <tr><td>Bottom</td><td>The combat HUD: target, vitals and the balance strip.</td></tr>
+    <tr><td>Bottom</td><td>The combat HUD: buttons, target, vitals and the balance strip.</td></tr>
     <tr><td>Top</td><td>A scrolling ticker for anything you must not miss.</td></tr>
   </tbody>
 </table></div>
-<p>The left column divides its height by what each section actually holds, so a crowded room or a long defence list is shown in full. When it cannot all fit, defences go to more columns and short item names pair up before anything scrolls. The game text's borders follow the panels, so a panel you resize by hand never covers a line of text.</p>
+<p>Each region is a Mudlet window you can move and resize, and the game text's borders follow them, so a panel never covers a line of text.</p>
+<h3 id="sizing">Sizing the left column</h3>
+<p>The left column divides its height by what each panel actually holds, so a crowded room or a long defence list is shown in full. When it cannot all fit, defences go to more columns and short item names pair up before anything scrolls.</p>
+<p>To size afflictions or defences yourself, drag the divider along the panel's top edge; it lights when the mouse is over it. The panel keeps the height you gave it and shows as much as fits, and the room takes what is left. Double-click the divider, or type <code>emset ui auto</code>, to hand it back to sizing itself. Resizing the window or the column lays the panels out again.</p>
 
 <h2 id="room">Room</h2>
 <p>Where you are, with the room's number, exits and any shop or bank. Then three groups, each with a count:</p>
 <ul>
   <li><strong>People</strong>, coloured the same way names are coloured in the game text.</li>
-  <li><strong>Mobiles</strong>, each one clickable. A filled dot means the hunt will attack it and a hollow one means it will not; a click adds or removes that kind from the area's kill list.</li>
+  <li><strong>Denizens</strong>, each one clickable. A filled dot means the hunt will attack it and a hollow one means it will not; a click adds or removes that kind from the area's kill list.</li>
   <li><strong>Items</strong>, with identical items collapsed into one row and a count.</li>
 </ul>
-<p>The game leaves out anyone shrouded, hidden or phased, so the people list is everyone the game admits to, not necessarily everyone there.</p>
+<p>While you are walking somewhere, the panel shows where to, the steps left and roughly how long, with a link to stop or carry on. The game leaves out anyone shrouded, hidden or phased, so the people list is everyone the game admits to, not necessarily everyone there.</p>
+<p>The room's area is also added to the end of the room-name line in the game text (<code>ui.roomArea</code>).</p>
 
 <h2 id="afflictions">Afflictions</h2>
 <p>Afflictions are listed in curing order, and each row answers what Emunah is doing about it:</p>
 <div class="table-wrap"><table>
   <thead><tr><th>The row says</th><th>Meaning</th></tr></thead>
   <tbody>
-    <tr><td><code>curing</code></td><td>The cure has been sent and the game has not answered yet.</td></tr>
-    <tr><td><code>next</code></td><td>Everything is ready; it goes out on this prompt.</td></tr>
-    <tr><td><code>1.4s</code></td><td>Its balance is recovering, and this is how long is left.</td></tr>
-    <tr><td><code>× paralysis</code></td><td>Its only way is shut by another affliction, named.</td></tr>
+    <tr><td>curing</td><td>The cure has been sent and the game has not answered yet.</td></tr>
+    <tr><td>next</td><td>Everything is ready; it goes out on this prompt.</td></tr>
+    <tr><td>herb 1.4s</td><td>Its balance is recovering, and this is how long is left. Rows queued behind it show their place instead.</td></tr>
+    <tr><td>× paralysis</td><td>Its only route is shut by another affliction, named.</td></tr>
+    <tr><td>held: inquisition</td><td>A <a href="curing.html#situations">situational rule</a> is holding it, and why.</td></tr>
     <tr><td>a reason</td><td>Why Emunah refused it, such as "in the rift", so a refusal never looks like a hang.</td></tr>
   </tbody>
 </table></div>
-<p>A filled dot means the server reports the affliction; a hollow one means only the game text has, and it is waiting for the server to confirm it. Above the rows, any state that holds every command (stunned, asleep, prone, unconscious) shows as a pill. Below them, one line per lock reads off what is shut and by what.</p>
+<p>A filled dot means the server reports the affliction; a hollow one means only the game text has, and it is waiting for the server to confirm it. Above the rows, any state that holds every command (stunned, asleep, prone, unconscious, or an arm off balance) shows as a pill. Below them, one line per blocking affliction reads off which balances it shuts.</p>
 
 <h2 id="defences">Defences</h2>
-<p>What keep-up is still owed comes first, then everything that is up, with a count of each in the title. See <a href="defences.html">Defence maintenance</a>.</p>
+<p>Defences are grouped by what raises them: elixirs, herbs, minerals, salves and pipes first, then each skillset by the game's own name for it (Devotion, Tattoos, Vision and so on), then anything Emunah cannot place. Beside each is the item or command that raises it, unless that is just its own name. Within a group, what keep-up is still owed comes first, then what is up. The title counts both. When the panel is short of room it shows two defences to a row, then three with the names alone. See <a href="defences.html">Defence maintenance</a>.</p>
 
 <h2 id="hud">The combat HUD</h2>
 <figure>
@@ -146,13 +157,13 @@
   <figcaption>The left half of the HUD in a scripted fight, drawn by Emunah's own code.</figcaption>
 </figure>
 <p>Three rows, directly above the command line:</p>
-<ol>
-  <li><strong>Buttons, target and status.</strong> <strong>HUNT</strong> starts or stops a hunt, and is lit while one runs. <strong>PAUSE</strong> pauses or resumes curing and defences together, the same as <code>pp</code>, and reads <strong>PAUSED</strong> in red while they are off. Then your target's health bar, PvP and its target, and the commands sent and not yet answered.</li>
+<ul>
+  <li><strong>Buttons, target and status.</strong> HUNT starts or stops a hunt, and is lit while one runs. PAUSE pauses or resumes curing and defences together, the same as <code>pp</code>, and reads PAUSED in red while they are off. Then your target's health bar, PvP and its target, and the commands sent and not yet answered.</li>
   <li><strong>Vitals.</strong> Health, mana, endurance and willpower, each with its percentage and its change since the last prompt.</li>
-  <li><strong>Balances.</strong> The balance strip, then experience and your class's own figures, such as devotion for a Priest.</li>
-</ol>
+  <li><strong>Balances.</strong> The balance strip, the CURE, DEFS and BASH switches, then experience and your class's own figures, such as devotion for a Priest.</li>
+</ul>
 
-<h2 id="balance-strip">The balance strip</h2>
+<h2 id="strip">The balance strip</h2>
 <p>One cell for balance and equilibrium, then one for each curing balance: herb, salve, sip, purgative, smoke, focus, moss and tree.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>The cell</th><th>Means</th></tr></thead>
@@ -166,23 +177,33 @@
 </table></div>
 <p>The strip applies exactly the rules the queue does, so it cannot show a balance as ready that Emunah would not send on.</p>
 
-<h2 id="chat">Chat, map and ticker</h2>
-<p>Channels are captured into tabs: tells, city, house, market, says and the rest, configurable with <code>ui.chatTabs</code>. Capture and display are separate, so one failing never takes the other with it. The map is Mudlet's own, embedded below the chat; <code>emset ui map off</code> hides it.</p>
-<p>The ticker across the top scrolls continuously, up to three messages at once, for notices that must not scroll away, such as having no shield wielded. A persistent label in the game window says when curing or keep-up is paused, so a system quietly doing nothing is impossible to miss.</p>
+<h2 id="prompt">On the prompt</h2>
+<p>A few things are added to the end of your prompt, where you are already looking:</p>
+<ul>
+  <li>The lock you are in, as <code>(lock: soft)</code>, and any instant kill you are open to, as <code>(danger: reave 8s)</code>.</li>
+  <li>A walk's destination and the steps left, then that it arrived (<code>map.showSteps</code>), and a red mark while an enemy is in the room during one.</li>
+  <li>That your mount is not with you, when it has been gone too long to be walking in behind you.</li>
+</ul>
+
+<h2 id="chat-map">Chat, map and ticker</h2>
+<p>Channels are captured into tabs: tells, city, house, market, says and the rest, configurable with <code>ui.chatTabs</code>. Capture and display are separate, so one failing never takes the other with it.</p>
+<p>The map sits below the chat, follows you, and lights the route of any walk. <code>emset map size small|big|biggest</code> gives it 30%, 50% or 70% of the window's height, <code>ui.mapFloat</code> detaches it into its own window, and <code>emset ui map off</code> hides it. See <a href="map.html">Map and walking</a>.</p>
+<p>The ticker across the top scrolls continuously, up to three messages at once, for notices that must not scroll away, such as having no shield wielded. A label in the game window says when curing or keep-up is paused, so a system quietly doing nothing is impossible to miss.</p>
 
 <h2 id="names">Names in the text</h2>
-<p>Known people are coloured where they appear in the game text, by what they are to you: dark red for your city's enemies, green for allies, otherwise their city, with any other enemy underlined. Weight carries the rest, such as a Dragon or someone you marked as important, so both can be read at a glance. Your own name is never highlighted. See <a href="people.html">People and names</a>.</p>
+<p>Known people are coloured where they appear in the game text, by what they are to you: dark red for your city's enemies, green for allies, otherwise their city, with any other enemy underlined. Weight carries the rest, such as a Dragon or someone you marked as important. Your own name is never highlighted. See <a href="people.html">People and names</a>.</p>
 
 <h2 id="keys">Keys</h2>
 <div class="table-wrap"><table>
   <thead><tr><th>Key</th><th>Does</th></tr></thead>
   <tbody>
-    <tr><td>Numpad</td><td>Movement in all eight directions, 0 and . for in and out, &minus; and + for up and down, and 5 to look, with or without Num Lock. <code>keys.numpad</code> turns it off.</td></tr>
-    <tr><td><kbd>Ctrl</kbd> + <kbd>F5</kbd></td><td>Reload Emunah.</td></tr>
-    <tr><td><kbd>F1</kbd></td><td>Turn PvP on, or off. Nothing offensive is sent while it is off.</td></tr>
-    <tr><td><kbd>F5</kbd></td><td>Support mode on or off: attack what your leader attacks.</td></tr>
+    <tr><td>Numpad</td><td>Movement in all eight directions, 0 and . for in and out, minus and plus for up and down, and 5 to look, with or without Num Lock. <code>keys.numpad</code> turns it off.</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>F5</kbd></td><td>Reload Emunah.</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>Turn PvP on or off. Nothing offensive is sent while it is off.</td></tr>
+    <tr><td><kbd>F5</kbd> to <kbd>F8</kbd></td><td>PvP modes: attack, offence, hinder, finish. Each turns PvP on.</td></tr>
+    <tr><td><kbd>F9</kbd></td><td>Support mode on or off: attack what your leader attacks.</td></tr>
     <tr><td><kbd>F11</kbd></td><td>Start hunting, or stop it.</td></tr>
-    <tr><td><kbd>F12</kbd></td><td>Stop any hunt and walk to the safe room, <code>map.safeRoom</code>.</td></tr>
+    <tr><td><kbd>F12</kbd></td><td>Stop any hunt and walk to your safe room, <code>map.safeRoom</code>.</td></tr>
   </tbody>
 </table></div>
 
@@ -190,6 +211,7 @@
 <p>Mudlet runs every package on one thread, so a repaint is time the client is not reading or sending. Emunah's panels paint once, after each packet has been handled, never before a cure has been sent, and not at all when nothing they show has changed. Countdowns redraw every 0.2 seconds only while something is counting (<code>ui.refresh</code>). See <a href="performance.html">Performance</a> for the measurements.</p>
 <pre><code>emset ui                <span class="c"># whether the panels and the map are on</span>
 emset ui rebuild        <span class="c"># rebuild every panel; fixes one that is missing or stuck</span>
+emset ui auto           <span class="c"># panels you sized by hand size themselves again</span>
 emset ui map on|off</code></pre>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">
@@ -204,8 +226,9 @@ emset ui map on|off</code></pre>
   <a href="#afflictions">Afflictions</a>
   <a href="#defences">Defences</a>
   <a href="#hud">The combat HUD</a>
-  <a href="#balance-strip">The balance strip</a>
-  <a href="#chat">Chat, map and ticker</a>
+  <a href="#strip">The balance strip</a>
+  <a href="#prompt">On the prompt</a>
+  <a href="#chat-map">Chat, map and ticker</a>
   <a href="#names">Names in the text</a>
   <a href="#keys">Keys</a>
   <a href="#cost">What it costs</a>
@@ -222,9 +245,11 @@ emset ui map on|off</code></pre>
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

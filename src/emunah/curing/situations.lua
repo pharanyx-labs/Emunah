@@ -68,6 +68,21 @@ M.RULES = {
       rank = { paralysis = { herb = 3.5 } },
    },
 
+   -- IMPATIENCE FIRST WHILE A HARD LOCK IS ONE AFFLICTION AWAY. Asthma, slickness and
+   -- impatience together: the next blow is anorexia, and anorexia's only cures are a salve
+   -- (shut by slickness) and focus (shut by impatience). Anzerloi, teaching on exactly that
+   -- target in party (2026-10-15 20:28:30-20:32:20): "If there is any hope of not being
+   -- locked within 2 seconds, it's to get rid of the impatience." Eating for asthma instead
+   -- lets the pipe clear the slickness and the salve go on a broken leg -- "He would've
+   -- replaced the slickness with being off salve balance" -- while impatience still shuts
+   -- focus when the anorexia lands. At svof's ranks asthma (4) and bloodroot (5) went first;
+   -- impatience (8) comes ahead of both while the three hold.
+   {
+      id   = "impatience-before-hard-lock",
+      when = { has = { "asthma", "slickness", "impatience" } },
+      rank = { impatience = { herb = 3.8 } },
+   },
+
    -- AN AFFLICTION RE-APPLIED EVERY ROUND IS NOT WORTH A HERB EVERY ROUND. The sin of sloth
    -- put weariness back 0.4-4s after each cure in that fight (14.18 -> 15.78, 17.78 -> 19.64,
    -- 21.44 -> 25.50, 27.00 -> 27.42, 28.80 -> 29.33). Back within `window` seconds of its

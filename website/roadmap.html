@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Roadmap | Emunah</title>
-<meta name="description" content="Where Emunah stands today, what is planned next, and the principles that decide what ships.">
+<meta name="description" content="Where Emunah stands, what comes next, and why the list is shorter than it could be.">
 <link rel="canonical" href="https://pharanyx-labs.github.io/Emunah/roadmap.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Emunah">
 <meta property="og:title" content="Roadmap | Emunah">
-<meta property="og:description" content="Where Emunah stands today, what is planned next, and the principles that decide what ships.">
+<meta property="og:description" content="Where Emunah stands, what comes next, and why the list is shorter than it could be.">
 <meta property="og:image" content="https://pharanyx-labs.github.io/Emunah/img/emunah-in-mudlet.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#131a26">
@@ -22,6 +22,7 @@
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+
 <!-- site:header -->
 <header class="site-header">
   <div class="wrap">
@@ -41,6 +42,7 @@
   </div>
 </header>
 <!-- /site:header -->
+
 <div class="docs">
 <nav class="docs-nav" aria-label="Documentation">
   <h4>Start</h4>
@@ -54,7 +56,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -80,7 +84,9 @@
     <li><a href="interface.html">Interface</a></li>
     <li><a href="defences.html">Defence maintenance</a></li>
     <li><a href="hunting.html">Automated hunting</a></li>
+    <li><a href="map.html">Map and walking</a></li>
     <li><a href="pvp.html">PvP</a></li>
+    <li><a href="allies.html">Fighting alongside allies</a></li>
     <li><a href="people.html">People and names</a></li>
     <li><a href="sustenance.html">Upkeep and economy</a></li>
   </ul>
@@ -96,36 +102,44 @@
 <!-- doc:start -->
 <p class="crumb"><a href="getting-started.html">Documentation</a> / Under the hood</p>
 <h1>Roadmap</h1>
-<p class="lede">Curing, defences, the interface and hunting are complete and in daily use. What comes next is offence, and more classes.</p>
-<h2 id="today">Where it stands</h2>
+<p class="lede">Curing, defences, the interface, the map and hunting are complete and in daily use. PvP and fighting beside allies are working and growing. What comes next is mostly offence: reading more of the fight, and more classes.</p>
+
+<h2 id="state">Where it stands</h2>
 <div class="table-wrap"><table>
   <thead><tr><th>Area</th><th>State</th></tr></thead>
   <tbody>
-    <tr><td>Curing, healing and the rift</td><td>Complete, against denizens and players</td></tr>
+    <tr><td>Curing, healing and the rift</td><td>Complete, against denizens and players, with situational rules from real fights</td></tr>
     <tr><td>Defence keep-up, pipes, riding and antitheft</td><td>Complete</td></tr>
     <tr><td>Interface</td><td>Complete</td></tr>
-    <tr><td>Hunting: walker, kill lists, loot</td><td>Complete</td></tr>
+    <tr><td>Map, walking and locator lines</td><td>Complete</td></tr>
+    <tr><td>Hunting: walker, kill lists, support mode, loot</td><td>Complete</td></tr>
     <tr><td>People, names and presence alerts</td><td>Complete</td></tr>
-    <tr><td>Offence</td><td>Priest only, one attack with its openers</td></tr>
-    <tr><td>PvP</td><td>A named target, opponent affliction tracking, and Zeal verses</td></tr>
+    <tr><td>PvP</td><td>Priest: four modes across three lanes, opponent tracking, locks, absolve</td></tr>
+    <tr><td>Allies</td><td>Partners, target calls, presence, the class of everyone attacking you</td></tr>
   </tbody>
 </table></div>
 
-<h2 id="next">Planned</h2>
-<h3>Offensive sequencing</h3>
-<p>Choosing the next attack by what the opponent already has: a sequencing table shaped like the cure table, driven by the opponent's tracked afflictions.</p>
+<h2 id="planned">Planned</h2>
+<h3>Reading a partner's attacks</h3>
+<p>Knowing what a partner has landed on your shared target, so neither of you gives it again. This needs their attack lines as you see them, captured in a real fight beside them.</p>
+<h3>Talking to a partner</h3>
+<p>Calling your target to a partner, and sharing what you have landed. Each command needs its exact syntax from HELP first.</p>
+<h3>Limb preparation</h3>
+<p>A count of the damage on each of the target's limbs, so a kill that starts from broken limbs can be set up deliberately and seen coming against you.</p>
+<h3>A fight's afflictions ending with the fight</h3>
+<p>Today an affliction tracked on an opponent stays until a cure line or an eaten herb removes it. A finished fight should not carry into the next one against the same person.</p>
 <h3>A second class</h3>
-<p>Monk, which needs no change to the class interface. A second class is also the only way to prove that sequencing is not quietly Priest-specific, so a guide to adding classes follows it.</p>
+<p>Monk, which needs no change to the class interface. A second class is also the only way to prove the PvP modes are not quietly Priest-specific, so a guide to adding classes follows it.</p>
 <h3>Breaking shields</h3>
 <p>A Priest has no general way to break a shield, so today a shielded denizen is attacked until the attempt limit gives up on it. Breaking the shield waits on a confirmed mechanic.</p>
 <h3>Judging a denizen before attacking</h3>
 <p>Using a denizen's constitution to decide whether it is worth fighting, and whether the health floor should be higher for it, once what the figures mean in play is confirmed.</p>
 
-<h2 id="principles">How things get built</h2>
+<h2 id="how">How things get built</h2>
 <p>These are why the roadmap is shorter than it could be.</p>
 <ul>
   <li><strong>A wrong assertion is worse than a gap.</strong> A missing pattern does nothing. A wrong one asserts an affliction you do not have, and a balance is spent curing it. Where the exact game text or mechanic is unknown, the feature waits.</li>
-  <li><strong>Evidence over reasoning.</strong> Mechanics come from timestamped transcripts and GMCP traces, recorded in the repository alongside the code that relies on them.</li>
+  <li><strong>Evidence over reasoning.</strong> Mechanics come from HELP files, timestamped transcripts, GMCP traces and the players who cast them, recorded in the repository alongside the code that relies on them.</li>
   <li><strong>Every fix carries its test.</strong> Each behavioural fix comes with a test that would have caught the original report, and nothing is committed with the suite failing.</li>
 </ul>
 <p>Something missing, or something wrong? <a href="https://github.com/pharanyx-labs/Emunah/issues">Open an issue</a>, ideally with an <code>emset debug</code> log or a transcript of what happened.</p>
@@ -136,9 +150,9 @@
 </main>
 <aside class="toc" aria-label="On this page">
   <h4>On this page</h4>
-  <a href="#today">Where it stands</a>
-  <a href="#next">Planned</a>
-  <a href="#principles">How things get built</a>
+  <a href="#state">Where it stands</a>
+  <a href="#planned">Planned</a>
+  <a href="#how">How things get built</a>
 </aside>
 </div>
 <!-- site:footer -->
@@ -152,9 +166,11 @@
       <h4>Product</h4>
       <ul>
         <li><a href="curing.html">Client-side curing</a></li>
-        <li><a href="interface.html">Interface</a></li>
         <li><a href="defences.html">Defence maintenance</a></li>
         <li><a href="hunting.html">Automated hunting</a></li>
+        <li><a href="map.html">Map and walking</a></li>
+        <li><a href="pvp.html">PvP</a></li>
+        <li><a href="allies.html">Fighting alongside allies</a></li>
       </ul>
     </div>
     <div>

@@ -40,9 +40,9 @@ git clone https://github.com/pharanyx-labs/Emunah.git ~/src/Emunah
 **2. Install `Emunah.xml`** through *Package Manager → Install*.
 
 **2b. Optional: install `EmunahTriggers.xml`** the same way. It is a trigger-only package
-of about 660 of the reference system's lines: affliction gained and cured, states (stun, prone, sleep,
-unconscious), the reference system's prompt trigger (a backup for `Char.Vitals`), and the reference system's illusion
-catchers. Each calls `emunah.curing.detect.text*` and does nothing if Emunah is not loaded.
+of about 740 of the reference system's lines: affliction gained and cured, states (stun, prone, sleep,
+unconscious), the reference system's prompt trigger (a backup for `Char.Vitals`), the reference system's illusion
+catchers, and every class's attack lines, which say who is attacking you and as what. Each calls `emunah.curing.detect.text*` and does nothing if Emunah is not loaded.
 Anti-illusion follows the reference system:
 - nothing it reports counts until the prompt;
 - one illusion discards the whole block;
@@ -66,7 +66,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 72 modules.
+[emunah] v0.1.0 loaded -- 73 modules.
 ```
 
 ## Capabilities
@@ -139,11 +139,13 @@ code, so a command or setting added without being documented fails `lua test/run
 | pipes | `emset pipes [on\|off\|now]` |
 | manna | `emset manna` |
 | hunting | `emset hunt [off]`, `emset bash [on\|off\|attack <command>]`, `emset walk [start\|stop]` |
-| pvp | `emset pvp [on\|off\|target <name>\|target off]` |
+| pvp | `emset pvp [on\|off\|target <name>\|target off\|mode <mode>]`, `t <name>` |
+| allies | `emset ally [add\|remove <name>]` |
 | loot | `emset loot [on\|off\|now]`, `buy [qty] <number>` |
 | antitheft | `emset antitheft [on\|off\|now]` |
 | people | `emset whois <person>`, `emset iff <person> ally\|enemy\|auto` |
-| interface | `emset ui [rebuild]`, `emset ui map on\|off` |
+| map | `goto <where>`, `stop`, `go`, `rf <text>`, `rl [room]`, `emset flee`, `emset map ...` |
+| interface | `emset ui [rebuild]`, `emset ui auto`, `emset ui map on\|off` |
 
 `emreload` still works if the command module itself fails to load. `sleep` is the game's
 SLEEP, marked as yours so Emunah does not wake you out of it. `buy 50 476321` buys by the
@@ -202,14 +204,16 @@ src/emunah/
   riftlist.lua                        -- redraws IR, with a keep-in-hand toggle per herb
   shield.lua                          -- WIELDED at login; chyron notice if no shield
   bashing.lua                         -- walk, target, attack, advance
+  mapper/   data route info lines locate moves guard   -- the map, walks, locator lines
   namedb.lua                          -- who is a person, and what are they
   namedb/api.lua                      -- api.achaea.com: real data, not inference
   namedb/capture.lua                  -- names mined from CW, CLWHO, QW, HONOURS, angel
   pvp.lua                             -- PvP loop
+  allies.lua                          -- partners, their calls, who is attacking you
   loot.lua                            -- collect gold by replica number
-  class/    adapter priest            -- class interface + auto-detection
+  class/    adapter priest priest_pvp -- class interface + auto-detection
   commands.lua
-test/       mock_mudlet.lua run.lua   -- 2433 behavioural tests
+test/       mock_mudlet.lua run.lua   -- 3242 behavioural tests
             bench.lua profile.lua     -- per-prompt cost, and where it goes
 package/    .mpackage build project
 tools/      build-xml.py syntax_check.py run_tests.py

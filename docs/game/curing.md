@@ -360,7 +360,7 @@ eats. Guilt and spiritburn were never eaten, so inquisition held focus and the h
 cure shut until the end. Situational rules re-rank or hold a cure **while a situation
 holds**. They are evaluated once per tick, ahead of the engine's per-vector resolve. A rule
 re-ranks only a vector that already cures the affliction, and its rank beats a user
-`priorities` override for as long as it applies. These are the user's rulings on that log,
+`priorities` override for as long as it applies. These are rulings on transcripts and on players who cast the afflictions,
 not svof's: svof has no equivalent for any of them.
 
 | Rule | While | Effect | Evidence |
@@ -368,6 +368,7 @@ not svof's: svof has no equivalent for any of them.
 | `inquisition-unlock` | inquisition | guilt, spiritburn → herb 7.5 (from 59/61) | [gmcp] 07:33:19.64: inquisition "cures once the victim has rid themselves of both guilt and spiritburn afflictions, and is no longer prone"; [player] the casting Priest by tell, 07:50:06: "Inquisition is cured when you clear all of - guilt, spiritburn, prone." |
 | `inquisition-burning` | inquisition | burning (`ablaze`): tree held | [player] same Priest, 07:51:40 and after: "inquisition blocks curing of burning. Salves will fail, tree will take them out of its pool of possible cures if inquisition is there." **Every** salve fails (the user's ruling, 2026-10-05), so that half is a vector block, `afflist.blocks.inquisition = { focus, salve }`, not a rule |
 | `paralysis-holds-healing` | paralysis, health below `curing.healthThreshold` | paralysis → herb 3.5 (ahead of asthma's 4) | [play] 07:33:37.12: paralysis and asthma at 18%; kelp first, elixir (37.26) and equilibrium (38.33) unusable until death |
+| `impatience-before-hard-lock` | asthma, slickness and impatience | impatience → herb 3.8 (ahead of asthma's 4 and bloodroot's 5) | [player] Anzerloi, party, 2026-10-15 20:28:30–20:32:20, on a target prone, asthmatic, slick and impatient: "If there is any hope of not being locked within 2 seconds, it's to get rid of the impatience"; anorexia comes next, and its cures are salve (slick) and focus (impatient). See `pvp-locks.md` |
 | `weariness-reapplied` | weariness back within 6s of its cure | weariness → herb 69 (last) until 15s pass without it returning | [play] sin of sloth re-applied it 0.4–4s after each cure (14.18→15.78, 17.78→19.64, 21.44→25.50, 27.00→27.42, 28.80→29.33) |
 | `justice-not-attacking` | neither PvP nor bashing running | justice held outright | [gmcp] 07:33:15.78: "any damaging attack by you against the afflictor … partially returned to you" |
 
