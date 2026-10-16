@@ -5939,6 +5939,39 @@ do
    ok(table.concat(mock.sent, " | "):find("wield mace", 1, true),
       "the mace arrives: wielded, not held for the summon", table.concat(mock.sent, " | "))
 
+   -- AFTER A RELOAD, THE MACE WAITS FOR THE INVENTORY (2026-10-16 06:31:10.55-06:31:13.28):
+   -- the inventory starts empty until Char.Items.Inv answers, and a wielded mace read as
+   -- missing sent `wield mace` twice into "You are already wielding that.".
+   queue.reset(); emunah.timers.stopAll()
+   defkeepup.resetBudget()
+   emunah._persist.maceSummoned = true
+   emunah._persist.macePlace = "wielded"
+   emunah.gmcp.items.locations.inv = {}
+   emunah.gmcp.items.inventoryListed = false
+   mock.sent = {}
+   tick()
+   ok(not table.concat(mock.sent, " | "):find("mace", 1, true),
+      "after a reload, nothing is sent for the mace before the inventory is listed",
+      table.concat(mock.sent, " | "))
+   eq(deflist.held("trackmace"), "the inventory is not listed yet", "...and keep-up says why")
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "616546", name = "a spiritual mace", attrib = "wl" } } })
+   tick()
+   ok(not table.concat(mock.sent, " | "):find("mace", 1, true),
+      "...and once it is, a wielded mace is up", table.concat(mock.sent, " | "))
+
+   -- "You are already wielding that." answers a WIELD MACE as the wield itself does.
+   emunah._persist.macePlace = nil
+   mock.sentCommand("wield mace")
+   mock.line("You are already wielding that.")
+   eq(emunah._persist.macePlace, "wielded", "the refusal to a WIELD MACE says it is wielded")
+   emunah._persist.macePlace = nil
+   mock.forgetSends()
+   mock.sentCommand("wield sword")
+   mock.line("You are already wielding that.")
+   eq(emunah._persist.macePlace, nil, "...but not when it answers a different wield")
+   mock.feed("Char.Items.List", { location = "inv", items = {} })
+
    -- svof's waitingformace: a summon that never lands is tried again.
    queue.reset(); emunah.timers.stopAll()
    defkeepup.resetBudget()

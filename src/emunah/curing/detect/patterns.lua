@@ -1289,6 +1289,16 @@ do
    persist(tempRegexTrigger(
       [[^You start to wield a spiritual mace in your left hand\.$]],
       function() emunah.curing.deflist.noteMaceWielded() end))
+   -- The refusal says the same thing [svof: "svo already wielding"], and play shows it
+   -- answering our own `wield mace` (06:31:10.97, 2026-10-16). "That" is whatever was named,
+   -- so it is read as the mace only right after a WIELD MACE -- with anti-illusion off as
+   -- well, which would otherwise take a typed `wield sword` for the mace.
+   persist(tempRegexTrigger([[^You are already wielding that\.$]], function()
+      local outgoing = emunah.outgoing
+      if outgoing and outgoing.sentRecently("^wield mace", detect.REPLY_WINDOW) then
+         emunah.curing.deflist.noteMaceWielded()
+      end
+   end))
 end
 
 return true

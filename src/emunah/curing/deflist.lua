@@ -690,6 +690,13 @@ M.DYNAMIC = {
 --- change while the raise waits for its slot.
 M.HOLDS = {
    trackmace = function()
+      -- NOT KNOWING WHAT WE CARRY IS NOT CARRYING NOTHING, the rule keep-up already holds item
+      -- defences to. A reload starts with an empty inventory until Char.Items.Inv answers,
+      -- and the mace, wielded, was read as missing: `wield mace` went out twice into "You
+      -- are already wielding that." (06:31:10.55 and 06:31:11.27, 2026-10-16), before the
+      -- list arrived. Held until it has.
+      local items = emunah.gmcp.items
+      if items and not items.inventoryListed then return "the inventory is not listed yet" end
       local at = emunah._persist and emunah._persist.maceSummoning
       if at and util.now() - at < M.MACE_SUMMON_WAIT then return "the mace is being summoned" end
       return nil

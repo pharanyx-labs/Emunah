@@ -185,7 +185,7 @@ emset system.update false      <span class="c"># reload what is on disk, without
 
 <h2 id="developing">Developing</h2>
 <p>Edit any file under <code>src/</code> and run <code>emreload</code>. There is nothing to reimport and no client to restart, and a module added to the manifest is picked up on the same reload.</p>
-<p>The suite of 3237 behavioural tests runs the real modules against a simulated Mudlet, with no client involved:</p>
+<p>The suite of 3242 behavioural tests runs the real modules against a simulated Mudlet, with no client involved:</p>
 <pre><code>lua5.1 test/run.lua             <span class="c"># the test suite</span>
 lua5.1 test/bench.lua           <span class="c"># per-prompt cost, in microseconds and bytes</span>
 lua5.1 test/profile.lua         <span class="c"># where the time goes</span>
