@@ -764,10 +764,27 @@ M.CHECK_TIMEOUT = 10.0
 M.checking = false
 local checkSent = false
 
+--- How long to wait for the listing, counted from when DEFENCES goes out.
+---
+--- NOT FROM THE RELOAD. It used to start there, while DEFENCES itself waited for the next
+--- prompt -- and an idle character gets no prompts. Ten quiet seconds after `emreload` and the
+--- wait was over before DEFENCES had ever been sent; the first prompt after it (the user
+--- spending a balance) found keep-up resumed on the stale list, and `perform bliss` went out
+--- over a bliss that was up (reported 2026-10-16).
+local function awaitListing()
+   emunah.timers.start("defkeepup.check", M.CHECK_TIMEOUT, function()
+      if M.checking then
+         log.debug("No DEFENCES listing after %.0fs -- keep-up resumes anyway.", M.CHECK_TIMEOUT)
+         M.checking, checkSent = false, false
+      end
+   end)
+end
+
 function M.checkDefences()
    if checkSent then return end
    if emunah.act.send("defences", { eq = true }) then
       checkSent = true
+      awaitListing()
    end
 end
 
@@ -783,12 +800,11 @@ event.register("emunah.loaded", function(_, reloading)
    local vitals = emunah.gmcp and emunah.gmcp.vitals
    if not (reloading and vitals and vitals.maxhp > 0) then return end
    M.checking, checkSent = true, false
-   emunah.timers.start("defkeepup.check", M.CHECK_TIMEOUT, function()
-      if M.checking then
-         log.debug("No DEFENCES listing after %.0fs -- keep-up resumes anyway.", M.CHECK_TIMEOUT)
-         M.checking, checkSent = false, false
-      end
-   end)
+   emunah.timers.stop("defkeepup.check")
+   -- Now, not on the next prompt: idle, that could be minutes away, and the listing's reply
+   -- is itself what brings the prompt keep-up resumes on. Held (no equilibrium, stunned),
+   -- the next tick tries again.
+   if M.enabled then M.checkDefences() end
 end, "curing.defkeepup")
 
 -- React immediately when a defence drops rather than waiting for the next tick; losing

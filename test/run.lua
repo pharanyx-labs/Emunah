@@ -5578,6 +5578,30 @@ do
    mock.advance(defkeepup.CHECK_TIMEOUT + 0.1)
    eq(defkeepup.checking, false, "no listing: keep-up resumes after the timeout")
 
+   -- IDLE AFTER A RELOAD (reported 2026-10-16): no prompt for longer than the timeout, then
+   -- the user spends a balance. DEFENCES has to go out at the reload itself, and the wait for
+   -- its reply has to start then -- not run out unseen, leaving keep-up to raise defences off
+   -- the stale list on the first prompt.
+   queue.reset(); emunah.timers.stopAll()
+   defkeepup.setMode("rebounding", "keepup")
+   mock.feed("Char.Defences.List", {})
+   mock.sent = {}
+   raiseEvent("emunah.loaded", true)
+   eq(table.concat(mock.sent, " | "), "defences", "DEFENCES goes out at the reload, with no prompt")
+   mock.advance(defkeepup.CHECK_TIMEOUT * 3)    -- idle: no prompt, no reply
+   eq(defkeepup.checking, false, "...and an unanswered one still times out")
+   queue.reset(); emunah.timers.stopAll()
+   defkeepup.checking = true
+   mock.sent = {}
+   raiseEvent("emunah.loaded", true)
+   mock.sent = {}
+   mock.line("You have the following defences:")
+   mock.line("You are protected from hand-held weapons with an aura of rebounding.")
+   mock.line("You are protected by 1 defences.")
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("rebounding", 1, true),
+      "answered while idle, nothing up is raised on the first prompt", table.concat(mock.sent, " | "))
+
    defkeepup.setMode("rebounding", nil)
 
    -- A DEFENCE LINE THAT BEGINS LIKE THE COUNT does not end the listing. The user's own
