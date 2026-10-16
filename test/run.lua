@@ -6897,7 +6897,10 @@ do
 
    mock.feed("Char.Items.List", { location = "room", items = {} })
    for _ = 1, 4 do mock.advance(0) end
-   eq(layout.compact("room"), 1, "an emptied room goes back to one item per line")
+   eq(layout.compact("room"), 2, "an emptied room keeps its density for a moment (layout.SHRINK_AFTER)")
+   mock.advance(layout.SHRINK_AFTER + 0.1)
+   for _ = 1, 4 do mock.advance(0) end
+   eq(layout.compact("room"), 1, "...then goes back to one item per line")
    ok(not mock.widgets["emunah.room"].scrollBar, "...and drops its scrollbar")
 end
 
@@ -6951,10 +6954,72 @@ do
    ok(elixirs and devotion and other, "the defences panel heads each category", body)
    ok(elixirs and devotion and other and elixirs < devotion and devotion < other,
       "...items first, then skillsets, then what nothing could place")
-   ok(body:find("venom", 1, true) and body:find("perform inspiration", 1, true),
-      "...with what raised each defence beside it")
+   -- "see how we're putting things like '- venom' and '- frost' we need to not do that bit"
+   -- (2026-10-16). The heading says what raises a defence; the cell is its name.
+   ok(not body:find("venom", 1, true) and not body:find("perform inspiration", 1, true)
+      and not body:find("&middot;", 1, true), "...and no source beside a defence's name", body)
+
+   -- STEADY UNDER CHANGE (2026-10-16: "quite clunky and jittery when updates come"). Rows
+   -- are alphabetical within a heading, and a defence that drops keeps its place, hollow,
+   -- so nothing else moves and the section keeps its height.
+   local function order(text)
+      local out = {}
+      for _, name in ipairs({ "fangbarrier", "inspiration", "poisonresist", "preachblessing" }) do
+         out[#out + 1] = { name, text:find(">" .. name .. "<", 1, true)
+            or text:find(" " .. name .. "<", 1, true) or 0 }
+      end
+      table.sort(out, function(a, b) return a[2] < b[2] end)
+      local listed = {}
+      for _, entry in ipairs(out) do listed[#listed + 1] = entry[1] end
+      return table.concat(listed, ",")
+   end
+   local box = mock.widgets["emunah.section.defences"]
+   local heightBefore = box.cons.height
+   local orderBefore = order(body)
+   mock.feed("Char.Defences.Remove", { "fangbarrier", "preachblessing" })
+   mock.advance(0); mock.advance(0)
+   body = tostring(mock.widgets["emunah.panel.defences"].contents)
+   ok(body:find("&#9675; fangbarrier", 1, true) and body:find("&#9675; preachblessing", 1, true),
+      "a defence that drops stays where it was, hollow", body)
+   eq(order(body), orderBefore, "...and no other defence moves")
+   eq(box.cons.height, heightBefore, "...and the section keeps its height")
+   mock.feed("Char.Defences.Add", { name = "fangbarrier" })
+   mock.advance(0); mock.advance(0)
+   body = tostring(mock.widgets["emunah.panel.defences"].contents)
+   eq(order(body), orderBefore, "coming back moves nothing either")
+   ok(not body:find("&#9675; fangbarrier", 1, true), "...and it is shown up again")
 
    skills.index, skills.groups = savedIndex, savedGroups
+end
+
+-- GROW NOW, SHRINK LATER. Afflictions come and go every few hundred milliseconds in a fight,
+-- and sizing the column to each one moved every section under it each time.
+do
+   local layout = emunah.ui.layout
+   local engine = emunah.curing.engine
+   local box = mock.widgets["emunah.section.afflictions"]
+   engine.clear()
+   mock.advance(layout.SHRINK_AFTER + 0.1); mock.advance(0)
+   local small = box.cons.height
+   for _, name in ipairs({ "paralysis", "asthma", "anorexia", "slickness", "clumsiness" }) do
+      engine.add(name, "gmcp")
+   end
+   mock.advance(0); mock.advance(0)
+   local grown = box.cons.height
+   ok(grown > small, "afflictions arriving get their room at once", ("%d -> %d"):format(small, grown))
+   engine.clear()
+   mock.advance(0); mock.advance(0)
+   eq(box.cons.height, grown, "...and keep it when cured")
+   mock.advance(layout.SHRINK_AFTER / 2)
+   engine.add("paralysis", "gmcp")
+   mock.advance(0); mock.advance(0)
+   eq(box.cons.height, grown, "...through the next affliction, too")
+   engine.clear()
+   mock.advance(0)
+   -- Twice: paralysis's lock line clears a moment after the affliction, and the hold
+   -- counts from the last change.
+   for _ = 1, 2 do mock.advance(layout.SHRINK_AFTER + 0.1); mock.advance(0) end
+   eq(box.cons.height, small, "...and give it back once nothing has needed it for SHRINK_AFTER")
 end
 
 -- RESIZING BY HAND: dragging the divider above a section fixes its height; one not dragged
@@ -6964,7 +7029,14 @@ do
    local divider = mock.widgets["emunah.divider.defences"]
    ok(divider ~= nil, "defences have a divider above them")
    ok(mock.widgets["emunah.divider.room"] == nil, "...and the room, which takes the rest, has none")
+   -- Speed's slot first (ui/affpanel.lua keeps one per defence seen), so raising it during
+   -- the drag changes what is drawn but not how many lines it needs.
+   mock.feed("Char.Defences.Add", { name = "speed", desc = "" })
+   mock.advance(0); mock.advance(0)
+   mock.feed("Char.Defences.Remove", { "speed" })
+   mock.advance(0); mock.advance(0)
    layout.auto()
+   mock.advance(layout.SHRINK_AFTER + 0.1); mock.advance(0)
    local box = mock.widgets["emunah.section.defences"]
    local before = box.cons.height
 
@@ -14040,6 +14112,72 @@ do
    raiseEvent("sysDisconnectionEvent")
    ok(not emunah.curing.deflist.isUp("trackangel"), "a disconnect forgets it")
 end
+
+suite("the panels survive a reload")
+
+-- THE PANELS COME BACK AS THEY WERE (2026-10-16: after `emreload` the defences were filed
+-- under "Abilities", one to a row, the room empty and the mace down; 5-10s later all of it
+-- re-laid itself out). The skill index, the inventory and room, the layout and the defence
+-- slots are carried across the reload, so the first paint is the last one again.
+;(function()
+   mock.installGeyser()
+   emunah.config.data.ui.enabled = true
+   emunah.ui.layout.build()
+   mock.feed("Char.Skills.Groups", { { name = "Devotion", rank = "Transcendent" } })
+   mock.feed("Char.Skills.List", { group = "devotion", list = { "Inspiration", "Bliss" } })
+   mock.feed("Char.Items.List", { location = "room", items = {
+      { id = "5101", name = "a polished birch bookcase", attrib = "" },
+      { id = "5102", name = "a runic totem", attrib = "" },
+   } })
+   mock.feed("Char.Defences.List", {
+      { name = "inspiration", desc = "" }, { name = "poisonresist", desc = "" },
+   })
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "341225", name = "a spiritual mace", attrib = "l" },
+   } })
+   for _ = 1, 3 do mock.advance(0) end
+   ok(emunah.curing.deflist.isUp("trackmace"), "(the wielded mace is up)")
+   local function snapshot()
+      local out = {
+         defences = tostring(mock.widgets["emunah.panel.defences"].contents),
+         room = tostring(mock.widgets["emunah.room"].contents),
+      }
+      for _, key in ipairs({ "room", "afflictions", "defences" }) do
+         out[key .. "Height"] = mock.widgets["emunah.section." .. key].cons.height
+      end
+      return out
+   end
+   local before = snapshot()
+   ok(before.defences:find("Devotion", 1, true), "(the skill index files inspiration under Devotion)",
+      before.defences)
+   ok(before.room:find("bookcase", 1, true), "(and the room shows its items)")
+
+   emunahReload()
+   for _ = 1, 3 do mock.advance(0) end
+   local after = snapshot()
+   eq(after.defences, before.defences, "after emreload the defences panel is drawn as it was")
+   local devotion, inspiration = after.defences:find("Devotion", 1, true),
+      after.defences:find("inspiration", 1, true)
+   ok(devotion and inspiration and devotion < inspiration
+      and not after.defences:sub(devotion, inspiration):find("Abilities", 1, true),
+      "...inspiration still under Devotion, not re-filed under Abilities")
+   ok(after.room:find("bookcase", 1, true) and after.room:find("runic totem", 1, true),
+      "...the room still shows what is in it")
+   ok(emunah.curing.deflist.isUp("trackmace"), "...and the wielded mace is still up")
+   for _, key in ipairs({ "room", "afflictions", "defences" }) do
+      eq(after[key .. "Height"], before[key .. "Height"], "..." .. key .. " keeps its height")
+   end
+
+   raiseEvent("sysDisconnectionEvent")
+   emunahReload()
+   eq(next(emunah.gmcp.skills.index), nil, "a disconnect forgets the skill index")
+   eq(#emunah.gmcp.items.at("room"), 0, "...and the room")
+   eq(emunah.gmcp.items.inventoryListed, false, "...and that the inventory was ever listed")
+
+   emunah.config.data.ui.enabled = false
+   mock.uninstallGeyser()
+   emunah.ui.roompanel.widgets.room = nil
+end)()
 
 -- ===========================================================================
 

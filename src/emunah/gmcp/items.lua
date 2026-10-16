@@ -36,6 +36,25 @@ M.locations = { inv = {}, room = {} }
 --- ash and 6 bloodroot came from against a target of 3.
 M.inventoryListed = false
 
+--- CARRIED ACROSS A RELOAD, on _persist: what is in the inventory and the room, and whether
+--- the inventory has been listed. Reloading Emunah moves nothing in the game, and starting
+--- empty left the room panel blank and the wielded mace "down" until the refresh came back,
+--- 5-10s after `emreload`, when every panel re-laid itself out (2026-10-16). The list it
+--- holds is the one that was current the moment before the reload; gmcp/init.lua's refresh
+--- still asks again. A disconnect forgets it.
+do
+   local saved = emunah._persist and emunah._persist.items
+   if saved and saved.locations then
+      M.locations, M.inventoryListed = saved.locations, saved.inventoryListed == true
+   end
+end
+
+local function save()
+   emunah._persist = emunah._persist or {}
+   emunah._persist.items = { locations = M.locations, inventoryListed = M.inventoryListed }
+end
+save()
+
 --- Whether we can currently perceive NEW item movements.
 ---
 --- Char.Items.Add/Update/Remove go silent while blind without mindseye up -- the initial
@@ -192,7 +211,10 @@ local function onList()
 
    M.locations[key] = items
    touch()
-   if key == "inv" then M.inventoryListed = true end
+   if key == "inv" then
+      M.inventoryListed = true
+      save()
+   end
 
    if key == "room" then
       -- WHICH ROOM DOES THIS LIST DESCRIBE?
@@ -547,6 +569,7 @@ event.register("sysDisconnectionEvent", function()
    M.locations = { inv = {}, room = {} }
    touch()
    M.inventoryListed = false
+   save()
 end, "gmcp.items")
 
 -- SIGHT REGAINED -- CATCH UP. Whatever picked up while blind without mindseye never sent

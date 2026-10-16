@@ -120,7 +120,7 @@
 </table></div>
 <p>Each region is a Mudlet window you can move and resize, and the game text's borders follow them, so a panel never covers a line of text.</p>
 <h3 id="sizing">Sizing the left column</h3>
-<p>The left column divides its height by what each panel actually holds, so a crowded room or a long defence list is shown in full. When it cannot all fit, defences go to more columns and short item names pair up before anything scrolls.</p>
+<p>The left column divides its height by what each panel actually holds, so a crowded room or a long defence list is shown in full. When it cannot all fit, defences go to more columns and short item names pair up before anything scrolls. A panel that needs more room gets it at once, but gives room back only after three seconds without needing it, so afflictions coming and going in a fight do not shake the panels below them.</p>
 <p>To size afflictions or defences yourself, drag the divider along the panel's top edge; it lights when the mouse is over it. The panel keeps the height you gave it and shows as much as fits, and the room takes what is left. Double-click the divider, or type <code>emset ui auto</code>, to hand it back to sizing itself. Resizing the window or the column lays the panels out again.</p>
 
 <h2 id="room">Room</h2>
@@ -149,7 +149,7 @@
 <p>A filled dot means the server reports the affliction; a hollow one means only the game text has, and it is waiting for the server to confirm it. Above the rows, any state that holds every command (stunned, asleep, prone, unconscious, or an arm off balance) shows as a pill. Below them, one line per blocking affliction reads off which balances it shuts.</p>
 
 <h2 id="defences">Defences</h2>
-<p>Defences are grouped by what raises them: elixirs, herbs, minerals, salves and pipes first, then each skillset by the game's own name for it (Devotion, Tattoos, Vision and so on), then anything Emunah cannot place. Beside each is the item or command that raises it, unless that is just its own name. Within a group, what keep-up is still owed comes first, then what is up. The title counts both. When the panel is short of room it shows two defences to a row, then three with the names alone. See <a href="defences.html">Defence maintenance</a>.</p>
+<p>Defences are grouped by what raises them: elixirs, herbs, minerals, salves and pipes first, then each skillset by the game's own name for it (Devotion, Tattoos, Vision and so on), then anything Emunah cannot place. Within a group they are in alphabetical order. A defence that drops keeps its place for the rest of the session, as a hollow dot: amber while keep-up owes it, dim otherwise. Nothing else moves when it drops or comes back. The title counts what is up and what keep-up owes. When the panel is short of room it shows two defences to a row, then three. See <a href="defences.html">Defence maintenance</a>.</p>
 
 <h2 id="hud">The combat HUD</h2>
 <figure>

@@ -49,7 +49,10 @@ function M.build()
    -- rebuild compares equal and draws nothing, and the panel comes up blank.
    M.forgetPainted()
 
-   M.update()
+   -- After loading, not now: this builds while `emreload` is still loading modules, and the
+   -- room it draws is carried over from before the reload (gmcp/items.lua), mobiles and
+   -- all, before emunah.denizens -- which says which mobiles are attacked -- has loaded.
+   theme.later("roompanel", M.update)
    return true
 end
 
