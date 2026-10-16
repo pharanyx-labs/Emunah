@@ -106,7 +106,7 @@
 
 <h2 id="pipes">Pipes</h2>
 <p>Smoking cures need a lit pipe with the right herb in it. When pipes are not maintained, the failure does not look like a pipe problem; it looks like a cure that never fires. Emunah refills an empty pipe with the herb it holds, relights one that has gone out, and reads <code>PIPELIST</code> when it does not know the state, such as after login or a reload.</p>
-<p>The <code>PIPELIST</code> and the refills are hidden from the game text; a relight is shown. Relighting is also switched from the <code>emset defs</code> grid.</p>
+<p>All of it is hidden from the game text: the <code>PIPELIST</code>, the refills, the relights, and the line saying a pipe has gone out. A <code>PIPELIST</code> you ask for is shown. Relighting is also switched from the <code>emset defs</code> grid.</p>
 <pre><code>emset pipes              <span class="c"># each pipe: lit or out, what it holds, puffs left</span>
 emset pipes on|off
 emset pipes now          <span class="c"># send PIPELIST now, and show it</span></code></pre>

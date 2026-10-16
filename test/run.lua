@@ -12906,17 +12906,25 @@ end
 ok(noGhosts(), "removing the listing leaves no empty row")
 ok(inBuffer(aurora), "...and the unrelated line before it is left alone")
 
--- A LIGHT of ours is SHOWN: "we're still gagging lines when we relight pipes, though. fix this".
+-- A LIGHT of ours is HIDDEN, now the gag leaves no blank rows: "why did the pipe lines
+-- appear?" (08:29:52-08:30:17, 2026-10-16).
 mock.sent, mock.echoed_sends = {}, {}
 pipes.keep()
 eq(mock.sent[1], "light pipes", "the cold pipes are lit")
-eq(mock.echoed_sends[1], true, "...echoed, like every other keep-up command")
+eq(mock.echoed_sends[1], false, "...without echoing the command")
 mock.line("You use a soot-blackened tinderbox to make fire.")
-mock.line("You carefully light your treasured pipe until it is smoking nicely.")
+mock.line("You light a white stone pipe.")
 eq(pipes.pipes["367581"].status, "lit", "the light is still recorded")
-ok(inBuffer("You use a soot-blackened tinderbox to make fire."), "the tinderbox line stays")
-ok(inBuffer("You carefully light your treasured pipe until it is smoking nicely."),
-   "...and so does the lit line")
+ok(not inBuffer("You use a soot-blackened tinderbox to make fire."), "the tinderbox line goes")
+ok(not inBuffer("You light a white stone pipe."), "...and so does the lit line")
+ok(noGhosts(), "...leaving no empty row")
+
+-- One you type is yours, and shown.
+emunah.timers.stop("pipes.action")
+mock.advance(pipes.QUIET_WINDOW + 0.1)
+mock.command("light pipes")
+mock.line("You use a soot-blackened tinderbox to make fire.")
+ok(inBuffer("You use a soot-blackened tinderbox to make fire."), "a LIGHT you typed is shown")
 
 -- The gag serves PIPELIST and PUT. A quiet fill's one-line reply is the example below.
 local fillReply = "You fill your pipe with a skullcap flower."
@@ -13013,7 +13021,8 @@ pipes.poll(true, true)
 eq(mock.echoed_sends[#mock.echoed_sends], true, "`emunah pipes now` echoes, as asked for")
 
 -- THE LINE THAT SHOWS UP ON ITS OWN. It names the contents and arrives the moment the pipe
--- goes out. It is shown, keep-up or not: the relight that follows it is shown too.
+-- goes out. Hidden with keep-up on, which relights it at once (hidden too); shown with it
+-- off, when nothing will.
 for _, keepup in ipairs({ true, false }) do
    emunah.config.set("pipes.enabled", keepup)
    emunah.timers.stop("pipes.action")
@@ -13030,7 +13039,11 @@ for _, keepup in ipairs({ true, false }) do
          "...and it is relit straight away", table.concat(mock.sent, " | "))
    end
    mock.advance(0)
-   eq(mock.buffer[at], gone, "the announcement stays on screen" .. label)
+   if keepup then
+      ok(not inBuffer(gone), "the announcement is hidden" .. label)
+   else
+      eq(mock.buffer[at], gone, "the announcement stays on screen" .. label)
+   end
 end
 emunah.config.set("pipes.enabled", true)
 
@@ -16734,8 +16747,21 @@ ok(revitalisation > 915 and revitalisation <= 916.01, "...whose figures set the 
    revitalisation)
 ok(wellbeing > 557 and wellbeing <= 558.01, "...every one of them, not only the new rite",
    wellbeing)
-ok(table.concat(mock.echoed, " "):find("keeping Revitalisation up", 1, true),
-   "the rite performed is announced when the listing first shows it", table.concat(mock.echoed, " "))
+local said = table.concat(mock.echoed, " ")
+ok(said:find("added Revitalisation; timers reset -- Revitalisation 15:15, Well-being 9:17", 1, true),
+   "the listing says the rite performed was added, and every timer it reset", said)
+
+-- EVERY LISTING SAYS SO, ours included, and ours after its prompt is hidden: said with the
+-- prompt's Char.Vitals, the line went with it (08:29:48, 2026-10-16).
+mock.echoed = {}
+rites.check.sentAt = mock.clock
+listing({ "Well-being          Saemora                       500",
+          "Revitalisation      Saemora                       858" })
+eq(table.concat(mock.echoed, " "), "", "...said once the block is drawn, not inside it")
+mock.advance(0)
+said = table.concat(mock.echoed, " ")
+ok(said:find("Rites: timers reset -- Revitalisation 14:18, Well-being 8:20.", 1, true),
+   "...and a listing that adds nothing still says the timers were reset", said)
 
 -- emset rites.
 mock.advance(2)
