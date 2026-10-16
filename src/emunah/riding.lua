@@ -244,7 +244,7 @@ local function vault()
       priority = M.PRIORITY,
       tag      = "riding",
       -- Spends balance (10:09:42 "Balance used: 1.0s."). Equilibrium too, until a transcript
-      -- shows otherwise -- HELP's default for balance abilities, and CLAUDE.md's. Standing:
+      -- shows otherwise -- HELP's default for balance abilities. Standing:
       -- svof's isadvisable refuses it while prone, and `standing` also holds it through
       -- paralysis and entanglement.
       needs    = { bal = true, eq = true, standing = true },

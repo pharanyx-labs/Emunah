@@ -471,9 +471,10 @@ local function classify()
 end
 
 --- Best cure to perform on one vector right now.
---- @return table|nil option, string|nil affliction
+--- @return table|nil option, string|nil affliction, number|nil rank, string|nil an item
+---   to pull from the rift in the same send (have.cure()'s third return)
 local function resolve(vector)
-   local bestOption, bestAffliction, bestRank
+   local bestOption, bestAffliction, bestRank, bestPull
    local said = reportedOn(vector)
 
    for index = 1, curableCount do
@@ -488,15 +489,15 @@ local function resolve(vector)
             -- is in the rift, not in hand." with the `eat ash` for it in flight: the eat
             -- had taken the one ash carried, and the restock behind it had not landed
             -- (19:13:36.66 eat, 36.78 warning, 37.41 "You remove 1 ash", 2026-10-04).
-            local usable, reason = false, nil
+            local usable, reason, pull = false, nil, nil
             local heldBy = situations.holding and situations.held(name, vector)
             if heldBy then
                reason = ("%s is held: %s"):format(vector, heldBy)
             elseif not cureInFlight(name) then
-               usable, reason = have.cure(option)
+               usable, reason, pull = have.cure(option)
             end
             if usable then
-               bestOption, bestAffliction, bestRank = option, name, rank
+               bestOption, bestAffliction, bestRank, bestPull = option, name, rank, pull
                M.refusals[name] = nil
                said[name] = nil
                break
@@ -514,7 +515,7 @@ local function resolve(vector)
       end
    end
 
-   return bestOption, bestAffliction, bestRank
+   return bestOption, bestAffliction, bestRank, bestPull
 end
 
 -- ---------------------------------------------------------------------------
@@ -1003,11 +1004,15 @@ local function quitting()
    return M.leaving
 end
 
+--- The most rift trips one restock sends together. A send holds up to ten commands
+--- (core/act.lua); this leaves room for the prompt's cures in the same one.
+M.RESTOCK_BATCH = 6
+
 local function queueRestock()
    if emunah.config.get("curing.restock", true) == false then return end
    if quitting() then return end
-   -- One pull at a time, and never in competition with the emergency pull in queueIrid():
-   -- if the rift vector is busy there is nothing to decide.
+   -- One restock in flight at a time, and never in competition with the emergency pull in
+   -- queueIrid(): if the rift vector is busy there is nothing to decide.
    if queue.pending("rift") or queue.awaiting("rift") then return end
 
    -- NOT KNOWING what we carry is not the same as carrying nothing, and acting on the
@@ -1021,7 +1026,19 @@ local function queueRestock()
    -- whose story says why nothing below may mutate it). Each item has its own target.
    local wanted, targets = M.stocked()
 
+   -- EVERY TRIP DUE GOES TOGETHER, joined by the command separator. It was one item per
+   -- round trip: `inr 2 bloodroot`, then `inr 2 ginseng` once that was confirmed, then
+   -- goldenseal, then kelp (20:25:13.87-20:25:15.42, 2026-10-15). The rift is not a balance,
+   -- so nothing stops the next trip but the slot. The first confirmation frees the slot;
+   -- the rest of the batch is still settling (markSettling), which is what keeps the next
+   -- pass from sending any of it again before its count has moved.
+   -- Made on the first trip found: on nearly every prompt there is none, and this runs on
+   -- every prompt (docs/performance.md: the hot path allocates nothing it does not need).
+   local trips, settle, pulls, anyPull = nil, nil, nil, false
+   local limit = emunah.act.separator() == "" and 1 or M.RESTOCK_BATCH
+
    for _, item in ipairs(wanted) do
+      if trips and #trips >= limit then break end
       local target = targets[item]
       local held = have.quantity(item)
       -- Any increase means the count is moving, so the previous pulls worked and the
@@ -1043,18 +1060,11 @@ local function queueRestock()
             end
          elseif have.inRift(item) > 0 then
             local want = math.min(target - held, have.inRift(item))
-            queue.push("rift", string.format("outr %d %s", want, item), {
-               priority = 50,       -- a top-up loses the slot to a pull we need right now
-               tag      = "restock",
-               needs    = { alive = true },
-               confirm  = emunah.config.get("curing.riftConfirm", 1.5),
-               onSent   = function()
-                  have.spend("rift")
-                  stockPulls[item] = (stockPulls[item] or 0) + 1
-                  markSettling(item, held)
-               end,
-            })
-            return
+            if not trips then trips, settle, pulls = {}, {}, {} end
+            trips[#trips + 1] = string.format("outr %d %s", want, item)
+            settle[#settle + 1] = { item = item, held = held }
+            pulls[#pulls + 1] = item
+            anyPull = true
          end
 
       elseif held > target then
@@ -1065,19 +1075,26 @@ local function queueRestock()
          --
          -- INR is the inverse of OUTR and confirms the same way ("You store 9 ash,
          -- bringing the total in the rift to 100.") -- syntax from HELP RIFT.
-         queue.push("rift", string.format("inr %d %s", held - target, item), {
-            priority = 60,          -- lower than a pull: being short matters more
-            tag      = "restock",
-            needs    = { alive = true },
-            confirm  = emunah.config.get("curing.riftConfirm", 1.5),
-            onSent   = function()
-               have.spend("rift")
-               markSettling(item, held)
-            end,
-         })
-         return
+         if not trips then trips, settle, pulls = {}, {}, {} end
+         trips[#trips + 1] = string.format("inr %d %s", held - target, item)
+         settle[#settle + 1] = { item = item, held = held }
       end
    end
+
+   if not trips then return end
+   queue.push("rift", table.concat(trips, emunah.act.separator()), {
+      -- A top-up loses the slot to a pull we need right now; putting back loses it to a
+      -- top-up, because being short matters more.
+      priority = anyPull and 50 or 60,
+      tag      = "restock",
+      needs    = { alive = true },
+      confirm  = emunah.config.get("curing.riftConfirm", 1.5),
+      onSent   = function()
+         have.spend("rift")
+         for _, item in ipairs(pulls) do stockPulls[item] = (stockPulls[item] or 0) + 1 end
+         for _, entry in ipairs(settle) do markSettling(entry.item, entry.held) end
+      end,
+   })
 end
 
 --- FILLING A SALVE TIN -- confirmed live for epidermal only:
@@ -1427,7 +1444,7 @@ function M.tick()
    classify()
 
    for _, vector in ipairs(M.VECTORS) do
-      local option, affliction, rank = resolve(vector)
+      local option, affliction, rank, pull = resolve(vector)
 
       -- Nothing in the cure table wanted this vector. Before leaving it idle, see whether
       -- the server has suggested a cure for something we are tracking but do not know how
@@ -1469,6 +1486,13 @@ function M.tick()
 
       if option then
          local command, item = curelist.command(option)
+         -- ONLY THE RIFT HOLDS IT: pull it and eat it in the same send, as the reference system
+         -- does, rather than wait a round trip for a restock to land first. The restocker
+         -- is told the pull is its own (markSettling), so it does not pull the same herb
+         -- again before the count has moved.
+         if command and pull then
+            command = string.format("outr %s%s%s", pull, emunah.act.separator(), command)
+         end
          if command then
             queue.push(vector, command, {
                priority = rank,
@@ -1483,6 +1507,7 @@ function M.tick()
                   return M.tracked[affliction] ~= nil and not cureInFlight(affliction)
                end,
                onSent   = function()
+                  if pull then markSettling(pull, have.quantity(pull)) end
                   -- Start the fallback recovery timer. A confirmation trigger or the
                   -- GMCP removal will normally cut this short.
                   have.spend(vector)
@@ -1494,12 +1519,12 @@ function M.tick()
                   log.debug("Cure for %s via %s went unconfirmed.", affliction, vector)
                end,
             })
-            -- SEND IT NOW, before the next vector is resolved. Two reasons, and the first
-            -- is a wasted balance rather than a matter of microseconds: the same-affliction
-            -- guard is armed on send, so a cure only queued here left the next vector free
-            -- to choose the same affliction -- one anorexia drew both an epidermal and a
-            -- focus. And the first cure of the tick no longer waits for six more vectors to
-            -- be resolved behind it. (Before the debug line, too: see act.send().)
+            -- SEND IT NOW, before the next vector is resolved: the same-affliction guard is
+            -- armed on send, so a cure only queued here left the next vector free to choose
+            -- the same affliction -- one anorexia drew both an epidermal and a focus. On a
+            -- prompt the command itself leaves with the rest of the prompt's batch, joined
+            -- by the separator (core/act.lua); the guard and the in-flight slot are set
+            -- here regardless.
             queue.flushVector(vector)
             if lastResolved[vector] ~= affliction or lastCommand[vector] ~= command then
                lastResolved[vector], lastCommand[vector] = affliction, command

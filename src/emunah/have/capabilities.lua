@@ -423,11 +423,18 @@ function M.bothArmsBroken()
    return armDisabled("left") and armDisabled("right")
 end
 
+--- The vectors whose cure is an item EATEN from the inventory, and so can be pulled from the
+--- rift in the same send (M.cure()'s third return). Not smoke, whose herb goes in a pipe, and
+--- not salves, which live in vials.
+M.PULL_AND_EAT = { herb = true, moss = true }
+
 --- Can we perform this specific cure option right now?
 ---
 --- @param option table a cure option from afflist ({ vector, item, alt, location })
 --- @return boolean usable
 --- @return string|nil reason when not usable
+--- @return string|nil an item to pull from the rift in the same send, when only the rift
+---   holds it (see M.PULL_AND_EAT)
 function M.cure(option)
    if type(option) ~= "table" or not option.vector then
       return false, "malformed cure option"
@@ -517,6 +524,16 @@ function M.cure(option)
          -- completely different responses from whoever reads the log.
          local inRift = M.inRift(item)
          if inRift > 0 then
+            -- PULLED AND EATEN IN ONE GO. The reference system sends `outr <item>` and
+            -- `eat <item>` together when the herb is not carried, and the game runs them in
+            -- order: the pull has landed by the time the eat is read. OUTR costs no balance,
+            -- so the pair spends exactly what the eat alone would. Only when the rift can be
+            -- reached now (not entangled, not both arms out, as the reference system asks)
+            -- and the commands can be joined. The third return names what to pull.
+            if M.PULL_AND_EAT[vector] and M.vectorBlocked("rift") == nil
+               and emunah.act.separator() ~= "" then
+               return true, nil, item
+            end
             return false, ("%s is in the rift, not in hand"):format(item)
          end
          warnOnce("item:" .. item, "Out of %s -- falling through to the next cure.", item)

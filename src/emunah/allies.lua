@@ -16,7 +16,7 @@
 ---                    plan can be made against what the other side actually is
 ---
 --- WHAT IS NOT HERE, AND WHY. Nothing is SENT to a partner: no party call, no shared
---- affliction report. Every command Emunah sends needs its syntax from HELP first (CLAUDE.md),
+--- affliction report. Every command Emunah sends needs its syntax from HELP first (CONTRIBUTING.md),
 --- and none of those has been captured. Nor is a partner's attack read as landing anything on
 --- your shared target: that needs their attack lines as YOU see them, and the only log so far
 --- is from their side (docs/game/alchemist.md). Both are the obvious next pieces.

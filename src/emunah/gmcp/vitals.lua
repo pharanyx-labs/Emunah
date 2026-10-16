@@ -171,22 +171,27 @@ local function onVitals()
       diedNow, revivedNow = dead, not dead
    end
 
-   -- Balance transitions drive the action queue, so raise them before the generic tick.
-   if balChanged then
-      event.raise(M.bal and "balance.gained" or "balance.lost")
-   end
-   if eqChanged then
-      event.raise(M.eq and "equilibrium.gained" or "equilibrium.lost")
-   end
+   -- ONE SEND FOR THE PROMPT: everything decided from here to the end of the tick leaves
+   -- together, in order (core/act.lua's batch). Mudlet catches a failing handler itself,
+   -- and act.batched() sends what was collected even so.
+   emunah.act.batched(function()
+      -- Balance transitions drive the action queue, so raise them before the generic tick.
+      if balChanged then
+         event.raise(M.bal and "balance.gained" or "balance.lost")
+      end
+      if eqChanged then
+         event.raise(M.eq and "equilibrium.gained" or "equilibrium.lost")
+      end
 
-   if diedNow then event.raise("character.died") end
-   if revivedNow then event.raise("character.revived") end
+      if diedNow then event.raise("character.died") end
+      if revivedNow then event.raise("character.revived") end
 
-   event.raise("vitals", M)
+      event.raise("vitals", M)
 
-   -- The system heartbeat. Curing, defence keep-up and the queue all hang off this.
-   M.sawVitals = true
-   event.raise("tick", M.ticks)
+      -- The system heartbeat. Curing, defence keep-up and the queue all hang off this.
+      M.sawVitals = true
+      event.raise("tick", M.ticks)
+   end)
 end
 
 --- Did a Char.Vitals arrive since the last prompt? Cleared by M.onPrompt().
@@ -207,8 +212,10 @@ function M.onPrompt(linesAfter)
       if not linesAfter then return false end
    end
    M.ticks = M.ticks + 1
-   event.raise("vitals", M)
-   event.raise("tick", M.ticks)
+   emunah.act.batched(function()
+      event.raise("vitals", M)
+      event.raise("tick", M.ticks)
+   end)
    return true
 end
 
