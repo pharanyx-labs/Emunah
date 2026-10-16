@@ -58,6 +58,8 @@ local MANIFEST = {
    { path = "emunah.core.act",           as = "act"           },
    -- what was recently sent, typed or automated: anti-illusion, antitheft and QUIT ask it
    { path = "emunah.core.outgoing",      as = "outgoing"      },
+   -- the game's CONFIG SEPARATOR, learned each session: what act joins a prompt's commands with
+   { path = "emunah.core.separator",     as = "separator"     },
 
    -- gmcp: the tracking layer. NOTE the namespace `emunah.gmcp` is *ours*; the bare
    -- global `gmcp` is Mudlet's raw feed. Never alias one to the other.

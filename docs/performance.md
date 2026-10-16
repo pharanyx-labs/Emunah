@@ -35,6 +35,32 @@ that day's changes, measured 77.10 and 77.57 µs. So the rise from the 67.5 µs 
 between 2026-10-04 and `5d66245`, or with the machine, and not with that day's changes. It
 has not been profiled yet.
 
+## Lines on the wire: 2026-10-16
+
+`lua5.1 test/latency.lua`, WIRE section: one prompt on which four afflictions land with
+health and mana low, so five cures are due at once on separate balances.
+
+| | Commands | Lines | `send()` calls |
+|---|---|---|---|
+| Before (joined with Mudlet's `;;`) | 5 | 5 | 1 |
+| No CONFIG SEPARATOR in the game | 5 | 5 | 5 |
+| CONFIG SEPARATOR `\|` | 5 | **1** | **1** |
+
+The `;;` join of 2026-10-16 morning saved `send()` calls and nothing else: Mudlet splits at
+its own separator before sending, so the game still read five lines. Joined with the game's
+separator, the game reads one line and runs the five commands from it. The separator is
+learned from the game each session (`core/separator.lua`); until the game names one, every
+command goes on a line of its own, as in the second row.
+
+The batch now also covers a timer lapsing and a confirmation timing out, not only the
+prompt's tick. `engine.tick()` is unchanged: 77.3 µs, 2056 B (76.6–77.8 across three runs,
+against 76.9–78.5 before).
+
+The harness's two "herb balance back" scenarios had read NOT SENT since anti-illusion's
+layer 6 (a herb balance back sooner than any herb balance is an illusion): they ate and
+announced the balance at the same instant on a clock that never moved. They now move the
+clock past `detect.MIN_HERB_BALANCE` first, and send again.
+
 ## Time to send: the 2026-10-03 pass
 
 Everything below this section measures what a function costs. This pass measured what a

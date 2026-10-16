@@ -99,6 +99,10 @@ end
 
 engine.enabled = true
 
+-- The game has answered CONFIG COMMANDSEPARATOR (core/separator.lua asks on a session's
+-- first prompt): none set. The WIRE section names one.
+emunah.separator.settle(nil)
+
 -- ---------------------------------------------------------------------------
 -- Instrumentation
 -- ---------------------------------------------------------------------------
@@ -208,8 +212,10 @@ local function herbDown()
    fresh()
    mock.feed("Char.Afflictions.Add", { name = "paralysis", cure = "EAT BLOODROOT", desc = "" })
    quiet()
-   -- That prompt ate the bloodroot. The balance coming back is a herb balance later, and
-   -- the 1.5s same-affliction guard has long lapsed by then; the clock here has not moved.
+   -- That prompt ate the bloodroot. The balance coming back is a herb balance later: the
+   -- 1.5s same-affliction guard has long lapsed by then, and anti-illusion (layer 6, a herb
+   -- balance back sooner than any herb balance) has nothing to say. Move the clock there.
+   mock.advance(detect.MIN_HERB_BALANCE + 0.1)
    engine.forgetIneffective()
    have.spend("herb")
    queue.reset()
@@ -236,6 +242,47 @@ report("idle prompt (nothing to cure)", measure(function() fresh() end, {
    { "gmcp", "Char.Vitals", { hp = "6000", maxhp = "6000" } },
    { "prompt" },
 }, N))
+
+-- ---------------------------------------------------------------------------
+-- WIRE: lines sent for one busy prompt
+-- ---------------------------------------------------------------------------
+--
+-- A fight landing: four afflictions, health and mana low -- five cures due at once. Counted
+-- as LINES (what goes over the wire and what the game reads) and send() calls, with the
+-- game's CONFIG SEPARATOR unknown and then named. Each line is one round of the game reading
+-- input; joined, the prompt's commands are one.
+
+local function busyPrompt()
+   -- Long after the scenarios above: their same-affliction guards have lapsed.
+   mock.advance(5)
+   engine.forgetIneffective()
+   fresh({ { id = "8", name = "a mending salve" }, { id = "11", name = "an elm pipe" } })
+   local packet = {}
+   for _, name in ipairs({ "asthma", "brokenleftleg", "stupidity", "slickness" }) do
+      packet[#packet + 1] = { "gmcp", "Char.Afflictions.Add", { name = name, cure = "", desc = "" } }
+   end
+   packet[#packet + 1] = { "gmcp", "Char.Vitals",
+      { hp = "2400", maxhp = "6000", mp = "1500", maxmp = "5000" } }
+   packet[#packet + 1] = { "prompt" }
+   local lines, sends = mock.lines, mock.sends
+   mock.sent = {}
+   deliver(packet)
+   return mock.lines - lines, mock.sends - sends, #mock.sent, table.concat(mock.sent, " | ")
+end
+
+print("\nWIRE (one busy prompt: four afflictions, health at 40%, mana low)\n")
+for _, case in ipairs({ { label = "no game separator", sep = nil },
+                        { label = "CONFIG SEPARATOR |", sep = "|" } }) do
+   emunah.separator.reset()
+   emunah.separator.settle(case.sep)
+   mock.gameSeparator = case.sep
+   local lines, sends, commands, sent = busyPrompt()
+   print(string.format("%-46s %2d commands  %2d lines  %2d send() calls", case.label, commands,
+      lines, sends))
+   print(string.format("%-46s   sent: %s", "", sent))
+end
+emunah.separator.settle(nil)
+mock.gameSeparator = nil
 
 -- ---------------------------------------------------------------------------
 -- LOGIC: simulated time against a scripted server

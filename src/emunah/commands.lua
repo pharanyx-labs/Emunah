@@ -1133,6 +1133,18 @@ M.handlers.queue = function(arg, rest)
          end
       end
       if not any then row("nothing", "waiting on any balance") end
+      -- How what is decided together leaves: one line, or one line per command.
+      local separator = emunah.separator
+      local game = emunah.act.gameSeparator()
+      if game then
+         row("sending", "one line per prompt, joined with " .. game .. " (the game's separator)")
+      elseif emunah.config.get("queue.chain", true) == false then
+         row("sending", "each command alone (queue.chain is off)")
+      elseif separator and separator.known() then
+         row("sending", "a line per command: no CONFIG SEPARATOR set in the game")
+      else
+         row("sending", "a line per command until the game names its separator")
+      end
       decho("\n  " .. faint("emset queue bal|eq|eqbal|free <command>  |  emset queue clear"))
    end
 end

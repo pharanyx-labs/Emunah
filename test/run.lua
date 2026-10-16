@@ -74,6 +74,16 @@ suite("loader")
 
 local loadOk, loadErr = pcall(load)
 ok(loadOk, "loads without error", loadErr)
+
+--- The game has answered CONFIG COMMANDSEPARATOR: none set, unless `value`. Every session
+--- asks on its first prompt (core/separator.lua); tests about something else start with
+--- the answer in, so the question is not among what they see sent.
+function mock.separatorAnswered(value)
+   mock.gameSeparator = value
+   emunah.separator.reset()
+   emunah.separator.settle(value)
+end
+mock.separatorAnswered(nil)
 ok(type(emunah) == "table", "creates the emunah namespace")
 eq(type(emunah.util), "table", "core.util present")
 eq(type(emunah.gmcp.vitals), "table", "gmcp.vitals present")
@@ -91,7 +101,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 73, "all 73 manifest modules loaded")
+eq(loadedModules, 74, "all 74 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -583,12 +593,12 @@ do
    ok(usable, "a herb only in the rift is usable when it can be pulled in the same send")
    eq(pull, "bloodroot", "...and says what to pull first")
 end
-emunah.config.set("queue.separator", "")
+emunah.config.set("queue.chain", false)
 local riftUsable, riftReason = emunah.have.cure(bloodrootCure)
 ok(not riftUsable, "with no separator to join them, rift stock alone does not make it performable")
 ok(tostring(riftReason):find("in the rift, not in hand"),
    "...and says which of the two situations it is", riftReason)
-emunah.config.set("queue.separator", nil)
+emunah.config.set("queue.chain", nil)
 eq(emunah.have.supply("bloodroot"), 500, "supply still counts the rift, for restocking")
 eq(emunah.have.supply("bloodroot"), 500, "supply counts the rift")
 
@@ -1243,16 +1253,18 @@ mock.feed("IRE.Rift.List", {
 queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
 mock.sent = {}
 do
+   mock.separatorAnswered("|")
    local sendsAt = mock.sends
    mock.feed("Char.Items.List", { location = "inv", items = {} })
    ok(table.concat(mock.sent, " | "):find("outr 3 bloodroot", 1, true)
       and table.concat(mock.sent, " | "):find("outr 3 irid", 1, true),
       "everything due is pulled together on the listing", table.concat(mock.sent, " | "))
-   eq(mock.sends - sendsAt, 1, "...in one send, not one per round trip")
+   eq(mock.sends - sendsAt, 1, "...in one line, joined with the game's separator")
+   mock.separatorAnswered(nil)
 end
 
 -- One trip per send when nothing can join them: then the confirmation drives the next.
-emunah.config.set("queue.separator", "")
+emunah.config.set("queue.chain", false)
 queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
 mock.sent = {}
 mock.feed("Char.Items.List", { location = "inv", items = {} })
@@ -1269,7 +1281,7 @@ mock.advance(engine.RESTOCK_CHAIN + 0.01)
 ok(table.concat(mock.sent, " | "):find("outr 3 irid"),
    "...it follows the confirmation, without waiting for a prompt",
    table.concat(mock.sent, " | "))
-emunah.config.set("queue.separator", nil)
+emunah.config.set("queue.chain", nil)
 
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 engine.forgetStock()
@@ -1477,7 +1489,7 @@ ok(not table.concat(mock.sent, " | "):find("eat kelp"),
 mock.advance(engine.SERVER_CURE_RETRY - 0.1)
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-eq(#mock.sent, 0, "...still throttled just short of the retry pace")
+eq(#mock.sent, 0, "...still throttled just short of the retry pace", table.concat(mock.sent, " | "))
 
 -- No prompt needed: the pace lapsing wakes the engine itself.
 mock.sent = {}
@@ -2164,18 +2176,28 @@ mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = 750 } })
 engine.add("paralysis", "trigger")
 mock.sent = {}
 do
-   local sendsBefore = mock.sends
+   mock.separatorAnswered("|")
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
    eq(mock.sent[1] .. " | " .. mock.sent[2], "outr bloodroot | eat bloodroot",
       "only in the rift: pulled and eaten together, the pull first", table.concat(mock.sent, " | "))
-   ok(emunah.util.contains(mock.rawSends, "outr bloodroot;;eat bloodroot"),
-      "...in one send", table.concat(mock.rawSends, " | "))
+   ok(emunah.util.contains(mock.rawSends, "outr bloodroot|eat bloodroot"),
+      "...in one line, joined with the game's separator", table.concat(mock.rawSends, " | "))
+   mock.separatorAnswered(nil)
 end
 eq(engine.refusals["paralysis"], nil, "...and nothing is refused")
 
+-- With no game separator, the pair still goes, as two lines in the same moment: the game
+-- runs them in the order they arrive.
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
+engine.add("paralysis", "trigger")
+mock.sent, mock.rawSends = {}, {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+eq(mock.rawSends[1] .. " | " .. mock.rawSends[2], "outr bloodroot | eat bloodroot",
+   "with no game separator, the pull and the eat go as two lines, the pull first")
+
 -- With no separator to join them, the old rule: never eat what is only in the rift.
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
-emunah.config.set("queue.separator", "")
+emunah.config.set("queue.chain", false)
 engine.add("paralysis", "trigger")
 mock.sent = {}
 for _ = 1, 4 do
@@ -2189,7 +2211,7 @@ eq(engine.refusals["paralysis"], "bloodroot is in the rift, not in hand",
    "...and the reason distinguishes that from being out of it entirely",
    tostring(engine.refusals["paralysis"]))
 
-emunah.config.set("queue.separator", nil)
+emunah.config.set("queue.chain", nil)
 
 -- Once the restocker has pulled it, the cure becomes possible.
 mock.feed("Char.Items.Add", { location = "inv",
@@ -4044,7 +4066,7 @@ mock.feed("IRE.Rift.List", {
 -- restock now, so it will have taken the vector with a pull of its own -- and left that
 -- item settling, which is what forgetStock() clears.
 queue.reset(); emunah.timers.stopAll(); engine.forgetStock()
-emunah.config.set("queue.separator", "")   -- one trip at a time: what this case is about
+emunah.config.set("queue.chain", false)   -- one trip at a time: what this case is about
 mock.sent = {}
 mock.feed("Char.Items.List", { location = "inv", items = {} })
 ok(table.concat(mock.sent, " | "):find("outr 3 bloodroot"),
@@ -4060,7 +4082,7 @@ mock.feed("Char.Vitals", healthy)
 ok(table.concat(mock.sent, " | "):find("outr 3 irid"),
    "and the next one goes out on the very next tick", table.concat(mock.sent, " | "))
 mock.line("You remove 3 irid, bringing the total in the rift to 495.")
-emunah.config.set("queue.separator", nil)
+emunah.config.set("queue.chain", nil)
 
 -- OVER the target, the difference goes back. Reloads pulled three of everything afresh
 -- each time -- `INR ALL` at 12:07:37 emptied 9 ash and 6 bloodroot out of the pack against
@@ -11551,6 +11573,16 @@ do
    eq(queue.pending("free"), nil, "...nor is it retried forever")
 
    ok(pcall(emunah.commands.dispatch, "queue"), "emset queue reports")
+   mock.separatorAnswered("|")
+   mock.echoed = {}
+   emunah.commands.dispatch("queue")
+   ok(table.concat(mock.echoed, " "):find("joined with |", 1, true),
+      "...and says a prompt's commands leave as one line, with the game's separator")
+   mock.separatorAnswered(nil)
+   mock.echoed = {}
+   emunah.commands.dispatch("queue")
+   ok(table.concat(mock.echoed, " "):find("no CONFIG SEPARATOR", 1, true),
+      "...or that the game has none, so each command is its own line")
    queue.reset(); emunah.timers.stopAll(); act.typedUntil = nil
 end
 
@@ -16487,29 +16519,34 @@ ok(not pvp.reflecting.sobriquet, "...and the blow that shatters it clears it")
 end)()
 
 -- ===========================================================================
-suite("one send per prompt: commands joined by the separator")
+suite("one line per prompt: commands joined by the game's separator")
 
--- The reference system's way of sending, in Emunah's terms (core/act.lua): what one prompt decides leaves in one
--- send(), joined by Mudlet's command separator, which Mudlet splits again ("Send honours
--- command separator defined within Mudlet settings."). The user, 2026-10-16: "start using
--- this method but be aware that we still need to be aware of balances".
+-- The reference system's way of sending, in Emunah's terms (core/act.lua): what one moment
+-- decides leaves in one line, joined by the IN-GAME separator (CONFIG SEPARATOR), which the
+-- game splits into commands. The user, 2026-10-16: "Your command separator is now: |" --
+-- "we can definitely make things much more efficient now". Until the game has said what its
+-- separator is, every command goes on a line of its own.
 ;(function()
 local act = emunah.act
+mock.separatorAnswered("|")
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 emunah.queue.reset(); emunah.timers.stopAll()
 
 mock.rawSends = {}; mock.sent = {}
+local linesAt = mock.lines
 act.batched(function()
    act.send("stand")
    act.send("light pipes", { quiet = true })
    act.send("touch shield")
    act.send("say hello")
 end)
-eq(table.concat(mock.rawSends, " | "), "stand | light pipes | touch shield;;say hello",
-   "a batch joins its commands, in order, keeping a quiet one apart from echoed ones")
+eq(table.concat(mock.rawSends, " / "), "stand / light pipes / touch shield|say hello",
+   "a batch joins its commands with the game's separator, in order, a quiet one kept apart")
+eq(mock.lines - linesAt, 3, "...so four commands take three lines, not four")
 eq(table.concat(mock.sent, " | "), "stand | light pipes | touch shield | say hello",
-   "...and the game still gets each command on its own")
-ok(emunah.outgoing.sentRecently("^say hello"), "...each recorded as sent, one by one")
+   "...and the game runs each command on its own")
+ok(emunah.outgoing.sentRecently("^say hello") and emunah.outgoing.sentRecently("^touch shield"),
+   "...each recorded as sent, one by one, though they left as one line")
 
 -- BALANCE STILL HOLDS INSIDE A BATCH: a command that spends balance marks it spent when it
 -- is added, so a later one of the same prompt that needs it waits, as it did alone.
@@ -16519,29 +16556,61 @@ act.batched(function()
    emunah.gmcp.vitals.spend("bal")
    ok(not act.send("vault horse", { bal = true }), "...and a second that needs balance is held")
 end)
-eq(table.concat(mock.rawSends, " | "), "smite sarapis", "...so it never goes out behind the first")
+eq(table.concat(mock.rawSends, " / "), "smite sarapis", "...so it never goes out behind the first")
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 
--- Ten to a send, as the reference system sends.
+-- Ten to a line, as the reference system sends; and never past the line length.
 mock.rawSends = {}
 act.batched(function()
    for index = 1, 12 do act.send("look " .. index) end
 end)
-eq(#mock.rawSends, 2, "more than ten commands go in two sends")
+eq(#mock.rawSends, 2, "more than ten commands go in two lines")
+mock.rawSends = {}
+act.batched(function()
+   for _ = 1, 3 do act.send("say " .. string.rep("x", 1200)) end
+end)
+eq(#mock.rawSends, 3, "...and a line never runs past " .. act.LINE_MAX .. " characters")
 
--- No separator: each command its own send, nothing joined.
-emunah.config.set("queue.separator", "")
+-- WRITTEN AS ONE, SENT AS THE GAME WANTS IT. Emunah composes chained commands with act.JOIN
+-- (`outr kelp;;eat kelp`); that never reaches the game as it stands.
+mock.rawSends = {}
+act.send("outr kelp" .. act.JOIN .. "eat kelp")
+eq(table.concat(mock.rawSends, " / "), "outr kelp|eat kelp",
+   "a composed pair goes as one line, joined with the game's separator")
+
+-- NOT ANSWERED YET: nothing is joined. A separator the game does not have would make
+-- "eat kelp|focus" one command it cannot run.
+mock.separatorAnswered(nil)
+emunah.separator.reset()
 mock.rawSends = {}
 act.batched(function() act.send("stand"); act.send("look") end)
-eq(table.concat(mock.rawSends, " | "), "stand | look", "with no separator, each goes alone")
-emunah.config.set("queue.separator", nil)
+eq(table.concat(mock.rawSends, " / "), "stand / look",
+   "before the game has named its separator, each command goes on its own line")
+mock.rawSends = {}
+act.send("outr kelp" .. act.JOIN .. "eat kelp")
+eq(table.concat(mock.rawSends, " / "), "outr kelp / eat kelp",
+   "...and a composed pair goes as two lines, in order -- never with `;;` left in it")
+
+-- NONE SET: the same.
+mock.separatorAnswered(nil)
+mock.rawSends = {}
+act.batched(function() act.send("stand"); act.send("look") end)
+eq(table.concat(mock.rawSends, " / "), "stand / look", "with no game separator, each goes alone")
+
+-- `queue.chain` off: each command alone even with one.
+mock.separatorAnswered("|")
+emunah.config.set("queue.chain", false)
+mock.rawSends = {}
+act.batched(function() act.send("stand"); act.send("look") end)
+eq(table.concat(mock.rawSends, " / "), "stand / look", "with queue.chain off, each goes alone")
+emunah.config.set("queue.chain", nil)
 
 -- Outside a prompt nothing waits: a send goes at once.
 mock.rawSends = {}
 act.send("look")
-eq(table.concat(mock.rawSends, " | "), "look", "outside a batch, a send goes at once")
+eq(table.concat(mock.rawSends, " / "), "look", "outside a batch, a send goes at once")
 
--- A WHOLE PROMPT: cures on two balances leave together.
+-- A WHOLE PROMPT: cures on two balances leave in one line.
 local engine = emunah.curing.engine
 engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.forgetIneffective()
 engine.enabled = true
@@ -16555,11 +16624,112 @@ mock.rawSends = {}
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", mp = "3000", maxmp = "3000",
    wp = "3000", maxwp = "3000", bal = "1", eq = "1" })
 local joined
-for _, raw in ipairs(mock.rawSends) do if raw:find(";;", 1, true) then joined = raw end end
+for _, raw in ipairs(mock.rawSends) do if raw:find("|", 1, true) then joined = raw end end
 ok(joined and joined:find("eat kelp", 1, true) and joined:find("focus", 1, true),
-   "a prompt's cures on two balances leave in one send", table.concat(mock.rawSends, " | "))
+   "a prompt's cures on two balances leave in one line", table.concat(mock.rawSends, " / "))
 engine.clear(); emunah.queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 mock.feed("Char.Afflictions.List", {})
+
+-- A TIMER LAPSING IS A MOMENT TOO: what its listeners send leaves as one line.
+mock.rawSends = {}
+local id = emunah.event.register("emunah.timer.expired", function(_, name)
+   if name ~= "test.batch" then return end
+   act.send("look"); act.send("stand")
+end, "test.batch")
+emunah.timers.start("test.batch", 0.5)
+mock.advance(0.6)
+emunah.event.kill("test.batch")
+eq(table.concat(mock.rawSends, " / "), "look|stand", "a timer's sends leave as one line")
+mock.separatorAnswered(nil)
+end)()
+
+-- ===========================================================================
+suite("the game's separator: learned each session, never assumed")
+
+;(function()
+local separator = emunah.separator
+local act = emunah.act
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+
+-- A NEW SESSION ASKS, QUIETLY, ON ITS FIRST PROMPT.
+raiseEvent("sysConnectionEvent")
+eq(separator.known(), false, "a new connection knows nothing of the game's separator")
+mock.gameSeparator = "|"
+mock.sent, mock.echoed_sends = {}, {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+eq(mock.sent[1], "config commandseparator", "the first prompt asks the game")
+eq(mock.echoed_sends[1], false, "...without echoing the question")
+eq(act.gameSeparator(), nil, "...and joins nothing until the answer is read")
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(not emunah.util.contains(mock.sent, "config commandseparator"), "...asking once, not every prompt")
+
+-- The answer: read, and hidden, because Emunah asked.
+mock.deletedLines = 0
+mock.line("You can set a separator to be able to send multiple commands to Achaea at once.")
+mock.line("Your command separator is now: |")
+eq(act.gameSeparator(), "|", "the answer is read: the game splits at |")
+eq(mock.deletedLines, 2, "...and both lines of the answer to Emunah's question are hidden")
+
+-- YOURS ARE NOT HIDDEN, and a CONFIG SEPARATOR of yours stops the joining until answered.
+mock.forgetSends()
+mock.sentCommand("config separator ~")
+eq(act.gameSeparator(), nil, "typing CONFIG SEPARATOR stops the joining at once")
+mock.deletedLines = 0
+mock.line("Your command separator is now: ~")
+eq(act.gameSeparator(), "~", "...and the game's answer starts it again, with the new one")
+eq(mock.deletedLines, 0, "...the answer to your own command left on screen")
+
+-- An answer that cannot be read: Emunah asks, and joins nothing meanwhile.
+mock.sentCommand("config separator")
+mock.sent = {}
+mock.advance(separator.RECHECK + 0.1)
+mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+ok(emunah.util.contains(mock.sent, "config commandseparator"),
+   "an answer Emunah cannot read is followed by its own question", table.concat(mock.sent, " | "))
+mock.line("You currently have no separator set. Use CONFIG SEPARATOR <separator> to set one.")
+eq(separator.known(), true, "\"no separator set\" is an answer")
+eq(act.gameSeparator(), nil, "...and with none, nothing is joined")
+
+-- NO ANSWER AT ALL: asked again later, a few times, then not.
+raiseEvent("sysConnectionEvent")
+local asked = 0
+for _ = 1, 6 do
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   if emunah.util.contains(mock.sent, "config commandseparator") then asked = asked + 1 end
+   mock.advance(separator.RETRY + 0.1)
+end
+eq(asked, separator.MAX_ASKS, "an unanswered question is asked again, " .. separator.MAX_ASKS
+   .. " times in all")
+
+-- THE GAME SPLITS WHATEVER IT GETS: a line you type with the separator in it is recorded as
+-- the commands the game will run.
+separator.settle("|")
+mock.forgetSends()
+mock.sentCommand("eat kelp|apply mending")
+ok(emunah.outgoing.sentRecently("^eat kelp$") and emunah.outgoing.sentRecently("^apply mending$"),
+   "a line with the game's separator in it is recorded as its commands")
+
+-- A disconnect forgets: the next session asks again.
+raiseEvent("sysDisconnectionEvent")
+eq(separator.known(), false, "a disconnect forgets the separator")
+mock.separatorAnswered(nil)
+end)()
+
+-- ===========================================================================
+suite("config migration 12: queue.separator was Mudlet's")
+
+;(function()
+local config = emunah.config
+local data = { schema = 11, queue = { separator = ";;", typedHold = 0.5 } }
+config.migrate(data)
+eq(data.queue.separator, nil, "a saved queue.separator is removed")
+eq(data.queue.chain, nil, "...and chaining stays on")
+eq(data.queue.typedHold, 0.5, "...the rest of the queue settings untouched")
+data = { schema = 11, queue = { separator = "" } }
+config.migrate(data)
+eq(data.queue.chain, false, "an empty one meant each command alone: queue.chain off")
 end)()
 
 -- ===========================================================================

@@ -17,17 +17,23 @@ elixir can all be in flight simultaneously; two herbs cannot.
 command, so state alone cannot prevent a duplicate send. Every action arms a short guard on
 dispatch, replaced by the exact cooldown the moment the game announces it.
 
-**One send per prompt.** What a prompt decides leaves together: every `act.send()` between
-the balance changes of a `Char.Vitals` and the end of its tick is collected and sent as one
-line joined by Mudlet's command separator (`queue.separator`, `;;`), ten to a send, as
-the reference system sends. Mudlet splits the line again ("Send honours command separator
-defined within Mudlet settings.", its documentation of `send()`), so the game still reads
-each command on its own. Batching changes no balance rule: each command passed the gate
-and marked what it spends when it was added, so a later command of the same prompt that
-needs that balance is held exactly as before. The same separator lets one command carry
-two that must run in order with nothing between them: a herb only in the rift goes out as
-`outr <herb>;;eat <herb>`, as the reference system eats one, and every restock trip due
-goes in one.
+**One line per prompt.** What a prompt decides leaves together: every `act.send()` between
+the balance changes of a `Char.Vitals` and the end of its tick, and everything sent when a
+timer lapses or a confirmation times out, is collected and sent as one line joined by the
+game's own command separator (CONFIG SEPARATOR), ten to a line, as the reference system
+sends. The game splits the line and runs each command in order. The separator is learned
+from the game each session (`core/separator.lua` asks `config commandseparator` on the first
+prompt and hides the answer); until the game has named one, every command goes on a line of
+its own, because a separator the game does not have would turn two commands into one it
+cannot run. Mudlet's own `;;` is not used: Mudlet splits at it before sending, so it never
+saved a line. Batching changes no balance rule: each command passed the gate and marked
+what it spends when it was added, so a later command of the same prompt that needs that
+balance is held exactly as before. Emunah writes a pair that must run in order with nothing
+between them as one command joined by `act.JOIN` (`;;`): a herb only in the rift goes out
+as `outr <herb>` then `eat <herb>`, as the reference system eats one, and every restock trip
+due goes at once. `act.send()` splits it again, so it reaches the game as one line with the
+game's separator, or as consecutive lines without one. `queue.chain` off sends every command
+alone.
 
 **Nothing is recomputed that the game has not changed.** The curing engine runs on every
 prompt, so anything it does per tick is paid several times a second on Mudlet's UI thread —

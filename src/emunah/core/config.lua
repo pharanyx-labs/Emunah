@@ -20,7 +20,7 @@ local PATH = getMudletHomeDir() .. "/emunah-config.lua"
 --- reload does not even get that far -- M.data is restored wholesale from
 --- emunah._persist. So a bad default, once written or once carried across a reload, is
 --- permanent until something rewrites it. That is what MIGRATIONS is for.
-local SCHEMA = 11
+local SCHEMA = 12
 
 local MIGRATIONS = {
    -- bashing.balance shipped as "bal" long after smite was confirmed to need balance AND
@@ -180,6 +180,23 @@ local MIGRATIONS = {
          table.sort(moved)
          return "defences.keepup: " .. table.concat(moved, ", ") .. " (the names Char.Defences uses)"
       end
+   end,
+
+   -- `queue.separator` named MUDLET's separator, which Mudlet splits at before sending, so
+   -- joining with it saved nothing on the wire. Commands now join with the game's own
+   -- CONFIG SEPARATOR, learned from the game each session (core/separator.lua), and a saved
+   -- `;;` read as the game's separator would join commands the game never splits. An empty
+   -- one meant "send each command alone", which `queue.chain = false` now says.
+   [12] = function(data)
+      local queue = data.queue
+      if type(queue) ~= "table" or queue.separator == nil then return end
+      local off = queue.separator == ""
+      queue.separator = nil
+      if off then
+         queue.chain = false
+         return "queue.separator \"\" -> queue.chain off"
+      end
+      return "queue.separator removed: the game's own separator is learned from the game"
    end,
 
    -- NOTE: bashing.attack moving from "smite" to "angel sear" is NOT a migration here, on

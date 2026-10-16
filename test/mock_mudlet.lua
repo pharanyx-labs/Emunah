@@ -408,28 +408,47 @@ function mock.install(homeDir)
    -- typed; core/outgoing.lua is built on it.
    -- And it splits at the command separator, as Mudlet does: "Send honours command separator
    -- defined within Mudlet settings." (CoreMudlet.lua). The mock is Mudlet with its default,
-   -- `;;`. Each piece is a command of its own, in mock.sent and to sysDataSendRequest alike;
-   -- mock.sends counts the send() calls themselves, which is what batching saves.
+   -- `;;`. Each piece is a line of its own to sysDataSendRequest. mock.sends counts the send()
+   -- calls themselves, mock.lines the lines that reach the game.
+   --
+   -- THE GAME SPLITS TOO. mock.gameSeparator is the character's CONFIG SEPARATOR (nil: none
+   -- set). A line reaches the game whole, and the game runs each part of it as a command:
+   -- mock.sent holds the commands the game runs, which is what most tests ask about.
    mock.sends = 0
+   mock.lines = 0
    mock.rawSends = {}
+   mock.gameSeparator = nil
+   local function split(text, sep, each)
+      local from = 1
+      while true do
+         local at = text:find(sep, from, true)
+         each(text:sub(from, at and at - 1 or nil))
+         if not at then return end
+         from = at + #sep
+      end
+   end
    function _G.send(command, echo)
       mock.sends = mock.sends + 1
       mock.rawSends[#mock.rawSends + 1] = tostring(command)
       if #mock.rawSends > 50 then table.remove(mock.rawSends, 1) end
-      local text, from = tostring(command), 1
-      while true do
-         local at = text:find(";;", from, true)
-         local piece = text:sub(from, at and at - 1 or nil)
+      local text = tostring(command)
+      split(text, ";;", function(piece)
          -- A blank send() is a blank line (keep-up's nudge asks for a prompt with one);
          -- only the empty gaps of a doubled separator are skipped.
-         if piece ~= "" or text == "" then
-            mock.sent[#mock.sent + 1] = piece
+         if piece == "" and text ~= "" then return end
+         mock.lines = mock.lines + 1
+         local function run(part)
+            if part == "" and piece ~= "" then return end
+            mock.sent[#mock.sent + 1] = part
             mock.echoed_sends[#mock.echoed_sends + 1] = echo ~= false
-            if _G.raiseEvent then _G.raiseEvent("sysDataSendRequest", piece) end
          end
-         if not at then break end
-         from = at + 2
-      end
+         if mock.gameSeparator and mock.gameSeparator ~= "" then
+            split(piece, mock.gameSeparator, run)
+         else
+            run(piece)
+         end
+         if _G.raiseEvent then _G.raiseEvent("sysDataSendRequest", piece) end
+      end)
    end
    function _G.sendGMCP(payload) mock.gmcpSent[#mock.gmcpSent + 1] = tostring(payload) end
    function _G.ansi2decho(text) return tostring(text) end

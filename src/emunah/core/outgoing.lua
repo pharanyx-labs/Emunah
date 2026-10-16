@@ -60,19 +60,34 @@ function M.isQuit(command)
    return command == "quit" or command == "qq"
 end
 
+--- Where a line splits into commands: Mudlet's own separator, if Mudlet hands a typed line
+--- over whole, and the game's, which the game splits at whoever sent the line.
+local function splitAt(command)
+   local mudlet = ";;"
+   if type(getCommandSeparator) == "function" then
+      local ok, value = pcall(getCommandSeparator)
+      if ok and type(value) == "string" and value ~= "" then mudlet = value end
+   end
+   local separator = emunah.separator
+   local game = separator and separator.last and separator.last()
+   for _, sep in ipairs({ mudlet, game }) do
+      if sep and sep ~= "" then
+         local at = command:find(sep, 1, true)
+         if at then return at, sep end
+      end
+   end
+   return nil
+end
+
 function M.record(command)
    command = tostring(command or "")
-   -- One entry per command, whether Mudlet hands this over already split at the command
-   -- separator or whole: `sentRecently("^eat ")` has to see the eat in "outr kelp;;eat kelp".
-   local sep = emunah.act and emunah.act.separator and emunah.act.separator() or ""
-   if sep ~= "" and command:find(sep, 1, true) then
-      local from = 1
-      while true do
-         local at = command:find(sep, from, true)
-         M.record(command:sub(from, at and at - 1 or nil))
-         if not at then return end
-         from = at + #sep
-      end
+   -- One entry per command, whether a line holds one or several: `sentRecently("^eat ")` has
+   -- to see the eat in "outr kelp|eat kelp".
+   local at, sep = splitAt(command)
+   if at then
+      M.record(command:sub(1, at - 1))
+      M.record(command:sub(at + #sep))
+      return
    end
    command = command:lower():match("^%s*(.-)%s*$")
    if command == "" then return end

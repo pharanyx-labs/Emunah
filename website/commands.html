@@ -170,10 +170,10 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <div class="table-wrap"><table>
 <thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>queue.typedHold</code></td><td>0.5 s</td><td>After you type a command, Emunah's balance and equilibrium sends wait this long, plus your latency, so yours goes first. 0 turns it off.</td></tr>
-<tr><td><code>queue.separator</code></td><td>;;</td><td>Mudlet's command separator (Preferences, Input line). The commands of one prompt leave joined with it, and a herb only in the rift is pulled and eaten in one go. Empty sends each command on its own.</td></tr>
+<tr><td><code>queue.chain</code></td><td>true</td><td>Send commands together: a herb only in the rift is pulled and eaten in one go, every restock trip goes at once, and once the game has named its CONFIG SEPARATOR the commands of one prompt leave as one line. Off, each command goes on its own.</td></tr>
 <tr><td><code>logLevel</code></td><td>info</td><td>debug, info, warn or error. <code>emset debug</code> toggles between info and debug.</td></tr>
 <tr><td><code>system.update</code></td><td>true</td><td>Pull main (fast-forward only) before every reload. Off, a reload loads what is on disk.</td></tr>
-<tr><td><code>schema</code></td><td>11</td><td>Config format version. Managed by the migrations; do not set this by hand.</td></tr>
+<tr><td><code>schema</code></td><td>12</td><td>Config format version. Managed by the migrations; do not set this by hand.</td></tr>
 </tbody></table></div>
 
 <h2 id="curing">Curing</h2>

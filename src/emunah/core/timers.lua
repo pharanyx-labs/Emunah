@@ -18,6 +18,15 @@ local function registry()
    return emunah._timers
 end
 
+--- A timer lapsing: its own callback, then everyone listening.
+local function expire(name, onExpire)
+   if onExpire then
+      local ok, err = pcall(onExpire, name)
+      if not ok then log.error("Timer callback for %q failed: %s", name, tostring(err)) end
+   end
+   emunah.event.raise("timer.expired", name)
+end
+
 --- Start (or restart) a named cooldown.
 --- @param name string e.g. "herb", "salve", "smoke"
 --- @param duration number seconds
@@ -39,11 +48,9 @@ function M.start(name, duration, onExpire)
       local current = registry()[name]
       if current ~= entry then return end
       registry()[name] = nil
-      if onExpire then
-         local ok, err = pcall(onExpire, name)
-         if not ok then log.error("Timer callback for %q failed: %s", name, tostring(err)) end
-      end
-      emunah.event.raise("timer.expired", name)
+      -- A lapse is a moment like a prompt: the curing engine, the hunt and keep-up can all
+      -- act on it, so what they decide leaves as one line (core/act.lua's batch).
+      emunah.act.batched(expire, name, onExpire)
    end)
 
    reg[name] = entry
