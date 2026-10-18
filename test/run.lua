@@ -7082,15 +7082,15 @@ do
       ("%d px for %d lines"):format(room.cons.height, lines))
    ok(not mock.widgets["emunah.room"].scrollBar, "...without needing a scrollbar")
 
-   -- Far more than fits: defences go three to a row, names only, items two to a line, and the room
-   -- scrolls -- nothing is cut off silently.
+   -- Far more than fits: items two to a line, and the room scrolls -- nothing is cut off
+   -- silently. The defences are three to a row already (2026-10-18), with nothing denser.
    for index = 31, 160 do
       items[index] = { id = tostring(9000 + index), name = "a trinket number " .. index, attrib = "t" }
    end
    mock.feed("Char.Items.List", { location = "room", items = items })
    for _ = 1, 4 do mock.advance(0) end
-   eq(layout.compact("defences"), 3, "an overflowing column puts the defences in three columns")
-   eq(layout.compact("room"), 2, "...then the room's items two to a line")
+   eq(layout.compact("defences"), 1, "an overflowing column leaves the defences at their one density")
+   eq(layout.compact("room"), 2, "...and puts the room's items two to a line")
    ok(mock.widgets["emunah.room"].scrollBar, "...and, when even that is too much, the room scrolls")
    ok(tostring(mock.widgets["emunah.room"].contents):find("trinket number 160", 1, true),
       "...with every item still in it")
@@ -7143,9 +7143,17 @@ do
    eq(category, "Other", "a defence nothing raises is Other")
    eq(source, nil, "...with no guess at its source")
 
+   -- ONLY WHAT `emset defs` SWITCHED ON (2026-10-18). Speed is up but not wanted, so it has
+   -- no row; preachblessing is wanted on defup, the rest on keepup.
+   local keepup = emunah.curing.defkeepup
+   local savedModes = emunah.config.get("defences.keepup")
+   emunah.config.set("defences.keepup", { inspiration = "keepup", fangbarrier = "keepup",
+      poisonresist = "keepup", preachblessing = "defup" })
+   emunah.event.raise("defkeepup.changed")
    mock.feed("Char.Defences.List", {
       { name = "inspiration", desc = "" }, { name = "fangbarrier", desc = "" },
       { name = "poisonresist", desc = "" }, { name = "preachblessing", desc = "" },
+      { name = "speed", desc = "" },
    })
    mock.advance(0); mock.advance(0)
    local body = tostring(mock.widgets["emunah.panel.defences"].contents)
@@ -7154,19 +7162,23 @@ do
    ok(elixirs and devotion and other, "the defences panel heads each category", body)
    ok(elixirs and devotion and other and elixirs < devotion and devotion < other,
       "...items first, then skillsets, then what nothing could place")
+   ok(not body:find("speed", 1, true), "...and lists nothing `emset defs` has not switched on", body)
    -- "see how we're putting things like '- venom' and '- frost' we need to not do that bit"
    -- (2026-10-16). The heading says what raises a defence; the cell is its name.
    ok(not body:find("venom", 1, true) and not body:find("perform inspiration", 1, true)
       and not body:find("&middot;", 1, true), "...and no source beside a defence's name", body)
+   local green = emunah.ui.theme.hex("defence")
+   ok(body:find(green .. '">&#9679; </span><span style="color:' .. emunah.ui.theme.hex("text")
+      .. '">fangbarrier<', 1, true), "a defence that is up is green", body)
 
-   -- STEADY UNDER CHANGE (2026-10-16: "quite clunky and jittery when updates come"). Rows
-   -- are alphabetical within a heading, and a defence that drops keeps its place, hollow,
-   -- so nothing else moves and the section keeps its height.
+   -- STEADY UNDER CHANGE (2026-10-16: "quite clunky and jittery when updates come"; again
+   -- 2026-10-18: "they jump around a lot"). Rows are alphabetical within a heading, and a
+   -- defence that drops keeps its place, recoloured, so nothing else moves.
    local function order(text)
       local out = {}
       for _, name in ipairs({ "fangbarrier", "inspiration", "poisonresist", "preachblessing" }) do
-         out[#out + 1] = { name, text:find(">" .. name .. "<", 1, true)
-            or text:find(" " .. name .. "<", 1, true) or 0 }
+         out[#out + 1] = { name, text:find(" " .. name .. "<", 1, true)
+            or text:find(">" .. name .. "<", 1, true) or 0 }
       end
       table.sort(out, function(a, b) return a[2] < b[2] end)
       local listed = {}
@@ -7179,16 +7191,35 @@ do
    mock.feed("Char.Defences.Remove", { "fangbarrier", "preachblessing" })
    mock.advance(0); mock.advance(0)
    body = tostring(mock.widgets["emunah.panel.defences"].contents)
-   ok(body:find("&#9675; fangbarrier", 1, true) and body:find("&#9675; preachblessing", 1, true),
-      "a defence that drops stays where it was, hollow", body)
+   local alarm = emunah.ui.theme.hex("alarm")
+   ok(body:find("color:" .. alarm .. '">&#9675; fangbarrier<', 1, true),
+      "a kept-up defence that drops stays where it was, in red", body)
+   ok(body:find(emunah.ui.theme.hex("warning") .. '">&#9675; preachblessing<', 1, true),
+      "...a defup one in yellow", body)
    eq(order(body), orderBefore, "...and no other defence moves")
    eq(box.cons.height, heightBefore, "...and the section keeps its height")
    mock.feed("Char.Defences.Add", { name = "fangbarrier" })
+   mock.feed("Char.Defences.Remove", { "speed" })
    mock.advance(0); mock.advance(0)
    body = tostring(mock.widgets["emunah.panel.defences"].contents)
    eq(order(body), orderBefore, "coming back moves nothing either")
    ok(not body:find("&#9675; fangbarrier", 1, true), "...and it is shown up again")
 
+   -- `emset defs` is what changes the rows.
+   keepup.setMode("preachblessing", nil)
+   mock.advance(0); mock.advance(0)
+   body = tostring(mock.widgets["emunah.panel.defences"].contents)
+   ok(not body:find("preachblessing", 1, true) and not body:find("Other", 1, true),
+      "switching a defence off takes its row away", body)
+   keepup.setMode("preachblessing", "keepup")
+   mock.advance(0); mock.advance(0)
+   body = tostring(mock.widgets["emunah.panel.defences"].contents)
+   ok(body:find("color:" .. alarm .. '">&#9675; preachblessing<', 1, true),
+      "...and switching it on brings it back", body)
+   ok(body:find('<td colspan="3">', 1, true), "the defences are three to a row", body)
+
+   emunah.config.set("defences.keepup", savedModes)
+   emunah.event.raise("defkeepup.changed")
    skills.index, skills.groups = savedIndex, savedGroups
 end
 
@@ -14384,8 +14415,8 @@ suite("the panels survive a reload")
 
 -- THE PANELS COME BACK AS THEY WERE (2026-10-16: after `emreload` the defences were filed
 -- under "Abilities", one to a row, the room empty and the mace down; 5-10s later all of it
--- re-laid itself out). The skill index, the inventory and room, the layout and the defence
--- slots are carried across the reload, so the first paint is the last one again.
+-- re-laid itself out). The skill index, the inventory and room and the layout are carried
+-- across the reload, so the first paint is the last one again.
 ;(function()
    mock.installGeyser()
    emunah.config.data.ui.enabled = true
@@ -14396,6 +14427,9 @@ suite("the panels survive a reload")
       { id = "5101", name = "a polished birch bookcase", attrib = "" },
       { id = "5102", name = "a runic totem", attrib = "" },
    } })
+   local savedModes = emunah.config.get("defences.keepup")
+   emunah.config.set("defences.keepup", { inspiration = "keepup", poisonresist = "keepup",
+      trackmace = "keepup" })
    mock.feed("Char.Defences.List", {
       { name = "inspiration", desc = "" }, { name = "poisonresist", desc = "" },
    })
@@ -14440,6 +14474,7 @@ suite("the panels survive a reload")
    eq(next(emunah.gmcp.skills.index), nil, "a disconnect forgets the skill index")
    eq(#emunah.gmcp.items.at("room"), 0, "...and the room")
    eq(emunah.gmcp.items.inventoryListed, false, "...and that the inventory was ever listed")
+   emunah.config.set("defences.keepup", savedModes)
 
    emunah.config.data.ui.enabled = false
    mock.uninstallGeyser()

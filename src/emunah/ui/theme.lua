@@ -51,6 +51,9 @@ M.colour = {
    -- reserved for "everything has stopped" states (the paused banner) so it reads as more
    -- severe than an ordinary affliction warning.
    danger    = "#8b1a1a",
+   -- A kept-up defence that is down (ui/affpanel.lua). Bright where `danger` is dark: it
+   -- is drawn as text on a wash of itself, and has to be the first thing the eye lands on.
+   alarm     = "#ff4545",
 }
 
 --- RGB triples for decho/cecho, derived from the hex above so there is one source.
