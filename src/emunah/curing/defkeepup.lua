@@ -128,6 +128,8 @@ function M.setMode(name, mode)
    -- history and any "already done" from a previous defup pass.
    M.resetBudget(name)
    M.satisfied[name] = nil
+   -- The defences panel lists exactly what is switched on.
+   event.raise("defkeepup.changed", name, mode)
    return mode
 end
 

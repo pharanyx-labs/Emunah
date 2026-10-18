@@ -21,9 +21,10 @@
 --- pills, because each one holds every command. Below them: every curing vector currently
 --- shut and by what -- a lock, read off in one line.
 ---
---- DEFENCES files every defence under what raises it -- Elixirs, Herbs, Salves, then each
---- skillset by the server's name for it (deflist.raisedBy()) -- alphabetically, and every
---- defence keeps its place for the session once it has been shown (see `slots`).
+--- DEFENCES lists the defences `emset defs` has switched on, and only those, filed under what
+--- raises them -- Elixirs, Herbs, Salves, then each skillset by the server's name for it
+--- (deflist.raisedBy()) -- alphabetically, three to a row. Green up, yellow down on defup, red
+--- down on keepup.
 ---
 --- Both are Labels drawing rich text (see ui/theme.lua for why), each painted in one call and
 --- not at all when unchanged, after the packet (theme.later).
@@ -288,115 +289,118 @@ local function categoryBefore(a, b)
    return a < b
 end
 
---- One defence's cell: its dot and name. Filled when it is up; hollow when it is down, amber
---- when keep-up owes it, dim when nothing does.
+--- One defence's cell: its dot and name.
 ---
---- No "· venom" beside poisonresist: the item or command that raised it repeated what the
---- heading already says, and widened every cell (the user, 2026-10-16).
-local function defenceCell(entry, keepingUp)
+---   green   up, by Char.Defences or its own lines (deflist.isUp)
+---   yellow  down, and on defup: raised once a session, so down is not a fault
+---   red     down, and on keepup: something that should be standing is not. Bright red on a
+---           red wash, the one thing on the panel meant to catch the eye.
+---
+--- The same glyph and no bold in every state, so a change of state never changes a cell's
+--- width and wraps its row (the user, 2026-10-18: "they jump around a lot").
+local function defenceCell(entry)
    if entry.up then
       return theme.span("defence", "&#9679; ") .. theme.span("text", theme.esc(entry.name))
    end
-   local colour = (entry.owed and keepingUp) and "warning" or "textDim"
-   return theme.span(colour, "&#9675; " .. theme.esc(entry.name))
+   if entry.mode == "keepup" then
+      local colour = theme.hex("alarm")
+      return string.format('<span style="background-color:%s; color:%s">&#9675; %s</span>',
+         theme.shade(colour, 0.28), colour, theme.esc(entry.name))
+   end
+   return theme.span("warning", "&#9675; " .. theme.esc(entry.name))
 end
 
---- Every defence shown this session: name -> true. A defence keeps its place once it has
---- appeared, hollow while it is down, so one dropping or coming back moves nothing else
---- on the panel (the user, 2026-10-16). Carried across `emreload` on _persist, like the
---- layout, so a reload redraws the same rows; a disconnect empties it.
-emunah._persist = emunah._persist or {}
-emunah._persist.defenceSlots = emunah._persist.defenceSlots or {}
-local slots = emunah._persist.defenceSlots
+--- name -> its heading, the first time it is filed. deflist.raisedBy() follows what is in
+--- hand -- a herb defence moves to Minerals when only the mineral is left -- and a row
+--- changing heading moved every row below it. Forgotten when the answer can genuinely
+--- change: the skill index arriving (Abilities -> the skillset), `emset defs` (a custom
+--- command), a disconnect.
+local headings = {}
+local function heading(name)
+   local category = headings[name]
+   if not category then
+      category = emunah.curing.deflist.raisedBy(name)
+      headings[name] = category
+   end
+   return category
+end
+emunah.event.registerAll({ "emunah.skills.list", "emunah.defkeepup.changed", "sysDisconnectionEvent" },
+   function() headings = {} end, "ui.affpanel")
 
---- The defences, filed by category (deflist.raisedBy()), alphabetically within each.
+--- The defences `emset defs` has switched on, and nothing else, filed by category
+--- (deflist.raisedBy()), alphabetically within each.
 ---
---- ALPHABETICAL, NOT OWED-FIRST. Owed-first moved a kept-up defence to the top of its
---- heading the moment it dropped and back when it was raised, and every row between moved
---- twice: the panel jumped on every refresh of a defence.
---- @return table categories in display order, table category -> entries
-local function groupDefences(active, missing)
+--- ONLY WHAT IS SWITCHED ON (the user, 2026-10-18). Listing whatever Char.Defences reported
+--- meant a row for every passing defence, and the rows came and went with them. The set now
+--- changes only when `emset defs` does; a defence going up or down recolours its cell and
+--- moves nothing.
+--- @return table categories in display order, table category -> entries, number up
+local function groupDefences(modes)
    local deflist = emunah.curing.deflist
    local byCategory, order = {}, {}
-   local seen = {}
-   local function add(name, up, owed)
-      if seen[name] then return end
-      seen[name] = true
-      slots[name] = true
-      local category = deflist.raisedBy(name)
+   local upCount = 0
+   for name, mode in pairs(modes) do
+      local category = heading(name)
       local list = byCategory[category]
       if not list then
          list = {}
          byCategory[category] = list
          order[#order + 1] = category
       end
-      list[#list + 1] = { name = name, up = up, owed = owed }
+      local up = deflist.isUp(name)
+      if up then upCount = upCount + 1 end
+      list[#list + 1] = { name = name, up = up, mode = mode }
    end
-   for _, record in ipairs(active) do add(record.name, true) end
-   -- Up by their own lines, never in Char.Defences (deflist.SYNTHETIC): bliss, the angel,
-   -- the mace. Listed so the panel shows every defence Emunah knows is up.
-   for name in pairs(deflist.SYNTHETIC) do
-      if deflist.isUp(name) then add(name, true) end
-   end
-   for _, name in ipairs(missing) do add(name, false, true) end
-   for name in pairs(slots) do add(name, false) end
    table.sort(order, categoryBefore)
    for _, category in ipairs(order) do
       table.sort(byCategory[category], function(a, b) return a.name < b.name end)
    end
-   return order, byCategory
+   return order, byCategory, upCount
 end
-
--- A disconnect ends the session.
-emunah.event.register("sysDisconnectionEvent", function()
-   for name in pairs(slots) do slots[name] = nil end
-end, "ui.affpanel")
 
 --- Repaint the defences section.
 local function updateDefences()
    local body = M.widgets.defences
-   local defences = emunah.gmcp.defences
-   if not body or not defences then return end
-
    local keepup = emunah.curing.defkeepup
-   local active  = defences.list()
-   local missing = keepup and keepup.missing() or {}
-   local keepingUp = keepup and keepup.enabled
-   local order, byCategory = groupDefences(active, missing)
-   local upCount = 0
+   if not body or not keepup then return end
+
+   local modes = keepup.modes()
+   local order, byCategory, upCount = groupDefences(modes)
+   local total, down = 0, 0
    for _, category in ipairs(order) do
       for _, entry in ipairs(byCategory[category]) do
-         if entry.up then upCount = upCount + 1 end
+         total = total + 1
+         if not entry.up and entry.mode == "keepup" then down = down + 1 end
       end
    end
 
    -- A defence missing while keep-up is OFF is not a fault, it is a job nobody is doing.
    -- Reported from play: `emunah defs add inspiration`, then it sat red indefinitely.
-   local summary = string.format("%d up", upCount)
+   local summary = string.format("%d/%d up", upCount, total)
    local summaryColour = "defence"
-   if #missing > 0 then
-      summary = summary .. string.format(" \194\183 %d down", #missing)
-      summaryColour = "warning"
+   if down > 0 then
+      summary = summary .. string.format(" \194\183 %d down", down)
+      summaryColour = "alarm"
+      if not keepup.enabled then summary = summary .. " \194\183 keep-up off" end
    end
-   if not keepingUp and #missing > 0 then summary = summary .. " \194\183 keep-up off" end
    layout.header("defences", M.widgets.defencesHeader, "Defences", summary, summaryColour)
 
-   -- Three densities, most spacious first, for layout.reflow() to choose between: one, two
-   -- or three defences a row. Each category's heading is a line of its own in all three.
-   -- Reported before painting, so the density read below is the one this paints at.
-   local lines = { 0, 0, 0 }
+   -- THREE A ROW, ALWAYS (the user, 2026-10-18: "it's taking up too much room"). It used to
+   -- offer layout.reflow() one, two or three a row and took one whenever the column had
+   -- room, which made it the tallest section on the left. One density now, so the section
+   -- is sized to exactly its rows and its height moves only when `emset defs` does. Each
+   -- category's heading is a line of its own.
+   local columns = 3
+   local lines = 0
    for _, category in ipairs(order) do
-      for density = 1, 3 do
-         lines[density] = lines[density] + 1 + math.ceil(#byCategory[category] / density)
-      end
+      lines = lines + 1 + math.ceil(#byCategory[category] / columns)
    end
-   layout.need("defences", { math.max(1, lines[1]), math.max(1, lines[2]), math.max(1, lines[3]) })
-   local columns = math.min(math.max(layout.compact("defences"), 1), 3)
+   layout.need("defences", { math.max(1, lines) })
 
    local n = 0
    if #order == 0 then
       n = 1
-      html[1] = theme.span("textDim", "none")
+      html[1] = theme.span("textDim", "none -- `emset defs add` to list one")
    else
       n = 1
       html[1] = '<table width="100%" cellspacing="0" cellpadding="0">'
@@ -411,7 +415,7 @@ local function updateDefences()
             for offset = 0, columns - 1 do
                local entry = entries[index + offset]
                row[#row + 1] = string.format('<td width="%d%%">%s</td>', width,
-                  entry and defenceCell(entry, keepingUp) or "")
+                  entry and defenceCell(entry) or "")
             end
             n = n + 1
             html[n] = "<tr>" .. table.concat(row) .. "</tr>"
@@ -443,6 +447,7 @@ emunah.event.registerAll({
    "emunah.curing.disabled",
    "emunah.defkeepup.enabled",
    "emunah.defkeepup.disabled",
+   "emunah.defkeepup.changed",
    -- The skill index names an ability's skillset, which is a defence's heading.
    "emunah.skills.list",
 }, function() theme.later("affpanel", M.update) end, "ui.affpanel")   -- after the packet: theme.later()
