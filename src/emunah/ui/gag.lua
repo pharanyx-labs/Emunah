@@ -19,6 +19,53 @@
 
 local M = {}
 
+-- ---------------------------------------------------------------------------
+-- Our own output, while a line it could land on is about to go
+-- ---------------------------------------------------------------------------
+--
+-- AN ECHO MADE WHILE A LINE IS PROCESSED BELONGS TO THAT LINE, and goes with it when the
+-- line is deleted. A gagged PIPELIST's prompt runs the prompt trigger's second pass
+-- (lines came after its Char.Vitals), and what that pass printed went with the prompt:
+-- login 2026-10-18 10:09:21, `smoke skullcap` went out with no `-> smoke skullcap` and
+-- no `Sent [smoke]` anywhere, and it read as a command from some other script. So while
+-- a prompt is due to be hidden, core/log.lua hands its lines here, and they are printed
+-- once that prompt has been dealt with.
+
+--- Longest a pending prompt delete holds output. The prompt is the next line of the same
+--- packet, so this is only a backstop for one that never comes.
+M.HOLD_MAX = 2.0
+
+local held = {}
+local armed, armedAt = 0, nil
+
+-- Forward: the idle poll's answer prompt, below, may be deleted too.
+local awaitingUntil = nil
+local afterPrompt = false
+
+--- Is a line we are about to delete still to come, so that output now could go with it?
+function M.holding()
+   local now = emunah.util.now()
+   if armed > 0 and armedAt and now - armedAt > M.HOLD_MAX then armed = 0 end
+   if armed > 0 then return true end
+   return awaitingUntil ~= nil and afterPrompt and now <= awaitingUntil
+end
+
+--- Print what was held, in order.
+function M.release()
+   if #held == 0 then return end
+   local out = held
+   held = {}
+   for _, text in ipairs(out) do cecho(text) end
+end
+
+--- Keep `text` (cecho markup) until the line it could land on has been dealt with.
+function M.hold(text)
+   held[#held + 1] = text
+   if #held == 1 and type(tempTimer) == "function" then
+      tempTimer(M.HOLD_MAX, function() M.release() end)
+   end
+end
+
 local function deletable()
    return type(deleteLine) == "function"
 end
@@ -37,8 +84,11 @@ end
 function M.withPrompt()
    if not M.current() then return false end
    if type(tempLineTrigger) == "function" then
+      armed, armedAt = armed + 1, emunah.util.now()
       tempLineTrigger(1, 1, function()
          if type(isPrompt) == "function" and isPrompt() then deleteLine() end
+         armed = math.max(armed - 1, 0)
+         if armed == 0 then M.release() end
       end)
    end
    return true
@@ -51,11 +101,9 @@ end
 --- How long after asking for a prompt the answer is still expected.
 M.PROMPT_WINDOW = 3.0
 
---- When the prompt we asked for stops being expected, or nil when none is.
-local awaitingUntil = nil
-
---- Was the last line through M.onLine() a prompt? Counts lines that were hidden, too.
-local afterPrompt = false
+-- `awaitingUntil`: when the prompt we asked for stops being expected, or nil when none is.
+-- `afterPrompt`: was the last line through M.onLine() a prompt? Counts lines that were
+-- hidden, too. Both declared above, for M.holding().
 
 --- Hide the answer to a blank line sent from a timer (curing/engine.lua's idle poll), where
 --- there is no line to hang a tempLineTrigger off.
@@ -79,6 +127,7 @@ function M.onLine()
       M.current()
    end
    afterPrompt = prompt
+   if armed == 0 then M.release() end
 end
 
 -- ---------------------------------------------------------------------------

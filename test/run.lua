@@ -13303,6 +13303,37 @@ for _, keepup in ipairs({ true, false }) do
 end
 emunah.config.set("pipes.enabled", true)
 
+-- OUR OUTPUT DOES NOT GO WITH THE PROMPT. Login 2026-10-18 10:09:21: the pass that ran on
+-- a hidden PIPELIST's prompt smoked, and its `-> smoke skullcap` went with that prompt.
+do
+   local gag, log = emunah.ui.gag, emunah.log
+   local function said(text)
+      return table.concat(mock.echoed, "\n"):find(text, 1, true) ~= nil
+   end
+   local hide = tempRegexTrigger([[^Status\s+Pipe]], function() gag.withPrompt() end)
+   mock.echoed = {}
+   mock.line("Status   Pipe        Contents          Puffs  Months")
+   log.info("said on the hidden prompt")
+   ok(not said("said on the hidden prompt"), "while a hidden line's prompt is due, output is held")
+   local before = #mock.deletedText
+   mock.prompt("1000h, 1000m ex-")
+   eq(mock.deletedText[before + 1], "1000h, 1000m ex-", "...the prompt is hidden")
+   ok(said("said on the hidden prompt"), "...and what was held is printed once it has gone")
+   log.info("said after")
+   ok(said("said after"), "...and nothing more is held")
+
+   -- No prompt ever comes: the backstop prints it.
+   mock.echoed = {}
+   mock.line("Status   Pipe        Contents          Puffs  Months")
+   log.info("said into a lost prompt")
+   mock.advance(gag.HOLD_MAX + 0.1)
+   ok(said("said into a lost prompt"), "...and without a prompt, it is printed after "
+      .. gag.HOLD_MAX .. "s")
+   ok(not gag.holding(), "...and output is no longer held")
+   killTrigger(hide)
+   mock.lineTriggers = {}
+end
+
 emunah.timers.stopAll()
 end)()
 
@@ -17237,6 +17268,8 @@ rites.check.sentAt = mock.clock
 listing({ "Well-being          Saemora                       500",
           "Revitalisation      Saemora                       858" })
 eq(table.concat(mock.echoed, " "), "", "...said once the block is drawn, not inside it")
+-- The prompt line the gag hides: until it has gone, our output is held (ui/gag.lua).
+mock.prompt("1000h, 1000m ex-")
 mock.advance(0)
 said = table.concat(mock.echoed, " ")
 ok(said:find("Rites: timers reset -- Revitalisation 14:18, Well-being 8:20.", 1, true),

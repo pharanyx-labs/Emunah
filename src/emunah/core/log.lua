@@ -30,9 +30,13 @@ end
 local function emit(level, message)
    if LEVELS[level] < LEVELS[M.level or "info"] then return end
    local style = STYLE[level] or STYLE.info
-   cecho(string.format(
+   local text = string.format(
       "\n<ansi_light_black>[<reset><%s>emunah<reset><ansi_light_black>]<reset> <%s>%s<reset>",
-      style.tag, style.text, message))
+      style.tag, style.text, message)
+   -- A prompt about to be hidden would take this with it (ui/gag.lua).
+   local gag = emunah.ui and emunah.ui.gag
+   if gag and gag.holding and gag.holding() then return gag.hold(text) end
+   cecho(text)
 end
 
 local function format(fmt, ...)
