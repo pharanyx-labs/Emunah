@@ -20,6 +20,14 @@ Balance used: 3.2s.
 Verified for Priest `smite`. Arm timers off this rather than estimating. The
 pre-confirmation window is one network round trip — `getNetworkLatency()` measures it.
 
+**A timer started on that line ends a little after the game's balance does.** The game
+counts from when it ran the command; the line reaches us a moment later. Login 2026-10-18
+09:40: `vault pegasus510623` at 31.71, `Balance used: 1.0s.` at 32.06 (so the timer ran
+to 33.06), `You have recovered balance on all limbs.` at 32.99. The prompt at 32.99 was
+held by the timer, and nothing else arrived until 37.07. So whatever waits on the timer
+has to act when it lapses, not on the next prompt: keep-up and the pipes now do, as the
+curing engine and the hunt already did.
+
 **Movement costs both balance and equilibrium** *(stated by the user)*. It is therefore
 directly rivalrous with attacking: a step straight after a kill waits out the full balance
 recovery, and that pause is the game's rule rather than something to tune away.

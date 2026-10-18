@@ -282,7 +282,8 @@ M.RAISE_PENDING = 6.0
 --- Longest to wait for the eat line itself before deciding the command was lost.
 M.EAT_PENDING = 15.0
 
---- name -> { sent = time, eaten = time|nil } for item raises not yet seen to land.
+--- name -> { sent = time, vector = vector, eaten = time|nil } for item raises not yet seen to land, and for
+--- raises that land well after their send (deflist.lands: speed), with `eaten` the send.
 local raising = {}
 
 --- name -> when a raise that holds no queue slot last went out (M.costless). The slot's
@@ -305,14 +306,22 @@ end
 --- was thrown away as an illusion, leaving the defence red. 12 covers it with room.
 M.SILERIS_HARDEN = 12.0
 
--- The eat line starts the wait. Any "You eat ..." counts for every raise still waiting on
--- one: an item raise is at most one per vector in flight, and a line about another herb
--- only starts the wait a little early.
+-- The eat line starts the wait. Any "You eat ..." counts for every EATEN raise still
+-- waiting on one: an item raise is at most one per vector in flight, and a line about
+-- another herb only starts the wait a little early.
+--
+-- Eaten ones only. Login 2026-10-18 10:09: `apply sileris to body` went at 21.44, "You eat
+-- an echinacea root." came at 22.02 and the apply line at 22.05, so the sileris took the
+-- eat's 6s window rather than its 12s hardening, was applied again at 28, and hardened at
+-- 38.88. A smoke waiting on rebounding (8.5s, the same login) is as exposed.
+M.EATEN = { herb = true, moss = true }
 do
    local id = tempRegexTrigger([[^You eat ]], function()
       local now = util.now()
       for _, r in pairs(raising) do
-         if not r.eaten and now - r.sent < M.EAT_PENDING then r.eaten = now end
+         if not r.eaten and M.EATEN[r.vector] and now - r.sent < M.EAT_PENDING then
+            r.eaten = now
+         end
       end
    end)
    if id then
@@ -721,7 +730,7 @@ function M.tick()
          vector, command = nil, nil
       end
 
-      if vector and command and item and raisePending(name) then
+      if vector and command and raisePending(name) then
          vector, command = nil, nil
       end
 
@@ -787,7 +796,12 @@ function M.sendCostless(name, vector, command, needs, item, unconfirmable)
    if not emunah.act.send(command, needs) then return false end
    lastSent[name] = util.now()
    attempts[name] = (attempts[name] or 0) + 1
-   if item then raising[name] = { sent = util.now() } end
+   local lands = deflist.lands(name)
+   if item then
+      raising[name] = { sent = util.now(), vector = vector }
+   elseif lands then
+      raising[name] = { sent = util.now(), eaten = util.now(), window = lands }
+   end
    if unconfirmable and M.mode(name) == "defup" then M.satisfied[name] = true end
    -- The drink line must not spend the sip balance for it (detect/patterns.lua).
    local detect = emunah.curing.detect
@@ -844,7 +858,7 @@ function M.queueRaise(raise, blindWithoutSight)
       spends   = (vector == "equilibrium") and "eq" or nil,
       onSent   = function()
          attempts[name] = (attempts[name] or 0) + 1
-         if item then raising[name] = { sent = util.now() } end
+         if item then raising[name] = { sent = util.now(), vector = vector } end
 
          -- UNCONFIRMABLE: SATISFIED ON SEND, NOT ON Char.Defences. `bliss` produces no
          -- Char.Defences line ever, so the ordinary "defup done once confirmed" event
@@ -886,6 +900,21 @@ end
 
 event.register("emunah.tick", function()
    M.tick()
+end, "curing.defkeepup")
+
+-- A BALANCE BACK WITH NO PROMPT BEHIND IT. "Balance used: 1.0s." restarts the balance timer
+-- when the line ARRIVES, so it outlasts the game's own balance by the round trip: at the
+-- 2026-10-18 09:40 login the vault's ran to 33.06, the game gave balance back at 32.99,
+-- and that prompt held everything that needed it. No prompt came again until 37.07, and
+-- nothing else asked, so the watches, `wield mace` and selfishness waited four seconds.
+--
+-- And equilibrium, where the engine already acts on the lapse and sends keep-up's queued
+-- raise by itself: hypersight and inspiration went out just before the game's "You have
+-- recovered equilibrium." (their echoes sit on the prompt before it). Keep-up on the same
+-- lapse, in the same line (timers.lua batches it), puts what only needs equilibrium in
+-- front of the raise that spends it, rather than waiting a whole equilibrium behind it.
+event.register("emunah.timer.expired", function(_, name)
+   if name == "attack.balance" or name == "cure.equilibrium" then M.tick() end
 end, "curing.defkeepup")
 
 -- ---------------------------------------------------------------------------

@@ -13721,6 +13721,21 @@ suite("sileris is fangbarrier, myrrh is scholasticism")
    ok(not mock.links[1], "a hardening 10s after the apply is believed, not an illusion")
    ok(keepup.state("sileris").up, "hardened, it is up -- as fangbarrier, from the line alone")
 
+   -- Login 2026-10-18 10:09: an eat line between the send and the apply line (22.02,
+   -- 22.05) gave the sileris the eat's 6s window, and it was applied again at 28.
+   emunah.queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Defences.Remove", { "fangbarrier" })
+   mock.line("You eat an echinacea root.")
+   mock.line("You apply a sileris berry to yourself.")
+   mock.line("You may apply another salve to yourself.")
+   mock.advance(keepup.RAISE_PENDING + 1)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("apply sileris", 1, true),
+      "an eat line before the apply line does not cut the hardening short",
+      table.concat(mock.sent, " | "))
+   mock.line("The sileris berry juice hardens into a supple purple shell.")
+
    -- Login 2026-10-18 05:00:30.17 apply, 05:00:40.82 the shell (10.5s). Later commands
    -- trimmed the apply at 10s, inside the 14s the check asks about, and a real shell
    -- was discarded.
@@ -17405,6 +17420,73 @@ sent = table.concat(mock.sent, " | ")
 ok(sent:find("nightsight", 1, true), "afflicted, a free defence still goes", sent)
 ok(not sent:find("selfishness", 1, true), "...and nothing that takes a balance", sent)
 engine.clear()
+
+-- THE 09:40 LOGIN. The vault's "Balance used: 1.0s." ran the balance timer past the game's
+-- own balance, and no prompt came for four seconds after: the lapse itself must raise.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+-- Past the login's sends above: their confirm waits, and speed's landing window.
+mock.advance(deflist.lands("speed") + 0.1)
+queue.reset(); emunah.timers.stopAll()
+emunah.config.set("defences.keepup", { groundwatch = "keepup" })
+emunah.timers.start("attack.balance", 1.0)
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+ok(not table.concat(mock.sent, " | "):find("groundwatch on", 1, true),
+   "the balance timer still running holds `groundwatch on`")
+mock.advance(1.01)
+ok(table.concat(mock.sent, " | "):find("groundwatch on", 1, true),
+   "...and its lapse sends it, with no prompt behind it", table.concat(mock.sent, " | "))
+
+-- On equilibrium's lapse, what only needs it goes in front of the raise that spends it.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.config.set("defences.keepup", { groundwatch = "keepup", selfishness = "keepup" })
+emunah.timers.start("cure.equilibrium", 1.0)
+mock.feed("Char.Vitals", vitals)
+mock.rawSends = {}
+mock.advance(1.01)
+local line = table.concat(mock.rawSends, " / ")
+local watch, selfish = line:find("groundwatch on", 1, true), line:find("selfishness", 1, true)
+ok(watch and selfish and watch < selfish and not line:find(" / ", 1, true),
+   "equilibrium's lapse sends `groundwatch on` ahead of selfishness, on one line", line)
+
+-- And the pipes light on it, ahead of the same raise.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.config.set("defences.keepup", { selfishness = "keepup" })
+local pipesWere = emunah.config.get("pipes.enabled")
+emunah.config.set("pipes.enabled", true)
+emunah.pipes.forget()
+emunah.pipes.record("out", "pipe367581", "a skullcap flower", 8, 250)
+emunah.timers.start("cure.equilibrium", 1.0)
+emunah.timers.start("pipes.poll.due", 300)
+mock.feed("Char.Vitals", vitals)
+mock.rawSends = {}
+mock.advance(1.01)
+line = table.concat(mock.rawSends, " / ")
+local lit, raised = line:find("light pipes", 1, true), line:find("selfishness", 1, true)
+ok(lit and raised and lit < raised, "...and `light pipes` goes on that lapse, ahead of it", line)
+emunah.pipes.forget()
+emunah.config.set("pipes.enabled", pipesWere)
+
+-- SPEED LANDS FIVE SECONDS AFTER THE DRINK (26.22, tremours 31.17). The 2s confirm wait
+-- let a second sip go at 27.84.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.have.recover("purgative")
+emunah.config.set("defences.keepup", { speed = "keepup" })
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+ok(table.concat(mock.sent, " | "):find("drink speed", 1, true), "speed is drunk")
+mock.advance(emunah.config.get("curing.confirmWait", 2.0) + 0.5)
+emunah.have.recover("purgative")
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+ok(not table.concat(mock.sent, " | "):find("drink speed", 1, true),
+   "...and not again while it is still landing", table.concat(mock.sent, " | "))
+mock.advance(deflist.lands("speed"))
+emunah.have.recover("purgative")
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+ok(table.concat(mock.sent, " | "):find("drink speed", 1, true),
+   "...but again once it should have landed and has not")
 
 engine.enabled = engineWas
 keepup.enabled = wasEnabled

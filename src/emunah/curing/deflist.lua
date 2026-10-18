@@ -41,7 +41,12 @@ M.commands = {
    -- the defence by the same word has not been confirmed, and the rest of this family shows
    -- it often does not. `emunah defs names` lists what the game actually reports, and the
    -- attempt budget names the mismatch when there is one.
-   speed        = { vector = "purgative",   command = "drink speed" },
+   --
+   -- IT LANDS SECONDS AFTER THE DRINK. Login 2026-10-18 09:40: drunk 26.22 with no line of
+   -- its own, "Tiny tremours spread through your body as the world seems to slow down." at
+   -- 31.17. The 2s confirm wait ran out in that gap and a second sip went at 27.84. `lands`
+   -- holds the raise that long after the send (defkeepup's raise-pending window).
+   speed        = { vector = "purgative",   command = "drink speed", lands = 7.0 },
    -- The DEFENCE is `poisonresist`; the ELIXIR is venom. Confirmed by the payload:
    --   Char.Defences.Add { name = "poisonresist",
    --                       desc = "Granted by the venom elixir or toxin tonic, this allows
@@ -376,8 +381,9 @@ M.IMPORTED = {
    -- move (HELP THIEVERY: "setup selfishness as a defence"). Command and lines are the reference system's
    -- (its defs file), and the cost is from play, 2026-10-04 08:09:39.34:
    --   selfishness -> "You rub your hands together greedily." "Equilibrium used: 0.50s."
-   -- with the prompt going excdb -> xcdb. Whether it also NEEDS balance has not been seen
-   -- (balance was up), so both are required, per HELP's default for bal/eq abilities.
+   -- with the prompt going excdb -> xcdb. It NEEDS balance too: 2026-10-18 10:00:37.01,
+   -- typed straight behind a vault that had just taken balance, it came back "You must
+   -- regain balance first." So it waits out a vault, and cannot go in front of one.
    selfishness    = { vector = "equilibrium", command = "selfishness",
                       needs = { bal = true, eq = true, standing = true } },
 
@@ -846,6 +852,13 @@ function M.resolve(name)
    if not entry then return nil, nil, nil, nil, nil end
    if entry.skill and not have.skill(entry.skill) then return nil, nil, nil, nil, nil end
    return entry.vector, entry.command, entry.needs, entry.item, entry.unconfirmable
+end
+
+--- Seconds after its send that a raise with no item to wait on can still land, or nil.
+function M.lands(name)
+   name = M.canonical(name)
+   local entry = M.commands[name] or M.IMPORTED[name]
+   return entry and entry.lands or nil
 end
 
 --- The defence that must already be up before this one may be raised, or nil.

@@ -853,6 +853,12 @@ event.register("emunah.tick", function()
    M.keep()
 end, "pipes")
 
+-- A balance back with no prompt behind it: `light pipes` needs both, and goes in front of
+-- whatever keep-up spends on the same lapse (curing/defkeepup.lua's handler, which says why).
+event.register("emunah.timer.expired", function(_, name)
+   if name == "attack.balance" or name == "cure.equilibrium" then M.keep() end
+end, "pipes")
+
 -- Nothing carried over a session boundary is worth believing: replica numbers survive, but
 -- whether a pipe is still lit after a reconnect does not.
 event.register("sysDisconnectionEvent", function()

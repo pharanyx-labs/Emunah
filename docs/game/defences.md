@@ -283,7 +283,13 @@ Handled three ways, because each catches a different moment:
 - The budget warning lists the names `Char.Defences` is reporting
   that nothing claims. The right answer is almost always in there.
 
-**`speed` has not been checked** against a live `Char.Defences` — the family does not always
+**`speed` lands about five seconds after the drink.** Login 2026-10-18 09:40: `drink speed`
+at 26.22 printed only `You take a drink from an oaken vial.`, and `Tiny tremours spread
+through your body as the world seems to slow down.` came at 31.17. Keep-up's 2s confirm
+wait ran out in that gap and a second sip went at 27.84, so the entry holds the raise for
+7s after the send (`lands`).
+
+**`speed`'s name has not been checked** against a live `Char.Defences` — the family does not always
 agree, as `poisonresist`, `levitating`, `temperance` and the `immunity` duplicate below all
 show.
 
@@ -596,8 +602,16 @@ Equilibrium used: 0.50s.
 ```
 
 The prompt went from `excdb` to `xcdb`: equilibrium gone, balance kept. So keep-up raises it
-on the equilibrium slot. Whether it also *needs* balance hasn't been seen (balance was up),
-so both are required, per HELP's default for bal/eq abilities. It competes with
+on the equilibrium slot. It also *needs* balance:
+
+```
+10:00:32.45  vault pegasus ;; selfishness
+You easily vault onto the back of an alabaster pegasus.
+Balance used: 1.0s.
+You must regain balance first.
+```
+
+So it waits out a vault (or any balance spent), and cannot go in front of one. It competes with
 `perform hands` for equilibrium, but only for half a second.
 
 **`GET` and `PUT` of gold with your own pack work while selfish** *(the user, 2026-10-04)*.
