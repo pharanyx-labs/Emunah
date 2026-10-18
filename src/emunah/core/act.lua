@@ -150,7 +150,7 @@ end
 --- fresh table every one of those times.
 local NONE = {}
 
-function M.blocked(needs)
+function M.blocked(needs, spends)
    needs = needs or NONE
 
    if M.halted then return "halted" end
@@ -221,21 +221,51 @@ function M.blocked(needs)
       if detect and detect.armsBalanced and not detect.armsBalanced() then
          return "arm off balance"
       end
-      if needs.bal and not vitals.bal then return "no balance" end
-      if needs.eq and not vitals.eq then return "no equilibrium" end
-      -- SENT, NOT YET ANSWERED. Something of ours on the balance (equilibrium) slot is about
-      -- to spend it, whatever Char.Vitals says meanwhile. vitals.spend() marks it, but a
-      -- Char.Vitals the server sent before it ran the command puts it back: at 11:36:50.33
+      -- SENT, NOT YET ANSWERED. Something of ours is about to spend this resource, whatever
+      -- Char.Vitals says meanwhile. vitals.spend() marks the flag, but a Char.Vitals the
+      -- server sent before it ran the command puts the flag back: at 11:36:50.33
       -- (2026-10-04) `perform bliss` and the horse's follow order went out behind
       -- `vault horse368644`, and both came back "You must regain balance first."
+      --
+      -- OCCUPYING THE SLOT IS NOT SPENDING THE RESOURCE. A balance command that does not
+      -- spend balance must not hold the next one that needs it. `spends` is that
+      -- distinction. The in-flight slot is asked before the flag, so a send of ours that
+      -- already cleared the flag still reports as in flight.
+      --
+      -- Login 2026-10-17 11:26:34.91: `touch mindseye` had spent equilibrium, Char.Defences
+      -- confirmed the slot, and `wield mace` plus `vault pegasus510623` went out into
+      -- "You must regain equilibrium first." The timer is armed at send (M.arm) and GMCP
+      -- cannot overwrite it. "Equilibrium used" / "Balance used" replaces it with the real cost.
+      --
+      -- AHEAD OF THE SPENDER. What this prompt's line has already spent was there a moment
+      -- ago. A command that needs it but spends nothing goes in front of the spender
+      -- instead of waiting a whole balance (M.ahead).
+      local _, ahead = M.ahead(needs, spends)
+      local wantBal = needs.bal and not ahead.bal
+      local wantEq = needs.eq and not ahead.eq
       local queue = emunah.queue
       if queue then
-         if needs.bal and queue.awaiting("balance") then return "balance in flight" end
-         if needs.eq and queue.awaiting("equilibrium") then return "equilibrium in flight" end
+         local flight = queue.awaiting("balance")
+         local spent = flight and flight.spends
+         if wantBal and (spent == "bal" or spent == "both") then
+            return "balance in flight"
+         end
+         flight = queue.awaiting("equilibrium")
+         spent = flight and flight.spends
+         if wantEq and (spent == "eq" or spent == "both") then
+            return "equilibrium in flight"
+         end
          -- Your queued one-off goes before anything automated that wants the same balance.
          if not needs.user and queue.userWaiting and queue.userWaiting(needs) then
             return "your queued command first"
          end
+      end
+      if wantBal and not vitals.bal then return "no balance" end
+      if wantEq and not vitals.eq then return "no equilibrium" end
+      local timers = emunah.timers
+      if timers then
+         if wantBal and not timers.ready("attack.balance") then return "no balance" end
+         if wantEq and not timers.ready("cure.equilibrium") then return "no equilibrium" end
       end
    end
 
@@ -243,8 +273,38 @@ function M.blocked(needs)
 end
 
 --- Can a command with these requirements go out right now?
-function M.can(needs)
-   return M.blocked(needs) == nil
+function M.can(needs, spends)
+   return M.blocked(needs, spends) == nil
+end
+
+--- `spends` ("bal" | "eq" | "both" | nil) as a set.
+local function spentSet(spends)
+   return { bal = spends == "bal" or spends == "both", eq = spends == "eq" or spends == "both" }
+end
+
+--- Mark balance or equilibrium spent, in a way the next Char.Vitals cannot undo.
+---
+--- `field` is "bal" or "eq". vitals.spend() alone loses to a stale vitals push (see
+--- M.blocked). The matching cooldown is what actually holds the next command, and the
+--- game's cost line restarts it with the real duration. The length is one round trip:
+--- long enough that the stale push arrives inside it, short enough that a rejection
+--- (nothing was spent) does not sit out a full balance.
+function M.arm(field)
+   local vitals = emunah.gmcp and emunah.gmcp.vitals
+   if vitals and vitals.spend then vitals.spend(field) end
+   M.armedInBatch(field)
+   local timer = (field == "bal") and "attack.balance"
+      or (field == "eq") and "cure.equilibrium"
+   if not timer or not emunah.timers then return end
+   local class = emunah.class
+   local fn = class and class.active and class.active.inflightGuard
+   local guard = 1.0
+   if type(fn) == "function" then
+      local ok, value = pcall(fn)
+      value = ok and tonumber(value)
+      if value and value > 0 then guard = value end
+   end
+   emunah.timers.start(timer, guard)
 end
 
 -- ---------------------------------------------------------------------------
@@ -276,10 +336,11 @@ end
 -- at all. So nothing depends on what Mudlet's own separator happens to be set to.
 --
 -- NOTHING ABOUT BALANCE CHANGES. Every command in a batch passed M.blocked() when it was
--- added, and whatever it spends was marked spent then -- the queue's in-flight slot, the
--- attack's balance -- so a later command of the same prompt that wants that balance is held
--- exactly as it was when each went out on its own. A batch never holds two commands on one
--- balance; the separator only removes the gaps between commands that could all go anyway.
+-- added, and whatever it spends was marked spent then -- the in-flight guard M.arm starts,
+-- which a later Char.Vitals cannot clear. A later command of the same prompt that needs
+-- that resource is held. A command that only needed it, or that spends a different one,
+-- is not. A batch never holds two commands that spend one balance; the separator only
+-- removes the gaps between commands that could all go anyway.
 
 --- How Emunah writes several commands as one. Split again before anything is sent.
 M.JOIN = ";;"
@@ -306,6 +367,50 @@ M.BATCH_MAX = 10
 M.LINE_MAX = 2000
 
 local batch, depth = nil, 0
+
+-- The open batch's bookkeeping for M.ahead: which entry first spent each balance, and
+-- where the last command collected went.
+local armedAt, lastAt = {}, nil
+
+--- Where a command that needs `needs` and spends `spends` has to go in the open batch, so
+--- that it reaches the game before whatever this batch already spent that it needs.
+---
+--- A prompt's line runs in order. `wield mace` and `light pipes` need balance and
+--- equilibrium and spend neither, so in front of `hypersight on` they work and behind it
+--- they are refused. The 2026-10-18 08:24 login held `wield mace` seven seconds and the
+--- pipes ten for that reason: keep-up had spent equilibrium earlier in the same tick.
+---
+--- @return number|nil the batch index to insert at, or nil when no balance this needs was
+---   spent by the batch (it goes at the end, as ever)
+--- @return table the fields that position makes available: { bal = bool, eq = bool }
+function M.ahead(needs, spends)
+   if not batch or not needs then return nil, NONE end
+   local spent = spentSet(spends)
+   local at, fields = nil, {}
+   for _, field in ipairs({ "bal", "eq" }) do
+      local index = armedAt[field]
+      if needs[field] and not spent[field] and index then
+         fields[field] = true
+         if not at or index < at then at = index end
+      end
+   end
+   if not at then return nil, NONE end
+   -- It must not spend anything a command it jumps needs: `vault` (spends balance) in
+   -- front of `touch cloak` (needs it) would refuse the cloak.
+   for index = at, #batch do
+      local entry = batch[index]
+      for field, yes in pairs(spent) do
+         if yes and entry.needs and entry.needs[field] then return nil, NONE end
+      end
+   end
+   return at, fields
+end
+
+--- The command just collected spent `field`. M.arm calls it.
+function M.armedInBatch(field)
+   if not batch or not lastAt then return end
+   if not armedAt[field] or lastAt < armedAt[field] then armedAt[field] = lastAt end
+end
 
 local function transmit(text, echo)
    -- `sending` tells core/outgoing.lua these are ours, not typed: Mudlet raises
@@ -338,19 +443,31 @@ local function flush(pending)
    if #chunk > 0 then transmit(table.concat(chunk, sep), echo) end
 end
 
---- Add a command to `list`, one entry per command written into it with M.JOIN.
-local function collect(list, command, echo)
+--- Add a command to `list`, one entry per command written into it with M.JOIN, at `at`
+--- (the end when nil).
+local function collect(list, command, echo, needs, at)
+   local parts = {}
    if not command:find(M.JOIN, 1, true) then
-      list[#list + 1] = { command = command, echo = echo }
-      return
+      parts[1] = command
+   else
+      local from = 1
+      while true do
+         local stop = command:find(M.JOIN, from, true)
+         local part = command:sub(from, stop and stop - 1 or nil):match("^%s*(.-)%s*$")
+         if part ~= "" then parts[#parts + 1] = part end
+         if not stop then break end
+         from = stop + #M.JOIN
+      end
    end
-   local from = 1
-   while true do
-      local at = command:find(M.JOIN, from, true)
-      local part = command:sub(from, at and at - 1 or nil):match("^%s*(.-)%s*$")
-      if part ~= "" then list[#list + 1] = { command = part, echo = echo } end
-      if not at then return end
-      from = at + #M.JOIN
+   at = at or (#list + 1)
+   for offset, part in ipairs(parts) do
+      table.insert(list, at + offset - 1, { command = part, echo = echo, needs = needs })
+   end
+   if list == batch and #parts > 0 then
+      for field, index in pairs(armedAt) do
+         if index >= at then armedAt[field] = index + #parts end
+      end
+      lastAt = at + #parts - 1
    end
 end
 
@@ -367,6 +484,7 @@ function M.endBatch()
    depth = 0
    local pending = batch
    batch = nil
+   armedAt, lastAt = {}, nil
    if pending and #pending > 0 then flush(pending) end
 end
 
@@ -389,10 +507,12 @@ end
 --- decided not to act" apart from "the bot is not running", and the second is what a silent
 --- refusal looks like from the outside.
 --- @return boolean sent
-function M.send(command, needs)
+--- @param spends string|nil "bal" | "eq" | "both": what the command uses up, as against what
+---   it only needs. See M.ahead.
+function M.send(command, needs, spends)
    if type(command) ~= "string" or command == "" then return false end
 
-   local why = M.blocked(needs)
+   local why = M.blocked(needs, spends)
    if why then
       -- Say it once, not once per retry. A step blocked on balance is retried every step
       -- delay for as long as the balance lasts, which put five identical "Held" lines in
@@ -411,10 +531,10 @@ function M.send(command, needs)
    -- (pipes.lua), where a lone echoed "light pipe367581" is the noise left behind.
    local echo = not (needs and needs.quiet)
    if batch then
-      collect(batch, command, echo)
+      collect(batch, command, echo, needs, (M.ahead(needs, spends)))
    elseif command:find(M.JOIN, 1, true) then
       local parts = {}
-      collect(parts, command, echo)
+      collect(parts, command, echo, needs)
       flush(parts)
    else
       transmit(command, echo)

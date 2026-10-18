@@ -410,7 +410,7 @@ end
 --- Record that we have just acted on a pipe, and arrange to come back.
 function M.acted(pipe, kind)
    attempts[pipe.id] = (attempts[pipe.id] or 0) + 1
-   M.lastAction = { id = pipe.id, kind = kind }
+   M.lastAction = { id = pipe.id, kind = kind, at = emunah.util.now() }
    emunah.timers.start("pipes.pipe." .. pipe.id, M.ACTION_GUARD)
    emunah.timers.start("pipes.action", M.WIRE_GUARD)
    M.chain()
@@ -424,7 +424,7 @@ function M.actedAll(cold)
       emunah.timers.start("pipes.pipe." .. pipe.id, M.ACTION_GUARD)
       ids[index] = pipe.id
    end
-   M.lastAction = { all = ids, kind = "light" }
+   M.lastAction = { all = ids, kind = "light", at = emunah.util.now() }
    emunah.timers.start("pipes.action", M.WIRE_GUARD)
    M.chain()
 end
@@ -514,7 +514,13 @@ function M.keep()
             warnedStock[pipe.id] = nil
             -- The BARE id here, and the token for LIGHT below. Both forms are verified, each
             -- in its own command, and neither is assumed to work in the other's.
-            if emunah.act.send(("put %s in %s"):format(herb, pipe.id), { quiet = true }) then
+            -- Balanceless, not free. [reference] check_balanceless_acts sends a fill only
+            -- with balance and equilibrium (and both arms, which declaring either asks
+            -- for). Login 2026-10-18 sent these while one was down and the refusal was
+            -- counted as the pipe never answering.
+            if emunah.act.send(("put %s in %s"):format(herb, pipe.id), {
+               quiet = true, bal = true, eq = true,
+            }) then
                M.acted(pipe, "fill")
                M.quietly("fill")
                return true
@@ -528,7 +534,10 @@ function M.keep()
 
    -- Quiet, and its replies hidden, like the fill and the poll (see "gagging our own
    -- housekeeping" above).
-   if #cold > 0 and emunah.act.send("light pipes", { quiet = true }) then
+   -- Same gate as the fill. Quiet, so a refusal arrives with no command beside it:
+   -- 05:00:32.26 (balance, during the vault) and 05:00:34.45, 05:00:36.00, 05:00:40.98,
+   -- 05:00:43.06 (equilibrium, during bliss, the cloak and hypersight).
+   if #cold > 0 and emunah.act.send("light pipes", { quiet = true, bal = true, eq = true }) then
       M.actedAll(cold)
       M.quietly("light")
       return true
@@ -743,12 +752,36 @@ do
    -- at 15:03:32.95, 39.12 and 55.49, and landed at 58.95: 26 seconds of earworm. Each
    -- refusal was free -- none was followed by "Your lungs have recovered" -- so the slot and
    -- the balance are handed back too, rather than sitting out the confirm wait.
+   --- The herb a `smoke <herb>` command names, or nil.
+   local function smoked(command)
+      return M.herbIn(tostring(command or ""):match("^smoke%s+(.+)$") or "")
+   end
+
    keep(tempRegexTrigger([[^That pipe isn't lit\.$]], function()
       local flight = emunah.queue.awaiting("smoke")
-      local herb = flight and M.herbIn(tostring(flight.command or ""):match("^smoke%s+(.+)$"))
+      local herb = flight and smoked(flight.command)
+      -- The slot can already have closed: the line is the answer either way, and the
+      -- herb is the smoke we just sent. Login 2026-10-18 05:00:40.38 smoked skullcap
+      -- again after this line had already been seen once.
+      if not herb then
+         local recent = emunah.outgoing and emunah.outgoing.recent
+         local now = emunah.util.now()
+         if recent then
+            for index = #recent, 1, -1 do
+               local entry = recent[index]
+               if now - entry.at > 3 then break end
+               herb = smoked(entry.command)
+               if herb then break end
+            end
+         end
+      end
       if flight then
          emunah.queue.confirm("smoke")
          emunah.have.recover("smoke")
+      end
+      if herb then
+         local keepup = emunah.curing and emunah.curing.defkeepup
+         if keepup and keepup.smokeRefused then keepup.smokeRefused(herb) end
       end
       local marked = false
       if herb then
@@ -767,6 +800,42 @@ do
       if not marked then M.poll(true) end
       M.keep()
    end))
+
+   -- A LIGHT or a PUT that went out without the balance it needs. The game refuses it
+   -- and says nothing about the pipe, so the attempt was being counted as "no response"
+   -- and three of them retired the pipe (05:00:40, "has not responded after 3 attempts").
+   -- The balance is still down; this did not fail the pipe.
+   local function balanceRefused()
+      -- Only when the pipe command is what we sent last. A later command owns the
+      -- refusal; light pipes is quiet and usually the last thing of its own prompt.
+      local recent = emunah.outgoing and emunah.outgoing.recent
+      local newest = recent and recent[#recent]
+      local command = newest and newest.command or ""
+      if command ~= "light pipes" and not command:find("^put %S+ in %d+$") then return end
+      local last = M.lastAction
+      if not last or not last.at or emunah.util.now() - last.at > M.ACTION_GUARD then return end
+      local ids = last.all or (last.id and { last.id }) or {}
+      local stillOut = false
+      for _, id in ipairs(ids) do
+         local pipe = M.pipes[id]
+         if pipe and pipe.status ~= "lit" then stillOut = true end
+      end
+      if not stillOut then return end
+      for _, id in ipairs(ids) do
+         local spent = attempts[id] or 0
+         if spent > 0 then attempts[id] = spent - 1 end
+         warnedStuck[id] = nil
+         emunah.timers.stop("pipes.pipe." .. id)
+      end
+      emunah.timers.stop("pipes.action")
+      M.chain()
+   end
+   for _, pattern in ipairs({
+      [[^You must regain balance first\.$]],
+      [[^You must regain equilibrium first\.$]],
+   }) do
+      keep(tempRegexTrigger(pattern, balanceRefused))
+   end
 end
 
 -- ---------------------------------------------------------------------------

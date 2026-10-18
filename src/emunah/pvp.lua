@@ -318,6 +318,9 @@ function M.tick()
    if not (active and active.pvpPlan) then return end
    local mode = M.mode()
    local ctx = context(mode)
+   -- One prompt, every free lane. The guards arm after the loop so a smite's balance
+   -- does not hold the equilibrium move that shares the line.
+   if active.pvpDefer then active.pvpDefer(true) end
    for _, lane in ipairs(M.LANES) do
       local held = lane ~= "prayer" and lock ~= nil
       if lane == "equilibrium" and handsWanted() then held = true end
@@ -330,6 +333,7 @@ function M.tick()
          end
       end
    end
+   if active.pvpArm then active.pvpArm() end
 end
 
 --- Report, for `emunah pvp`.

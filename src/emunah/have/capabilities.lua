@@ -144,14 +144,19 @@ function M.pipe(herb)
    local pipes = emunah.pipes
    -- The game has just said this pipe is out. Nothing is lit until a light lands.
    if pipes and pipes.unlit and pipes.unlit[tostring(herb):lower()] then return false end
-   if pipes and next(pipes.pipes) ~= nil then
+   if pipes then
+      -- No PIPELIST yet. Every pipe is "a white stone pipe", so the inventory scan cannot
+      -- see the herb, and treating that as "lit" sent `smoke skullcap` into "That pipe
+      -- isn't lit." at login 2026-10-17 11:26:31.36, while blind, before PIPELIST answered.
+      -- Hold the smoke. pipes.lua asks on this same tick when it knows nothing.
+      if next(pipes.pipes) == nil then return false end
       for _, pipe in ipairs(pipes.list()) do
          if pipe.herb == tostring(herb):lower() and pipe.status == "lit" and pipe.puffs > 0 then
             return true
          end
       end
       -- PIPELIST has been seen and does not show a lit pipe of this herb. That is a real
-      -- answer rather than an absence of one, so it is not softened the way the fallback is.
+      -- answer rather than an absence of one.
       return false
    end
 

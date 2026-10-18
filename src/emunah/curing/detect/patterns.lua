@@ -169,11 +169,49 @@ local function drinkInFlight()
    return nil, nil
 end
 
+--- Defence elixirs keep-up sent without a queue slot (defkeepup.sendCostless), oldest
+--- first: { at = time, name = defence }. They take no balance, so their drink line must
+--- not be read as a hand-typed health sip and spend that.
+local costless = {}
+
+--- How long a costless drink waits for its line before it is forgotten.
+detect.COSTLESS_DRINK_WAIT = 3.0
+
+function detect.costlessDrink(name)
+   costless[#costless + 1] = { at = emunah.util.now(), name = name }
+end
+
+--- The defence of the costless drink the last drink line answered, or nil.
+detect.lastCostlessDrink = nil
+
+--- Which drink of ours this drink line is: the costless one, or a queued vector. The game
+--- runs a line in order, so whichever went first.
+--- @return string|nil vector, boolean costless
+local function claimDrink()
+   local now = emunah.util.now()
+   while costless[1] and now - costless[1].at > detect.COSTLESS_DRINK_WAIT do
+      table.remove(costless, 1)
+   end
+   local vector, action = drinkInFlight()
+   if action and action.drunk then vector, action = nil, nil end
+   local oldest = costless[1]
+   if oldest and not (action and (action.sentAt or 0) < oldest.at) then
+      table.remove(costless, 1)
+      detect.lastCostlessDrink = oldest.name
+      return nil, true
+   end
+   detect.lastCostlessDrink = nil
+   if action then action.drunk = true end
+   return vector, false
+end
+
 do
    -- The spend, for a drink of ours or one typed by hand. Ours already spent their vector on
    -- send; a hand-typed one is assumed to be a health or mana sip, as it always was.
    local id = tempRegexTrigger([[^You take a drink from ]], function()
-      emunah.have.spend(drinkInFlight() or "elixir")
+      local vector, free = claimDrink()
+      if free then return end
+      emunah.have.spend(vector or "elixir")
    end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
@@ -868,6 +906,12 @@ do
    local id = tempRegexTrigger([[^The elixir flows down your throat without effect\.$]], function()
       -- Keep-up's elixirs are purgatives (speed, venom, levitation, frost), but a raise
       -- configured on the sip vector is still honoured.
+      -- A costless drink holds no slot; the drink line just before this said whose it was.
+      if detect.lastCostlessDrink then
+         emunah.curing.defkeepup.abandon(detect.lastCostlessDrink,
+            "the sip had no effect, so it is already up under a different Char.Defences name")
+         return
+      end
       local vector, flight = "purgative", emunah.queue.awaiting("purgative")
       if not flight then vector, flight = "elixir", emunah.queue.awaiting("elixir") end
       local tag = flight and flight.tag

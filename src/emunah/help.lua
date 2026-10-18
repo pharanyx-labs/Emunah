@@ -113,7 +113,8 @@ M.modules = {
       .. "it once) or keepup (raise it whenever it drops). Knows the command for the "
       .. "herb, salve, elixir and skill defences; tattoos and anything else can be taught. "
       .. "Never raises a defence that is already up, and never spends the balance while "
-      .. "curing needs it.",
+      .. "curing needs it. Everything that can go on one prompt goes together, and the "
+      .. "equilibrium defences go cheapest first unless you set an order.",
   commands = {
    { syntax = "emset defs", handler = "defs",
      summary = "the defence grid: click to cycle off / defup / keepup, and pipe relight on / off" },
@@ -125,6 +126,8 @@ M.modules = {
      summary = "stop keeping a defence up" },
    { syntax = "emset defs mode <name> defup|keepup|off",
      summary = "raise it once, keep it up, or leave it alone" },
+   { syntax = "emset defs order [<name> ...|clear]",
+     summary = "raise these first, in this order; the rest go cheapest first" },
   } },
 
 { id = "pipes", title = "Pipes", summary = "keeps your pipes filled and lit",

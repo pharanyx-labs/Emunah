@@ -219,6 +219,29 @@ seen. They need balance and equilibrium both, because the reference system sends
 only with both ([reference] `check_balanceless_acts`). `insomnia` is the exception, on evidence:
 it went through at 11:36:47.39 after mindseye had spent equilibrium.
 
+## What each equilibrium defence costs
+
+From the `Equilibrium used:` lines of the 2026-10-18 08:24 login, in the order they went:
+`touch mindseye` 3.00s (17.90), `perform bliss` 6.50s (23.59), `touch cloak` 1.00s (30.49),
+`hypersight on` 3.00s (32.01), `perform inspiration` 3.50s (35.56), `selfishness` 0.50s
+(39.36), `angel summon` 2.00s (40.14). 19.5s in all, and only one at a time, so this chain
+is the floor on a full defup. Keep-up raises them cheapest first (`deflist.COSTS`): the
+last one's own cost then delays nothing, and the rest come up soonest.
+
+## Hypersight, the cloak tattoo, and nightsight
+
+`hypersight on` spends equilibrium. HELP HYPERSIGHT gives `Cooldown: 3.00 seconds of
+equilibrium.` Login 2026-10-17 11:26:31.34: `Equilibrium used: 3.00s.` and the prompt lost
+its `e`. Filed on the balance vector, it left the equilibrium slot free, so `touch mindseye`
+went out in the same burst and came back `You must regain equilibrium first.`
+
+`touch cloak` needs balance and spends equilibrium. At 11:26:45.09 it shared a line with
+`vault pegasus510623`. The vault announced `Balance used: 1.0s.` and the touch came back
+`You must regain balance first.` Alone, at 11:26:47.58, `Equilibrium used: 1.00s.`
+
+`nightsight` is free. HELP NIGHTSIGHT lists no cooldown. At 11:26:52.31 the prompt stayed
+`exckdb` on either side of it, with no `Equilibrium used` line.
+
 ## The shield, and `WIELDED`
 
 `WIELDED` lists what is in each hand (2026-10-04, 09:25:53.45, verbatim):
@@ -452,8 +475,10 @@ for the same reason.
 
 No line names its defence. `deflist.DEF_LINES` maps each one to the server's name: 199 lines,
 generated from the reference system's `defs_data`, with invisible defences left out. After `emreload`,
-keep-up sends `DEFENCES` and raises nothing until the listing has been read, or for 10s at
-most. A reload rebuilds the defence list from the last full `Char.Defences.List`, which
+keep-up sends `DEFENCES` and holds equilibrium raises until the listing has been read, or
+for 10s after `DEFENCES` itself goes out. A salve, a smoke, a herb or a free defence does
+not spend that equilibrium, and still goes while the listing is outstanding. A reload
+rebuilds the defence list from the last full `Char.Defences.List`, which
 misses every change since. The listing is applied the way the reference system's `process_defs` does:
 - a known line that's missing means that defence is down;
 - a listed line means it's up;

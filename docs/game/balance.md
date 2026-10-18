@@ -202,6 +202,19 @@ balance from a cure landing will send the next eat inside it.
 The balance is announced — `You may eat another plant or mineral.` — so it never needs
 inferring.
 
+**Kola, echinacea and skullcap take no herb balance, and the defence elixirs take no
+purgative balance.** Login 2026-10-18 08:24: `eat echinacea` (19.06), `eat kola` (22.49) and
+`eat skullcap` (26.01) were each eaten and none was followed by `You may eat another plant
+or mineral.`; `drink levitation`, `drink venom`, `drink speed` and `drink frost` were each
+drunk and none was followed by `You may drink another affliction-healing elixir.` Asked
+directly: `eat kola|eat echinacea` as one line at 08:35:24, both eaten
+(`You eat a kola nut.` / `You eat an echinacea root.`), and `drink frost|drink speed` at
+08:37:18, both drunk. Both pairs were already up (`You already possess the gift of the third
+eye.`, `The elixir flows down your throat without effect.`), so whether a drink that does
+something spends a balance is inferred from the silence after the 08:24 drinks, not seen.
+Hawthorn is not in this set: its eat is followed by the herb balance line (defkeepup's
+raise-pending note). `deflist.COSTLESS` lists exactly these.
+
 ## Commands that fail for free
 
 Not every rejection costs something, and knowing which is which decides whether a check is
