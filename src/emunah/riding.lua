@@ -219,7 +219,9 @@ function M.vaultHeld()
    if M.present() ~= true then return "the mount is not here" end
    local engine = emunah.curing and emunah.curing.engine
    if engine and engine.leaving then return "quitting" end
-   if engine and engine.enabled and engine.curableCount() > 0 then return "curing first" end
+   -- A herb or a sip does not take the balance this spends. The queue holds the vault
+   -- when a balance or equilibrium action is actually in flight (act.blocked, on the
+   -- needs below). Bashing and PvP send their attacks outside that slot.
    if emunah.bashing and emunah.bashing.enabled then return "bashing owns the balance" end
    if emunah.pvp and emunah.pvp.enabled then return "pvp owns the balance" end
    local why = cannotVault()
@@ -248,12 +250,14 @@ local function vault()
       -- The reference system's isadvisable refuses it while prone, and `standing` also holds it through
       -- paralysis and entanglement.
       needs    = { bal = true, eq = true, standing = true },
+      -- Spends balance, not equilibrium. Needs both: the follow order was refused for
+      -- each of them on its own (11:36:47.81, 11:36:50.90). Arming only balance leaves
+      -- equilibrium free for the next command that spends it.
+      spends   = "bal",
       valid    = function() return M.vaultHeld() == nil end,
       confirm  = M.GUARD,
       onSent   = function()
          vaults.count = vaults.count + 1
-         -- Char.Vitals omits an unchanged bal, so mark it spent until the game says.
-         emunah.gmcp.vitals.spend("bal")
       end,
    })
    queue.flush()
@@ -382,7 +386,12 @@ do
    local function alreadyOn()
       local queue = emunah.queue
       local action = queue and queue.awaiting("balance")
-      if action and action.tag == "riding" then emunah.gmcp.vitals.bal = true end
+      if action and action.tag == "riding" then
+         emunah.gmcp.vitals.bal = true
+         -- The vault did not spend it (no "Balance used"). The send-time guard would
+         -- otherwise hold the next vault for a balance the game just handed back.
+         if emunah.timers then emunah.timers.stop("attack.balance") end
+      end
       M.setRiding(true)
    end
    for _, line in ipairs({

@@ -744,6 +744,9 @@ local function queueHealing()
          -- it costs is 3s, so a 2s confirm window lapsed before the ability had finished
          -- even when it worked perfectly, logging a re-arm for every successful heal.
          confirm  = M.HANDS_EQUILIBRIUM + 1.0,
+         -- Needs balance (the refusals above) and spends equilibrium. The short guard is
+         -- armed from `spends`; this replaces it with the known 3s cost.
+         spends   = "eq",
          onSent   = function()
             emunah.gmcp.vitals.spend("eq")
             emunah.timers.start("cure.equilibrium", M.HANDS_EQUILIBRIUM)
@@ -1004,9 +1007,11 @@ local function quitting()
    return M.leaving
 end
 
---- The most rift trips one restock sends together. A send holds up to ten commands
---- (core/act.lua); this leaves room for the prompt's cures in the same one.
-M.RESTOCK_BATCH = 6
+--- The most rift trips one restock sends together: every herb kept, so a resync is one push.
+--- core/act.lua splits it ten to a line, and the lines leave together. At six, the 22 pulls
+--- after sight returned at the 2026-10-18 08:24 login took four round trips (17.28 to
+--- 20.27), and the item defences waited for the herbs in them.
+M.RESTOCK_BATCH = 30
 
 local function queueRestock()
    if emunah.config.get("curing.restock", true) == false then return end
@@ -1260,6 +1265,7 @@ local function queueDiag()
       priority = 0,
       tag      = "diag:loki",
       needs    = { bal = true, eq = true },
+      spends   = "eq",
       confirm  = emunah.config.get("curing.confirmWait", 2.0),
       -- Still wanted only while the illusion is up: loki cured by anything else in the
       -- meantime makes this a second of equilibrium spent on a resolved question.

@@ -46,6 +46,9 @@ end
 ---                         tag = string (what this is for, e.g. an affliction name),
 ---                         confirm = number (seconds to wait for confirmation),
 ---                         needs = table passed to act.blocked(), e.g. { standing = true },
+---                         spends = "bal"|"eq"|"both"|nil, the resource this send consumes.
+---                            Needing a balance (needs) does not spend it. Only spends arms
+---                            the in-flight guard, so the other balance stays free.
 ---                         valid = function -> boolean, re-checked at send time,
 ---                         onSent = function, onTimeout = function }
 --- @return boolean queued
@@ -81,6 +84,7 @@ function M.push(vector, command, opts)
       tag       = opts.tag,
       confirm   = opts.confirm,
       needs     = opts.needs,
+      spends    = opts.spends,
       valid     = opts.valid,
       onSent    = opts.onSent,
       onTimeout = opts.onTimeout,
@@ -131,10 +135,14 @@ function M.user(kind, what, label)
    local needs = { user = true }
    for key, value in pairs(spec.needs) do needs[key] = value end
    local seconds = guard()
+   local spends = (kind == "eqbal" and "both") or (kind == "bal" and "bal")
+      or (kind == "eq" and "eq") or nil
    return M.push(spec.vector, isFunction and (label or "your function") or what, {
-      priority = -1, tag = "user", user = true, needs = needs,
+      priority = -1, tag = "user", user = true, needs = needs, spends = spends,
       run = isFunction and what or nil,
       confirm = (needs.bal or needs.eq) and seconds or nil,
+      -- The guard itself is armed from `spends` in dispatch. This only lengthens it to
+      -- the same round-trip figure when the class has a measured one.
       onSent = function()
          if needs.bal then emunah.timers.start("attack.balance", seconds) end
          if needs.eq then emunah.timers.start("cure.equilibrium", seconds) end
@@ -165,9 +173,9 @@ end
 
 --- Send a queued action: its command, or its function run as Emunah's own.
 local function fire(action)
-   if not action.run then return emunah.act.send(action.command, action.needs) end
+   if not action.run then return emunah.act.send(action.command, action.needs, action.spends) end
    local act = emunah.act
-   if not act.can(action.needs) then return false end
+   if not act.can(action.needs, action.spends) then return false end
    act.sending = true
    local ok, err = pcall(action.run)
    act.sending = false
@@ -291,6 +299,15 @@ local function dispatch(vector)
       log.debug("Sent [%s] %s%s", vector, action.command,
          action.tag and (" (" .. action.tag .. ")") or "")
 
+      -- Arm what this command spends before the next vector of this flush is considered,
+      -- and before onSent replaces the guard with a known duration. A command that only
+      -- needs the other balance does not arm it, so that balance still goes out this prompt.
+      local act = emunah.act
+      if act and act.arm then
+         if action.spends == "bal" or action.spends == "both" then act.arm("bal") end
+         if action.spends == "eq" or action.spends == "both" then act.arm("eq") end
+      end
+
       if action.confirm and action.confirm > 0 then
          inFlight[vector] = action
          -- Re-arm if the game never confirms. A cure that was swallowed by a
@@ -358,6 +375,12 @@ function M.flushVector(vector)
    if not M.WHILE_PARALYSED[vector] and paralysed() then return 0 end
    if not emunah.act.can() then return 0 end
    return dispatch(vector) and 1 or 0
+end
+
+--- Could something on this vector go out right now: its balance back, nothing in flight on
+--- it, and nothing shutting it (M.heldBy). For a caller choosing between candidates.
+function M.ready(vector)
+   return vectorReady(vector) and M.heldBy(vector) == nil
 end
 
 --- Mark the in-flight action on a vector as confirmed by the game.

@@ -460,9 +460,28 @@ M.handlers.defs = function(arg, rest)
       keepup.setMode(name, mode)
       log.info("%s: %s.", name, mode or "off")
    elseif arg == "remove" or arg == "drop" then keepup.drop(rest)
+   elseif arg == "order" then
+      if rest and (rest == "clear" or rest == "off" or rest == "none") then
+         keepup.setOrder({})
+         log.info("Defence order cleared: equilibrium defences go cheapest first.")
+      elseif rest and rest:find("%S") then
+         local names = {}
+         for name in rest:gmatch("%S+") do names[#names + 1] = name end
+         log.info("Raised first, in this order: %s. The rest go cheapest first.",
+            table.concat(keepup.setOrder(names), ", "))
+      else
+         local yours = emunah.config.get("defences.order", {}) or {}
+         if #yours == 0 then
+            log.info("No order set: equilibrium defences go cheapest first. "
+               .. "`emset defs order <name> ...` puts yours ahead.")
+         else
+            log.info("Raised first, in this order: %s. The rest go cheapest first.",
+               table.concat(yours, ", "))
+         end
+      end
    else
       if arg then
-         log.warn("Unknown: emset defs %s. Try `emset defs on|off|add|remove|mode`.",
+         log.warn("Unknown: emset defs %s. Try `emset defs on|off|add|remove|mode|order`.",
             tostring(arg))
       end
       defencesGrid()

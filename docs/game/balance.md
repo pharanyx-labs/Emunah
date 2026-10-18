@@ -20,6 +20,14 @@ Balance used: 3.2s.
 Verified for Priest `smite`. Arm timers off this rather than estimating. The
 pre-confirmation window is one network round trip — `getNetworkLatency()` measures it.
 
+**A timer started on that line ends a little after the game's balance does.** The game
+counts from when it ran the command; the line reaches us a moment later. Login 2026-10-18
+09:40: `vault pegasus510623` at 31.71, `Balance used: 1.0s.` at 32.06 (so the timer ran
+to 33.06), `You have recovered balance on all limbs.` at 32.99. The prompt at 32.99 was
+held by the timer, and nothing else arrived until 37.07. So whatever waits on the timer
+has to act when it lapses, not on the next prompt: keep-up and the pipes now do, as the
+curing engine and the hunt already did.
+
 **Movement costs both balance and equilibrium** *(stated by the user)*. It is therefore
 directly rivalrous with attacking: a step straight after a kill waits out the full balance
 recovery, and that pause is the game's rule rather than something to tune away.
@@ -201,6 +209,19 @@ balance from a cure landing will send the next eat inside it.
 
 The balance is announced — `You may eat another plant or mineral.` — so it never needs
 inferring.
+
+**Kola, echinacea and skullcap take no herb balance, and the defence elixirs take no
+purgative balance.** Login 2026-10-18 08:24: `eat echinacea` (19.06), `eat kola` (22.49) and
+`eat skullcap` (26.01) were each eaten and none was followed by `You may eat another plant
+or mineral.`; `drink levitation`, `drink venom`, `drink speed` and `drink frost` were each
+drunk and none was followed by `You may drink another affliction-healing elixir.` Asked
+directly: `eat kola|eat echinacea` as one line at 08:35:24, both eaten
+(`You eat a kola nut.` / `You eat an echinacea root.`), and `drink frost|drink speed` at
+08:37:18, both drunk. Both pairs were already up (`You already possess the gift of the third
+eye.`, `The elixir flows down your throat without effect.`), so whether a drink that does
+something spends a balance is inferred from the silence after the 08:24 drinks, not seen.
+Hawthorn is not in this set: its eat is followed by the herb balance line (defkeepup's
+raise-pending note). `deflist.COSTLESS` lists exactly these.
 
 ## Commands that fail for free
 

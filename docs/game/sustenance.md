@@ -324,5 +324,11 @@ puff (10 → 9) and lighting does not.
   something. `pipes.lua` treats blank contents *or* zero puffs as needing a refill, so it
   works either way, but a row it cannot parse at all would be dropped silently.
 - **The message when a pipe runs out of herb**, if there is one.
-- **Whether `LIGHT` or `PUT` costs anything.** The prompt read `ex-` throughout, so probably
-  not; nothing is declared for either.
+- **Whether `LIGHT` or `PUT` costs anything.** The prompt read `ex-` throughout a lighting,
+  so probably not; nothing is declared for either. They are still refused without balance
+  or equilibrium. [reference] `check_balanceless_acts` sends them only while both (and both
+  arms) are up. Login 2026-10-18: quiet `light pipes` during a vault came back `You must
+  regain balance first.` at 05:00:32.26, and during bliss, the cloak and hypersight came
+  back `You must regain equilibrium first.` at 05:00:34.45, 05:00:36.00, 05:00:40.98 and
+  05:00:43.06. Each refusal was counted as the pipe not answering, and after three the
+  pipes were left.

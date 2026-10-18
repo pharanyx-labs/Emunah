@@ -304,15 +304,38 @@ return function(P)
       if tag then M.sentAt[tag] = now end
       -- The pessimistic guard until the game's own line replaces it ("You may speak another
       -- holy verse." / "Balance used:" / "Equilibrium used:"), as every attack here does.
-      if move.lane == "prayer" then
-         timers.start("pvp.prayer", move.cost or P.RECITE_BALANCE_GUESS)
-         if P.ONCE_PER_PRAYER[move.verse] then P.prayerSpent[move.verse] = true end
-      elseif move.lane == "balance" then
-         timers.start("attack.balance", P.inflightGuard())
-      else
-         timers.start("cure.equilibrium", P.inflightGuard())
+      --
+      -- ARMED AFTER THE OTHER LANES HAVE SENT. Prayer, the mace and an equilibrium move go
+      -- out on one prompt (the user, 2026-10-15). Arming balance as the smite leaves would
+      -- hold the equilibrium move of that same prompt, which spends the other resource.
+      local function arm()
+         if move.lane == "prayer" then
+            timers.start("pvp.prayer", move.cost or P.RECITE_BALANCE_GUESS)
+            if P.ONCE_PER_PRAYER[move.verse] then P.prayerSpent[move.verse] = true end
+         elseif move.lane == "balance" then
+            timers.start("attack.balance", P.inflightGuard())
+         else
+            timers.start("cure.equilibrium", P.inflightGuard())
+         end
       end
+      if M.deferring then M.deferred[#M.deferred + 1] = arm else arm() end
       return true
+   end
+
+   M.deferred = {}
+   M.deferring = false
+
+   --- Hold the lane guards until every lane of this prompt has been offered a send.
+   function M.defer(on)
+      M.deferring = on and true or false
+      if on then M.deferred = {} end
+   end
+
+   function M.armDeferred()
+      local pending = M.deferred
+      M.deferred = {}
+      M.deferring = false
+      for index = 1, #pending do pending[index]() end
    end
 
    -- A new fight, or a new target, starts the rotation afresh: what was sent at the last
@@ -325,5 +348,7 @@ return function(P)
    P.pvp = M
    P.pvpPlan = M.plan
    P.pvpSend = M.send
+   P.pvpDefer = M.defer
+   P.pvpArm = M.armDeferred
    P.PVP_MODES = M.MODES
 end

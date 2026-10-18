@@ -19,9 +19,16 @@
 
 local M = {}
 
---- How long a command is remembered. Long enough for any confirmation to arrive, short
---- enough that the list stays a few entries long.
+--- How long a command is remembered for the default question. Long enough for any
+--- confirmation to arrive, short enough that the list stays a few entries long.
 M.WINDOW = 10.0
+
+--- How long an entry is actually kept. A caller may ask about a wider span than
+--- M.WINDOW: sileris is checked for 14s, because the shell can take 12s to harden. Trimming
+--- at M.WINDOW dropped the apply once a later command was recorded, and the real shell at
+--- 05:00:40.82 (10.5s after `apply sileris` at 05:00:30.17, login 2026-10-18) was discarded
+--- as an illusion.
+M.RETAIN = 16.0
 
 --- { at = seconds, command = lowercased command }, newest last.
 M.recent = {}
@@ -98,7 +105,7 @@ function M.record(command)
    local typed = not (emunah.act and emunah.act.sending)
    recent[#recent + 1] = { at = now, command = command, typed = typed }
    -- Trim from the front once something has aged out; bounded either way.
-   while #recent > 64 or (recent[1] and recent[1].at < now - M.WINDOW) do
+   while #recent > 64 or (recent[1] and recent[1].at < now - M.RETAIN) do
       table.remove(recent, 1)
    end
    emunah.event.raise("sent", command, typed)

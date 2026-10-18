@@ -14,8 +14,20 @@ not a single FIFO but one slot per vector. Eating a herb, applying a salve and d
 elixir can all be in flight simultaneously; two herbs cannot.
 
 **Sent is not executed.** The game reports a balance as available until it actually runs a
-command, so state alone cannot prevent a duplicate send. Every action arms a short guard on
-dispatch, replaced by the exact cooldown the moment the game announces it.
+command, so state alone cannot prevent a duplicate send. Every action that spends a balance
+arms a short guard on dispatch, replaced by the exact cooldown the moment the game announces
+it. Needing a balance is not spending it: a command that needs both and spends one holds
+only the one it spends, and the other vectors of that prompt still go. A command that needs
+a balance the line has already spent, and spends nothing that the commands it passes need,
+is placed ahead of the spender (`act.ahead`): `wield mace|light pipes|hypersight on` works
+where `hypersight on|wield mace` is refused.
+
+**Choosing per prompt.** Keep-up takes, on each balance, the first defence that can go now,
+not the first in line: one held for a balance it needs used to keep the slot from one that
+could have gone. Equilibrium defences go cheapest first (`deflist.COSTS`) unless the user
+sets an order (`emset defs order`), so the dearest goes last, where its cost delays nothing.
+Raises that spend nothing (the free vector, `deflist.COSTLESS`) hold no slot and all go
+together. While curing is tracking an affliction keep-up raises only those.
 
 **One line per prompt.** What a prompt decides leaves together: every `act.send()` between
 the balance changes of a `Char.Vitals` and the end of its tick, and everything sent when a

@@ -32,12 +32,21 @@ M.commands = {
    insomnia     = { vector = "free",        command = "insomnia" },
    deathsight   = { vector = "herb",        command = "eat skullcap" },
    thirdeye     = { vector = "herb",        command = "eat echinacea" },
-   rebounding   = { vector = "smoke",       command = "smoke skullcap" },
+   -- ITEM, so keep-up asks have.pipe before it smokes. Without it the command is not an
+   -- item raise: the pipe check and the pending window are both skipped, and `smoke
+   -- skullcap` goes out of an unlit pipe. Login 2026-10-18 05:00:30.89 and 05:00:40.38,
+   -- the second after the pipes had already been given up.
+   rebounding   = { vector = "smoke",       command = "smoke skullcap", item = "skullcap" },
    -- NAMES UNVERIFIED. This is the last elixir left unchecked; whether Char.Defences calls
    -- the defence by the same word has not been confirmed, and the rest of this family shows
    -- it often does not. `emunah defs names` lists what the game actually reports, and the
    -- attempt budget names the mismatch when there is one.
-   speed        = { vector = "purgative",   command = "drink speed" },
+   --
+   -- IT LANDS SECONDS AFTER THE DRINK. Login 2026-10-18 09:40: drunk 26.22 with no line of
+   -- its own, "Tiny tremours spread through your body as the world seems to slow down." at
+   -- 31.17. The 2s confirm wait ran out in that gap and a second sip went at 27.84. `lands`
+   -- holds the raise that long after the send (defkeepup's raise-pending window).
+   speed        = { vector = "purgative",   command = "drink speed", lands = 7.0 },
    -- The DEFENCE is `poisonresist`; the ELIXIR is venom. Confirmed by the payload:
    --   Char.Defences.Add { name = "poisonresist",
    --                       desc = "Granted by the venom elixir or toxin tonic, this allows
@@ -85,9 +94,18 @@ M.commands = {
    -- immediately you feel a cloak of protection surround you. Equilibrium used: 1.00s.", and
    -- once up, "You are already protected by the cloak tattoo." A tattoo, touched, like
    -- mindseye -- the bare `cloak` this held before was never a command.
-   cloak        = { vector = "equilibrium", command = "touch cloak",  skill = "cloak" },
+   -- NEEDS BALANCE, SPENDS EQUILIBRIUM. Login 2026-10-17 11:26:45.09: sent in the
+   -- same line as `vault pegasus510623` (`vault pegasus510623|touch cloak`), the vault
+   -- announced "Balance used: 1.0s." and this came back "You must regain balance first."
+   -- Alone, at 11:26:47.58, "Equilibrium used: 1.00s." Standing, as every other
+   -- balanceful defence here: nothing has shown it working while prone.
+   cloak        = { vector = "equilibrium", command = "touch cloak", skill = "cloak",
+                    needs = { bal = true, eq = true, standing = true } },
    shield       = { vector = "balance",     command = "touch shield", skill = "shield" },
-   nightsight   = { vector = "equilibrium", command = "nightsight",   skill = "nightsight" },
+   -- FREE. HELP NIGHTSIGHT lists no cooldown, and at login 2026-10-17 11:26:52.31 the
+   -- prompt stayed `exckdb` either side of it, with no "Equilibrium used" line.
+   -- Filing it under equilibrium made its send mark equilibrium spent.
+   nightsight   = { vector = "free",        command = "nightsight",   skill = "nightsight" },
    -- VERIFIED IN PLAY: "touch mindseye" -> "Touching the mindseye tattoo, your senses are
    -- suddenly heightened. Equilibrium used: 3.00s." The bare `mindseye` command this held
    -- before was never watched working -- it is the tattoo, touched, not a stanced ability --
@@ -354,13 +372,18 @@ M.IMPORTED = {
    alertness      = { vector = "balance", command = "alertness on" },
    clinging       = { vector = "balance", command = "cling" },
    curseward      = { vector = "balance", command = "curseward" },
-   hypersight     = { vector = "balance", command = "hypersight on" },
+   -- EQUILIBRIUM, NOT BALANCE. HELP HYPERSIGHT: "Cooldown: 3.00 seconds of equilibrium."
+   -- Login 2026-10-17 11:26:31.34: "Equilibrium used: 3.00s." and the prompt lost its
+   -- `e`. On the balance vector it left the equilibrium slot free, so `touch mindseye`
+   -- went out in the same batch and came back "You must regain equilibrium first."
+   hypersight     = { vector = "equilibrium", command = "hypersight on" },
    -- Antitheft: a pickpocket fails against it, and stripping it is the thief's opening
    -- move (HELP THIEVERY: "setup selfishness as a defence"). Command and lines are the reference system's
    -- (its defs file), and the cost is from play, 2026-10-04 08:09:39.34:
    --   selfishness -> "You rub your hands together greedily." "Equilibrium used: 0.50s."
-   -- with the prompt going excdb -> xcdb. Whether it also NEEDS balance has not been seen
-   -- (balance was up), so both are required, per HELP's default for bal/eq abilities.
+   -- with the prompt going excdb -> xcdb. It NEEDS balance too: 2026-10-18 10:00:37.01,
+   -- typed straight behind a vault that had just taken balance, it came back "You must
+   -- regain balance first." So it waits out a vault, and cannot go in front of one.
    selfishness    = { vector = "equilibrium", command = "selfishness",
                       needs = { bal = true, eq = true, standing = true } },
 
@@ -708,6 +731,43 @@ M.DYNAMIC = {
    trackmace = resolveTrackmace,
 }
 
+--- What each equilibrium raise costs, in seconds: keep-up raises the cheapest first
+--- (defkeepup.order). Every figure is the game's own "Equilibrium used:" line at the
+--- 2026-10-18 08:24 login, except heresy (its ability text, 4.00s).
+M.COSTS = {
+   selfishness = 0.5, cloak = 1.0, trackangel = 2.0, mindseye = 3.0, hypersight = 3.0,
+   inspiration = 3.5, heresy = 4.0, bliss = 6.5,
+}
+
+--- An equilibrium raise whose cost has not been seen: the middle of the known ones.
+M.COST_DEFAULT = 3.0
+
+--- Seconds of equilibrium this defence costs to raise. 0 for one that costs none.
+function M.cost(name)
+   name = M.canonical(name)
+   if M.COSTS[name] then return M.COSTS[name] end
+   local vector = M.resolve(name)
+   if vector == "equilibrium" then return M.COST_DEFAULT end
+   return 0
+end
+
+--- Defence herbs and elixirs that take no balance: any number go on one prompt, and none
+--- holds back a cure. Keep-up sends them without a queue slot (defkeepup.costless).
+---
+--- The 2026-10-18 08:24 login: echinacea, kola and skullcap eaten and four defence elixirs
+--- drunk, and not one "You may eat another plant or mineral." or "You may drink another
+--- affliction-healing elixir." after any of them. At 08:35:24 `eat kola|eat echinacea`
+--- went out as one line and both were eaten; at 08:37:18 `drink frost|drink speed` the
+--- same, both drunk. Each was waiting on its vector's fallback timer (herb 3.5s,
+--- purgative 6.0s), so the elixirs went out six seconds apart.
+---
+--- Only these. Hawthorn's deafness is followed by the herb balance line (defkeepup's
+--- raise-pending note), and nothing has been seen for myrrh or the rest.
+M.COSTLESS = {
+   kola = true, thirdeye = true, deathsight = true,
+   speed = true, poisonresist = true, levitating = true, temperance = true,
+}
+
 --- Defences that are raisable but must not be raised RIGHT NOW: name -> function returning
 --- the reason, or nil. Keep-up holds them quietly, without spending an attempt, and asks
 --- again at the moment of sending (defkeepup's queue `valid`), because each of these can
@@ -792,6 +852,13 @@ function M.resolve(name)
    if not entry then return nil, nil, nil, nil, nil end
    if entry.skill and not have.skill(entry.skill) then return nil, nil, nil, nil, nil end
    return entry.vector, entry.command, entry.needs, entry.item, entry.unconfirmable
+end
+
+--- Seconds after its send that a raise with no item to wait on can still land, or nil.
+function M.lands(name)
+   name = M.canonical(name)
+   local entry = M.commands[name] or M.IMPORTED[name]
+   return entry and entry.lands or nil
 end
 
 --- The defence that must already be up before this one may be raised, or nil.

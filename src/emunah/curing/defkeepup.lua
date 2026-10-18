@@ -282,8 +282,14 @@ M.RAISE_PENDING = 6.0
 --- Longest to wait for the eat line itself before deciding the command was lost.
 M.EAT_PENDING = 15.0
 
---- name -> { sent = time, eaten = time|nil } for item raises not yet seen to land.
+--- name -> { sent = time, vector = vector, eaten = time|nil } for item raises not yet seen to land, and for
+--- raises that land well after their send (deflist.lands: speed), with `eaten` the send.
 local raising = {}
+
+--- name -> when a raise that holds no queue slot last went out (M.costless). The slot's
+--- confirm wait is what stopped a second send before the answer; this is that wait for
+--- raises sent without one.
+local lastSent = {}
 
 local function raisePending(name)
    local r = raising[name]
@@ -300,14 +306,22 @@ end
 --- was thrown away as an illusion, leaving the defence red. 12 covers it with room.
 M.SILERIS_HARDEN = 12.0
 
--- The eat line starts the wait. Any "You eat ..." counts for every raise still waiting on
--- one: an item raise is at most one per vector in flight, and a line about another herb
--- only starts the wait a little early.
+-- The eat line starts the wait. Any "You eat ..." counts for every EATEN raise still
+-- waiting on one: an item raise is at most one per vector in flight, and a line about
+-- another herb only starts the wait a little early.
+--
+-- Eaten ones only. Login 2026-10-18 10:09: `apply sileris to body` went at 21.44, "You eat
+-- an echinacea root." came at 22.02 and the apply line at 22.05, so the sileris took the
+-- eat's 6s window rather than its 12s hardening, was applied again at 28, and hardened at
+-- 38.88. A smoke waiting on rebounding (8.5s, the same login) is as exposed.
+M.EATEN = { herb = true, moss = true }
 do
    local id = tempRegexTrigger([[^You eat ]], function()
       local now = util.now()
       for _, r in pairs(raising) do
-         if not r.eaten and now - r.sent < M.EAT_PENDING then r.eaten = now end
+         if not r.eaten and M.EATEN[r.vector] and now - r.sent < M.EAT_PENDING then
+            r.eaten = now
+         end
       end
    end)
    if id then
@@ -456,9 +470,9 @@ end
 --- Forget the attempt history, for one defence or all of them.
 function M.resetBudget(name)
    if name then
-      attempts[name], warned[name] = nil, nil
+      attempts[name], warned[name], lastSent[name] = nil, nil, nil
    else
-      attempts, warned = {}, {}
+      attempts, warned, lastSent = {}, {}, {}
    end
 end
 
@@ -474,6 +488,10 @@ end
 event.register("emunah.defence.added", function(_, name)
    name = tostring(name or ""):lower()
    M.resetBudget(name)
+   -- The raise has landed, so its pending window is over. Left running, a sileris stripped
+   -- the moment it hardened was not applied again until the window ran out.
+   raising[name] = nil
+   lastSent[name] = nil
    local tag = "def:" .. name
    for _, vector in ipairs(queue.VECTORS) do
       local action = queue.awaiting(vector)
@@ -550,13 +568,28 @@ function M.queueMindseye()
       needs    = needs,
       valid    = function() return not deflist.isUp("mindseye") end,
       confirm  = emunah.config.get("curing.confirmWait", 2.0),
+      -- Spends equilibrium. The queue arms the guard from this, so a stale Char.Vitals
+      -- cannot send wield or vault into "You must regain equilibrium first."
+      -- (login 2026-10-17 11:26:34.91).
+      spends   = "eq",
       onSent   = function()
          attempts.mindseye = (attempts.mindseye or 0) + 1
-         if emunah.gmcp.vitals and emunah.gmcp.vitals.spend then
-            emunah.gmcp.vitals.spend("eq")
-         end
       end,
    })
+end
+
+--- A smoke of this herb was refused ("That pipe isn't lit."). The raise did not start,
+--- so the pending window must not keep the defence down for the rest of it once the
+--- pipe is burning again.
+function M.smokeRefused(herb)
+   herb = tostring(herb or ""):lower()
+   if herb == "" then return end
+   for name in pairs(raising) do
+      local _, command, _, item = deflist.resolve(name)
+      if item == herb or (command and command:find("^smoke%s+" .. herb .. "$")) then
+         raising[name] = nil
+      end
+   end
 end
 
 --- "You are blind and can see nothing but darkness." Mindseye is what makes that
@@ -566,36 +599,95 @@ function M.noteTrueBlind()
    return M.queueMindseye()
 end
 
---- One pass. Queues at most one defence per vector, at a priority no cure will lose to.
+--- Raises that spend nothing, so any number of them can go on one prompt: the free
+--- vector, and the defence herbs and elixirs in deflist.COSTLESS. Sent straight through
+--- act rather than queued. A queue slot holds one command, and the 2026-10-18 08:24 login
+--- sent groundwatch, insomnia, nightsight, skywatch and treewatch across ten seconds
+--- (20.95 to 31.38) one slot at a time, with `wield mace` holding the slot for seven.
+function M.costless(name, vector)
+   return vector == "free" or (deflist.COSTLESS and deflist.COSTLESS[name] == true)
+end
+
+--- Raise order: yours first (`emset defs order`), then the cheapest, so the most defences
+--- are up soonest and the dearest goes last, where its own cost delays nothing. Bliss
+--- (6.50s of equilibrium) went first, alphabetically, at the 08:24 login.
+function M.order(names)
+   local yours = {}
+   for index, name in ipairs(emunah.config.get("defences.order", {}) or {}) do
+      local canonical = deflist.canonical(name)
+      if yours[canonical] == nil then yours[canonical] = index end
+   end
+   local cost = {}
+   for _, name in ipairs(names) do cost[name] = deflist.cost(name) end
+   table.sort(names, function(a, b)
+      local ya, yb = yours[a] or math.huge, yours[b] or math.huge
+      if ya ~= yb then return ya < yb end
+      local ca, cb = cost[a], cost[b]
+      if ca ~= cb then return ca < cb end
+      return a < b
+   end)
+   return names
+end
+
+--- Set your raise order, or clear it with an empty list.
+function M.setOrder(names)
+   local out = {}
+   for _, name in ipairs(names or {}) do
+      local canonical = deflist.canonical(name)
+      if canonical ~= "" then out[#out + 1] = canonical end
+   end
+   emunah.config.set("defences.order", #out > 0 and out or nil)
+   emunah.config.save()
+   return out
+end
+
+--- One pass. At most one queued raise per spending vector, at a priority no cure will lose
+--- to, and every costless raise that can go.
 function M.tick()
    if not M.enabled then return end
    -- At the login menu there is no character to keep defences on: act.send would refuse,
    -- but the hold messages below would still print there (2026-09-28, before login).
    local vitals = emunah.gmcp.vitals
    if vitals and vitals.live and not vitals.live() then return end
-   if M.checking then return M.checkDefences() end
+   -- DEFENCES is in flight or still waiting on equilibrium. That question is the
+   -- equilibrium slot. A salve, a smoke, a herb and a free defence do not use it, and
+   -- stopping the whole pass here left fangbarrier unraised for as long as the listing
+   -- waited (a typed command, or equilibrium already spent). Equilibrium raises stay
+   -- held: the list they would read is the stale one this check exists to replace.
+   if M.checking then M.checkDefences() end
 
-   -- Do not fight the curing engine for a balance while afflicted; cures come first, and
-   -- a defence raised mid-lock is usually stripped again immediately. Deliberate defences
-   -- held on purpose (blind/deaf) do not count: they sit in engine.count() permanently once
-   -- up, and gating on the raw count here would mean keep-up -- including mindseye, which
-   -- blind/deaf require -- never runs again for the rest of the session.
-   local engine = emunah.curing.engine
-   if engine and engine.enabled and engine.curableCount() > 0 then
-      -- Still queue the touch. This tick's flush already happened in the curing engine,
-      -- but the slot has to be mindseye's before the next prompt, not bliss's: the
-      -- darkness line is tracked as an affliction for a couple of seconds and that used
-      -- to make this function return before mindseye was ever considered.
-      if pendingSight then M.queueMindseye() end
-      return
-   end
-
+   -- Cures already ran this tick (the engine registers first) and hold whatever vector
+   -- they took. Keep-up's priority loses to a cure still in that slot, and a vector the
+   -- cure is not using -- a smoke while the herb is busy, a free defence while equilibrium
+   -- is down -- still goes out. Stopping the whole pass here held those.
    local items = emunah.gmcp.items
    local blindWithoutSight = items and not items.sighted() and not deflist.isUp("mindseye")
-   if pendingSight or blindWithoutSight then M.queueMindseye() end
+   -- The darkness line is live information, not the stale list. A missing mindseye that
+   -- only the pre-reload list claims can wait for DEFENCES with the other equilibrium raises.
+   if pendingSight or (not M.checking and blindWithoutSight) then M.queueMindseye() end
 
-   for _, name in ipairs(M.missing()) do
+   -- AFFLICTED, ONLY WHAT COSTS NOTHING. Cures come first, and a defence raised mid-lock is
+   -- usually stripped again at once. A raise that takes a balance can still delay the next
+   -- cure: bliss is 6.50s of the equilibrium `perform hands` wants. Deliberate defences
+   -- (blind, deaf) are not counted -- see engine.curableCount -- or keep-up, mindseye
+   -- included, would never run again once they were up.
+   local engine = emunah.curing.engine
+   local afflicted = engine and engine.enabled and engine.curableCount() > 0
+
+   -- What already waits on balance -- a vault, a one-off of yours -- goes before keep-up
+   -- chooses. Then the choice sees that balance spent and takes an equilibrium raise that
+   -- does not need it, rather than one that would be refused behind it.
+   queue.flushVector("balance")
+
+   local firstFor, chosen = {}, {}
+   for _, name in ipairs(M.order(M.missing())) do
       local vector, command, needs, item, unconfirmable = deflist.resolve(name)
+
+      -- See M.tick: while DEFENCES is outstanding, equilibrium raises wait. Everything
+      -- else still goes on the vector it actually uses.
+      if M.checking and vector == "equilibrium" then
+         vector, command = nil, nil
+      end
 
       -- A PREREQUISITE THAT IS NOT UP BLOCKS THE RAISE ENTIRELY.
       --
@@ -638,7 +730,7 @@ function M.tick()
          vector, command = nil, nil
       end
 
-      if vector and command and item and raisePending(name) then
+      if vector and command and raisePending(name) then
          vector, command = nil, nil
       end
 
@@ -660,73 +752,133 @@ function M.tick()
          end
       end
 
-      if vector and command and M.withinBudget(name) then
-         -- mindseye, while the character cannot see, must beat the alphabetical
-         -- neighbours on this same vector. queueMindseye() may already hold the slot.
-         local priority = M.PRIORITY
-         if name == "mindseye" and (pendingSight or blindWithoutSight) then
-            priority = M.SIGHT_PRIORITY
+      if vector and command and afflicted and vector ~= "free" then
+         vector, command = nil, nil
+      end
+
+      if vector and command and M.costless(name, vector) then
+         if M.withinBudget(name) then
+            M.sendCostless(name, vector, command, needs, item, unconfirmable)
          end
-         local sentCommand = command
-         queue.push(vector, command, {
-            priority = priority,
-            tag      = "def:" .. name,
-            -- Held rather than dropped when these are not met, so the raise goes out the
-            -- moment they are -- and, critically, does NOT burn an attempt meanwhile.
-            needs    = needs,
-            -- The defence may come back on its own while this waits for a balance, and
-            -- raising one that is already up costs the balance for nothing -- a full four
-            -- seconds for a tattoo.
-            -- A dynamic defence (trackmace) can change its mind while this sits in the
-            -- slot: SUMMON queued, then "you have a mace in the land" means the send has
-            -- to be CALL. isUp() alone would still let the summon go.
-            valid    = function()
-               if deflist.isUp(name) then return false end
-               if deflist.held(name) then return false end
-               if deflist.DYNAMIC and deflist.DYNAMIC[name] then
-                  local _, commandNow = deflist.resolve(name)
-                  return commandNow == sentCommand
-               end
-               return true
-            end,
-            confirm  = emunah.config.get("curing.confirmWait", 2.0),
-            onSent   = function()
-               attempts[name] = (attempts[name] or 0) + 1
-               if item then raising[name] = { sent = util.now() } end
+      elseif vector and command and not chosen[vector] and M.withinBudget(name) then
+         local raise = { name = name, vector = vector, command = command, needs = needs,
+                         item = item, unconfirmable = unconfirmable }
+         firstFor[vector] = firstFor[vector] or raise
+         -- THE FIRST THAT CAN GO, NOT THE FIRST IN LINE. A raise held for a balance it needs
+         -- kept the slot from one that could have gone: at 20.95 bliss waited on the vault's
+         -- balance while equilibrium sat idle for 1.7s.
+         local spends = (vector == "equilibrium") and "eq" or nil
+         if queue.ready(vector) and emunah.act.can(needs, spends) then
+            chosen[vector] = true
+            M.queueRaise(raise, blindWithoutSight)
+         end
+      end
+   end
 
-               -- UNCONFIRMABLE: SATISFIED ON SEND, NOT ON Char.Defences. `bliss` produces no
-               -- Char.Defences line ever, so the ordinary "defup done once confirmed" event
-               -- listener below never fires for it -- waiting for that would mean waiting
-               -- forever, and the defence would sit MISSING despite being genuinely up.
-               -- Keepup mode is unaffected: `M.missing()` does not consult `satisfied` for
-               -- keepup, so it is still bounded only by the ordinary attempt budget.
-               if unconfirmable and M.mode(name) == "defup" then
-                  M.satisfied[name] = true
-               end
-
-               if vector == "equilibrium" then
-                  -- HOLD THE VECTOR UNTIL THE GAME CONFIRMS THE COST.
-                  --
-                  -- Char.Vitals omits eq when it has not changed, so the next push -- fired
-                  -- by something unrelated, like damage taken the same round -- can still
-                  -- read eq=true and let a second raise go out into the gap. Exactly the
-                  -- case vitals.spend() was written for, and it matters more here than for
-                  -- the cheap defences: `perform inspiration` costs 3.50s of equilibrium,
-                  -- so the window is wide.
-                  --
-                  -- Not a fixed cost timer -- the "Equilibrium used: N.NNs." trigger starts
-                  -- `cure.equilibrium` from the game's own figure the moment it replies.
-                  -- This only covers the round trip before that arrives.
-                  emunah.gmcp.vitals.spend("eq")
-               elseif vector ~= "balance" then
-                  have.spend(vector)
-               end
-            end,
-         })
+   -- Nothing could go: the first in line holds the slot, as it always did, so the queue
+   -- shows what is next and sends it the moment its balance is back.
+   for vector, raise in pairs(firstFor) do
+      if not chosen[vector] and not queue.pending(vector) then
+         M.queueRaise(raise, blindWithoutSight)
       end
    end
 
    queue.flush()
+end
+
+--- Send a costless raise now. See M.costless.
+function M.sendCostless(name, vector, command, needs, item, unconfirmable)
+   local sent = lastSent[name]
+   local wait = emunah.config.get("curing.confirmWait", 2.0)
+   if sent and util.now() - sent < wait then return false end
+   -- Still its vector's: a herb's balance taken by a cure, anorexia, paralysis for a drink.
+   if vector ~= "free" and not queue.ready(vector) then return false end
+   if not emunah.act.send(command, needs) then return false end
+   lastSent[name] = util.now()
+   attempts[name] = (attempts[name] or 0) + 1
+   local lands = deflist.lands(name)
+   if item then
+      raising[name] = { sent = util.now(), vector = vector }
+   elseif lands then
+      raising[name] = { sent = util.now(), eaten = util.now(), window = lands }
+   end
+   if unconfirmable and M.mode(name) == "defup" then M.satisfied[name] = true end
+   -- The drink line must not spend the sip balance for it (detect/patterns.lua).
+   local detect = emunah.curing.detect
+   if vector == "purgative" and detect and detect.costlessDrink then detect.costlessDrink(name) end
+   return true
+end
+
+--- Queue a raise on its vector, taking the slot from keep-up's own earlier choice.
+function M.queueRaise(raise, blindWithoutSight)
+   local name, vector, command = raise.name, raise.vector, raise.command
+   local needs, item, unconfirmable = raise.needs, raise.item, raise.unconfirmable
+   -- mindseye, while the character cannot see, must beat its neighbours on this same
+   -- vector. queueMindseye() may already hold the slot.
+   local priority = M.PRIORITY
+   if name == "mindseye" and (pendingSight or blindWithoutSight) then
+      priority = M.SIGHT_PRIORITY
+   end
+   -- Keep-up's own pick from an earlier prompt gives way: equal priority keeps the slot,
+   -- and the pick that could not go would hold it again.
+   local waiting = queue.pending(vector)
+   if waiting and waiting.priority >= M.PRIORITY and waiting.command ~= command
+      and tostring(waiting.tag or ""):find("^def:") then
+      queue.clear(vector)
+   end
+   local sentCommand = command
+   return queue.push(vector, command, {
+      priority = priority,
+      tag      = "def:" .. name,
+      -- Held rather than dropped when these are not met, so the raise goes out the
+      -- moment they are -- and, critically, does NOT burn an attempt meanwhile.
+      needs    = needs,
+      -- The defence may come back on its own while this waits for a balance, and
+      -- raising one that is already up costs the balance for nothing -- a full four
+      -- seconds for a tattoo.
+      -- A dynamic defence (trackmace) can change its mind while this sits in the
+      -- slot: SUMMON queued, then "you have a mace in the land" means the send has
+      -- to be CALL. isUp() alone would still let the summon go.
+      valid    = function()
+         if deflist.isUp(name) then return false end
+         if deflist.held(name) then return false end
+         -- The pipe can go out while this sits in the slot. Smoking it then is
+         -- "That pipe isn't lit." (login 2026-10-18 05:00:40.38).
+         if vector == "smoke" and item and not have.pipe(item) then return false end
+         if deflist.DYNAMIC and deflist.DYNAMIC[name] then
+            local _, commandNow = deflist.resolve(name)
+            return commandNow == sentCommand
+         end
+         return true
+      end,
+      confirm  = emunah.config.get("curing.confirmWait", 2.0),
+      -- Equilibrium defences spend equilibrium. Balance-vector defences do not all
+      -- spend balance (summon is free when the mace already exists), so they arm
+      -- nothing here; the ones that do say so themselves.
+      spends   = (vector == "equilibrium") and "eq" or nil,
+      onSent   = function()
+         attempts[name] = (attempts[name] or 0) + 1
+         if item then raising[name] = { sent = util.now(), vector = vector } end
+
+         -- UNCONFIRMABLE: SATISFIED ON SEND, NOT ON Char.Defences. `bliss` produces no
+         -- Char.Defences line ever, so the ordinary "defup done once confirmed" event
+         -- listener below never fires for it -- waiting for that would mean waiting
+         -- forever, and the defence would sit MISSING despite being genuinely up.
+         -- Keepup mode is unaffected: `M.missing()` does not consult `satisfied` for
+         -- keepup, so it is still bounded only by the ordinary attempt budget.
+         if unconfirmable and M.mode(name) == "defup" then
+            M.satisfied[name] = true
+         end
+
+         -- Equilibrium's guard is armed from `spends` before this runs. The game's
+         -- "Equilibrium used: N.NNs." line replaces it with the real cost. Herb,
+         -- smoke and the other timed vectors have no such line that the queue sees,
+         -- so they keep their own fallback.
+         if vector ~= "equilibrium" and vector ~= "balance" then
+            have.spend(vector)
+         end
+      end,
+   })
 end
 
 --- @param silent boolean|nil skip the "Defence keep-up on." line -- for a caller (`pp`) that
@@ -750,15 +902,32 @@ event.register("emunah.tick", function()
    M.tick()
 end, "curing.defkeepup")
 
+-- A BALANCE BACK WITH NO PROMPT BEHIND IT. "Balance used: 1.0s." restarts the balance timer
+-- when the line ARRIVES, so it outlasts the game's own balance by the round trip: at the
+-- 2026-10-18 09:40 login the vault's ran to 33.06, the game gave balance back at 32.99,
+-- and that prompt held everything that needed it. No prompt came again until 37.07, and
+-- nothing else asked, so the watches, `wield mace` and selfishness waited four seconds.
+--
+-- And equilibrium, where the engine already acts on the lapse and sends keep-up's queued
+-- raise by itself: hypersight and inspiration went out just before the game's "You have
+-- recovered equilibrium." (their echoes sit on the prompt before it). Keep-up on the same
+-- lapse, in the same line (timers.lua batches it), puts what only needs equilibrium in
+-- front of the raise that spends it, rather than waiting a whole equilibrium behind it.
+event.register("emunah.timer.expired", function(_, name)
+   if name == "attack.balance" or name == "cure.equilibrium" then M.tick() end
+end, "curing.defkeepup")
+
 -- ---------------------------------------------------------------------------
 -- after a reload: ask DEFENCES before raising anything
 -- ---------------------------------------------------------------------------
 --
 -- A reload rebuilds the defence list from the last full Char.Defences.List, which predates
 -- every change since (gmcp/defences.lua's applyDefListing). Raising defences off that stale
--- list is what sent `perform bliss` on every `emreload`. So after a reload keep-up holds, sends
--- DEFENCES, and resumes once the listing has been read -- or after M.CHECK_TIMEOUT, so a
--- lost reply cannot stall it. DEFENCES costs equilibrium (0.50s, docs/game/defences.md).
+-- list is what sent `perform bliss` on every `emreload`. So after a reload, equilibrium
+-- raises wait, DEFENCES goes out, and they resume once the listing has been read -- or
+-- after M.CHECK_TIMEOUT, so a lost reply cannot stall them. A salve, smoke, herb or free
+-- defence does not read that list to know its own balance, and still goes. DEFENCES costs
+-- equilibrium (0.50s, docs/game/defences.md).
 
 M.CHECK_TIMEOUT = 10.0
 M.checking = false
@@ -803,13 +972,17 @@ event.register("emunah.loaded", function(_, reloading)
    emunah.timers.stop("defkeepup.check")
    -- Now, not on the next prompt: idle, that could be minutes away, and the listing's reply
    -- is itself what brings the prompt keep-up resumes on. Held (no equilibrium, stunned),
-   -- the next tick tries again.
+   -- the next tick tries again. The timeout starts when DEFENCES actually leaves, not here:
+   -- starting it at the reload let it expire before the send, and the next prompt raised
+   -- bliss off the stale list (2026-10-16).
    if M.enabled then M.checkDefences() end
 end, "curing.defkeepup")
 
 -- React immediately when a defence drops rather than waiting for the next tick; losing
 -- rebounding mid-fight is worth a fast response.
 event.register("emunah.defence.lost", function(_, name)
+   -- Up and gone again: whatever was sent for it has been answered.
+   lastSent[tostring(name or ""):lower()] = nil
    if not M.enabled then return end
    if not util.contains(M.wanted(), tostring(name):lower()) then return end
    M.tick()

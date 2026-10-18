@@ -1517,6 +1517,7 @@ ok(table.concat(mock.sent, " | "):find("eat kelp"),
 -- plant." (live, 14:18:47.21 and 14:18:52.50 on 2026-09-28). It gives the balance and the
 -- slot back at once, rather than after the 2s fallback and the confirm wait.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
+emunah.pipes.record("lit", "pipe101", "slippery elm", 10, 1)
 mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
@@ -1666,6 +1667,7 @@ eq(emunah.act.blocked(), nil, "...until the first Char.Vitals of the new session
 -- EARWORM HAS A CURE ENTRY (15:09:19.57, 2026-09-28): reported the instant it landed, with
 -- a sip and a moss going out on the same prompt, and never smoked.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
+emunah.pipes.record("lit", "pipe101", "slippery elm", 10, 1)
 mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
 mock.sent = {}
 mock.feed("Char.Vitals", { hp = "1677", maxhp = "2800", bal = "1", eq = "1" })
@@ -1702,6 +1704,7 @@ emunah.pipes.forget(); emunah.timers.stopAll()
 
 -- A BALANCE BACK ON ITS TIMER wakes the engine; it does not wait for the next prompt.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
+emunah.pipes.record("lit", "pipe101", "slippery elm", 10, 1)
 emunah.have.spend("smoke")
 mock.feed("Char.Afflictions.Add", { name = "earworm", cure = "SMOKE ELM" })
 mock.sent = {}
@@ -2341,6 +2344,9 @@ eq(emunah.have.balance("equilibrium"), false,
    "DIAG spends equilibrium immediately, before Char.Vitals catches up")
 eq(emunah.gmcp.vitals.bal, true, "...and does not spend balance")
 mock.advance(engine.DIAG_EQUILIBRIUM + 0.1)
+-- The send marks the flag spent. The game puts it back when the second is over; the
+-- timer on its own is not the flag.
+emunah.gmcp.vitals.eq = true
 eq(emunah.have.balance("equilibrium"), true, "...for one second")
 
 -- Once per bout, not once per tick: it costs the resource attacking needs.
@@ -5393,11 +5399,9 @@ mock.sent = {}
 defkeepup.add("rebounding")
 ok(emunah.util.contains(defkeepup.wanted(), "rebounding"), "rebounding is now on the wanted list")
 
--- tick() both queues and flushes (defkeepup.lua's own M.tick), so a free vector's action
--- lands directly in mock.sent rather than sitting in queue.pending. have.pipe() defaults
--- permissive with no PIPELIST seen yet (same philosophy as have.skill()), so this needs no
--- inventory setup -- see the herb-vector case (blind/bayberry, above) for the item-missing
--- regression test, where have.item() has no such permissive default.
+-- tick() both queues and flushes. Smoking waits until a lit pipe has been seen: with no
+-- PIPELIST, have.pipe() holds rather than guessing from "a white stone pipe".
+emunah.pipes.record("lit", "pipe367581", "a skullcap flower", 10, 250)
 defkeepup.enabled = true
 defkeepup.tick()
 
@@ -5408,20 +5412,162 @@ ok(inFlight ~= nil and inFlight.tag == "def:rebounding", "the sent action is tag
 eq(inFlight and inFlight.priority, defkeepup.PRIORITY,
    "the queued action used the keep-up priority floor")
 
--- Curing outranks keep-up: while the engine is on and tracking something, keep-up must not
--- even queue -- defkeepup.lua:115's explicit deferral, because a defence raised mid-lock is
--- usually stripped again immediately.
-queue.reset()
+-- Curing outranks keep-up: while the engine is tracking an affliction, keep-up raises
+-- nothing that takes a balance. A smoke is a cure's balance too (elm), and a defence raised
+-- mid-lock is usually stripped again at once. Past the first puff's raise window, so only
+-- the affliction can be what holds it.
+mock.advance(defkeepup.EAT_PENDING + 0.1)
+queue.reset(); emunah.timers.stopAll()
+emunah.have.recover("smoke")
 mock.sent = {}
 engine.enabled = true
 engine.add("paralysis", "trigger")
 defkeepup.tick()
-ok(#mock.sent == 0, "keep-up defers entirely while curing is tracking an affliction", table.concat(mock.sent, " | "))
+ok(not table.concat(mock.sent, " | "):find("smoke skullcap", 1, true),
+   "keep-up takes no balance while curing is tracking an affliction",
+   table.concat(mock.sent, " | "))
+queue.reset()
+-- The puff above spent smoke balance. This cure is a new command on a free smoke
+-- balance; what it must win is the slot, not a balance the defence already used.
+emunah.have.recover("smoke")
+mock.sent = {}
+queue.push("smoke", "smoke elm", { priority = 0, tag = "cure" })
+defkeepup.tick()
+ok(table.concat(mock.sent, " | "):find("smoke elm", 1, true),
+   "a cure already in the smoke slot still goes", table.concat(mock.sent, " | "))
+ok(not table.concat(mock.sent, " | "):find("smoke skullcap", 1, true),
+   "...and keep-up does not take that slot from it", table.concat(mock.sent, " | "))
 
 engine.clear()
 engine.enabled = false
 defkeepup.drop("rebounding")
 defkeepup.enabled = false
+emunah.pipes.forget()
+
+-- No PIPELIST yet: do not smoke into "That pipe isn't lit." (login 2026-10-17 11:26:31.36).
+defkeepup.add("rebounding")
+defkeepup.enabled = true
+queue.reset(); emunah.timers.stopAll()
+mock.sent = {}
+defkeepup.tick()
+ok(not table.concat(mock.sent, " | "):find("smoke skullcap", 1, true),
+   "with no pipe recorded, rebounding is held", table.concat(mock.sent, " | "))
+
+-- Login 2026-10-18 05:00:30.89 and 05:00:40.38. The command carried no item, so neither
+-- have.pipe nor the pending window was consulted, and skullcap was smoked twice. The
+-- second was after "That pipe isn't lit.", with the smoke slot already closed.
+defkeepup.resetBudget("rebounding")
+mock.advance(defkeepup.EAT_PENDING + 0.1)
+emunah.pipes.record("out", "pipe367581", "a skullcap flower", 8, 250)
+queue.reset(); emunah.timers.stopAll(); emunah.have.recover("smoke")
+mock.sent = {}
+defkeepup.tick()
+ok(not table.concat(mock.sent, " | "):find("smoke skullcap", 1, true),
+   "an out skullcap pipe is not smoked for rebounding", table.concat(mock.sent, " | "))
+emunah.pipes.record("lit", "pipe367581", "a skullcap flower", 8, 250)
+queue.reset(); emunah.timers.stopAll(); emunah.have.recover("smoke")
+mock.sent = {}
+defkeepup.tick()
+ok(table.concat(mock.sent, " | "):find("smoke skullcap", 1, true),
+   "a lit one is", table.concat(mock.sent, " | "))
+queue.confirm("smoke")
+mock.line("That pipe isn't lit.")
+ok(not emunah.have.pipe("skullcap"),
+   "the refusal marks it out even after the smoke slot has closed")
+mock.advance(defkeepup.EAT_PENDING + 0.1)
+queue.reset(); emunah.timers.stopAll(); emunah.have.recover("smoke")
+mock.sent = {}
+defkeepup.tick()
+ok(not table.concat(mock.sent, " | "):find("smoke skullcap", 1, true),
+   "and rebounding does not smoke it again", table.concat(mock.sent, " | "))
+emunah.pipes.forget()
+defkeepup.drop("rebounding")
+defkeepup.enabled = false
+
+-- Login 2026-10-17 11:26:31.35, 11:26:34.91, 11:26:45.09, 11:26:52.31.
+-- One equilibrium slot, the spend survives a stale vitals push, a balance spend holds
+-- the cloak, and a free defence does not arm equilibrium.
+do
+   local skills = emunah.gmcp.skills
+   local wasComplete = skills.complete
+   local keep = emunah.config.get("defences.keepup")
+   skills.complete = false
+   queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+   mock.feed("Char.Defences.List", {})
+   defkeepup.enabled = true
+
+   emunah.config.set("defences.keepup", { hypersight = "keepup", mindseye = "keepup" })
+   mock.sent = {}
+   defkeepup.tick()
+   local sent = table.concat(mock.sent, " | ")
+   local both = sent:find("hypersight", 1, true) and sent:find("touch mindseye", 1, true)
+   ok(not both, "hypersight and mindseye do not share one equilibrium", sent)
+   ok(sent:find("hypersight", 1, true) or sent:find("touch mindseye", 1, true),
+      "one of them does go", sent)
+   ok(not emunah.timers.ready("cure.equilibrium"),
+      "the equilibrium send arms the guard")
+   queue.confirm("equilibrium")
+   emunah.gmcp.vitals.eq = true
+   eq(emunah.act.blocked({ eq = true }), "no equilibrium",
+      "a stale vitals push does not reopen equilibrium while the guard runs")
+
+   emunah.config.set("defences.keepup", { nightsight = "keepup" })
+   queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+   ok(table.concat(mock.sent, " | "):find("nightsight", 1, true),
+      "nightsight goes on the free vector", table.concat(mock.sent, " | "))
+   ok(emunah.timers.ready("cure.equilibrium"),
+      "...and does not arm equilibrium")
+   mock.sent = {}
+   defkeepup.tick()
+   ok(not table.concat(mock.sent, " | "):find("nightsight", 1, true),
+      "...and is not sent again before it could have been answered",
+      table.concat(mock.sent, " | "))
+
+   queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+   mock.feed("Char.Defences.List", {})
+   emunah.config.set("defences.keepup", { cloak = "keepup" })
+   queue.push("balance", "vault pegasus510623", {
+      priority = 1,
+      tag = "riding",
+      needs = { bal = true, eq = true, standing = true },
+      spends = "bal",
+      confirm = 2,
+   })
+   mock.sent = {}
+   defkeepup.tick()
+   sent = table.concat(mock.sent, " | ")
+   ok(sent:find("vault pegasus510623", 1, true), "the vault goes", sent)
+   ok(not sent:find("touch cloak", 1, true),
+      "...and touch cloak waits for the balance it needs", sent)
+   emunah.gmcp.vitals.bal = true
+   eq(emunah.act.blocked({ bal = true }), "balance in flight",
+      "while the vault is in flight the reason names the slot")
+   queue.confirm("balance")
+   eq(emunah.act.blocked({ bal = true }), "no balance",
+      "after the slot clears, the guard still holds a stale balance flag")
+
+   queue.reset(); emunah.timers.stopAll()
+   emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
+   emunah.timers.start("attack.balance", 1)
+   eq(emunah.act.blocked({ bal = true }), "no balance",
+      "the balance guard holds with the flag still up")
+   emunah.timers.start("cure.equilibrium", 1)
+   eq(emunah.act.blocked({ eq = true }), "no equilibrium",
+      "...and the equilibrium guard does the same")
+   ok(emunah.act.blocked({}) == nil, "a command that needs neither is not held")
+
+   emunah.config.set("defences.keepup", keep)
+   skills.complete = wasComplete
+   defkeepup.enabled = false
+   defkeepup.resetBudget()
+   queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+   mock.feed("Char.Defences.List", {})
+end
 
 -- Scoped: Lua 5.1 allows 200 active locals per function and this file is a single
 -- top-level chunk, so a block that declares its own gets one.
@@ -5749,6 +5895,27 @@ do
 
    defkeepup.setMode("bliss", nil)
    emunah.curing.deflist.setBliss(false)
+   queue.reset(); emunah.timers.stopAll()
+
+   -- While DEFENCES is outstanding, a salve still goes. Equilibrium raises wait for
+   -- the listing: that is the balance DEFENCES itself spends.
+   defkeepup.checking = true
+   defkeepup.setMode("fangbarrier", "keepup")
+   defkeepup.setMode("inspiration", "keepup")
+   mock.feed("Char.Items.List", { location = "inv", items = {
+      { id = "9101", name = "a sileris berry", attrib = "e" },
+   } })
+   queue.reset(); emunah.timers.stopAll(); defkeepup.resetBudget()
+   mock.sent = {}
+   defkeepup.tick()
+   local during = table.concat(mock.sent, " | ")
+   ok(during:find("apply sileris", 1, true),
+      "a salve still goes while the DEFENCES listing is outstanding", during)
+   ok(not during:find("perform inspiration", 1, true),
+      "...and an equilibrium raise waits for that listing", during)
+   defkeepup.checking = false
+   defkeepup.setMode("fangbarrier", nil)
+   defkeepup.setMode("inspiration", nil)
    queue.reset(); emunah.timers.stopAll()
 end
 
@@ -6130,8 +6297,15 @@ queue.reset(); emunah.timers.stopAll()
 defkeepup.resetBudget()
 mock.feed("Char.Defences.List", { { name = "poisonresist" } })
 defkeepup.setMode("frost", "keepup")
+emunah.have.recover("elixir"); emunah.have.recover("purgative")
+mock.sent = {}
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
-ok(queue.awaiting("purgative") ~= nil, "a defence elixir is in flight, on the purgative balance")
+ok(table.concat(mock.sent, " | "):find("drink frost", 1, true), "a defence elixir goes out",
+   table.concat(mock.sent, " | "))
+eq(queue.awaiting("purgative"), nil, "...holding no purgative slot: it takes no balance")
+mock.line("You take a drink from an oaken vial.")
+ok(emunah.have.balance("elixir") and emunah.have.balance("purgative"),
+   "...and its drink line spends neither the sip nor the purgative balance")
 mock.line("The elixir flows down your throat without effect.")
 eq(defkeepup.withinBudget("frost"), false,
    "a sip with no effect abandons the defence instead of spending the rest of the budget")
@@ -6420,6 +6594,10 @@ eq(emunah.gmcp.defences.has("inspiration"), false,
 ok(queue.awaiting("equilibrium") ~= nil,
    "losing the defence raises it again at once, without waiting for a tick")
 queue.reset()
+-- That raise armed the equilibrium guard. The cases below are about prone and balance,
+-- so the guard from the raise we just discarded has to go with the slot.
+emunah.timers.stop("cure.equilibrium")
+emunah.gmcp.vitals.eq = true
 defkeepup.resetBudget()
 
 -- Char.Vitals drives the tick, so the record has to be cleared BEFORE the feed -- by the
@@ -9190,6 +9368,10 @@ eq(emunah.walker.claimedBy, "bashing", "bashing is pacing the walker")
 -- already sent us on our way -- clear that first or this measures nothing.
 emunah.walker.nextRoom = nil
 emunah.walker.lastStepAt = nil
+-- The smite above armed the in-flight balance guard. A Char.Vitals that still says
+-- balance is up does not clear it: a stale push looks the same. This step is the one
+-- after that guard, with balance free.
+emunah.timers.stop("attack.balance")
 mock.sent = {}
 emunah.walker.move()
 eq(emunah.walker.nextRoom, 2,
@@ -9262,6 +9444,8 @@ bash.start()
 -- Remove is the whole signal: Achaea does not follow it with a fresh list, and the room
 -- stays current throughout, so no re-confirmation is needed to know it is now empty.
 mock.feed("Char.Items.Remove", { location = "room", item = { id = "4242", name = "a pixie" } })
+-- The killing blow armed the in-flight guard. This prompt is balance returned.
+emunah.timers.stop("attack.balance")
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 ok(emunah.walker.nextRoom ~= nil, "clearing the room lets the walk continue")
 
@@ -9289,6 +9473,9 @@ eq(minia[2].killed, 1, "...and the next")
 mock.feed("Room.Players", {})
 mock.sent = {}
 emunah.loot.attempted = {}; emunah.timers.stop("loot.get")
+-- GET needs balance. The hunt's last attack left the in-flight guard, and the flag
+-- being up does not retire it. The gold below appears with balance free.
+emunah.timers.stop("attack.balance")
 mock.line("You have slain a juvenile wildcat, retrieving the corpse.")
 mock.feed("Char.Items.Add", {
    location = "room",
@@ -10168,6 +10355,38 @@ eq(table.concat(mock.sent, " | "),
    "light pipes | light pipes | light pipes | pipelist",
    "an unresponsive pipe stops after ATTEMPTS, asking once on the way out",
    table.concat(mock.sent, " | "))
+
+-- Login 2026-10-18 05:00:32.26 (balance, the vault) and 05:00:34.45, 05:00:36.00,
+-- 05:00:40.98, 05:00:43.06 (equilibrium, bliss, the cloak, hypersight). light pipes is
+-- quiet and balanceless: it waits for both, and a refusal is the balance, not a pipe
+-- that failed to answer. Three refusals were retiring it.
+pipes.forget()
+pipelist({ "out     pipe367581   a skullcap flower              10    250" })
+emunah.timers.start("cure.equilibrium", 6.5)
+mock.sent = {}
+pipes.keep()
+eq(#mock.sent, 0, "light pipes waits while equilibrium is down", table.concat(mock.sent, " | "))
+emunah.timers.stop("cure.equilibrium")
+emunah.timers.start("attack.balance", 1.0)
+pipes.keep()
+eq(#mock.sent, 0, "...and while balance is down", table.concat(mock.sent, " | "))
+emunah.timers.stop("attack.balance")
+emunah.timers.stop("pipes.action")
+emunah.timers.stop("pipes.pipe.367581")
+mock.sent = {}
+for _ = 1, 3 do
+   emunah.timers.stop("pipes.action")
+   emunah.timers.stop("pipes.pipe.367581")
+   pipes.keep()
+   mock.line("You must regain equilibrium first.")
+end
+emunah.timers.stop("pipes.action")
+emunah.timers.stop("pipes.pipe.367581")
+mock.sent = {}
+pipes.keep()
+eq(table.concat(mock.sent, " | "), "light pipes",
+   "a balance refusal does not retire the pipe", table.concat(mock.sent, " | "))
+emunah.timers.stopAll()
 
 -- ...and a state change means the last command worked, so the budget resets.
 pipes.forget()
@@ -11549,6 +11768,8 @@ do
    ok(not emunah.timers.ready("attack.balance") and not emunah.timers.ready("cure.equilibrium"),
       "...with the attacks' own guards armed")
    queue.reset(); emunah.timers.stopAll()
+   -- The one-off spent both balances. The guards are cleared above; the flags are not.
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
 
    -- Pushed over anything Emunah queued, even an urgent heal.
    queue.push("equilibrium", "perform hands", { priority = 0, tag = "healhands" })
@@ -12317,9 +12538,12 @@ do
       "...and no GET goes out while the resources for it are spent")
 
    -- Balance and equilibrium return: the pickup becomes possible, and the room stops being
-   -- worth holding, both on this same prompt.
+   -- worth holding, both on this same prompt. The kill armed the in-flight guard; the
+   -- prompt that brings the resources back retires it.
    left = false
    mock.sent = {}
+   emunah.timers.stop("attack.balance")
+   emunah.timers.stop("cure.equilibrium")
    mock.feed("Char.Vitals", { bal = "1", eq = "1" })
    ok(emunah.util.contains(mock.sent, "get gold"),
       "the pile is taken the moment balance and equilibrium are back",
@@ -13496,6 +13720,40 @@ suite("sileris is fangbarrier, myrrh is scholasticism")
    mock.line("The sileris berry juice hardens into a supple purple shell.")
    ok(not mock.links[1], "a hardening 10s after the apply is believed, not an illusion")
    ok(keepup.state("sileris").up, "hardened, it is up -- as fangbarrier, from the line alone")
+
+   -- Login 2026-10-18 10:09: an eat line between the send and the apply line (22.02,
+   -- 22.05) gave the sileris the eat's 6s window, and it was applied again at 28.
+   emunah.queue.reset(); emunah.timers.stopAll()
+   mock.feed("Char.Defences.Remove", { "fangbarrier" })
+   mock.line("You eat an echinacea root.")
+   mock.line("You apply a sileris berry to yourself.")
+   mock.line("You may apply another salve to yourself.")
+   mock.advance(keepup.RAISE_PENDING + 1)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   ok(not table.concat(mock.sent, " | "):find("apply sileris", 1, true),
+      "an eat line before the apply line does not cut the hardening short",
+      table.concat(mock.sent, " | "))
+   mock.line("The sileris berry juice hardens into a supple purple shell.")
+
+   -- Login 2026-10-18 05:00:30.17 apply, 05:00:40.82 the shell (10.5s). Later commands
+   -- trimmed the apply at 10s, inside the 14s the check asks about, and a real shell
+   -- was discarded.
+   mock.forgetSends()
+   emunah.queue.reset(); emunah.timers.stopAll()
+   -- Stripped, keep-up answers at once (defence.lost), not on the next prompt.
+   mock.sent = {}
+   mock.feed("Char.Defences.Remove", { "fangbarrier" })
+   ok(table.concat(mock.sent, " | "):find("apply sileris", 1, true),
+      "applied again, so the later hardening has a real apply behind it",
+      table.concat(mock.sent, " | "))
+   mock.line("You apply a sileris berry to yourself.")
+   mock.advance(10.5)
+   mock.sentCommand("eat kola")
+   mock.links = {}
+   mock.line("The sileris berry juice hardens into a supple purple shell.")
+   ok(not mock.links[1],
+      "a hardening 10.5s after the apply is still believed once a later command was sent")
    mock.feed("Char.Defences.Add", { name = "fangbarrier", desc = "" })
    ok(keepup.state("sileris").up, "...and still up when Char.Defences agrees")
 
@@ -14319,7 +14577,8 @@ suite("riding: the mount kept with you, vaulted onto only with an idle balance")
    emunah.gmcp.afflictions.active = emunah.gmcp.afflictions.active or {}
    engine.add("clumsiness", "test")
    mock.sent = {}
-   ok(riding.vaultHeld() == "curing first", "never while something needs curing",
+   ok(riding.vaultHeld() == nil,
+      "a herb affliction does not hold the vault; the balance it spends does",
       tostring(riding.vaultHeld()))
    engine.remove("clumsiness")
    engine.enabled = false
@@ -14729,12 +14988,15 @@ fight()
 defkeepup.resetBudget()
 mock.feed("Char.Defences.List", {})
 defkeepup.setMode("frost", "keepup")
-tick()
-local flight = queue.awaiting("purgative")
-ok(flight and flight.tag == "def:temperance", "drink frost is in flight for temperance",
-   flight and flight.tag)
+local drunk = tick()
+ok(drunk:find("drink frost", 1, true), "drink frost goes out for temperance", drunk)
+eq(queue.awaiting("purgative"), nil, "...holding no slot, so no confirm timeout to wait out")
 mock.feed("Char.Defences.Add", { name = "temperance", desc = "" })
-eq(queue.awaiting("purgative"), nil, "Char.Defences.Add answers it -- no confirm timeout")
+mock.sent = {}
+mock.feed("Char.Defences.Remove", { "temperance" })
+drunk = table.concat(mock.sent, " | ")
+ok(drunk:find("drink frost", 1, true),
+   "Char.Defences.Add answered it: stripped at once, it is drunk again at once", drunk)
 defkeepup.setMode("frost", nil)
 defkeepup.resetBudget()
 
@@ -16998,6 +17260,242 @@ rites.forgetAll()
 emunah.config.set("rites.keepup", nil)
 emunah.gmcp.character = savedCharacter
 emunah.timers.stop("cure.equilibrium")
+end)()
+
+-- ===========================================================================
+suite("one line, every balance: the 2026-10-18 08:24 login")
+
+-- The defup at that login took 23.5s. Free defences went one slot at a time, a raise held
+-- for a balance it needed kept the slot from one that could go, defence herbs and elixirs
+-- waited out their fallback timers, and the pipes waited for both balances at once.
+;(function()
+local act, queue = emunah.act, emunah.queue
+local keepup, deflist = emunah.curing.defkeepup, emunah.curing.deflist
+local engine, detect = emunah.curing.engine, emunah.curing.detect
+local skills = emunah.gmcp.skills
+local wasComplete, keep = skills.complete, emunah.config.get("defences.keepup")
+local wasEnabled, engineWas = keepup.enabled, engine.enabled
+skills.complete = false
+detect.onUnstunned(); detect.onStood(); detect.onWake(); detect.onConscious()
+mock.separatorAnswered("|")
+engine.clear(); engine.enabled = false
+keepup.defencesChecked()
+keepup.enabled = false
+emunah.config.set("defences.keepup", {})
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+local vitals = { hp = "1000", maxhp = "1000", mp = "1000", maxmp = "1000", bal = "1", eq = "1" }
+mock.feed("Char.Vitals", vitals)
+
+-- AHEAD OF THE SPENDER. `wield mace` and `light pipes` need what `hypersight on` spends,
+-- and spend nothing: in front of it they work.
+mock.rawSends = {}
+act.batched(function()
+   ok(act.send("hypersight on", nil, "eq"), "an equilibrium spender joins the batch")
+   act.arm("eq")
+   ok(act.send("wield mace", { bal = true, eq = true }),
+      "...a command that only needs equilibrium still goes")
+   ok(act.send("light pipes", { bal = true, eq = true, quiet = true }), "...and a quiet light")
+end)
+eq(table.concat(mock.rawSends, " / "), "wield mace / light pipes / hypersight on",
+   "...both ahead of the spender, in the order they were decided")
+ok(act.blocked({ eq = true }) ~= nil, "...and after the line, equilibrium is spent")
+
+-- A vault spends balance: it may go ahead of an equilibrium spender that does not need
+-- balance, and not of one that does.
+queue.reset(); emunah.timers.stopAll(); mock.feed("Char.Vitals", vitals)
+mock.rawSends = {}
+act.batched(function()
+   act.send("angel summon", nil, "eq"); act.arm("eq")
+   ok(act.send("vault pegasus510623", { bal = true, eq = true }, "bal"),
+      "a vault goes ahead of `angel summon`")
+end)
+eq(table.concat(mock.rawSends, " / "), "vault pegasus510623|angel summon", "...in front of it")
+queue.reset(); emunah.timers.stopAll(); mock.feed("Char.Vitals", vitals)
+mock.rawSends = {}
+act.batched(function()
+   act.send("touch cloak", { bal = true, eq = true }, "eq"); act.arm("eq")
+   ok(not act.send("vault pegasus510623", { bal = true, eq = true }, "bal"),
+      "...but not of `touch cloak`, which needs the balance it would spend")
+end)
+eq(table.concat(mock.rawSends, " / "), "touch cloak", "...so only the cloak goes")
+
+-- THE LOGIN. Everything that costs nothing goes on the first prompt; equilibrium takes the
+-- cheapest raise that can go.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.have.recover("herb"); emunah.have.recover("purgative")
+mock.feed("Char.Defences.List", {})
+mock.feed("Char.Items.List", { location = "inv", items = {
+   { id = "7001", name = "a kola nut", attrib = "" },
+   { id = "7002", name = "an echinacea root", attrib = "" },
+} })
+emunah.config.set("defences.keepup", {
+   groundwatch = "keepup", skywatch = "keepup", treewatch = "keepup", nightsight = "keepup",
+   kola = "keepup", thirdeye = "keepup",
+   levitating = "keepup", poisonresist = "keepup", speed = "keepup", temperance = "keepup",
+   selfishness = "keepup", cloak = "keepup", bliss = "keepup",
+})
+keepup.enabled = true
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+local sent = table.concat(mock.sent, " | ")
+for _, command in ipairs({ "groundwatch on", "skywatch on", "treewatch on", "nightsight",
+                           "eat kola", "eat echinacea", "drink levitation", "drink venom",
+                           "drink speed", "drink frost", "selfishness" }) do
+   ok(sent:find(command, 1, true), "the first prompt sends `" .. command .. "`", sent)
+end
+ok(not sent:find("perform bliss", 1, true) and not sent:find("touch cloak", 1, true),
+   "...and one equilibrium raise, the cheapest: not bliss, not the cloak", sent)
+ok(emunah.have.balance("herb") and emunah.have.balance("purgative"),
+   "the defence herbs and elixirs spend no balance a cure would wait on")
+mock.line("You take a drink from an oaken vial.")
+ok(emunah.have.balance("elixir"), "a defence drink's line does not spend the health sip")
+
+-- Nothing is sent twice before the game could have answered.
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+sent = table.concat(mock.sent, " | ")
+ok(not sent:find("groundwatch on", 1, true) and not sent:find("drink venom", 1, true),
+   "the next prompt does not send them again", sent)
+
+-- THE PIPES LIGHT ON THE SAME PROMPT. `light pipes` needs both balances and spends
+-- neither, so it goes in front of the equilibrium raise keep-up chose first. At the login
+-- it waited for a prompt with both up and nothing spending them, and rebounding was the
+-- last defence up (40.51).
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.config.set("defences.keepup", { selfishness = "keepup" })
+local pipesWere = emunah.config.get("pipes.enabled")
+emunah.config.set("pipes.enabled", true)
+emunah.pipes.forget()
+emunah.pipes.record("out", "pipe367581", "a skullcap flower", 8, 250)
+emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
+mock.rawSends = {}
+mock.feed("Char.Vitals", vitals)
+local lines = table.concat(mock.rawSends, " / ")
+local lit, raised = lines:find("light pipes", 1, true), lines:find("selfishness", 1, true)
+ok(lit and raised and lit < raised,
+   "a cold pipe is lit on the prompt keep-up spends equilibrium, ahead of the raise", lines)
+emunah.pipes.forget()
+emunah.config.set("pipes.enabled", pipesWere)
+
+-- 20.95: THE VAULT WAITING ON BALANCE. Keep-up chooses after it, so it takes the
+-- equilibrium raise that does not need balance, and both go.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.config.set("defences.keepup", { cloak = "keepup", trackangel = "keepup" })
+mock.feed("Char.Vitals", vitals)
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
+queue.push("balance", "vault pegasus510623", {
+   priority = 1, tag = "riding", needs = { bal = true, eq = true, standing = true },
+   spends = "bal", confirm = 2,
+})
+mock.sent = {}
+keepup.tick()
+sent = table.concat(mock.sent, " | ")
+ok(sent:find("vault pegasus510623", 1, true), "the vault goes", sent)
+ok(sent:find("angel summon", 1, true),
+   "...and `angel summon` with it, though the cloak is first in line", sent)
+ok(not sent:find("touch cloak", 1, true), "...not the cloak, which the vault would refuse", sent)
+
+-- YOUR ORDER FIRST.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.config.set("defences.keepup", { selfishness = "keepup", bliss = "keepup" })
+emunah.commands.dispatch("defs order bliss")
+eq(emunah.config.get("defences.order")[1], "bliss", "`emset defs order bliss` is kept")
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+sent = table.concat(mock.sent, " | ")
+ok(sent:find("perform bliss", 1, true) and not sent:find("selfishness", 1, true),
+   "...and bliss goes before the cheaper selfishness", sent)
+emunah.commands.dispatch("defs order clear")
+eq(emunah.config.get("defences.order"), nil, "`emset defs order clear` clears it")
+
+-- AFFLICTED: only what costs nothing. The cure owns the balances.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.config.set("defences.keepup", { nightsight = "keepup", selfishness = "keepup" })
+engine.enabled = true
+engine.add("weariness", "gmcp")
+mock.sent = {}
+keepup.tick()
+sent = table.concat(mock.sent, " | ")
+ok(sent:find("nightsight", 1, true), "afflicted, a free defence still goes", sent)
+ok(not sent:find("selfishness", 1, true), "...and nothing that takes a balance", sent)
+engine.clear()
+
+-- THE 09:40 LOGIN. The vault's "Balance used: 1.0s." ran the balance timer past the game's
+-- own balance, and no prompt came for four seconds after: the lapse itself must raise.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+-- Past the login's sends above: their confirm waits, and speed's landing window.
+mock.advance(deflist.lands("speed") + 0.1)
+queue.reset(); emunah.timers.stopAll()
+emunah.config.set("defences.keepup", { groundwatch = "keepup" })
+emunah.timers.start("attack.balance", 1.0)
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+ok(not table.concat(mock.sent, " | "):find("groundwatch on", 1, true),
+   "the balance timer still running holds `groundwatch on`")
+mock.advance(1.01)
+ok(table.concat(mock.sent, " | "):find("groundwatch on", 1, true),
+   "...and its lapse sends it, with no prompt behind it", table.concat(mock.sent, " | "))
+
+-- On equilibrium's lapse, what only needs it goes in front of the raise that spends it.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.config.set("defences.keepup", { groundwatch = "keepup", selfishness = "keepup" })
+emunah.timers.start("cure.equilibrium", 1.0)
+mock.feed("Char.Vitals", vitals)
+mock.rawSends = {}
+mock.advance(1.01)
+local line = table.concat(mock.rawSends, " / ")
+local watch, selfish = line:find("groundwatch on", 1, true), line:find("selfishness", 1, true)
+ok(watch and selfish and watch < selfish and not line:find(" / ", 1, true),
+   "equilibrium's lapse sends `groundwatch on` ahead of selfishness, on one line", line)
+
+-- And the pipes light on it, ahead of the same raise.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.config.set("defences.keepup", { selfishness = "keepup" })
+local pipesWere = emunah.config.get("pipes.enabled")
+emunah.config.set("pipes.enabled", true)
+emunah.pipes.forget()
+emunah.pipes.record("out", "pipe367581", "a skullcap flower", 8, 250)
+emunah.timers.start("cure.equilibrium", 1.0)
+emunah.timers.start("pipes.poll.due", 300)
+mock.feed("Char.Vitals", vitals)
+mock.rawSends = {}
+mock.advance(1.01)
+line = table.concat(mock.rawSends, " / ")
+local lit, raised = line:find("light pipes", 1, true), line:find("selfishness", 1, true)
+ok(lit and raised and lit < raised, "...and `light pipes` goes on that lapse, ahead of it", line)
+emunah.pipes.forget()
+emunah.config.set("pipes.enabled", pipesWere)
+
+-- SPEED LANDS FIVE SECONDS AFTER THE DRINK (26.22, tremours 31.17). The 2s confirm wait
+-- let a second sip go at 27.84.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.have.recover("purgative")
+emunah.config.set("defences.keepup", { speed = "keepup" })
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+ok(table.concat(mock.sent, " | "):find("drink speed", 1, true), "speed is drunk")
+mock.advance(emunah.config.get("curing.confirmWait", 2.0) + 0.5)
+emunah.have.recover("purgative")
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+ok(not table.concat(mock.sent, " | "):find("drink speed", 1, true),
+   "...and not again while it is still landing", table.concat(mock.sent, " | "))
+mock.advance(deflist.lands("speed"))
+emunah.have.recover("purgative")
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+ok(table.concat(mock.sent, " | "):find("drink speed", 1, true),
+   "...but again once it should have landed and has not")
+
+engine.enabled = engineWas
+keepup.enabled = wasEnabled
+skills.complete = wasComplete
+emunah.config.set("defences.keepup", keep)
+emunah.config.set("defences.order", nil)
+mock.feed("Char.Items.List", { location = "inv", items = {} })
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+mock.separatorAnswered(nil)
 end)()
 
 io.write("\n", string.rep("-", 60), "\n")
