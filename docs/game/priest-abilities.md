@@ -247,6 +247,34 @@ performing a rite that is still up refreshes it or is refused. A Rite of Revital
 prints "The Rite of Revitalisation refreshes your body and mind." every 15 seconds
 (hidden, `ui/gag.lua`).
 
+### What a fight keeps up
+
+Anzerloi, 2026-10-22 17:32–17:36. Rites are passive, chance-based helpers, besides arguably
+piety, which is not kept. The quiet-room keep-up (well-being, and a revitalisation you
+performed) waits for the whole of a PvP session. A fight with a target raises its own set
+(`rites.lua`, `M.PVP`), one equilibrium at a time, and drops them when the target is gone:
+
+| Rite | While | Why |
+|---|---|---|
+| demons | the fight | chips mana |
+| cleansing | the fight | sometimes puts an enemy off balance as they raise a defence |
+| revitalisation | health under `curing.healthThreshold`, and the vitals can be trusted | health pressure. "Not a typical problem for Priests." |
+| healing | a partner is in the room, as Room.Players reports it | good with an allied group. Alone, angel care instead: mutually exclusive, mobile, faster, and it does not need balance. `ANGEL CARE ON` is not sent; the on and off lines are not captured |
+| banishment | the target's city is Ashtan | Ashtani use chaos entities |
+
+The other rites rarely see use. Convocation with hellsight is a dead letter: a mass defence
+negates it. None of those are raised.
+
+A fight spends its first equilibria on this set, one a prompt, and then on `RITES` so the
+listing can arm the timers. A smite needs equilibrium present as well as balance
+(`class/priest_pvp.lua`), so the mace waits those prompts. Once the rites are up, the
+verse, the mace and the equilibrium affliction share a prompt again.
+
+Nothing in the set is performed while health is under `curing.handsThreshold`. `perform
+hands` is the emergency heal and wants that same equilibrium; the offence's equilibrium
+lane already sits the prompt out for it. A rite that came due stays due and goes once
+health is back up.
+
 ## Devotion
 
 Priest's class resource, reported by `charstats` as a **percentage only** -- so an ability

@@ -380,6 +380,19 @@ consistent with both sources above.
 A new rule follows the same rules as any other game mechanic here: evidence first, cited in
 this table.
 
+## Tree functions (`curing/treefunc.lua`)
+
+The tattoo clears one affliction at random and spends only tree balance, so it can go out
+on the same prompt as an eat. A function is a state in which that is worth doing before
+the last-resort dwell. The first whose `when` matches wins.
+
+| Function | While | What it does | Evidence |
+|---|---|---|---|
+| `forming-lock` | asthma, slickness and impatience | `touch tree` immediately, alongside the goldenseal | [play] arena vs Anzerloi, 2026-10-22 16:39:59.59–16:40:02.15, paste BrxbuQVL. The three landed together; goldenseal was queued; anorexia refused the eat at 16:40:01.81; paralysis at 16:40:02.15 shut the tattoo. The tattoo was never touched. [player] the same afternoon: use it while momentum is building, because it clears one affliction at random and does not wait on herb balance |
+
+Paralysis, a numb arm, an entanglement, and both arms broken still refuse the touch. The
+last resort is unchanged: an affliction nothing else can cure, after `TREE_DWELL`.
+
 ## Locks (the reference system's `cnrl.lockdata`)
 
 A lock is a set of afflictions that shuts every way of curing them. The reference system names them on the

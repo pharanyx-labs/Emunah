@@ -44,6 +44,7 @@ local afflist  = emunah.curing.afflist
 local deflist  = emunah.curing.deflist
 local curelist = emunah.curing.curelist
 local situations = emunah.curing.situations
+local treefunc   = emunah.curing.treefunc
 
 --- affliction name -> { since, source }
 M.tracked = {}
@@ -1173,20 +1174,24 @@ local function queueSalveRestock()
 end
 
 -- ---------------------------------------------------------------------------
--- TOUCH TREE -- the last resort
+-- TOUCH TREE
 -- ---------------------------------------------------------------------------
 --
--- The Tree of Life tattoo costs no balance and no equilibrium, only its own tree balance,
--- which is why it still works when everything else has been taken. That is also the only
--- situation it is worth spending: the balance is long, and burning it on an affliction the
--- herb vector would have cleared a moment later wastes the one cure a lock cannot block.
+-- The Tree of Life tattoo costs no balance and no equilibrium, only its own tree balance.
+-- It clears one affliction at random (Anzerloi, 2026-10-22). Which one is not recorded
+-- here: no entry in afflist.lua names `tree` as a vector, because that mapping has never
+-- been verified, and a touch must not be logged as having cured a named affliction.
 --
--- WHICH afflictions it clears is not recorded here, and deliberately so -- no entry in
--- afflist.lua names `tree` as a vector, because the mapping has never been verified. So
--- this does not claim to cure a particular affliction. It fires on the *state* the tattoo
--- exists for: something is afflicting us and every cure we know for it has been refused.
+-- TWO REASONS TO SPEND IT. treefunc.lua is the earlier one: a state where the tattoo
+-- should go now, on the same prompt as an eat, because it does not use herb balance.
+-- The first of those is a lock forming (asthma, slickness, impatience). The last resort
+-- below is the later one: an affliction nothing else can cure. The balance is long, so
+-- the last resort waits out TREE_DWELL rather than firing on a restock that is about to
+-- land. A forming lock does not wait. In the arena that showed it (16:39:59 to
+-- 16:40:02) paralysis shut the tattoo 0.6s after anorexia had refused the goldenseal,
+-- which is inside the dwell.
 --
--- engine.refusals is what makes that state observable. It records why each tracked
+-- engine.refusals is what makes the last resort observable. It records why each tracked
 -- affliction could not be cured on this pass -- a blocked vector, a missing item, an
 -- untrained skill -- all of which are structural rather than a balance ticking down.
 
@@ -1214,31 +1219,44 @@ function M.curableSomehow(name)
    return false
 end
 
+local function touchTree(tag, valid)
+   queue.push("tree", "touch tree", {
+      priority = 0,
+      tag      = tag,
+      confirm  = emunah.config.get("curing.confirmWait", 2.0),
+      valid    = valid,
+      onSent   = function() have.spend("tree") end,
+   })
+end
+
 local function queueTree()
    if emunah.config.get("curing.tree", true) == false then return end
    if queue.pending("tree") or queue.awaiting("tree") then return end
 
    -- The tattoo has to be inked, and its own balance has to be back. Both are checked by
    -- have.cure() for an ordinary cure; this path builds its own command, so it asks here.
+   -- vectorBlocked covers what refuses the touch itself: paralysis, either arm numb, an
+   -- entanglement, both arms broken (afflist.blocks, have.vectorBlocked). No entry names
+   -- `tree` as a cure vector, so have.cure() never sees this option.
    if not have.def("tree") then return end
    if not have.balance("tree") then return end
-   -- BOTH ARMS BROKEN, and touching a tattoo needs a working hand. Reported in play: this
-   -- is refused the same way paralysis is (see queue.WHILE_PARALYSED). No entry in
-   -- afflist.lua calls out `tree` as a vector, so have.cure() never sees this option --
-   -- queueTree() builds the command itself and has to ask the same question have.cure()
-   -- would have for any other vector.
-   if have.bothArmsBroken and have.bothArmsBroken() then return end
+   if have.vectorBlocked("tree") then return end
+
+   local fn = treefunc.match(M.tracked)
+   if fn then
+      touchTree("tree:" .. fn.id, function()
+         local again = treefunc.match(M.tracked)
+         return again ~= nil and again.id == fn.id
+      end)
+      log.info("%s", fn.because)
+      return
+   end
 
    local now = util.now()
    for name, record in pairs(M.tracked) do
       if M.refusals[name] and (now - record.since) >= M.TREE_DWELL
          and not situations.held(name, "tree") and not M.curableSomehow(name) then
-         queue.push("tree", "touch tree", {
-            priority = 0,
-            tag      = "tree:" .. name,
-            confirm  = emunah.config.get("curing.confirmWait", 2.0),
-            onSent   = function() have.spend("tree") end,
-         })
+         touchTree("tree:" .. name)
          log.info("Nothing can cure %s (%s) -- touching the tree.", name, M.refusals[name])
          return
       end

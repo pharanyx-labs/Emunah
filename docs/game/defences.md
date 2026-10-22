@@ -57,11 +57,25 @@ of mana, or being locked. Choose former."* Clear the lock, accept the sapping.
 The Tree of Life tattoo. **Costs no balance and no equilibrium** — only its own tree
 balance, which is why it still works when everything else has been taken.
 
-**Which afflictions it clears is not established**, so no entry in `afflist.lua` names
-`tree` as a cure vector. `engine.queueTree()` therefore does not claim a mapping: it fires
-on the *state* the tattoo exists for — something is afflicting us and every cure we know for
-it has been refused for `TREE_DWELL` seconds. Requires the tattoo to be inked, which shows
-in `Char.Defences`.
+**It clears one affliction at random.** Anzerloi, 2026-10-22, after the arena at 16:38:
+using it through a fight slows the stack and leaves the attacker unsure which affliction
+dropped. HELP TATTOOS TREE: "capable of healing nearly any affliction." The particular
+affliction a touch will pick is not established, so no entry in `afflist.lua` names `tree`
+as a cure vector, and a touch is not recorded as having cured a named affliction.
+
+`engine.queueTree()` spends it for two states:
+
+- **A lock forming.** Asthma, slickness and impatience together (`curing/treefunc.lua`,
+  `forming-lock`). Smoke, salve and focus are shut. The goldenseal for impatience still
+  goes, on herb balance. The tattoo goes on the same prompt, because it does not use that
+  balance. Arena, 16:39:59.59–16:40:02.15: the goldenseal was chosen, anorexia refused it
+  at 16:40:01.81, and paralysis shut the tattoo at 16:40:02.15. Waiting for `TREE_DWELL`
+  (2s) cannot make that touch.
+- **Nothing else can cure an affliction**, and that has been true for `TREE_DWELL`
+  seconds. The dwell keeps the long balance off a restock that is about to land.
+
+Requires the tattoo to be inked, which shows in `Char.Defences`. Paralysis, a numb arm,
+an entanglement, and both arms broken refuse the touch.
 
 The 15s recovery in `curelist.lua` is an estimate, not an observed figure.
 

@@ -49,7 +49,7 @@ local event = emunah.event
 M.enabled = false
 M.target  = nil   -- opponent name (lower), or nil -- never auto-acquired
 M.held    = nil   -- the locks holding the attack back, as shown, or nil
-M.stats   = { attacks = 0, recited = 0, startedAt = 0 }
+M.stats   = { attacks = 0, recited = 0, startedAt = 0, lanes = {} }
 
 --- The modes, in key order: F5, F6, F7, F8. What each sends is the class's (M.MODES there).
 M.MODES = { "attack", "offence", "hinder", "finish" }
@@ -327,6 +327,12 @@ function M.tick()
       if not held then
          local move, name = active.pvpPlan(mode, lane, ctx)
          if move and active.pvpSend(move, name, ctx) then
+            -- A tick can run with a target set and start() never called (a test, a half
+            -- session). The count is bookkeeping; it must not take the prompt down with it.
+            if not M.stats then
+               M.stats = { attacks = 0, recited = 0, startedAt = 0, lanes = {} }
+            end
+            M.stats.lanes = M.stats.lanes or {}
             M.stats.lanes[lane] = (M.stats.lanes[lane] or 0) + 1
             if lane == "prayer" then M.stats.recited = M.stats.recited + 1
             else M.stats.attacks = M.stats.attacks + 1 end

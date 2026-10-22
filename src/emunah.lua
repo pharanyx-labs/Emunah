@@ -89,6 +89,8 @@ local MANIFEST = {
    -- situational curing rules: re-rank or hold a cure while a situation holds. Over
    -- afflist; read by the engine once per tick.
    { path = "emunah.curing.situations",  as = "curing.situations" },
+   -- when to touch the tree tattoo before the last resort. Read by the engine.
+   { path = "emunah.curing.treefunc",    as = "curing.treefunc" },
 
    -- ui
    { path = "emunah.ui.theme",           as = "ui.theme"      },
