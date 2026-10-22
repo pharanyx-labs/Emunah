@@ -83,6 +83,26 @@ function mock.separatorAnswered(value)
    emunah.separator.reset()
    emunah.separator.settle(value)
 end
+
+--- Mark the fight's standing rites as already up, so a suite about the three lanes is not
+--- also the suite about the opening equilibria. Demons and cleansing are what a fight
+--- always raises; a situational one is still raised on the next tick when its `when` holds.
+--- A fresh fight's first prompts are covered where the rites themselves are tested.
+function mock.settleFightRites()
+   local rites = emunah.rites
+   if not rites then return end
+   local room = emunah.gmcp.room and emunah.gmcp.room.num
+   rites.forgetAll()
+   for _, key in ipairs({ "demons", "cleansing" }) do
+      rites.kept[key] = {
+         name = key, attempts = 0, due = false, seen = true,
+         room = room, raised = "pvp",
+      }
+      emunah.timers.start("rites." .. key, 600)
+   end
+   rites.inFight = true
+   rites.check.wanted, rites.check.sentAt, rites.check.misses = false, nil, 0
+end
 mock.separatorAnswered(nil)
 ok(type(emunah) == "table", "creates the emunah namespace")
 eq(type(emunah.util), "table", "core.util present")
@@ -101,7 +121,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 74, "all 74 manifest modules loaded")
+eq(loadedModules, 75, "all 75 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -3330,11 +3350,11 @@ emunah.ui.chat.console, emunah.ui.chat.mode = savedConsole, savedMode
 -- ===========================================================================
 suite("touch tree: the last resort")
 
--- The Tree of Life tattoo costs no balance and no equilibrium, only its own tree balance --
--- which is why it still works when everything else has been taken, and why it is only worth
--- spending then. No entry in afflist.lua names `tree` as a vector, because which
--- afflictions it clears has never been verified; this fires on the STATE the tattoo exists
--- for, not on a claimed mapping.
+-- The Tree of Life tattoo costs no balance and no equilibrium, only its own tree balance,
+-- which is why it still works when everything else has been taken. This suite is that last
+-- resort. A lock that is still forming spends it earlier; the next suite covers that.
+-- No entry in afflist.lua names `tree` as a vector, because which affliction a touch
+-- clears is random and unverified as a mapping.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 engine.enabled = true
 mock.feed("Char.Defences.List", { { name = "tree" } })
@@ -3451,6 +3471,114 @@ ok(not table.concat(mock.sent, " | "):find("touch tree"),
 
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 mock.feed("Char.Defences.List", {})
+
+-- ===========================================================================
+suite("touch tree: while a lock is forming")
+
+-- Its own scope: test/run.lua is one chunk, and Lua 5.1 allows 200 locals in it.
+do
+
+-- Asthma, slickness and impatience shut smoke, salve and focus. Goldenseal can still
+-- cure impatience, and it does, on herb balance. The tattoo does not use that balance.
+-- Arena, 2026-10-22 16:39:59–16:40:02 (Anzerloi): the goldenseal was the right eat,
+-- anorexia refused it, and paralysis shut the tattoo 0.6s later. Waiting out TREE_DWELL
+-- never gets the touch out. It goes on the first prompt the three are up.
+local treefunc = emunah.curing.treefunc
+
+local function forming(items, defences)
+   engine.clear(); queue.reset(); emunah.timers.stopAll()
+   engine.enabled = true
+   mock.feed("Char.Defences.List", defences or { { name = "tree" } })
+   mock.feed("Char.Items.List", { location = "inv", items = items or {} })
+   mock.feed("IRE.Rift.List", {})
+end
+
+local function prompted()
+   queue.reset(); mock.sent = {}
+   mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
+   return table.concat(mock.sent, " | ")
+end
+
+local matched = treefunc.match({ asthma = true, slickness = true, impatience = true })
+eq(matched and matched.id, "forming-lock", "the three together are a reason to touch")
+eq(treefunc.match({ asthma = true, slickness = true }), nil,
+   "two of the three is not")
+
+forming({ { id = "1", name = "a goldenseal root", attrib = "e" } })
+engine.add("asthma", "trigger")
+engine.add("slickness", "trigger")
+engine.add("impatience", "trigger")
+local sent = prompted()
+ok(sent:find("touch tree"),
+   "the tattoo goes immediately, while goldenseal can still be eaten", sent)
+ok(sent:find("eat goldenseal"),
+   "...and the goldenseal goes with it, on herb balance", sent)
+
+-- Anorexia has shut the eat. The tattoo is the avenue still open, until paralysis.
+forming({ { id = "1", name = "a goldenseal root", attrib = "e" } })
+engine.add("asthma", "trigger")
+engine.add("slickness", "trigger")
+engine.add("impatience", "trigger")
+engine.add("anorexia", "trigger")
+sent = prompted()
+ok(sent:find("touch tree"),
+   "anorexia does not stop the touch", sent)
+ok(not sent:find("eat goldenseal"),
+   "...and the eat stays back, because anorexia refuses it", sent)
+
+-- Not yet the three. Both of these can still be cured, so the last resort stays quiet
+-- and the forming-lock function does not match.
+forming({
+   { id = "1", name = "a piece of kelp", attrib = "e" },
+   { id = "2", name = "a bloodroot leaf", attrib = "e" },
+})
+engine.add("asthma", "trigger")
+engine.add("slickness", "trigger")
+sent = prompted()
+ok(not sent:find("touch tree"),
+   "asthma and slickness alone do not spend the tattoo", sent)
+
+forming({ { id = "1", name = "a goldenseal root", attrib = "e" } })
+engine.add("asthma", "trigger")
+engine.add("slickness", "trigger")
+engine.add("impatience", "trigger")
+engine.add("paralysis", "trigger")
+sent = prompted()
+ok(not sent:find("touch tree"),
+   "paralysis shuts the tattoo, so the forming lock does not touch", sent)
+
+forming({ { id = "1", name = "a goldenseal root", attrib = "e" } })
+engine.add("asthma", "trigger")
+engine.add("slickness", "trigger")
+engine.add("impatience", "trigger")
+engine.add("crippledleftarm", "trigger")
+engine.add("crippledrightarm", "trigger")
+sent = prompted()
+ok(not sent:find("touch tree"),
+   "both arms broken, so the forming lock does not touch", sent)
+
+forming({}, {})
+engine.add("asthma", "trigger")
+engine.add("slickness", "trigger")
+engine.add("impatience", "trigger")
+sent = prompted()
+ok(not sent:find("touch tree"),
+   "no tree tattoo, so the forming lock does not touch", sent)
+
+forming({ { id = "1", name = "a goldenseal root", attrib = "e" } })
+emunah.config.set("curing.tree", false)
+engine.add("asthma", "trigger")
+engine.add("slickness", "trigger")
+engine.add("impatience", "trigger")
+sent = prompted()
+ok(not sent:find("touch tree"),
+   "curing.tree off, so the forming lock does not touch", sent)
+emunah.config.set("curing.tree", true)
+
+engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
+mock.feed("Char.Defences.List", {})
+
+end
 
 -- ===========================================================================
 suite("GMCP requests are paced, not burst")
@@ -10968,7 +11096,9 @@ ok(targetSet, "the game-side target is set too")
 
 -- EVERY FREE BALANCE, EVERY TICK (the user, 2026-10-15: "overwhelm my pvp opponent with a
 -- range of afflictions, damage, and finisher moves"). In offence mode, the default, a verse,
--- a mace blow carrying a chasten, and an equilibrium affliction all go out on one prompt.
+-- a mace blow carrying a chasten, and an equilibrium affliction all go out on one prompt
+-- once the fight's rites are up. The first equilibria are the rites (Anzerloi, 2026-10-22):
+-- a smite needs equilibrium present, so the mace waits for demons, then cleansing, then RITES.
 -- have.skill() is permissive here: the skill index has not completed in this suite.
 -- Scoped: Lua 5.1 caps a function at 200 active locals, and this file is one chunk.
 do
@@ -10976,10 +11106,45 @@ local opponent = emunah.curing.detect.opponent
 opponent.clear("sarapis")
 emunah.config.set("pvp.mode", nil)
 eq(pvp.mode(), "offence", "offence is the mode a session starts in")
+-- This feed is the first prompt of the fight. Setting the health on an earlier one would
+-- spend the demons equilibrium before the assertion looked.
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
+   bal = "1", eq = "1" })
+local lanes = table.concat(mock.sent, " | ")
+ok(lanes:find("perform rite of demons", 1, true),
+   "a fresh fight's first equilibrium is demons", lanes)
+ok(lanes:find("recite guilt sarapis", 1, true),
+   "prayer still goes: a verse does not need equilibrium", lanes)
+ok(not lanes:find("smite", 1, true),
+   "the mace waits: a smite needs equilibrium present", lanes)
+ok(not lanes:find("perform sloth", 1, true), "...and so does sloth", lanes)
+
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-local lanes = table.concat(mock.sent, " | ")
+lanes = table.concat(mock.sent, " | ")
+ok(lanes:find("perform rite of cleansing", 1, true),
+   "the next equilibrium is cleansing", lanes)
+ok(not lanes:find("smite", 1, true), "the mace waits out cleansing too", lanes)
+
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+lanes = table.concat(mock.sent, " | ")
+ok(lanes:find("rites", 1, true) and not lanes:find("perform rite of", 1, true),
+   "then RITES, to learn how long the two have", lanes)
+ok(not lanes:find("smite", 1, true), "...and the mace is still waiting", lanes)
+
+-- The listing has answered. The verse rotation starts over with the target, and the
+-- three lanes share the prompt.
+pvp.setTarget("sarapis")
+mock.settleFightRites()
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+lanes = table.concat(mock.sent, " | ")
 ok(lanes:find("recite guilt sarapis", 1, true), "prayer: the offence's first verse", lanes)
 ok(lanes:find("smite sarapis head chasten asthma", 1, true),
    "balance: a smite carrying the first kelp chasten", lanes)
@@ -11426,6 +11591,7 @@ do
    mock.sent = {}
    ok(pvp.start(), "pvp starts")
    pvp.setTarget("Ashden")
+   mock.settleFightRites()
    mock.feed("Char.Vitals", { bal = "1", eq = "1" })
    local bothSent = table.concat(mock.sent, " | ")
    ok(bothSent:find("smite ashden"), "the mace goes out", bothSent)
@@ -11460,11 +11626,15 @@ do
    emunah.config.set("pvp.stopBelowHealth", 0)
    local handsAt = tonumber(emunah.config.get("curing.handsThreshold", 50)) or 50
 
+   -- Above both the hands threshold and the rite health threshold. 60 of 100 would be
+   -- above hands and still inside revitalisation's window, and that rite would take the
+   -- equilibrium this is checking the lane for.
    mock.feed("Char.Vitals", {
-      hp = tostring(handsAt + 10), maxhp = "100", bal = "1", eq = "1",
+      hp = "100", maxhp = "100", bal = "1", eq = "1",
    })
    pvp.start()
    pvp.setTarget("Ashden")
+   mock.settleFightRites()
    emunah.timers.stopAll()
    mock.sent = {}
    mock.feed("Char.Vitals", { bal = "1", eq = "1" })
@@ -11522,6 +11692,7 @@ do
 
    mock.press(mudlet.keymodifier.None, mudlet.key.F1)
    ok(pvp.enabled, "F1 turns pvp on")
+   mock.settleFightRites()
    sent = sentNow()
    ok(sent:find("smite ashden") and sent:find("recite"), "...and the offence goes out", sent)
    mock.press(mudlet.keymodifier.None, mudlet.key.F1)
@@ -11706,8 +11877,9 @@ do
       return table.concat(mock.sent, " | ")
    end
 
-   -- HINDER: legs and paralysis.
+   -- HINDER: legs and paralysis. The fight's rites are already up; this is the mode.
    ok(pvp.setMode("hinder") and pvp.enabled, "hinder mode, and PvP on")
+   mock.settleFightRites()
    local sent = lanes()
    ok(sent:find("smash legs ashden chasten paralysis", 1, true), "smash the legs, chastening paralysis", sent)
    ok(sent:find("recite penance ashden", 1, true), "...penance for paralysis on prayer", sent)
@@ -17329,6 +17501,92 @@ emunah.config.set("rites.keepup", nil)
 emunah.gmcp.character = savedCharacter
 emunah.timers.stop("cure.equilibrium")
 end)()
+
+-- ===========================================================================
+suite("rites: a fight keeps its own")
+
+-- Separate from the quiet-room keep-up. Anzerloi, 2026-10-22 17:32-17:36: demons and
+-- cleansing for the fight, revitalisation only under health pressure, the healing rite
+-- only with a partner here, banishment only against an Ashtani. Well-being stays the
+-- quiet-room rite. No target, and the fight raises nothing (the suite above).
+do
+local rites, pvp = emunah.rites, emunah.pvp
+local ndb, allies = emunah.namedb, emunah.allies
+emunah.config.set("rites.keepup", true)
+rites.forgetAll()
+pvp.enabled, pvp.target = false, nil
+
+local function sends()
+   local out = {}
+   for _, command in ipairs(mock.sent) do
+      if command:find("rite") then out[#out + 1] = command end
+   end
+   return table.concat(out, " | ")
+end
+local function prompt(hp)
+   emunah.timers.stop("cure.equilibrium")
+   mock.sent = {}
+   mock.feed("Char.Vitals", {
+      hp = tostring(hp or 1000), maxhp = "1000", mp = "1000", maxmp = "1000",
+      bal = "1", eq = "1",
+   })
+   return sends()
+end
+
+mock.feed("Char.Afflictions.List", {})
+mock.feed("Room.Info", { num = 9001, name = "The arena", exits = {} })
+mock.feed("Room.Players", {})
+pvp.stats = { attacks = 0, recited = 0, startedAt = 0, lanes = {} }
+pvp.enabled, pvp.target = true, "anzerloi"
+
+eq(prompt(), "perform rite of demons", "a fight raises demons first")
+ok(rites.kept.cleansing and rites.kept.cleansing.due, "...and cleansing is next")
+eq(rites.kept.revitalisation, nil, "full health: no revitalisation")
+eq(rites.kept.healing, nil, "no partner in the room: no healing rite")
+eq(rites.kept.banishment, nil, "city unknown: no banishment")
+eq(rites.kept["well-being"], nil, "well-being is not a fight rite")
+
+-- Under the hands threshold the equilibrium belongs to perform hands. Demons stays due.
+rites.forgetAll(); emunah.timers.stopAll()
+eq(prompt(400), "", "under the hands threshold, the fight's rites wait")
+ok(rites.kept.demons and rites.kept.demons.due, "...and demons stays due for when health is back")
+
+-- Health under the threshold. Demons is still the first equilibrium.
+rites.forgetAll(); emunah.timers.stopAll()
+eq(prompt(700), "perform rite of demons", "under health pressure, demons still goes first")
+ok(rites.kept.revitalisation and rites.kept.revitalisation.due,
+   "...and revitalisation is waiting on the next equilibrium")
+
+-- A partner in the room. Room.Players is who we can see.
+rites.forgetAll(); emunah.timers.stopAll()
+allies.add("Vesper")
+mock.feed("Room.Players", { { name = "Vesper", fullname = "Vesper" } })
+prompt()
+ok(rites.kept.healing and rites.kept.healing.due, "a partner here: the healing rite is raised")
+allies.remove("Vesper")
+mock.feed("Room.Players", {})
+
+-- Ashtan, and then not.
+rites.forgetAll(); emunah.timers.stopAll()
+ndb.set("anzerloi", "city", "Ashtan")
+prompt()
+ok(rites.kept.banishment and rites.kept.banishment.due, "an Ashtani: banishment is raised")
+ndb.set("anzerloi", "city", "Cyrene")
+rites.forgetAll(); emunah.timers.stopAll()
+prompt()
+eq(rites.kept.banishment, nil, "a Cyrenian: banishment is not")
+
+-- The fight ending drops what it raised, and does not keep performing them.
+ok(rites.kept.demons, "demons was up for the fight")
+pvp.enabled, pvp.target = false, nil
+eq(prompt(), "", "the fight over: nothing is performed")
+eq(rites.kept.demons, nil, "...and the fight's demons are no longer kept")
+
+ndb.forget("anzerloi")
+rites.forgetAll()
+emunah.config.set("rites.keepup", nil)
+emunah.timers.stopAll()
+end
 
 -- ===========================================================================
 suite("one line, every balance: the 2026-10-18 08:24 login")

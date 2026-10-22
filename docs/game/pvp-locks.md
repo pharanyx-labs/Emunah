@@ -68,6 +68,9 @@ was prone, asthmatic, slick and impatient.
 **Defending.** `impatience-before-hard-lock` (`curing/situations.lua`, `curing.md`): with
 asthma, slickness and impatience together, goldenseal goes ahead of kelp and bloodroot. At
 the reference system's ranks it was the other way round, the mistake the lesson describes.
+`forming-lock` (`curing/treefunc.lua`) touches the tree on that same prompt. The tattoo
+uses none of the herb balance the goldenseal needs, and paralysis, which shuts the touch,
+is the hit that completes the lock.
 
 **Attacking.** For the PvP target, from the afflictions the tracker has confirmed
 (`curing/detect/opponent.lua`):
