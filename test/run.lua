@@ -7314,7 +7314,21 @@ ok(mock.widgets["emunah.room"] ~= nil, "room console built")
    -- Not / reliant on any 3rd party code anymore." broke after 40).
    local allCons = mock.widgets["emunah.chat.all"]
    eq(allCons.cons.wrapAt, nil, "chat is not wrapped at a fixed width")
-   ok(allCons.cons.autoWrap and allCons.autoWrap, "...it wraps to its own width")
+   ok(allCons.cons.autoWrap and allCons.autoWrap, "...with nothing to measure by, Geyser wraps it")
+
+   -- MEASURED, where Mudlet can say how wide a character is: Geyser's autoWrap still broke
+   -- lines at 65 characters in a wider console (2026-10-23 14:26).
+   _G.calcFontSize = function(size, family) return 7, 14 end
+   chat.build()
+   allCons = mock.widgets["emunah.chat.all"]
+   eq(allCons.cons.font, emunah.ui.theme.font.family, "chat names the font it is measured in")
+   ok(not allCons.cons.autoWrap, "...and wraps itself")
+   eq(allCons.wrap, math.floor((480 - chat.WRAP_SPARE_PX) / 7), "...at its width over a character's")
+   allCons.pxWidth = 700
+   raiseEvent("AdjustableContainerRepositionFinish", "emunah.right")
+   mock.advance(0)
+   eq(allCons.wrap, math.floor((700 - chat.WRAP_SPARE_PX) / 7), "a wider column wraps wider")
+   _G.calcFontSize = nil
    local function console(tab) return mock.widgets["emunah.chat." .. tab:lower()] end
    local function label(tab) return mock.widgets["emunah.chat.tab." .. tab:lower()] end
    local function text(tab) return tostring(console(tab).contents or "") end

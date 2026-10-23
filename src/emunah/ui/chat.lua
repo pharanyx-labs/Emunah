@@ -297,6 +297,47 @@ function M.clear(name)
 end
 
 -- ---------------------------------------------------------------------------
+-- wrapping
+-- ---------------------------------------------------------------------------
+--
+-- Measured here rather than left to Geyser's autoWrap, which wrapped short (2026-10-23
+-- 14:26: lines broken at 65 characters in a console with room for more). The wrap is the
+-- console's width, less the scrollbar and margin, over the width of one character of the
+-- font it draws in. Mudlet does not reflow lines already drawn: a resize wraps the next.
+
+--- Pixels of a console's width that are not text: the scrollbar and the margins.
+M.WRAP_SPARE_PX = 22
+
+--- Pixel width of one character of chat text, or nil where Mudlet cannot say.
+function M.charWidth()
+   if type(calcFontSize) ~= "function" then return nil end
+   local ok, width = pcall(calcFontSize, theme.font.size, theme.font.family)
+   width = ok and tonumber(width)
+   return (width and width > 0) and width or nil
+end
+
+--- Characters per line for a console, or nil when it cannot be measured.
+function M.wrapWidth(console)
+   local charWidth = M.charWidth()
+   if not (charWidth and console and type(console.get_width) == "function") then return nil end
+   local ok, px = pcall(console.get_width, console)
+   px = ok and tonumber(px)
+   if not px or px <= 0 then return nil end
+   return math.max(20, math.floor((px - M.WRAP_SPARE_PX) / charWidth))
+end
+
+--- Wrap every tab's console to its width. Only a console whose width changed is touched.
+function M.rewrap()
+   for _, tab in ipairs(M.order) do
+      local view = M.views[tab]
+      local columns = view and M.wrapWidth(view.console)
+      if columns and columns ~= view.wrap then
+         if pcall(view.console.setWrap, view.console, columns) then view.wrap = columns end
+      end
+   end
+end
+
+-- ---------------------------------------------------------------------------
 -- building
 -- ---------------------------------------------------------------------------
 
@@ -342,16 +383,17 @@ function M.build()
       -- No setStyleSheet -- MiniConsole does not have it (see ui/theme.lua). A console of
       -- the same name survives a rebuild in Mudlet, text and all, so it is cleared and
       -- drawn again from history rather than drawn twice.
-      -- Wrapped to the console's own width, which follows the column as it is resized. The
-      -- panels' fixed wrapAt (theme.consoleCons) broke chat lines at 40 characters.
+      -- Wrapped to the console's own width (M.rewrap), not the panels' fixed wrapAt
+      -- (theme.consoleCons), which broke chat lines at 40 characters. The font is named so
+      -- the width is measured in the font that is drawn.
       local cons = theme.consoleCons({
          name = "emunah.chat." .. key,
          x = 4, y = top + M.TAB_PX + 2, width = "-8px", height = "-4px",
-         scrollBar = true, autoWrap = true,
+         scrollBar = true, font = theme.font.family, autoWrap = M.charWidth() == nil,
       })
       cons.wrapAt = nil
       local console = Geyser.MiniConsole:new(cons, parent)
-      if console.enableAutoWrap then pcall(console.enableAutoWrap, console) end
+      if cons.autoWrap and console.enableAutoWrap then pcall(console.enableAutoWrap, console) end
       pcall(console.clear, console)
       pcall(console.hide, console)
 
@@ -362,6 +404,10 @@ function M.build()
    M.broken = false
    warnedNoConsole = false
 
+   M.rewrap()
+   -- Again once the packet is done: Adjustable.Container restores its saved size after
+   -- the build, and the first measurement can be of the default one.
+   theme.later("chat.rewrap", M.rewrap)
    M.show(M.active)
    if M.broken then return false end
    -- A fresh, working console earns back the one rebuild attempt renderFailed() spends on
@@ -424,6 +470,14 @@ emunah.event.register("emunah.comm.text", function(_, message)
 end, "ui.chat")
 
 emunah.event.register("emunah.ui.built", function() M.build() end, "ui.chat")
+
+-- A wider or narrower column wraps the next line to its new width.
+emunah.event.register("sysWindowResizeEvent", function()
+   theme.later("chat.rewrap", M.rewrap)
+end, "ui.chat")
+emunah.event.register("AdjustableContainerRepositionFinish", function(_, name)
+   if name == "emunah.right" then theme.later("chat.rewrap", M.rewrap) end
+end, "ui.chat")
 
 M.build()
 

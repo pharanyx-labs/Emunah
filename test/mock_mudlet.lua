@@ -855,7 +855,7 @@ function mock.installGeyser()
          "setColor", "setFont", "setFontSize", "setWrap", "setBufferSize",
          "enableScrollBar", "disableScrollBar", "setBackgroundImage", "resetFormat",
          "cechoLink", "dechoLink", "echoLink", "hechoLink", "move", "resize",
-         "enableAutoWrap", "disableAutoWrap",
+         "enableAutoWrap", "disableAutoWrap", "get_width",
       },
       -- Geyser.Label
       label = {
@@ -949,6 +949,9 @@ function mock.installGeyser()
          setReleaseCallback = function(_, fn) self.onRelease = fn return self end,
          setDoubleClickCallback = function(_, fn) self.onDoubleClick = fn return self end,
          setToolTip = function(_, text) self.tooltip = text return self end,
+         -- A pixel width a test can set; Geyser computes the real one from the constraints.
+         get_width = function() return self.pxWidth or 480 end,
+         setWrap = function(_, columns) self.wrap = columns return self end,
          enableAutoWrap  = function() self.autoWrap = true  return self end,
          disableAutoWrap = function() self.autoWrap = false return self end,
          enableScrollBar  = function() self.scrollBar = true  return self end,
