@@ -12,7 +12,8 @@
 ---   equilibrium  Devotion and the angel: afflictions, heresy, contemplate, sap, absolve
 ---
 --- A MODE is an ordered list of moves per lane: the first move whose conditions hold goes.
---- F5-F8 pick the mode (pvp.lua). Adding a mode is adding a table to M.MODES; adding a move
+--- F1-F4 pick the mode (pvp.lua): attack, defence, hinder, finish. Offence has no key.
+--- Adding a mode is adding a table to M.MODES; adding a move
 --- is adding one to M.MOVES. Every command here has its syntax and cost from HELP or the
 --- GMCP ability text (docs/game/help/), and every move checks have.skill() at the moment it
 --- is chosen, because what is trained changes.
@@ -208,29 +209,37 @@ return function(P)
    }
 
    -- -----------------------------------------------------------------------------------
-   -- the modes (F5-F8)
+   -- the modes (F1 attack, F2 defence, F3 hinder, F4 finish; offence has no key)
    -- -----------------------------------------------------------------------------------
 
    M.MODES = {
-      -- F5: damage first, afflictions on the side.
+      -- F1: damage first, afflictions on the side.
       attack = {
          prayer      = { "purge", "unflinching", "guilt", "ash" },
          balance     = { "smite" },
          equilibrium = { "heresy", "sear" },
       },
-      -- F6: bury them in afflictions, on the lobelia and kelp routes, building to the sap.
+      -- F2: hold the attack. Curing and the defence keep-up are not this mode's to send,
+      -- and no game command for a defensive rotation has been captured.
+      defence = {
+         prayer      = {},
+         balance     = {},
+         equilibrium = {},
+      },
+      -- No key. `emset pvp mode offence`, and the mode a fresh session starts in.
+      -- Bury them in afflictions, on the lobelia and kelp routes, building to the sap.
       offence = {
          prayer      = { "guilt", "ash", "burn", "penance", "revelations", "purge" },
          balance     = { "smite" },
          equilibrium = { "sloth", "visions", "dazzle", "panic" },
       },
-      -- F7: keep them here and slow -- legs, paralysis, fragility on the next blow.
+      -- F3: keep them here and slow -- legs, paralysis, fragility on the next blow.
       hinder = {
          prayer      = { "penance", "fragility", "guilt" },
          balance     = { "smashlegs", "smite" },
          equilibrium = { "sloth", "panic" },
       },
-      -- F8: read their mana, sap it under half, absolve.
+      -- F4: read their mana, sap it under half, absolve.
       finish = {
          prayer      = { "wrath", "guilt", "ash" },
          balance     = { "smite" },
@@ -239,8 +248,9 @@ return function(P)
    }
 
    -- A heresy defence is wanted by every mode the moment a mace blow would rebound.
-   for _, mode in pairs(M.MODES) do
-      if mode.equilibrium[1] ~= "heresy" then
+   for name, mode in pairs(M.MODES) do
+      -- Defence holds the attack. Heresy is an attack.
+      if name ~= "defence" and mode.equilibrium[1] ~= "heresy" then
          table.insert(mode.equilibrium, 1, "heresyIfRebounding")
       end
    end

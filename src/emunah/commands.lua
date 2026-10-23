@@ -1169,7 +1169,7 @@ M.handlers.queue = function(arg, rest)
 end
 
 -- SUPPORT: hunt alongside a leader, attacking what they attack (bashing.lua). `emset support`
--- toggles with the last leader, as F5 does; a name starts supporting them; `off` stops.
+-- toggles with the last leader, as F9 does; a name starts supporting them; `off` stops.
 M.handlers.support = function(arg)
    local bash = emunah.bashing
    if arg == "off" or arg == "stop" then
@@ -1251,7 +1251,7 @@ M.handlers.pvp = function(arg, rest)
       local r = pvp.report()
       header("PvP")
       row("running", r.running and "yes" or "no", r.running and "ansi_light_green" or "reset")
-      row("mode", r.mode .. "   (F5 attack, F6 offence, F7 hinder, F8 finish)")
+      row("mode", r.mode .. "   (F1 attack, F2 defence, F3 hinder, F4 finish)")
       row("class module", tostring(r.classLoaded or "NONE"),
          r.classLoaded and "ansi_light_green" or "ansi_light_red")
       row("target", tostring(r.target or "none -- set one with 'emset pvp target <name>'"))

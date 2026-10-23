@@ -70,7 +70,10 @@ asthma, slickness and impatience together, goldenseal goes ahead of kelp and blo
 the reference system's ranks it was the other way round, the mistake the lesson describes.
 `forming-lock` (`curing/treefunc.lua`) touches the tree on that same prompt. The tattoo
 uses none of the herb balance the goldenseal needs, and paralysis, which shuts the touch,
-is the hit that completes the lock.
+is the hit that completes the lock. `metabolise impatience` (`curing/metabolise.lua`) is
+set once during PvP, on equilibrium, so a second player's impatience inside about two
+seconds of the first is resisted. The same player can still reapply it. It does not use
+herb balance, and it waits while `perform hands` or `DIAG` wants the equilibrium.
 
 **Attacking.** For the PvP target, from the afflictions the tracker has confirmed
 (`curing/detect/opponent.lua`):

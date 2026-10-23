@@ -1,0 +1,35 @@
+# The suite, on every push to main and every pull request.
+#
+# Mudlet runs Lua 5.1. This job installs that interpreter and refuses the
+# default `lua`, which is a later version and accepts syntax the client cannot
+# run. tools/ci.sh is the same command a checkout runs locally.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install Lua 5.1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1
+      - name: Compile and test
+        run: sh tools/ci.sh

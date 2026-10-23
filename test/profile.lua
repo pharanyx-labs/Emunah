@@ -1,5 +1,5 @@
 --- Sampling profiler for one engine tick. Diagnostic only; not part of the suite.
---- Usage: lua test/profile.lua [iterations]
+--- Usage: lua5.1 test/profile.lua [iterations]
 
 local ROOT = (arg and arg[0] or ""):match("^(.*)/test/profile%.lua$") or "."
 package.path = ROOT .. "/test/?.lua;" .. package.path

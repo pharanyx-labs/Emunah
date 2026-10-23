@@ -45,6 +45,7 @@ local deflist  = emunah.curing.deflist
 local curelist = emunah.curing.curelist
 local situations = emunah.curing.situations
 local treefunc   = emunah.curing.treefunc
+local metabolise = emunah.curing.metabolise
 
 --- affliction name -> { since, source }
 M.tracked = {}
@@ -1582,6 +1583,11 @@ function M.tick()
       queueRestock()
       queueSalveRestock()
    end
+
+   -- After hands and DIAG have had the equilibrium slot. Metabolise uses the same
+   -- vector and loses to both: a heal and a loki answer outrank a focus that can wait
+   -- one prompt. It does not use herb balance, so it can share the prompt with the eat.
+   metabolise.queue()
 
    queue.flush()
 end

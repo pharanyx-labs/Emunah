@@ -82,8 +82,10 @@ M.modules = {
       .. "smoking, FOCUS, the tree tattoo, COMPOSE, CONCENTRATE, CLOT and WRITHE. One cure "
       .. "per balance at a time, never inside a balance, never while something blocks it "
       .. "(anorexia, slickness, asthma, paralysis...). Follows the reference system's rules for what to cure "
-      .. "first and when not to. Sips health and mana, eats moss, keeps cures pulled from "
-      .. "the rift into your inventory, and wakes you from a sleep you did not choose.",
+      .. "first and when not to. During PvP, spends one equilibrium on METABOLISE IMPATIENCE "
+      .. "so a second player cannot reapply it inside about two seconds. Sips health and mana, "
+      .. "eats moss, keeps cures pulled from the rift into your inventory, and wakes you from "
+      .. "a sleep you did not choose.",
   commands = {
    { syntax = "emset curing", handler = "curing",
      summary = "on or off, and every affliction being tracked" },
@@ -208,18 +210,20 @@ M.modules = {
   state = function() return emunah.pvp.enabled end,
   does = "Attacks the player you name, and only that player: it never picks a target by "
       .. "itself. Nothing offensive is sent while it is off. Every free balance (prayer, "
-      .. "balance, equilibrium) sends what the mode calls for (F5 attack, F6 offence, F7 "
-      .. "hinder, F8 finish), choosing by the afflictions the game has confirmed on them. "
+      .. "balance, equilibrium) sends what the mode calls for (F1 attack, F2 defence, F3 "
+      .. "hinder, F4 finish; offence has no key), choosing by the afflictions the game has "
+      .. "confirmed on them. "
       .. "Holds balance and equilibrium while you are locked, and stops below its health floor.",
   commands = {
    { syntax = "emset pvp", handler = "pvp",
      summary = "target, their afflictions and mana, attacks sent" },
    { syntax = "emset pvp on|off",
-     summary = "start or stop attacking the target. F1 toggles it" },
+     summary = "start or stop attacking the target. F12 stops it" },
    { syntax = "emset pvp target <name>|off",
      summary = "choose the target, or clear it" },
-   { syntax = "emset pvp mode attack|offence|hinder|finish",
-     summary = "enter a PvP mode and turn PvP on. F5 attack, F6 offence, F7 hinder, F8 finish" },
+   { syntax = "emset pvp mode attack|defence|hinder|finish|offence",
+     summary = "enter a PvP mode and turn PvP on. F1 attack, F2 defence, F3 hinder, F4 finish. "
+        .. "Offence has no key. F12 turns any of them off" },
    { syntax = "emset pvp attack <command>",
      summary = "PvP's own attack command; the hunt's is `emset bash attack`" },
    { syntax = "t <name>", alias = "t",
@@ -320,7 +324,7 @@ M.modules = {
    { syntax = "rf <text>", alias = "rf",
      summary = "find rooms whose name contains the text, by area; click a number to walk there" },
    { syntax = "emset flee", handler = "flee",
-     summary = "stop any hunt and walk to the safe room, map.safeRoom (2096). F12" },
+     summary = "stop PvP, stop any hunt, and walk to the safe room, map.safeRoom (2096). F12" },
    { syntax = "emset goto back",
      summary = "walk back to where the last walk started" },
    { syntax = "emset goto stop|pause|resume",
@@ -442,6 +446,10 @@ M.settings = {
 { key = "curing.diag", default = true, type = "boolean", topic = "curing", shipped = false,
   detail = "Send DIAG when the affliction list is in doubt. That is what answers `loki`, "
        .. "the one affliction GMCP does not report honestly." },
+{ key = "curing.metabolise", default = true, type = "boolean", topic = "curing", shipped = false,
+  detail = "During PvP, METABOLISE IMPATIENCE once equilibrium is free, so a second player's "
+       .. "reapplication inside about two seconds is resisted. Costs 3 seconds of equilibrium. "
+       .. "Waits while PERFORM HANDS or DIAG wants it. Off leaves the focus where it is." },
 { key = "curing.clotThreshold", default = 30, type = "number", topic = "curing",
   shipped = false, detail = "Bleeding above this is clotted." },
 { key = "curing.focusGuilt", default = false, type = "boolean", topic = "curing",
@@ -598,7 +606,7 @@ M.settings = {
 { key = "pvp.consumes", default = "eq", type = "string", topic = "pvp", shipped = true,
   detail = "What the attack SPENDS: eq or bal." },
 { key = "pvp.mode", default = "offence", type = "string", topic = "pvp", shipped = false,
-  detail = "attack, offence, hinder or finish: what each balance sends. F5-F8 set it." },
+  detail = "attack, defence, hinder, finish or offence: what each balance sends. F1-F4 set the first four." },
 
 -- watch
 { key = "watch.critical", default = 30, type = "number", unit = "%", topic = "hunting",

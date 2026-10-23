@@ -4,7 +4,7 @@
 --- behavioural tests, not syntax checks: each one drives the system the way Achaea would
 --- and asserts on the resulting state.
 ---
---- Usage: lua test/run.lua   (from the repo root)
+--- Usage: lua5.1 test/run.lua   (from the repo root). sh tools/ci.sh compiles first.
 
 local ROOT = (arg and arg[0] or ""):match("^(.*)/test/run%.lua$") or "."
 package.path = ROOT .. "/test/?.lua;" .. package.path
@@ -121,7 +121,7 @@ for _, line in ipairs(mock.echoed) do
    local count = tostring(line):match("loaded %-%- (%d+) modules")
    if count then loadedModules = tonumber(count) end
 end
-eq(loadedModules, 75, "all 75 manifest modules loaded")
+eq(loadedModules, 76, "all 76 manifest modules loaded")
 
 -- ===========================================================================
 suite("emreload keeps the checkout current with main")
@@ -3578,6 +3578,164 @@ emunah.config.set("curing.tree", true)
 engine.clear(); queue.reset(); emunah.timers.stopAll(); engine.enabled = false
 mock.feed("Char.Defences.List", {})
 
+end
+
+-- ===========================================================================
+suite("metabolise: a second player's impatience")
+
+-- AB METABOLISE. 3s of equilibrium, players only, one affliction. The window is about
+-- two seconds and the change costs three, so the focus stays on impatience: the ability's
+-- own example, and the affliction the lock lesson says decides those two seconds.
+do
+   local engine     = emunah.curing.engine
+   local queue      = emunah.queue
+   local metabolise = emunah.curing.metabolise
+   local skills     = emunah.gmcp.skills
+   local hadSkill    = skills.index.metabolise
+   local wasComplete = skills.complete
+   local wasPvp      = emunah.pvp.enabled
+   local wasEngine   = engine.enabled
+   local wasConfig   = emunah.config.get("curing.metabolise", true)
+
+   local function restore()
+      engine.clear(); queue.reset(); emunah.timers.stopAll()
+      engine.enabled = wasEngine
+      emunah.pvp.enabled = wasPvp
+      skills.complete = wasComplete
+      emunah.config.set("curing.metabolise", wasConfig)
+      metabolise.focus = nil
+      emunah._persist.metabolise = nil
+      if hadSkill then skills.index.metabolise = hadSkill
+      else skills.index.metabolise = nil end
+      mock.feed("Char.Defences.List", {})
+      mock.feed("Char.Afflictions.List", {})
+   end
+
+   skills.index.metabolise = "avoidance"
+   emunah.config.set("curing.metabolise", true)
+   metabolise.focus = nil
+   emunah._persist.metabolise = nil
+
+   ok(metabolise.eligible("impatience"), "impatience is eaten, so it can be metabolised")
+   ok(metabolise.eligible("asthma"), "asthma is eaten")
+   ok(metabolise.eligible("slickness"), "slickness is eaten or smoked")
+   ok(metabolise.eligible("paralysis"), "paralysis is eaten")
+   ok(not metabolise.eligible("anorexia"),
+      "anorexia is salve and focus, and the tree cure is not verified, so it is not named")
+   ok(not metabolise.eligible("blindness"), "a salve-only affliction is not named")
+   eq(metabolise.choose(), "impatience", "the focus is impatience, ahead of the window")
+
+   local function arm(items, defences)
+      engine.clear(); queue.reset(); emunah.timers.stopAll()
+      engine.enabled = true
+      emunah.pvp.enabled = true
+      metabolise.focus = nil
+      mock.feed("Char.Afflictions.List", {})
+      mock.feed("Char.Defences.List", defences or {})
+      mock.feed("Char.Items.List", { location = "inv", items = items or {} })
+      mock.feed("IRE.Rift.List", {})
+      mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
+                                 bal = "1", eq = "1" })
+      -- That prompt may already have set the focus. The cases below start from none.
+      queue.reset(); emunah.timers.stopAll(); mock.sent = {}
+      metabolise.focus = nil
+   end
+
+   local function prompt(hp)
+      mock.sent = {}
+      mock.feed("Char.Vitals", { hp = tostring(hp or 3000), maxhp = "3000",
+                                 mp = "3000", maxmp = "3000", bal = "1", eq = "1" })
+      return table.concat(mock.sent, " | ")
+   end
+
+   -- The three that form the lock. Goldenseal on herb, the tattoo on its own balance,
+   -- metabolise on equilibrium: three vectors, one prompt.
+   arm({ { id = "1", name = "a goldenseal root", attrib = "e" } }, { { name = "tree" } })
+   engine.add("asthma", "trigger")
+   engine.add("slickness", "trigger")
+   engine.add("impatience", "trigger")
+   local sent = prompt()
+   ok(sent:find("metabolise impatience", 1, true),
+      "PvP, the three up: metabolise impatience on that prompt", sent)
+   ok(sent:find("eat goldenseal", 1, true), "...alongside the goldenseal", sent)
+   ok(sent:find("touch tree", 1, true), "...and the tattoo, which uses neither balance", sent)
+   eq(metabolise.focus, "impatience", "the focus is recorded, so it is not sent again")
+
+   sent = prompt()
+   ok(not sent:find("metabolise", 1, true),
+      "the next prompt does not spend another 3s on the same focus", sent)
+
+   -- Not against denizens, and not while the setting is off.
+   arm()
+   emunah.pvp.enabled = false
+   sent = prompt()
+   ok(not sent:find("metabolise", 1, true),
+      "with PvP off it is not sent: it does nothing to a denizen", sent)
+
+   arm()
+   emunah.config.set("curing.metabolise", false)
+   sent = prompt()
+   ok(not sent:find("metabolise", 1, true), "curing.metabolise off sends nothing", sent)
+   emunah.config.set("curing.metabolise", true)
+
+   -- The lesson is not known. Until the index is complete, have.skill() allows the
+   -- command; a finished index that does not list it is what withholds it.
+   arm()
+   skills.complete = true
+   skills.index.metabolise = nil
+   sent = prompt()
+   ok(not sent:find("metabolise", 1, true),
+      "without the lesson, nothing is sent", sent)
+   skills.complete = wasComplete
+   skills.index.metabolise = "avoidance"
+
+   -- Hands and DIAG already own this equilibrium. Each holds the slot until its confirm
+   -- window ends, so the follow-up clears that hold rather than waiting it out.
+   --
+   -- 40% is below curing.handsThreshold (50) and at or above pvp.stopBelowHealth (25).
+   -- Lower than that and the same prompt stops PvP, which is the gate on the send.
+   arm()
+   sent = prompt(1200)
+   ok(sent:find("perform hands", 1, true), "below the hands threshold, hands goes", sent)
+   ok(not sent:find("metabolise", 1, true),
+      "...and metabolise waits, rather than taking the heal's equilibrium", sent)
+   queue.reset(); emunah.timers.stopAll()
+   sent = prompt(3000)
+   ok(sent:find("metabolise impatience", 1, true),
+      "once the heal has its equilibrium back, the focus is set", sent)
+
+   arm()
+   engine.add("loki", "trigger")
+   sent = prompt()
+   ok(sent:find("diag", 1, true), "loki: DIAG goes", sent)
+   ok(not sent:find("metabolise", 1, true),
+      "...and metabolise does not take the equilibrium DIAG is using", sent)
+   queue.reset(); emunah.timers.stopAll()
+   sent = prompt()
+   ok(sent:find("metabolise impatience", 1, true),
+      "DIAG has had its answer, so the focus is set on the next equilibrium", sent)
+
+   -- A METABOLISE typed by hand is kept while the attack still wants equilibrium, and
+   -- put back onto impatience once a lock is holding the attack.
+   arm()
+   metabolise.focus = "asthma"
+   sent = prompt()
+   ok(not sent:find("metabolise", 1, true),
+      "a focus already set is left alone while the attack can still use equilibrium", sent)
+   engine.add("slickness", "trigger")
+   engine.add("anorexia", "trigger")
+   engine.add("asthma", "trigger")
+   sent = prompt()
+   ok(sent:find("metabolise impatience", 1, true),
+      "a lock holds the attack, so a hand-set focus is put back onto impatience", sent)
+
+   mock.command("metabolise asthma")
+   eq(metabolise.focus, "asthma", "a METABOLISE you type becomes the focus")
+   mock.command("metabolise anorexia")
+   eq(metabolise.focus, "asthma",
+      "anorexia is not eligible, so a typed METABOLISE ANOREXIA is not recorded")
+
+   restore()
 end
 
 -- ===========================================================================
@@ -11662,9 +11820,10 @@ end
 -- ===========================================================================
 suite("PvP offence: F1, locks, sapping, the prayer")
 
--- The user, 2026-10-15: the offence is only ever sent while PvP is on, F1 toggles it, and it
--- must notice what the enemy is doing to you -- the reference system's lock table decides
--- whether carrying on is safe. Scoped for the 200-locals cap.
+-- The user, 2026-10-15: the offence is only ever sent while PvP is on, and it must notice
+-- what the enemy is doing to you -- the reference system's lock table decides whether
+-- carrying on is safe. F1 enters attack mode (2026-10-22); it does not toggle.
+-- Scoped for the 200-locals cap.
 do
    local priest = emunah.class.active
    local opp = emunah.curing.detect.opponent
@@ -11691,12 +11850,15 @@ do
       "with pvp off, nothing offensive goes out even with a target set", sent)
 
    mock.press(mudlet.keymodifier.None, mudlet.key.F1)
-   ok(pvp.enabled, "F1 turns pvp on")
+   ok(pvp.enabled, "F1 enters attack mode and turns pvp on")
+   eq(pvp.mode(), "attack", "...attack, with no separate toggle")
    mock.settleFightRites()
    sent = sentNow()
-   ok(sent:find("smite ashden") and sent:find("recite"), "...and the offence goes out", sent)
+   ok(sent:find("smite ashden") and sent:find("recite"), "...and the attack goes out", sent)
    mock.press(mudlet.keymodifier.None, mudlet.key.F1)
-   ok(not pvp.enabled, "F1 again turns it off")
+   ok(pvp.enabled, "F1 again stays on: there is no toggle")
+   pvp.stop("test")
+   emunah.config.set("pvp.mode", nil)
    eq(pvp.target, "ashden", "...keeping the target")
 
    -- LOCKS, from the reference system's cnrl.lockdata.
@@ -11883,6 +12045,14 @@ do
    local sent = lanes()
    ok(sent:find("smash legs ashden chasten paralysis", 1, true), "smash the legs, chastening paralysis", sent)
    ok(sent:find("recite penance ashden", 1, true), "...penance for paralysis on prayer", sent)
+
+   -- DEFENCE: the fight stays up and nothing offensive goes out.
+   pvp.setMode("defence")
+   sent = lanes()
+   ok(pvp.enabled and pvp.mode() == "defence", "defence mode stays in the fight")
+   ok(not sent:find("smite", 1, true) and not sent:find("recite", 1, true)
+      and not sent:find("perform sloth", 1, true),
+      "defence sends no offence", sent)
 
    -- FINISH: read the mana, sap it under half, absolve -- only ever on a fresh reading.
    pvp.setMode("finish")
@@ -12210,10 +12380,11 @@ eq(emunah.keys.count(), keysBefore, "rebuilding does not stack duplicate binding
 ok(pcall(emunah.commands.dispatch, "keys"), "emunah keys reports status")
 
 -- ===========================================================================
--- Action keys: Ctrl+F5 reload, F1 pvp on/off, F11 hunt on/off, F12 to the safe room. Independent of keys.numpad and of
--- the Keypad modifier -- see keys.buildActions(). Own registry, own count().
-eq(emunah.keys.actionCount(), 9,
-   "reload, pvp on/off, four pvp modes, support, the hunt and the safe room all bound")
+-- Action keys: Ctrl+F5 reload, F1-F4 the PvP modes, F11 hunt on/off, F12 to the safe room.
+-- Independent of keys.numpad and of the Keypad modifier -- see keys.buildActions().
+-- Own registry, own count(). Plain F5-F8 are unbound.
+eq(emunah.keys.actionCount(), 8,
+   "reload, four pvp modes, support, the hunt and the safe room all bound")
 
 -- Scoped: Lua 5.1 caps a function at 200 active locals, and this file is one chunk.
 do
@@ -12228,17 +12399,22 @@ do
    _G.emunahReload = realReload
 end
 
--- F5-F8 ENTER A PVP MODE (the user, 2026-10-15), turning PvP on; Ctrl+F5 stays reload,
--- tested above, and support mode moved to F9.
+-- F1-F4 ENTER A PVP MODE (the user, 2026-10-22), turning PvP on. Plain F5-F8 do nothing.
+-- Ctrl+F5 stays reload, tested above, and support mode stays on F9.
 do
    local pvp = emunah.pvp
    pvp.stop("test")
-   for key, mode in pairs({ F5 = "attack", F6 = "offence", F7 = "hinder", F8 = "finish" }) do
+   for key, mode in pairs({ F1 = "attack", F2 = "defence", F3 = "hinder", F4 = "finish" }) do
       pvp.stop("test")
       mock.press(mudlet.keymodifier.None, mudlet.key[key])
       eq(pvp.mode(), mode, key .. " enters " .. mode .. " mode")
       ok(pvp.enabled, "...and turns PvP on")
    end
+   local mode = pvp.mode()
+   for _, key in ipairs({ "F5", "F6", "F7", "F8" }) do
+      ok(not mock.press(mudlet.keymodifier.None, mudlet.key[key]), key .. " is not bound")
+   end
+   eq(pvp.mode(), mode, "F5-F8 leave the mode alone")
    pvp.stop("test")
    emunah.config.set("pvp.mode", nil)
 end
@@ -12360,6 +12536,14 @@ mock.press(mudlet.keymodifier.None, mudlet.key.F12)
 ok(not emunah.walker.enabled and not emunah.bashing.enabled, "F12 stops a hunt")
 eq(emunah.mapper.route.walk and emunah.mapper.route.walk.target, 6, "...and walks to the safe room")
 emunah.mapper.route.stop("test")
+pvp.setMode("hinder")
+ok(pvp.enabled, "a PvP mode is on")
+mock.press(mudlet.keymodifier.None, mudlet.key.F12)
+ok(not pvp.enabled, "F12 turns that mode off")
+eq(emunah.mapper.route.walk and emunah.mapper.route.walk.target, 6,
+   "...and still walks to the safe room")
+emunah.mapper.route.stop("test")
+emunah.config.set("pvp.mode", nil)
 emunah.config.set("map.safeRoom", nil)
 eq(emunah.config.get("map.safeRoom", 2096), 2096, "the safe room is 2096 unless set")
 
@@ -17823,6 +18007,22 @@ mock.feed("Char.Items.List", { location = "inv", items = {} })
 queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
 mock.separatorAnswered(nil)
 end)()
+
+-- The published count has to be this run. The website copies README, and an
+-- earlier check only made those copies agree with each other, so the number
+-- could sit unchanged while the suite grew.
+do
+   if failed == 0 then
+      local handle = assert(io.open("README.md", "r"))
+      local readme = handle:read("*a")
+      handle:close()
+      local documented = tonumber(readme:match("(%d+) behavioural tests"))
+      local expected = passed + 1
+      ok(documented == expected,
+         "README's test count is the number of passing assertions",
+         "documented " .. tostring(documented) .. ", suite " .. tostring(expected))
+   end
+end
 
 io.write("\n", string.rep("-", 60), "\n")
 io.write(string.format("%d passed, %d failed\n", passed, failed))
