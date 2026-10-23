@@ -489,9 +489,11 @@ function M.prayer()
    }
 end
 
---- The prayer is over: every once-per-prayer verse is usable again.
+--- The prayer is over: every once-per-prayer verse is usable again. The offence's route
+--- (class/priest_pvp.lua) hears it to choose its next prayer.
 function M.prayerReset()
    M.prayerSpent = {}
+   emunah.event.raise("priest.prayerEnded")
 end
 
 local lastPrayerLength = 0
@@ -644,6 +646,35 @@ function M.mana(name)
    if not reading then return nil end
    reading.stale = reading.sappedAt ~= nil and reading.sappedAt >= reading.at
    return reading
+end
+
+-- ---------------------------------------------------------------------------
+-- limb damage: what our own blows report
+-- ---------------------------------------------------------------------------
+--
+-- A mace blow on a limb says how much it dealt. Seen from the target's end, Anzerloi on
+-- Maelgor, 2026-10-13 (docs/game/pvp-locks.md, Anzerloi's route):
+--
+--   As Anzerloi's blow crunches into you, you perceive that he has dealt 16.6% damage to
+--   your right leg.
+--
+-- and from ours, the one capture a rebound gave (2026-10-15 13:58:03):
+--
+--   As your blow lands with a crunch, you perceive that you have dealt 13.9% damage to
+--   yourself's head.
+--
+-- So the caster's line names the target and the limb. It is summed per limb here and read
+-- by the offence to spread its blows across the legs. A blow the game did not report
+-- (missed, parried, or a break with no figure) adds nothing. When the target's own healing
+-- resets a limb is not known, so a total only clears with a new fight or target.
+
+--- name (lower) -> limb ("left leg", "head", ...) -> percent dealt so far
+M.targetLimbs = {}
+
+--- The damage our blows have reported on each of a target's limbs, as a table (empty when
+--- none).
+function M.limbs(name)
+   return M.targetLimbs[tostring(name or ""):lower()] or {}
 end
 
 --- Would absolve kill at this mana? Strictly below the threshold.
@@ -800,6 +831,17 @@ local function installTriggers()
       if chastened and opponent then opponent.assert(chastened, matches[2]) end
       chastened = nil
    end))
+
+   -- LIMB DAMAGE: see M.targetLimbs. Unanchored at the start, for the same reason as the
+   -- chasten line; a rebound names "yourself", which is no one's limb.
+   keep(tempRegexTrigger(
+      [[you perceive that you have dealt ([\d.]+)% damage to (\w+)'s ((?:left leg|right leg|left arm|right arm|head|torso))]],
+      function()
+         local percent, name, limb = tonumber(matches[2]), matches[3]:lower(), matches[4]
+         if not percent or name == "yourself" then return end
+         M.targetLimbs[name] = M.targetLimbs[name] or {}
+         M.targetLimbs[name][limb] = (M.targetLimbs[name][limb] or 0) + percent
+      end))
 
    keep(tempRegexTrigger([[^You can use Desolation again\.$]], function()
       emunah.timers.stop("bashing.desolation")

@@ -321,12 +321,19 @@ function M.tick()
    if not (active and active.pvpPlan) then return end
    local mode = M.mode()
    local ctx = context(mode)
+   -- The lanes held this prompt, in the context too: a class that trades one lane for
+   -- another (the Priest's offence sends the mace or an equilibrium move) must not give
+   -- way to a lane that will not send.
+   local hands = handsWanted()
+   ctx.held = {
+      balance     = lock ~= nil,
+      equilibrium = lock ~= nil or hands,
+   }
    -- One prompt, every free lane. The guards arm after the loop so a smite's balance
    -- does not hold the equilibrium move that shares the line.
    if active.pvpDefer then active.pvpDefer(true) end
    for _, lane in ipairs(M.LANES) do
-      local held = lane ~= "prayer" and lock ~= nil
-      if lane == "equilibrium" and handsWanted() then held = true end
+      local held = ctx.held[lane] == true
       if not held then
          local move, name = active.pvpPlan(mode, lane, ctx)
          if move and active.pvpSend(move, name, ctx) then

@@ -1304,6 +1304,13 @@ M.handlers.pvp = function(arg, rest)
          local prayer = active.prayer()
          row("prayer", ("length %d, conviction %d"):format(prayer.length, prayer.conviction))
       end
+      -- Offence's route: which of Anzerloi's prayers, and how far our blows have got on
+      -- each leg.
+      if r.mode == "offence" and active and active.pvp and active.pvp.routeReport then
+         local prayer, legs = active.pvp.routeReport(r.target)
+         row("route", prayer)
+         if r.target then row("their legs", legs .. " (our blows)") end
+      end
       if r.held then row("attack held", "locked: " .. r.held, "ansi_light_red") end
       row("attack", emunah.config.get("pvp.attack", "angel sear") .. " <name>")
       row("attacks sent", r.attacks)

@@ -103,6 +103,22 @@ function mock.settleFightRites()
    rites.inFight = true
    rites.check.wanted, rites.check.sentAt, rites.check.misses = false, nil, 0
 end
+--- Put the offence's route at a point in its prayers: the game's prayer length and
+--- conviction, and no prayer chosen yet, so the next verse picks one on that conviction.
+--- Length 1 at conviction 10 is the hellsight prayer's second verse, where the mace goes.
+--- Setup only: what the feed's own prompt sent is taken back, and the guards it armed.
+function mock.routeAt(length, conviction)
+   local function forget()
+      local active = emunah.class and emunah.class.active
+      if active and active.pvp then active.pvp.prayerKind, active.pvp.lastKind = nil, nil end
+   end
+   forget()
+   mock.feed("Char.Vitals", { charstats = {
+      "prayer_length: " .. tostring(length or 0), "conviction: " .. tostring(conviction or 0) } })
+   forget()
+   emunah.timers.stopAll()
+   mock.sent = {}
+end
 mock.separatorAnswered(nil)
 ok(type(emunah) == "table", "creates the emunah namespace")
 eq(type(emunah.util), "table", "core.util present")
@@ -11253,9 +11269,9 @@ end
 ok(targetSet, "the game-side target is set too")
 
 -- EVERY FREE BALANCE, EVERY TICK (the user, 2026-10-15: "overwhelm my pvp opponent with a
--- range of afflictions, damage, and finisher moves"). In offence mode, the default, a verse,
--- a mace blow carrying a chasten, and an equilibrium affliction all go out on one prompt
--- once the fight's rites are up. The first equilibria are the rites (Anzerloi, 2026-10-22):
+-- range of afflictions, damage, and finisher moves"). Offence, the default, is Anzerloi's
+-- route: a verse and, on the same prompt, the mace or an equilibrium move, never both
+-- (the user, 2026-10-23), once the fight's rites are up. The first equilibria are the rites (Anzerloi, 2026-10-22):
 -- a smite needs equilibrium present, so the mace waits for demons, then cleansing, then RITES.
 -- have.skill() is permissive here: the skill index has not completed in this suite.
 -- Scoped: Lua 5.1 caps a function at 200 active locals, and this file is one chunk.
@@ -11273,7 +11289,7 @@ mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "30
 local lanes = table.concat(mock.sent, " | ")
 ok(lanes:find("perform rite of demons", 1, true),
    "a fresh fight's first equilibrium is demons", lanes)
-ok(lanes:find("recite guilt sarapis", 1, true),
+ok(lanes:find("recite burn sarapis", 1, true),
    "prayer still goes: a verse does not need equilibrium", lanes)
 ok(not lanes:find("smite", 1, true),
    "the mace waits: a smite needs equilibrium present", lanes)
@@ -11295,30 +11311,39 @@ ok(lanes:find("rites", 1, true) and not lanes:find("perform rite of", 1, true),
    "then RITES, to learn how long the two have", lanes)
 ok(not lanes:find("smite", 1, true), "...and the mace is still waiting", lanes)
 
--- The listing has answered. The verse rotation starts over with the target, and the
--- three lanes share the prompt.
+-- The listing has answered. The route starts over with the target: its first prayer opens
+-- on Burn with sloth (all three spars, 2026-10-13), and the mace waits its turn.
 pvp.setTarget("sarapis")
 mock.settleFightRites()
+mock.routeAt(0, 0)
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("recite guilt sarapis", 1, true), "prayer: the offence's first verse", lanes)
-ok(lanes:find("smite sarapis head chasten asthma", 1, true),
-   "balance: a smite carrying the first kelp chasten", lanes)
-ok(lanes:find("perform sloth sarapis", 1, true), "equilibrium: sloth", lanes)
+ok(lanes:find("recite burn sarapis", 1, true), "prayer: the route's first verse is Burn", lanes)
+ok(lanes:find("perform sloth sarapis", 1, true), "equilibrium: sloth, the kelp beside it", lanes)
+ok(not lanes:find("smite", 1, true), "...and no mace on the same prompt", lanes)
 
--- A CONFIRMED affliction is not given again, and an unconfirmed one is not resent blind.
-opponent.assert("sarapis", "asthma")
+-- PAST THE FIRST PRAYER the mace goes to the legs, and a CONFIRMED affliction is not given
+-- again: the chasten moves on.
+mock.routeAt(1, 10)
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("chasten recklessness", 1, true), "asthma confirmed: the chasten moves on", lanes)
-ok(lanes:find("recite ash sarapis", 1, true),
-   "guilt just sent and not confirmed: the next verse goes instead", lanes)
-ok(lanes:find("perform visions sarapis", 1, true), "...and the next equilibrium affliction", lanes)
+ok(lanes:find("smite sarapis right leg chasten clumsiness", 1, true),
+   "the second verse of a later prayer: a leg, chastening clumsiness", lanes)
+ok(not lanes:find("perform sloth", 1, true), "...and no equilibrium move with it", lanes)
+opponent.assert("sarapis", "clumsiness")
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+lanes = table.concat(mock.sent, " | ")
+ok(lanes:find("smite sarapis left leg chasten paralysis", 1, true),
+   "clumsiness confirmed: the other leg, and the next chasten", lanes)
 opponent.clear("sarapis")
+mock.routeAt(0, 0)
+pvp.setTarget("sarapis")   -- a fresh rotation: paralysis was chastened a moment ago
 
 -- A LOCK BUILDING IS FINISHED FIRST (Anzerloi, 2026-10-15 20:26:06, on a target prone,
 -- asthmatic, slick, impatient: "Missing anorexia and paralysis for lock."). Chasten cannot
@@ -11336,6 +11361,8 @@ mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 lanes = table.concat(mock.sent, " | ")
 ok(lanes:find("chasten paralysis", 1, true), "the chasten carries paralysis to close it", lanes)
+ok(not lanes:find("perform sloth", 1, true),
+   "...the mace taking the exchange from the route's opening sloth", lanes)
 opponent.assert("sarapis", "anorexia")
 opponent.assert("sarapis", "paralysis")
 eq(#opponent.lockNeeds("sarapis"), 0, "with all five, nothing is missing")
@@ -11746,6 +11773,8 @@ do
       "Ash", "Burn", "Penance", "Purge", "Revelations", "Wrath", "Fragility", "Unflinching",
       "Rebuke" } })
 
+   -- Past the route's opening (the hellsight prayer's second verse), where the mace goes.
+   mock.routeAt(1, 10)
    mock.sent = {}
    ok(pvp.start(), "pvp starts")
    pvp.setTarget("Ashden")
@@ -11753,7 +11782,7 @@ do
    mock.feed("Char.Vitals", { bal = "1", eq = "1" })
    local bothSent = table.concat(mock.sent, " | ")
    ok(bothSent:find("smite ashden"), "the mace goes out", bothSent)
-   ok(bothSent:find("recite guilt ashden"),
+   ok(bothSent:find("recite burn ashden"),
       "...and a verse goes out the SAME tick -- different resources, no conflict", bothSent)
    eq(pvp.report().recited, 1, "the recite is counted")
 
@@ -11783,6 +11812,8 @@ do
    -- while still fully engaged, not the separate safety stop.
    emunah.config.set("pvp.stopBelowHealth", 0)
    local handsAt = tonumber(emunah.config.get("curing.handsThreshold", 50)) or 50
+   -- The route's first verse, where equilibrium has an affliction to send.
+   mock.routeAt(0, 0)
 
    -- Above both the hands threshold and the rite health threshold. 60 of 100 would be
    -- above hands and still inside revitalisation's window, and that rite would take the
@@ -11870,7 +11901,7 @@ do
    eq(table.concat(watch.locks(), ","), "soft", "add asthma: a soft lock")
 
    sent = sentNow()
-   ok(not sent:find("smite"), "a lock holds the attack", sent)
+   ok(not sent:find("smite") and not sent:find("perform sloth"), "a lock holds the attack", sent)
    ok(sent:find("recite"), "...but not the verses: prayer balance is shared with no cure", sent)
    ok(pvp.enabled, "...and the session carries on")
    eq(pvp.report().held, "soft", "the hold is reported")
@@ -11888,7 +11919,7 @@ do
    mock.feed("Char.Afflictions.Remove", { "asthma" })
    eq(#watch.locks(), 0, "cure asthma and the lock is gone")
    sent = sentNow()
-   ok(sent:find("smite ashden"), "...and the attack resumes", sent)
+   ok(sent:find("perform sloth ashden"), "...and the attack resumes: the route's opening sloth", sent)
    eq(pvp.report().held, nil, "...and nothing is held")
    mock.feed("Char.Afflictions.Remove", { "slickness" })
    mock.feed("Char.Afflictions.Remove", { "anorexia" })
@@ -12075,6 +12106,7 @@ do
 
    -- REBOUNDING: a blow turned back marks them; heresy goes up before the next one.
    pvp.setMode("offence")
+   mock.routeAt(1, 10)   -- past the route's opening: the mace's exchange
    mock.line("The attack rebounds back onto you!")
    ok(pvp.report().rebounding, "a rebounded blow marks the target")
    sent = lanes()
@@ -12102,6 +12134,173 @@ do
 
    pvp.stop("test"); pvp.clearTarget(); opp.clear("ashden")
    mock.feed("IRE.Rift.List", {})
+   emunah.config.set("pvp.mode", nil)
+end
+
+-- ===========================================================================
+suite("PvP offence: Anzerloi's route")
+
+-- Three spars of Anzerloi's against Maelgor, 2026-10-13 (docs/game/pvp-locks.md). The
+-- user's rulings, 2026-10-23: a fixed prayer cadence, never a belief that a verse landed;
+-- the mace or an equilibrium move each exchange, never both; absolve only on a contemplate
+-- under half; the legs worked evenly; a shield stripped.
+do
+   local P = emunah.class.active
+   local R = P.pvp
+   local opp = emunah.curing.detect.opponent
+   pvp.stop("test"); emunah.timers.stopAll(); emunah.act.typedUntil = nil
+   mock.feed("Char.Skills.List", { group = "Zeal", list = { "Anoint", "Guilt", "Condemnation",
+      "Ash", "Burn", "Penance", "Purge", "Revelations", "Reflection", "Wrath", "Fragility",
+      "Unflinching", "Rebuke" } })
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
+      bal = "1", eq = "1" })
+   emunah.config.set("pvp.mode", nil)
+   mock.routeAt(0, 0)
+   pvp.start()
+   pvp.setTarget("Ashden")
+   mock.settleFightRites()
+   -- One exchange: the game's prayer as GMCP reports it, and both balances up.
+   local function exchange(length, conviction)
+      emunah.timers.stopAll()
+      mock.sent = {}
+      mock.feed("Char.Vitals", { bal = "1", eq = "1", charstats = {
+         "prayer_length: " .. length, "conviction: " .. conviction } })
+      return table.concat(mock.sent, " | ")
+   end
+
+   -- THE FIRST PRAYER: Burn, Burn, Condemnation, an equilibrium affliction beside each, then
+   -- guilt rebuke evil with the mace chastening recklessness: guilt, masochism and
+   -- recklessness, three lobelia afflictions at once.
+   local sent = exchange(0, 0)
+   eq(R.prayerKind, "stack", "no conviction: the first prayer")
+   ok(sent:find("recite burn ashden", 1, true) and sent:find("perform sloth ashden", 1, true),
+      "its first verse: Burn, with sloth", sent)
+   ok(not sent:find("smite", 1, true), "...and no mace on the same prompt", sent)
+   sent = exchange(1, 0)
+   ok(sent:find("recite burn ashden", 1, true), "second: Burn again", sent)
+   ok(sent:find("perform dazzle ashden", 1, true), "...sloth went a moment ago: dazzle", sent)
+   sent = exchange(2, 0)
+   ok(sent:find("recite condemnation ashden", 1, true), "third: Condemnation", sent)
+   sent = exchange(3, 0)
+   ok(sent:find("recite guilt ashden rebuke evil", 1, true), "fourth: guilt, rebuke evil", sent)
+   ok(sent:find("smite ashden right leg chasten recklessness", 1, true),
+      "...and the mace, on a leg, chastening recklessness", sent)
+   ok(not sent:find("perform sloth", 1, true) and not sent:find("perform dazzle", 1, true),
+      "...without an equilibrium move", sent)
+
+   -- THE HELLSIGHT PRAYER: the rebuke ended the first and paid conviction.
+   sent = exchange(0, 10)
+   eq(R.prayerKind, "hellsight", "10 conviction after the first prayer: hellsight")
+   ok(sent:find("recite burn ashden", 1, true), "it opens on Burn", sent)
+   ok(not sent:find("smite", 1, true), "...with an equilibrium affliction, not the mace", sent)
+   sent = exchange(1, 10)
+   ok(sent:find("smite ashden left leg", 1, true), "its second verse: the mace, the other leg", sent)
+   sent = exchange(2, 10)
+   ok(sent:find("recite reflection ashden", 1, true), "third: Reflection", sent)
+   sent = exchange(3, 10)
+   ok(sent:find("recite revelations ashden rebuke evil", 1, true),
+      "fourth: Revelations, rebuke evil", sent)
+   ok(sent:find("chasten asthma", 1, true),
+      "...the mace chastening asthma: hellsight is smoked away", sent)
+
+   -- HEARD AS THE CADENCE, NOT AS A BELIEF. Asthma confirmed: not again. Eaten away: again,
+   -- while hellsight is being held.
+   mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of "
+      .. "asthma is brought down on to your victim.")
+   sent = exchange(0, 15)
+   eq(R.prayerKind, "heresy", "after hellsight, at 10 or more: the heresy prayer")
+   sent = exchange(1, 15)
+   ok(sent:find("smite", 1, true) and not sent:find("chasten asthma", 1, true),
+      "asthma confirmed on them: the chasten moves on", sent)
+   mock.line("Ashden eats an aurum flake.")
+   ok(not opp.has("ashden", "asthma"), "(an aurum flake cures it)")
+   sent = exchange(2, 15)
+   ok(sent:find("recite guilt ashden", 1, true), "the heresy prayer's third: guilt", sent)
+   ok(sent:find("chasten asthma", 1, true), "asthma cured inside the window: again", sent)
+   sent = exchange(3, 15)
+   ok(sent:find("recite ash ashden rebuke heresy", 1, true),
+      "fourth: ash, rebuke heresy, with guilt and spiritburn both just given", sent)
+   mock.advance(R.HELLSIGHT + 1)
+   exchange(0, 15)
+   sent = exchange(1, 15)
+   ok(sent:find("smite", 1, true) and not sent:find("chasten asthma", 1, true),
+      "the window over: no more asthma for hellsight's sake", sent)
+
+   -- THE DRAIN: 20 conviction pays for wrath. Equilibrium reads their mana, saps, and
+   -- absolves only on a reading under half.
+   sent = exchange(0, 20)
+   eq(R.prayerKind, "drain", "20 conviction: the draining prayer")
+   ok(sent:find("recite burn ashden", 1, true) and sent:find("contemplate ashden", 1, true),
+      "Burn, and a contemplate: no reading yet", sent)
+   ok(not sent:find("smite", 1, true), "...the mace waiting", sent)
+   mock.line("Ashden's mana stands at 4000/5000 [80%].")
+   sent = exchange(1, 20)
+   ok(sent:find("recite ash ashden", 1, true) and sent:find("angel sap ashden", 1, true),
+      "ash, and a sap on a fresh reading over half", sent)
+   mock.line("Your guardian angel casts a piercing glance at Ashden.")
+   sent = exchange(2, 20)
+   ok(sent:find("recite wrath ashden", 1, true), "third: wrath, a sap on prayer balance", sent)
+   ok(sent:find("contemplate ashden", 1, true), "...and a fresh reading: a sap shows no figure", sent)
+   mock.line("Ashden's mana stands at 2400/5000 [48%].")
+   sent = exchange(3, 20)
+   ok(sent:find("angel absolve ashden", 1, true), "under half: absolve", sent)
+   ok(not sent:find("smite", 1, true), "...alone on the exchange", sent)
+   ok(sent:find("recite guilt ashden rebuke evil", 1, true),
+      "the drain closes on a rebuke like his other prayers", sent)
+   P.targetMana = {}
+
+   -- THE LEGS: the one our blows have hurt least, by the figures they report.
+   P.targetLimbs = {}
+   mock.line("As your blow lands with a crunch, you perceive that you have dealt 16.6% damage "
+      .. "to Ashden's left leg.")
+   eq(P.limbs("ashden")["left leg"], 16.6, "a blow's figure is summed on the limb it names")
+   mock.line("As your blow lands with a crunch, you perceive that you have dealt 13.9% damage "
+      .. "to yourself's head.")
+   eq(P.limbs("yourself").head, nil, "a rebound onto ourselves is no one's limb")
+   eq(R.legFor("ashden"), "right leg", "the leg hurt least is next")
+   for _ = 1, 2 do
+      mock.line("As your blow lands with a crunch, you perceive that you have dealt 16.6% "
+         .. "damage to Ashden's right leg.")
+   end
+   eq(R.legFor("ashden"), "left leg", "...and the other once it is behind")
+
+   -- A SHIELD is stripped before the mace meets it, and not twice.
+   mock.routeAt(1, 10)
+   mock.line("Ashden touches a shield tattoo.")
+   ok(R.shielded("ashden"), "a shield tattoo touched: shielded")
+   sent = exchange(1, 10)
+   ok(sent:find("angel strip ashden", 1, true) and not sent:find("smite", 1, true),
+      "the angel strips it, and no mace goes into it", sent)
+   ok(not R.shielded("ashden"), "...and it counts as down")
+   sent = exchange(1, 10)
+   ok(not sent:find("angel strip", 1, true) and sent:find("smite ashden", 1, true),
+      "not stripped twice: the mace goes", sent)
+   mock.advance(1)
+   mock.line("Ashden touches a shield tattoo.")
+   pvp.setMode("hinder")
+   sent = exchange(1, 10)
+   ok(sent:find("angel strip ashden", 1, true), "raised again, in hinder too: stripped", sent)
+   pvp.setMode("offence")
+
+   -- WITHOUT REBUKE the slot's verse still goes, on its own.
+   emunah.have.denySkill("rebuke")
+   mock.routeAt(3, 0)
+   sent = exchange(3, 0)
+   ok(sent:find("recite guilt ashden", 1, true) and not sent:find("rebuke", 1, true),
+      "rebuke unknown: guilt alone", sent)
+   emunah.event.raise("skills.complete")
+
+   -- `emset pvp` shows where the route is.
+   mock.routeAt(1, 10)
+   mock.echoed = {}
+   emunah.commands.dispatch("pvp")
+   local shown = table.concat(mock.echoed, " ")
+   ok(shown:find("hellsight prayer, verse 2 of 4", 1, true), "the route's prayer is shown", shown)
+   ok(shown:find("right leg 33.2%", 1, true), "...and our blows on each leg", shown)
+
+   pvp.stop("test"); pvp.clearTarget(); opp.clear("ashden")
+   P.targetLimbs = {}
+   mock.routeAt(0, 0)
    emunah.config.set("pvp.mode", nil)
 end
 
