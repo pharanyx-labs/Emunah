@@ -12537,6 +12537,33 @@ do
       "the drain closes on a rebuke like his other prayers", sent)
    P.targetMana = {}
 
+   -- THE KILL, OUTSIDE THE DRAIN. "You win by having their mana low enough. If that does
+   -- not present itself on its own (on your contemplations), you attempt to create
+   -- conditions to attack their mana with saps" (Anzerloi, 2026-10-23 14:38). A reading one
+   -- sap takes under half is sapped at once, in any prayer, read again, and absolved.
+   opp.clear("ashden"); R.prayerKind = nil
+   for _, aff in ipairs({ "guilt", "spiritburn", "tenderskin" }) do opp.assert("ashden", aff) end
+   eq(P.sapAfter(56, { guilt = true, spiritburn = true, tenderskin = true }), 45.5,
+      "(guilt, spiritburn and tenderskin: a sap takes 10.5%)")
+   mock.line("Ashden's mana stands at 2800/5000 [56%].")
+   sent = exchange(0, 0)
+   eq(R.prayerKind, "stack", "(the first prayer, nowhere near the drain)")
+   ok(sent:find("angel sap ashden", 1, true), "one sap from the kill: the sap goes now", sent)
+   ok(not sent:find("perform sloth", 1, true) and not sent:find("smite", 1, true),
+      "...ahead of the opening's sloth, and alone on the exchange", sent)
+   mock.line("Your guardian angel casts a piercing glance at Ashden.")
+   sent = exchange(1, 0)
+   ok(sent:find("contemplate ashden", 1, true), "the reading it left stale is taken again", sent)
+   mock.line("Ashden's mana stands at 2300/5000 [46%].")
+   sent = exchange(2, 0)
+   ok(sent:find("angel absolve ashden", 1, true), "...and absolve on it", sent)
+   P.targetMana = {}; R.sentAt.killSap = nil
+   mock.line("Ashden's mana stands at 3800/5000 [76%].")
+   sent = exchange(0, 0)
+   ok(not sent:find("angel sap", 1, true) and not sent:find("absolve", 1, true),
+      "a sap that would leave them over half waits: the route goes on", sent)
+   P.targetMana = {}; opp.clear("ashden"); R.prayerKind = nil
+
    -- THE LEGS: the one our blows have hurt least, by the figures they report.
    P.targetLimbs = {}
    mock.line("As your blow lands with a crunch, you perceive that you have dealt 16.6% damage "
@@ -12591,6 +12618,34 @@ do
    mock.routeAt(0, 0)
    emunah.config.set("pvp.mode", nil)
 end
+
+-- ===========================================================================
+suite("Opponent asthma: the breathing tells")
+
+-- Anzerloi, 2026-10-23 14:26-14:30: "Valuable tells for asthma". Holding breath and hit
+-- with asthma, they exhale; curing asthma while keeping breathing up, they hold it at once,
+-- so a kelp eaten just before took the asthma, not another kelp affliction.
+;(function()
+   local opp = emunah.curing.detect.opponent
+   opp.clear("ashden")
+   mock.line("Ashden exhales loudly.")
+   ok(opp.has("ashden", "asthma"), "an exhale: asthma")
+
+   opp.assert("ashden", "clumsiness")
+   mock.line("Ashden eats a piece of kelp.")
+   local takenByRank = not opp.has("ashden", "clumsiness") or not opp.has("ashden", "asthma")
+   ok(takenByRank, "(the eat takes one kelp affliction off, by rank)")
+   mock.line("Ashden inhales and begins holding his breath.")
+   ok(not opp.has("ashden", "asthma"), "holding the breath: asthma is gone")
+   ok(opp.has("ashden", "clumsiness"), "...and the other kelp affliction is still on them")
+
+   opp.assert("ashden", "asthma")
+   mock.advance(opp.BREATH_AFTER_EAT + 1)
+   mock.line("Ashden inhales and begins holding her breath.")
+   ok(not opp.has("ashden", "asthma"), "a held breath long after any eat: still no asthma")
+   ok(opp.has("ashden", "clumsiness"), "...and nothing else is touched")
+   opp.clear("ashden")
+end)()
 
 -- ===========================================================================
 suite("PvP: t arms the fight, F1 attacks at once")

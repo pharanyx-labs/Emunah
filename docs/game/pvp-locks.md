@@ -264,6 +264,24 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
     terror.`
 - **Absolve only on a contemplate under 50%.** Wrath is a second sap, not half of a
   finisher.
+- **The kill wherever it is** (Anzerloi, 2026-10-23 14:38:17-14:39:20): "You win by having
+  their mana low enough. If that does not present itself on its own (on your
+  contemplations), you attempt to create conditions to attack their mana with saps. Most of
+  the fight is setting up conditions that would allow you to create such conditions to
+  sap." Every attacking mode, in any prayer: absolve on a fresh reading under half; sap at
+  once when a fresh reading and one sap (`sapPercent` over what is confirmed) would take
+  them under half (`killSap`); contemplate again straight after it (`killRead`), since a
+  sap shows no figure. A shield is stripped first: "Dazzle and purity bypass shield"
+  (14:43:48), so the rest is taken not to.
+- **Asthma tells** (14:26:24-14:30:21): "If they're holding breath and you hit with asthma
+  (or more importantly, someone else hits them with asthma but you can't tell) they
+  exhale." "If they cure asthma while upkeeping breathing and are on balance, they
+  immediate start holding breath. So if they have multiple kelp affs, eat kelp and hold
+  breath, confirm asthma, other kelp affs untouched." Read from the reference system's
+  third-person lines: `X exhales loudly.` gives asthma; `X inhales and begins holding
+  his|her breath.` takes it off, and puts back a kelp affliction an eat up to 2s before
+  took off by rank (`opponent.breathHeld`). `exhales softly` and `suddenly inhales deeply`
+  are not read: what they mean is not known.
 - **A shield is stripped** before any mace blow, in every attacking mode. A shield counts as
   up from `<name> touches a shield tattoo.` until our strip goes out.
 

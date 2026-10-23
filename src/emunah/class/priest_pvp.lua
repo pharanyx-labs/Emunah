@@ -346,6 +346,27 @@ return function(P)
          command = function(ctx) return "angel absolve " .. ctx.target end },
    }
 
+   --- THE KILL, WHEREVER IT IS. "You win by having their mana low enough. If that does not
+   --- present itself on its own (on your contemplations), you attempt to create conditions
+   --- to attack their mana with saps" (Anzerloi, 2026-10-23 14:38:17-14:38:57). A reading
+   --- under half absolves; a reading one sap would take under half saps now, in any mode
+   --- and any prayer, not only the drain; and the reading that sap left stale is taken
+   --- again at once, so the absolve follows it. The sap's share is sapPercent() over what
+   --- is confirmed on them, which only undercounts: nothing unconfirmed adds to it.
+   M.KILL_WINDOW = 10
+   M.MOVES.killSap = { lane = "equilibrium", skill = "sap", again = true,
+      when = function(ctx)
+         if not freshMana(ctx) or P.absolveKills(ctx.mana.percent) then return false end
+         return P.absolveKills(P.sapAfter(ctx.mana.percent, ctx.afflictions))
+      end,
+      command = function(ctx) return "angel sap " .. ctx.target end }
+   M.MOVES.killRead = { lane = "equilibrium", skill = "contemplate", again = true,
+      when = function(ctx)
+         local at = M.sentAt.killSap
+         return at ~= nil and util.now() - at < M.KILL_WINDOW and not freshMana(ctx)
+      end,
+      command = function(ctx) return "contemplate " .. ctx.target end }
+
    -- -----------------------------------------------------------------------------------
    -- the route: offence, as Anzerloi fights
    -- -----------------------------------------------------------------------------------
@@ -668,7 +689,7 @@ return function(P)
          readMana    = true,
          prayer      = M.routePrayer,
          balance     = { "legsmite" },
-         equilibrium = { "absolve", "hellsightPanic", "slickFasting", "drainContemplate",
+         equilibrium = { "hellsightPanic", "slickFasting", "drainContemplate",
                          "drainSap", "openSloth", "openDazzle" },
       },
       -- F3: keep them here and slow -- legs, paralysis, fragility on the next blow.
@@ -679,26 +700,28 @@ return function(P)
          balance     = { "smashlegs", "smite" },
          equilibrium = { "sloth", "panic" },
       },
-      -- F4: read their mana, sap it under half, absolve.
+      -- F4: read their mana, sap it under half, absolve (the kill, below, goes first).
       finish = {
          exchange    = true,
          readMana    = true,
          prayer      = { "wrath", "guilt", "ash" },
          balance     = { "smite" },
-         equilibrium = { "absolve", "contemplate", "sap" },
+         equilibrium = { "contemplate", "sap" },
       },
    }
 
-   -- Every attacking mode strips a shield before its mace or its equilibrium afflictions
-   -- meet it, and wants a heresy defence the moment a mace blow would rebound. Defence
-   -- holds the attack; both are attacks. Ahead of all of it, purity, when it would kill.
+   -- Every attacking mode takes the kill the moment it is there: purity on their health,
+   -- absolve on their mana, and the sap that brings absolve in reach (M.MOVES.killSap).
+   -- A shield is stripped before anything but purity meets it ("Dazzle and purity bypass
+   -- shield", Anzerloi, 14:43:48), and heresy goes up the moment a mace blow would rebound.
+   -- Defence holds the attack; the rest are attacks.
    for name, mode in pairs(M.MODES) do
       if name ~= "defence" then
          local raisesHeresy = mode.equilibrium[1] == "heresy"
-         table.insert(mode.equilibrium, 1, "strip")
          if not raisesHeresy then table.insert(mode.equilibrium, 1, "heresyIfRebounding") end
-         -- Through any shield, and wanting no heresy: nothing goes ahead of a kill.
-         table.insert(mode.equilibrium, 1, "purity")
+         for _, move in ipairs({ "killRead", "killSap", "absolve", "strip", "purity" }) do
+            table.insert(mode.equilibrium, 1, move)
+         end
       end
    end
    M.MOVES.heresyIfRebounding = { lane = "equilibrium", skill = "heresy", again = true,

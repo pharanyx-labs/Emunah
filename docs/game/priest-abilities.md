@@ -521,9 +521,12 @@ correctly.
 
 ## Priest: absolve
 
-The class's kill. **Not implemented**: the sap calculation is (`class/priest.lua`
-`sapPercent`, shown by `emset pvp`), but nothing sends a sap or an absolve until their HELP
-is captured (see *Still needed* below).
+The class's kill. Every attacking mode absolves on a fresh contemplate under half, saps
+at once when a fresh reading and one sap (`sapPercent` over the confirmed afflictions) would
+take them under half, and reads their mana again straight after that sap
+(`class/priest_pvp.lua`, `killSap` and `killRead`). Anzerloi, 2026-10-23 14:38:17-14:38:57:
+"You win by having their mana low enough. If that does not present itself on its own (on
+your contemplations), you attempt to create conditions to attack their mana with saps."
 
 Absolve is a **mana kill** and is binary: it either kills or fails, on the target's mana
 being **below 50%**. Exactly 50% fails. The common route is to break a leg, prone the
