@@ -165,8 +165,11 @@ function M.stop(reason)
    M.held = nil
 
    local elapsed = emunah.util.now() - (M.stats.startedAt or emunah.util.now())
-   log.info("PvP stopped: %d attack%s in %s%s.",
+   -- Sent, not landed: a send the game refused is in these too.
+   local verses = M.stats.recited or 0
+   log.info("PvP stopped: %d attack%s and %d verse%s sent in %s%s.",
       M.stats.attacks, M.stats.attacks == 1 and "" or "s",
+      verses, verses == 1 and "" or "s",
       emunah.util.duration(elapsed), reason and (" (" .. reason .. ")") or "")
    event.raise("pvp.stopped", reason)
    return true
@@ -312,8 +315,9 @@ function M.tick()
       M.held = lock
    end
 
-   -- EVERY FREE BALANCE, EVERY TICK. The lanes do not wait on one another: a verse, a mace
-   -- blow and an equilibrium move can all go out on the same prompt.
+   -- EVERY FREE BALANCE, EVERY TICK. A verse and a mace blow, or a verse and an
+   -- equilibrium move, go out on the same prompt: the verse needs both balances and spends
+   -- neither, so it goes first, and the move after it arms what it spends as it leaves.
    --
    -- Balance and equilibrium sit out a lock (the cures that break it want them), and
    -- equilibrium sits out while `perform hands` is wanted. Prayer is shared with no cure.
@@ -329,8 +333,7 @@ function M.tick()
       balance     = lock ~= nil,
       equilibrium = lock ~= nil or hands,
    }
-   -- One prompt, every free lane. The guards arm after the loop so a smite's balance
-   -- does not hold the equilibrium move that shares the line.
+   -- One prompt, every free lane.
    if active.pvpDefer then active.pvpDefer(true) end
    for _, lane in ipairs(M.LANES) do
       local held = ctx.held[lane] == true
@@ -349,7 +352,6 @@ function M.tick()
          end
       end
    end
-   if active.pvpArm then active.pvpArm() end
 end
 
 --- Report, for `emunah pvp`.

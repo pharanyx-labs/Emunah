@@ -1,13 +1,26 @@
---- Tabbed chat.
+--- Tabbed chat, drawn by Emunah itself.
 ---
---- Routes Comm.Channel.Text into tabs. Uses the EMCO tabbed-console widget when it is
---- installed, and degrades to a single MiniConsole when it is not, so a missing optional
---- dependency costs you tabs rather than costing you chat.
+--- A tab bar of Labels over one MiniConsole per tab, in the right-hand column under the
+--- "Chat" title bar. All comes first and shows everything; the rest come from ui.chatTabs.
 ---
 --- Capture happens in gmcp/comm.lua, not here. This module only renders. That split means
---- chat history keeps accumulating with the UI switched off, and a UI rebuild can replay
---- the backlog into fresh tabs instead of starting blank -- which is what makes reloading
---- mid-conversation tolerable.
+--- chat history keeps accumulating with the UI switched off, and a UI rebuild (or a reload,
+--- since comm keeps its history on _persist) can catch fresh tabs up instead of starting
+--- blank.
+---
+--- DRAWN WHEN SEEN. A message is written into the console on screen and nowhere else. Every
+--- other tab only counts it, and is caught up from comm's history -- just the lines it has
+--- not drawn yet -- when it is next shown. A market tab you never open never costs a draw,
+--- and switching to a tab costs only what it missed. Each console keeps its own scrollback,
+--- so a tab comes back where you left it.
+---
+--- WHAT A TAB SAYS. An unread count beside its name, in the accent colour; tells in the
+--- warning colour, because a tell is the one that wants an answer. The title bar sums them.
+---
+--- EACH LINE. The time it arrived (not the time it was drawn, so a caught-up tab is not
+--- stamped all alike), then the game's text, with the talker coloured as the name
+--- highlighter colours them in the main window. Clicking the time puts the reply on the
+--- command line: `tell <name> ` for a tell, the channel's own command for the rest.
 
 local M = {}
 
@@ -15,8 +28,21 @@ local theme  = emunah.ui.theme
 local layout = emunah.ui.layout
 local log    = emunah.log
 
-M.console = nil
-M.mode    = "none"   -- "emco" | "plain" | "none"
+--- The tab that shows everything. Always first.
+M.ALL = "All"
+
+--- Height of the tab bar, in pixels.
+M.TAB_PX = 22
+
+--- Most lines a tab is caught up with at once. A tab that missed more starts at the newest
+--- of them; comm keeps no more than this per tab anyway.
+M.CATCH_UP = 300
+
+M.mode    = "none"   -- "tabs" | "none"
+M.order   = {}       -- tab names, All first
+M.views   = {}       -- name -> { name, console, label, mark, unread, state }
+M.console = nil      -- the console on screen
+M.active  = (emunah._persist and emunah._persist.chatActive) or M.ALL
 
 --- Declared here, above build(), which clears it. Declared further down, build() wrote a
 --- global of the same name and the warning in M.append() never re-armed.
@@ -27,124 +53,102 @@ local warnedNoConsole = false
 --- successful build: a fresh console is working until proven otherwise.
 M.broken  = false
 
---- Locate EMCO.
----
---- Current versions do NOT publish a global: EMCO is a module you reach with
---- `require("MDK.emco")`. Checking only for a global (which is what most older examples
---- do) silently finds nothing on a perfectly good install and drops you to the plain
---- console with no error to explain it. So try the module first, then the historical
---- global spellings for standalone or older installs.
-local function findEMCO()
-   local ok, module = pcall(require, "MDK.emco")
-   if ok and type(module) == "table" and module.new then return module end
+--- Set once a rebuild has been attempted, so a console that cannot be rebuilt is not
+--- rebuilt on every single line arriving. Cleared by a successful build.
+M.rebuilt = false
 
-   if type(EMCO) == "table" and EMCO.new then return EMCO end
-   if type(demonnic) == "table" and type(demonnic.EMCO) == "table" then return demonnic.EMCO end
-   return nil
-end
+--- Messages that arrived with nowhere to put them. Counted so `emset chat` can say so, and
+--- warned about once.
+M.dropped = 0
 
 local function available()
    return layout.container("right") ~= nil and type(Geyser) == "table"
 end
 
---- Chat owns the whole right-hand container, above the map. Defences used to take its
---- bottom half; they moved to the left column, with everything else about you.
-function M.build()
-   if not available() then
-      M.mode = "none"
-      return false
+--- A view by name, case-insensitively.
+function M.find(name)
+   name = tostring(name or ""):lower()
+   for _, tab in ipairs(M.order) do
+      if tab:lower() == name then return M.views[tab] end
    end
-
-   local parent = layout.container("right")
-   -- Under the "Chat" title bar layout.build() draws, lined up with it, as a left-column
-   -- section's body sits under its bar.
-   local top, height = layout.TITLED_TOP, "-4px"
-
-   -- The all-tab has to be a real member of `consoles`. EMCO:setAllTabName() rejects any
-   -- name that is not already in the list, and the object then ends up with an allTabName
-   -- it never created a tab for -- which surfaces later as a nil index in
-   -- adjustTabBackground(), nowhere near the actual mistake.
-   local ALL_TAB = "All"
-   local tabs = { ALL_TAB }
-   for _, tab in ipairs(emunah.gmcp.comm.tabs()) do
-      tabs[#tabs + 1] = tab
-   end
-
-   local emco = findEMCO()
-   if emco then
-      local ok, console = pcall(emco.new, emco, {
-         name           = "emunah.chat",
-         x = 4, y = top, width = "-8px", height = height,
-         consoles       = tabs,
-         allTab         = true,
-         allTabName     = ALL_TAB,
-         blankLine      = false,
-         timestamp      = true,
-         timestampFormat = "HH:mm:ss",
-         gap            = 2,
-         tabHeight      = 22,
-         fontSize       = theme.font.size,
-         consoleColor   = theme.colour.base,
-         activeTabBGColor    = theme.colour.raised,
-         inactiveTabBGColor  = theme.colour.panel,
-         activeTabFGColor    = theme.colour.textBright,
-         inactiveTabFGColor  = theme.colour.textDim,
-         tabBoxColor         = theme.colour.panel,
-         consoleContainerColor = theme.colour.panel,
-      }, parent)
-
-      if ok and console then
-         M.console = console
-         M.mode = "emco"
-         M.broken = false
-         -- A fresh, working console earns back the one rebuild attempt renderFailed()
-         -- spends on the next failure. Leaving this latched true after a successful
-         -- rebuild meant only the FIRST console failure of a session was ever repaired --
-         -- every one after it hit `if M.rebuilt then return false end` and was dropped
-         -- silently, forever, until a manual `emreload`.
-         M.rebuilt = false
-         warnedNoConsole = false
-         M.replay()
-         return true
-      end
-      log.warn("EMCO is present but would not build (%s); falling back to a plain console.",
-         tostring(console))
-   end
-
-   -- Fallback: one console, channel name prefixed per line.
-   -- No setStyleSheet -- MiniConsole does not have it (see ui/theme.lua).
-   local console = Geyser.MiniConsole:new(theme.consoleCons({
-      name = "emunah.chat.plain",
-      x = 4, y = top, width = "-8px", height = height,
-      scrollBar = true,
-   }), parent)
-   M.console = console
-   M.mode = "plain"
-   M.broken = false
-   M.rebuilt = false  -- see the emco branch above: this is what lets a LATER failure self-heal too
-   warnedNoConsole = false
-
-   if not findEMCO() then
-      log.info("EMCO not found -- chat is a single console. Install the MDK for tabs.")
-   end
-
-   M.replay()
-   return true
+   return nil
 end
+
+-- ---------------------------------------------------------------------------
+-- one line
+-- ---------------------------------------------------------------------------
+
+--- decho colour tag for a "#rrggbb".
+local function hexTag(hex)
+   local r, g, b = tostring(hex):match("^#(%x%x)(%x%x)(%x%x)$")
+   if not r then return nil end
+   return string.format("<%d,%d,%d>", tonumber(r, 16), tonumber(g, 16), tonumber(b, 16))
+end
+
+--- Colour the talker's name, as ui/names.lua would in the main window. Only the first
+--- whole-word occurrence; after it, the colour that was in force before it comes back.
+function M.highlight(text, talker)
+   if not talker or talker == "" then return text end
+   local names = emunah.ui.names
+   if not (names and names.enabled and names.styleFor) then return text end
+   local ok, style = pcall(names.styleFor, talker)
+   local tag = ok and style and style.colour and hexTag(style.colour)
+   if not tag then return text end
+
+   local from = 1
+   while true do
+      local at, stop = text:find(talker, from, true)
+      if not at then return text end
+      local before, after = text:sub(at - 1, at - 1), text:sub(stop + 1, stop + 1)
+      if not before:find("[%w]") and not after:find("[%w]") then
+         local restore = "<r>"
+         for found in text:sub(1, at - 1):gmatch("<[%d,:]*>") do restore = found end
+         if restore == "<>" then restore = "<r>" end
+         return text:sub(1, at - 1) .. tag .. talker .. restore .. text:sub(stop + 1)
+      end
+      from = stop + 1
+   end
+end
+
+--- What a click on a line's time puts on the command line, or nil.
+function M.replyFor(message)
+   local channel = tostring(message.channel or ""):lower()
+   if channel:find("^tell") and message.talker then
+      return "tell " .. message.talker .. " "
+   end
+   local command = emunah.gmcp.comm.commandFor(channel)
+   return command and (command .. " ") or nil
+end
+
+local function stamp(message)
+   return os.date("%H:%M:%S", message.at or os.time())
+end
+
+--- Write one message into a console. Throws if the console does.
+local function draw(console, message)
+   local time = theme.dc("inactive") .. stamp(message)
+   local reply = M.replyFor(message)
+   if reply and console.dechoLink then
+      console:dechoLink(time, string.format("printCmdLine(%q)", reply),
+         "Reply: " .. reply, true)
+      console:decho(" " .. theme.dc("text") .. M.highlight(message.text, message.talker) .. "\n")
+   else
+      console:decho(time .. " " .. theme.dc("text")
+         .. M.highlight(message.text, message.talker) .. "\n")
+   end
+end
+
+-- ---------------------------------------------------------------------------
+-- failure
+-- ---------------------------------------------------------------------------
 
 --- Say, once, that rendering is failing and capture is not.
 ---
---- WHY THIS EXISTS. Both console writes below are wrapped in pcall, which is right -- a
---- widget that throws must not take the GMCP handler down with it -- but a bare pcall
---- turns a broken chat window into a silent one. The reported symptom was "chat capture
---- stops", and capture is the one thing that cannot stop here: gmcp/comm.lua records every
---- message into its own history before this module is ever called, precisely so the two
---- fail independently. A chat window that has gone quiet is therefore either the game no
+--- Every console write is wrapped in pcall, which is right -- a widget that throws must not
+--- take the GMCP handler down with it -- but a bare pcall turns a broken chat window into a
+--- silent one. Capture cannot stop here: gmcp/comm.lua records every message before this
+--- module is ever called. A chat window that has gone quiet is therefore either the game no
 --- longer sending, or this. Saying which turns an hour of guessing into one line.
---- Set once a rebuild has been attempted, so a console that cannot be rebuilt is not
---- rebuilt on every single line arriving.
-M.rebuilt = false
-
 local function renderFailed(reason)
    if not M.broken then
       M.broken = true
@@ -171,14 +175,209 @@ local function renderFailed(reason)
    return false
 end
 
---- Messages that arrived with nowhere to put them.
----
---- `M.append` returns early when there is no console, which is correct -- but silently, and
---- a chat window that never built looks exactly like one that stopped working. Counted so
---- `emunah chat` can say so, and warned about once.
-M.dropped = 0
+-- ---------------------------------------------------------------------------
+-- the tab bar
+-- ---------------------------------------------------------------------------
 
---- Render one message.
+local function tabStyle(state)
+   local colour = theme.colour
+   local active = state == "active"
+   return string.format([[
+      background-color: %s;
+      border: 0px;
+      border-bottom: 2px solid %s;
+      border-top-left-radius: 3px;
+      border-top-right-radius: 3px;
+      qproperty-alignment: 'AlignCenter';
+      font-family: "%s";
+      font-size: %dpt;
+   ]], active and colour.raised or colour.panel,
+      active and colour.accent or (state == "tell" and colour.warning or colour.border),
+      theme.font.family, theme.font.small)
+end
+
+local function tabState(view)
+   if view.name == M.active then return "active" end
+   if view.unread > 0 then return view.name == "Tells" and "tell" or "unread" end
+   return "idle"
+end
+
+local function tabHTML(view, state)
+   local name = theme.esc(view.name)
+   if state == "active" then return theme.span("textBright", name, true) end
+   if view.unread == 0 then return theme.span("textDim", name) end
+   local count = view.unread > 999 and "999+" or tostring(view.unread)
+   local colour = state == "tell" and "warning" or "accent"
+   return theme.span(state == "tell" and "warning" or "text", name, state == "tell")
+      .. "&nbsp;" .. theme.span(colour, count, true)
+end
+
+--- Repaint the tab bar and the title bar. Each label and stylesheet is drawn only when it
+--- changes, so a message landing in a tab already showing a count costs one label echo.
+function M.paintTabs()
+   local unread, tells = 0, false
+   for _, tab in ipairs(M.order) do
+      local view = M.views[tab]
+      if view and view.label then
+         local state = tabState(view)
+         if view.state ~= state then
+            view.state = state
+            pcall(view.label.setStyleSheet, view.label, tabStyle(state))
+         end
+         theme.paintLabel(view.label, "chat.tab." .. tab, tabHTML(view, state))
+         if tab ~= M.ALL and state ~= "active" then
+            unread = unread + view.unread
+            if state == "tell" then tells = true end
+         end
+      end
+   end
+   if M.header then
+      layout.header("chat", M.header, "Chat",
+         unread > 0 and string.format("%d unread", unread) or nil,
+         tells and "warning" or "accent")
+   end
+end
+
+local function repaintSoon()
+   theme.later("chat.tabs", M.paintTabs)
+end
+
+-- ---------------------------------------------------------------------------
+-- showing a tab
+-- ---------------------------------------------------------------------------
+
+--- Draw what a view has not drawn yet, from comm's history.
+local function catchUp(view)
+   local comm = emunah.gmcp.comm
+   local tab = view.name ~= M.ALL and view.name or nil
+   local missed = comm.since(view.mark, tab, M.CATCH_UP)
+   view.mark = comm.seq()
+   view.unread = 0
+   for _, message in ipairs(missed) do
+      if not message.muted then
+         local ok, err = pcall(draw, view.console, message)
+         if not ok then return false, err end
+      end
+   end
+   return true
+end
+
+--- Show a tab: hide the one on screen, catch this one up, and show it.
+--- @return boolean false when there is no such tab
+function M.show(name)
+   local view = M.find(name)
+   if not view then return false end
+   local current = M.views[M.active]
+   if current and current ~= view and current.console then
+      pcall(current.console.hide, current.console)
+   end
+   M.active = view.name
+   emunah._persist = emunah._persist or {}
+   emunah._persist.chatActive = view.name
+   M.console = view.console
+   pcall(view.console.show, view.console)
+   local ok, err = catchUp(view)
+   if not ok then renderFailed(err) end
+   M.paintTabs()
+   return true
+end
+
+--- Clear a tab's console, or every tab's. Nothing is deleted from history: the console
+--- forgets it, and a rebuild draws it again.
+function M.clear(name)
+   local seq = emunah.gmcp.comm.seq()
+   for _, tab in ipairs(M.order) do
+      local view = M.views[tab]
+      if not name or view == M.find(name) then
+         pcall(view.console.clear, view.console)
+         view.mark, view.unread = seq, 0
+      end
+   end
+   M.paintTabs()
+end
+
+-- ---------------------------------------------------------------------------
+-- building
+-- ---------------------------------------------------------------------------
+
+--- Chat owns the whole right-hand container, above the map, under the "Chat" title bar
+--- layout.build() draws.
+function M.build()
+   if not available() then
+      M.mode = "none"
+      M.console, M.views, M.order = nil, {}, {}
+      -- Nowhere to draw is news again after every attempt to build somewhere.
+      warnedNoConsole = false
+      return false
+   end
+
+   local parent = layout.container("right")
+   local top = layout.TITLED_TOP
+
+   M.header = layout.chatHeader
+   M.order = { M.ALL }
+   for _, tab in ipairs(emunah.gmcp.comm.tabs()) do M.order[#M.order + 1] = tab end
+   if not M.find(M.active) then M.active = M.ALL end
+
+   local bar = Geyser.Container:new({
+      name = "emunah.chat.tabs", x = 4, y = top, width = "-8px", height = M.TAB_PX,
+   }, parent)
+
+   M.views = {}
+   local n = #M.order
+   for index, tab in ipairs(M.order) do
+      local left = math.floor(100 * (index - 1) / n)
+      local right = math.floor(100 * index / n)
+      local key = tab:lower()
+
+      local label = Geyser.Label:new({
+         name = "emunah.chat.tab." .. key,
+         x = left .. "%", y = 0, width = (right - left) .. "%", height = "100%",
+      }, bar)
+      label:setClickCallback(function() M.show(tab) end)
+      label:setToolTip(tab == M.ALL and "Every channel" or ("Show " .. tab))
+      -- A new, empty widget: whatever the paint cache says describes the one it replaced.
+      theme.forgetPainted("chat.tab." .. tab)
+
+      -- No setStyleSheet -- MiniConsole does not have it (see ui/theme.lua). A console of
+      -- the same name survives a rebuild in Mudlet, text and all, so it is cleared and
+      -- drawn again from history rather than drawn twice.
+      -- Wrapped to the console's own width, which follows the column as it is resized. The
+      -- panels' fixed wrapAt (theme.consoleCons) broke chat lines at 40 characters.
+      local cons = theme.consoleCons({
+         name = "emunah.chat." .. key,
+         x = 4, y = top + M.TAB_PX + 2, width = "-8px", height = "-4px",
+         scrollBar = true, autoWrap = true,
+      })
+      cons.wrapAt = nil
+      local console = Geyser.MiniConsole:new(cons, parent)
+      if console.enableAutoWrap then pcall(console.enableAutoWrap, console) end
+      pcall(console.clear, console)
+      pcall(console.hide, console)
+
+      M.views[tab] = { name = tab, console = console, label = label, mark = 0, unread = 0 }
+   end
+
+   M.mode = "tabs"
+   M.broken = false
+   warnedNoConsole = false
+
+   M.show(M.active)
+   if M.broken then return false end
+   -- A fresh, working console earns back the one rebuild attempt renderFailed() spends on
+   -- the next failure. Leaving this latched after a successful rebuild meant only the
+   -- FIRST console failure of a session was ever repaired. Cleared only once the console
+   -- has drawn: cleared before, a console that fails as it is shown would rebuild forever.
+   M.rebuilt = false
+   return true
+end
+
+-- ---------------------------------------------------------------------------
+-- arriving
+-- ---------------------------------------------------------------------------
+
+--- Render one message: into the console on screen if it belongs there, and onto the
+--- unread count of every other tab it belongs to.
 function M.append(message)
    if not M.console then
       M.dropped = M.dropped + 1
@@ -189,40 +388,35 @@ function M.append(message)
       end
       return
    end
+   if message.muted then return end
 
-   if M.mode == "emco" then
-      -- EMCO creates the tab set at construction; a channel that routes to an unknown tab
-      -- would be dropped silently, so anything unexpected goes to the fallback tab.
-      local tab = message.tab
-      local ok, err = pcall(function() M.console:decho(tab, message.text .. "\n") end)
+   local own = M.views[message.tab] or M.views[emunah.gmcp.comm.FALLBACK_TAB]
+   local all = M.views[M.ALL]
+   local shown = M.views[M.active]
+
+   if own == shown or all == shown or not shown then
+      local ok, err = pcall(draw, M.console, message)
       if not ok then
-         local fellBack, fallbackErr = pcall(function()
-            M.console:decho(emunah.gmcp.comm.FALLBACK_TAB, message.text .. "\n")
-         end)
-         -- The first failure is ordinary: an unexpected tab name. The second is not --
-         -- it means the console itself is gone, which is the case worth reporting.
-         if not fellBack then renderFailed(fallbackErr or err) end
+         renderFailed(err)
+         return
       end
-      return
+      if shown then shown.mark = message.seq or shown.mark end
    end
 
-   -- The plain console path was unguarded: a console that has gone away takes the GMCP
-   -- handler down with it, and then nothing downstream of comm.text runs either.
-   local ok, err = pcall(function()
-      M.console:decho(string.format("%s[%s] %s\n",
-         theme.dc("textDim"), message.tab, message.text))
-   end)
-   if not ok then renderFailed(err) end
+   local changed = false
+   for _, view in ipairs({ own, all }) do
+      if view and view ~= shown then
+         view.unread = view.unread + 1
+         changed = true
+      end
+   end
+   if changed then repaintSoon() end
 end
 
---- Replay recent history into a freshly built console, so a reload does not blank the
---- conversation you were in the middle of.
-function M.replay()
-   local comm = emunah.gmcp.comm
-   if not comm then return end
-   for _, message in ipairs(comm.recent(40)) do
-      M.append(message)
-   end
+--- Unread messages per tab, for `emset chat`.
+function M.unread(name)
+   local view = M.find(name)
+   return view and view.unread or 0
 end
 
 emunah.event.register("emunah.comm.text", function(_, message)

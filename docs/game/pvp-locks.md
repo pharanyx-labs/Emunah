@@ -198,6 +198,11 @@ verse landed through the shield (Ash at 03:07:41.00, on the same prompt).
   which an affliction was gone), and `Anzerloi's wounds close up before your eyes.`.
 - Reflection returned Maelgor's own afflictions to him: `The aura around Anzerloi lashes
   out at you.` then `You have been afflicted with nausea.` (#49 03:07:35.80).
+- `"The light shall not be denied," Anzerloi declares, as he fixes his unblinking gaze
+  upon you.` then `A look of outrage fills the face of Anzerloi.` (#48 02:49:49.44) is
+  **Unflinching**: our own recite of it printed `"The light shall not be denied," you
+  declare, ...` and `Rage fills you as the thought of heresy inspires you to greater
+  efforts.` (2026-10-23 09:58:38.00).
 
 ### What Emunah does with it
 
@@ -209,7 +214,14 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   At 10 or more it alternates *hellsight* (burn, burn, reflection, revelations rebuke evil)
   and *heresy* (burn, burn, guilt, ash rebuke heresy). At 20 or more it is the *drain*
   (burn, ash, wrath, guilt rebuke evil). None of this assumes a verse landed.
-- **The mace or an equilibrium move each exchange, never both.** In the first prayer
+- **The verse first, and it needs both balances.** A verse spends neither, but the game
+  refuses it while either is down (the spar against Erishka, 2026-10-23, in
+  `priest-abilities.md`). So each exchange waits for both, and the verse goes ahead of the
+  mace or the equilibrium move on that prompt. A fight's rite, once a prayer is running,
+  only follows a verse, so its equilibrium is back before the prayer lapses.
+- **The mace or an equilibrium move each exchange, never both.** Every attacking mode works
+  this way: each move needs the balance the other spends. Attack and hinder alternate the
+  two; finish and offence send the equilibrium move whenever one is due. In the first prayer
   equilibrium sends sloth or dazzle on every verse except the rebuke's. After that, only on
   a prayer's first verse. During the drain, equilibrium does contemplate, sap and absolve.
   Otherwise the mace goes, and the piece a forming lock still needs always takes the mace's
@@ -239,6 +251,10 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
 - The third-person line for focus. The tree and the pipe are under *Anzerloi's route*.
   `Anzerloi draws a steadying breath but falters soon there after.` (four times, where a
   verse would go) may be focus, or a verse failing.
+- **What stops a cleave.** A knight's cleave (`<name> raises her longsword over her head
+  and begins to swing it in a wide circle`, then `begins to bear down on you with her
+  whirling longsword`) killed from full health about ten seconds after the first line
+  (2026-10-23 10:00:38-48). Emunah names it as a danger; the counter is not known.
 - **From the route** (*Anzerloi's route*):
   - **Smites that break outright.** Sometimes a leg smite gives `brokenrightleg` straight
     away with no figure (six times in #48), and other times 16.6%. What decides which is
@@ -246,8 +262,5 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   - **The caster's lines.** Not captured from the caster's end: our smite's leg words and
     its figure for a leg, a rebuke landing, Revelations, our strip, and a shield falling by
     any other means.
-  - `"The light shall not be denied," Anzerloi declares, as he fixes his unblinking gaze
-    upon you.` then `A look of outrage fills the face of Anzerloi.` (#48 02:49:49.44):
-    which verse this is.
   - **When a limb's damage resets** on the target, so the count can follow it.
   - **How long hellsight lasts** without asthma, and whether 20s is the right window.

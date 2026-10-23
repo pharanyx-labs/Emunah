@@ -688,6 +688,26 @@ engine.clear()
 -- ===========================================================================
 suite("action queue")
 
+-- HELD, SAID ONCE PER COMMAND (2026-10-23 10:00:48): three watches and a vault held on one
+-- equilibrium each printed on every prompt, because one remembered line was all there was.
+do
+   local said = {}
+   local realDebug = emunah.log.debug
+   emunah.log.debug = function(fmt, ...)
+      if fmt:find("^Held") then said[#said + 1] = string.format(fmt, ...) end
+   end
+   emunah.act.held, emunah.act.heldCount = {}, 0
+   emunah.timers.start("cure.equilibrium", 5)
+   for _ = 1, 3 do
+      emunah.act.send("groundwatch on", { eq = true })
+      emunah.act.send("skywatch on", { eq = true })
+   end
+   emunah.log.debug = realDebug
+   emunah.timers.stop("cure.equilibrium")
+   eq(#said, 2, "two commands held across three prompts: one line each", table.concat(said, " / "))
+   emunah.act.held, emunah.act.heldCount = {}, 0
+end
+
 local queue = emunah.queue
 queue.reset()
 
@@ -3654,7 +3674,7 @@ do
                                  bal = "1", eq = "1" })
       -- That prompt may already have set the focus. The cases below start from none.
       queue.reset(); emunah.timers.stopAll(); mock.sent = {}
-      metabolise.focus = nil
+      metabolise.focus, metabolise.sent = nil, nil
    end
 
    local function prompt(hp)
@@ -3675,11 +3695,32 @@ do
       "PvP, the three up: metabolise impatience on that prompt", sent)
    ok(sent:find("eat goldenseal", 1, true), "...alongside the goldenseal", sent)
    ok(sent:find("touch tree", 1, true), "...and the tattoo, which uses neither balance", sent)
+   eq(metabolise.focus, nil, "sent is not set: the focus waits for the game to take it")
+   mock.line("Equilibrium used: 3.00s.")
    eq(metabolise.focus, "impatience", "the focus is recorded, so it is not sent again")
 
    sent = prompt()
    ok(not sent:find("metabolise", 1, true),
       "the next prompt does not spend another 3s on the same focus", sent)
+
+   -- REFUSED: "You must regain balance first." (2026-10-23 09:58:24.89) and no
+   -- "Equilibrium used:". The focus stays unset, and it goes again.
+   arm()
+   sent = prompt()
+   ok(sent:find("metabolise impatience", 1, true), "(sent)", sent)
+   mock.line("You must regain balance first.")
+   mock.advance(metabolise.ANSWER + 1)
+   mock.line("Equilibrium used: 3.50s.")
+   eq(metabolise.focus, nil, "refused, and a later equilibrium line is not its answer")
+   queue.reset(); emunah.timers.stopAll()
+   sent = prompt()
+   ok(sent:find("metabolise impatience", 1, true), "...so it is sent again", sent)
+
+   -- It needs balance as well: a smite that spends balance does not go in front of it.
+   arm()
+   emunah.timers.start("attack.balance", 2.5)
+   sent = prompt()
+   ok(not sent:find("metabolise", 1, true), "off balance, it waits", sent)
 
    -- Not against denizens, and not while the setting is off.
    arm()
@@ -4020,14 +4061,14 @@ end
 -- modules. A console that has gone away must not take the GMCP handler with it, and must
 -- not fail silently either -- "chat stopped" with nothing in the log is an hour of guessing.
 local chat = emunah.ui.chat
-local before = #emunah.gmcp.comm.history
+local before = emunah.gmcp.comm.seq()
 chat.console = { decho = function() error("widget is gone", 0) end }
 chat.mode = "plain"
 chat.broken = false
 mock.echoed = {}
 
 mock.feed("Comm.Channel.Text", { channel = "ct", talker = "Anzerloi", text = "still here" })
-eq(#emunah.gmcp.comm.history, before + 1,
+eq(emunah.gmcp.comm.seq(), before + 1,
    "capture records the message even with the console broken")
 ok(chat.broken, "...and the render failure is noticed")
 ok(table.concat(mock.echoed, " "):find("Capture is unaffected"),
@@ -4035,7 +4076,7 @@ ok(table.concat(mock.echoed, " "):find("Capture is unaffected"),
 
 mock.echoed = {}
 mock.feed("Comm.Channel.Text", { channel = "ct", talker = "Anzerloi", text = "and again" })
-eq(#emunah.gmcp.comm.history, before + 2, "capture keeps going")
+eq(emunah.gmcp.comm.seq(), before + 2, "capture keeps going")
 ok(not table.concat(mock.echoed, " "):find("Capture is unaffected"),
    "...without repeating the warning on every line")
 
@@ -7258,36 +7299,144 @@ ok(mock.widgets["emunah.target"] ~= nil, "target gauge built")
 ok(mock.widgets["emunah.panel.afflictions"] ~= nil, "affliction console built")
 ok(mock.widgets["emunah.panel.defences"] ~= nil, "defences console built")
 ok(mock.widgets["emunah.room"] ~= nil, "room console built")
-ok(mock.widgets["emunah.chat.plain"] ~= nil, "chat falls back to a plain console without EMCO")
+-- CHAT IS OUR OWN: a tab bar and a console per tab, with no tabbed-console package installed.
+-- Its own function: this chunk is near Lua 5.1's 200-local cap.
+;(function()
+   local chat, comm = emunah.ui.chat, emunah.gmcp.comm
+   eq(package.loaded["MDK.emco"], nil, "no tabbed-console package is loaded")
+   eq(chat.mode, "tabs", "chat builds its own tabs")
+   eq(chat.order[1], "All", "All is the first tab")
+   for _, tab in ipairs(chat.order) do
+      ok(mock.widgets["emunah.chat.tab." .. tab:lower()] ~= nil, tab .. " has a tab")
+      ok(mock.widgets["emunah.chat." .. tab:lower()] ~= nil, "...and a console of its own")
+   end
+   -- WRAPPED AT THE WINDOW'S WIDTH, not the panels' 40 characters (2026-10-23 13:22:21: "Sweet.
+   -- Not / reliant on any 3rd party code anymore." broke after 40).
+   local allCons = mock.widgets["emunah.chat.all"]
+   eq(allCons.cons.wrapAt, nil, "chat is not wrapped at a fixed width")
+   ok(allCons.cons.autoWrap and allCons.autoWrap, "...it wraps to its own width")
+   local function console(tab) return mock.widgets["emunah.chat." .. tab:lower()] end
+   local function label(tab) return mock.widgets["emunah.chat.tab." .. tab:lower()] end
+   local function text(tab) return tostring(console(tab).contents or "") end
+   local function occurrences(haystack, needle)
+      local n, from = 0, 1
+      while true do
+         local at = haystack:find(needle, from, true)
+         if not at then return n end
+         n, from = n + 1, at + 1
+      end
+   end
 
--- With MDK present, EMCO must be found via require("MDK.emco") -- it is not a global.
-package.loaded["MDK.emco"] = {
-   new = function(self, cons, parent)
-      mock.emcoCons = cons
-      local console = { tabs = {}, lines = {} }
-      function console:decho(tab, text) self.lines[#self.lines + 1] = tab .. ":" .. text end
-      return console
-   end,
-}
-emunah.ui.chat.build()
-eq(emunah.ui.chat.mode, "emco", "EMCO is discovered through require(\"MDK.emco\")")
-ok(mock.emcoCons and mock.emcoCons.consoles ~= nil, "EMCO built with a tab list")
+   chat.show("All")
+   chat.clear()
+   ok(console("All").shown and not console("City").shown, "only the shown tab's console is visible")
 
--- The all-tab must be a member of `consoles`, or EMCO rejects it.
-local hasAllTab = false
-for _, tab in ipairs(mock.emcoCons.consoles or {}) do
-   if tab == mock.emcoCons.allTabName then hasAllTab = true end
-end
-ok(hasAllTab, "allTabName is present in the consoles list", mock.emcoCons.allTabName)
+   mock.feed("Comm.Channel.List", { { name = "ct", caption = "City", command = "ct" } })
+   mock.links = {}
+   mock.feed("Comm.Channel.Text", { channel = "ct", talker = "Anzerloi", text = "city one" })
+   ok(text("All"):find("city one", 1, true), "a message is drawn in All while All is shown")
+   eq(text("City"), "", "...and not yet in City, which is not on screen")
+   eq(chat.unread("City"), 1, "...which counts it instead")
+   local link = mock.links[#mock.links]
+   eq(link and link.command, 'printCmdLine("ct ")', "clicking its time puts the channel's command on the command line")
+   ok(link and link.text:find(os.date("%H:%M", os.time()), 1, true), "...and the time is when it arrived")
 
-mock.feed("Comm.Channel.Text", { channel = "ct", talker = "X", text = "hi" })
-local emcoLines = emunah.ui.chat.console.lines
-ok(emcoLines and #emcoLines > 0 and tostring(emcoLines[#emcoLines]):find("^City:"),
-   "channel text routed into the right EMCO tab",
-   emcoLines and emcoLines[#emcoLines])
+   mock.feed("Comm.Channel.Text", { channel = "tell", talker = "Meldia", text = "Meldia tells you, \"hi\"" })
+   eq(mock.links[#mock.links].command, 'printCmdLine("tell Meldia ")', "a tell's reply is a tell back")
+   mock.advance(0)
+   ok(tostring(label("City").contents):find(">1<", 1, true), "City's tab shows its unread count",
+      label("City").contents)
+   ok(tostring(label("Tells").style):find(emunah.ui.theme.colour.warning, 1, true),
+      "an unread tell marks its tab in the warning colour")
+   ok(tostring(mock.widgets["emunah.header.chat"].contents):find("2 unread", 1, true),
+      "the title bar sums what is unread", mock.widgets["emunah.header.chat"].contents)
 
-package.loaded["MDK.emco"] = nil
-emunah.ui.chat.build()
+   -- Clicking a tab shows it, caught up with exactly what it missed.
+   label("City").onClick()
+   eq(chat.active, "City", "clicking a tab shows it")
+   ok(console("City").shown and not console("All").shown, "...in place of the one that was showing")
+   eq(occurrences(text("City"), "city one"), 1, "...caught up with what it missed, once")
+   eq(chat.unread("City"), 0, "...and its count cleared")
+
+   mock.feed("Comm.Channel.Text", { channel = "ct", talker = "Anzerloi", text = "city two" })
+   ok(text("City"):find("city two", 1, true), "a message for the shown tab is drawn at once")
+   local allBefore = text("All")
+   mock.feed("Comm.Channel.Text", { channel = "market", text = "market one" })
+   eq(text("Market"), "", "a tab not on screen is not drawn into")
+   eq(text("All"), allBefore, "...nor is All, while it is not on screen")
+
+   chat.show("all")
+   eq(occurrences(text("All"), "city one"), 1, "back on All, nothing it already drew is drawn again")
+   ok(text("All"):find("market one", 1, true) and text("All"):find("city two", 1, true),
+      "...and what it missed is there")
+
+   -- Muted: captured, never drawn or counted.
+   comm.setMuted("Market", true)
+   local seq = comm.seq()
+   chat.show("City")
+   local unread = chat.unread("Market")
+   mock.feed("Comm.Channel.Text", { channel = "market", text = "market muted" })
+   eq(comm.seq(), seq + 1, "a muted channel is still captured")
+   eq(chat.unread("Market"), unread, "...but not counted")
+   chat.show("Market")
+   ok(not text("Market"):find("market muted", 1, true), "...or drawn")
+   comm.setMuted("market", false)
+   eq(#comm.mutes(), 0, "unmuting takes it off the list")
+
+   -- Routes.
+   eq(comm.setRoute("ct", "house"), "House", "a channel can be sent to another tab")
+   eq(comm.tabFor("ct"), "House", "...and goes there")
+   eq(comm.setRoute("ct", "Nowhere"), nil, "a tab that is not shown is refused")
+   eq(comm.setRoute("ct", nil), "City", "default sends it back")
+
+   -- The tabs come from ui.chatTabs, with Misc kept.
+   emunah.config.set("ui.chatTabs", "tells, city")
+   eq(table.concat(comm.tabs(), ","), "Tells,City,Misc", "ui.chatTabs picks the tabs; Misc stays")
+   eq(comm.tabFor("market"), "Misc", "a channel whose tab is not shown goes to Misc")
+   emunah.config.set("ui.chatTabs", nil)
+   eq(comm.tabFor("market"), "Market", "...and back once the setting is cleared")
+
+   -- A quiet tab keeps its history however loud the others are.
+   mock.feed("Comm.Channel.Text", { channel = "tell", talker = "Meldia", text = "the last tell" })
+   for i = 1, comm.HISTORY_LIMIT + 10 do
+      mock.feed("Comm.Channel.Text", { channel = "market", text = "spam " .. i })
+   end
+   eq(comm.count(), comm.HISTORY_LIMIT, "All keeps a bounded history")
+   eq(comm.count("Market"), comm.TAB_LIMIT, "...and so does each tab")
+   local tells = comm.recent(1, "Tells")
+   eq(tells[1] and tells[1].text, "the last tell", "the market cannot push a tell out of its own tab")
+   local recent = comm.recent(2, "Market")
+   eq(recent[2] and recent[2].text, "spam " .. (comm.HISTORY_LIMIT + 10), "recent() is oldest first")
+
+   -- The talker in the colour the name highlighter gives them, then the colour before it.
+   local names = emunah.ui.names
+   local styleFor, enabled = names.styleFor, names.enabled
+   names.enabled = true
+   names.styleFor = function(name) return name == "Malefactor" and { colour = "#b3261e" } or nil end
+   eq(chat.highlight("<10,20,30>Malefactorish and Malefactor says", "Malefactor"),
+      "<10,20,30>Malefactorish and <179,38,30>Malefactor<10,20,30> says",
+      "the talker is coloured as a whole word, and the colour before them comes back")
+   eq(chat.highlight("Nobody says", "Nobody"), "Nobody says", "a name with no style is left alone")
+   names.styleFor, names.enabled = styleFor, enabled
+
+   chat.show("All")
+
+   -- `emset chat` reports and switches.
+   mock.echoed = {}
+   emunah.commands.dispatch("chat")
+   ok(table.concat(mock.echoed, " "):find("Tells", 1, true), "emset chat lists the tabs")
+   emunah.commands.dispatch("chat tells")
+   eq(chat.active, "Tells", "emset chat <tab> shows it")
+   chat.show("All")
+
+   -- A reload keeps the conversation.
+   local kept = comm.seq()
+   local reloaded, reloadErr = pcall(load)
+   ok(reloaded, "reloads cleanly", reloadErr)
+   eq(emunah.gmcp.comm.seq(), kept, "chat history survives a reload")
+   ok(text("All"):find("spam " .. (comm.HISTORY_LIMIT + 10), 1, true),
+      "...and the rebuilt window is drawn from it")
+end)()
 
 -- REGRESSION: a chat console that self-heals once must be able to self-heal AGAIN. Before
 -- the fix, M.rebuilt latched true forever after the first repair (see chat.lua's build()),
@@ -7333,8 +7482,8 @@ eq(parentName(mock.widgets["emunah.gauge.hp"]), "emunah.bottom", "vitals are in 
 eq(parentName(mock.widgets["emunah.target"]), "emunah.bottom", "target bar is in the bottom strip")
 eq(parentName(mock.widgets["emunah.balances"]), "emunah.bottom", "the balance strip is in the bottom strip")
 
-local chatWidget = mock.widgets["emunah.chat.plain"] or mock.widgets["emunah.chat"]
-eq(parentName(chatWidget), "emunah.right", "chat is in the right column")
+eq(parentName(mock.widgets["emunah.chat.all"]), "emunah.right", "chat is in the right column")
+eq(parentName(mock.widgets["emunah.chat.tabs"]), "emunah.right", "...under its tab bar")
 local function pct(value)
    return tonumber(tostring(value):match("^(%d+)%%")) or 0
 end
@@ -7776,8 +7925,10 @@ do
    end
    eq(parentName(mock.widgets["emunah.header.chat"]), "emunah.right", "the chat's bar is in the right column")
    eq(layout.container("right").cons.titleText, "", "...in place of the container's own title")
-   local chat = mock.widgets["emunah.chat.plain"] or mock.widgets["emunah.chat"]
-   ok(chat.cons.y >= layout.TITLED_TOP, "...and the chat starts under it", chat.cons.y)
+   local tabs = mock.widgets["emunah.chat.tabs"]
+   ok(tabs.cons.y >= layout.TITLED_TOP, "...and the chat's tabs start under it", tabs.cons.y)
+   local chat = mock.widgets["emunah.chat.all"]
+   ok(chat.cons.y >= tabs.cons.y + tabs.cons.height, "...and its console under them", chat.cons.y)
 
    -- The map's bar is on the window like the map, in its region, and the map below it: a label
    -- OVER the map is what hid the map once (ui/layout.lua).
@@ -11289,8 +11440,10 @@ mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "30
 local lanes = table.concat(mock.sent, " | ")
 ok(lanes:find("perform rite of demons", 1, true),
    "a fresh fight's first equilibrium is demons", lanes)
-ok(lanes:find("recite burn sarapis", 1, true),
-   "prayer still goes: a verse does not need equilibrium", lanes)
+local verseAt, riteAt = lanes:find("recite burn sarapis", 1, true),
+   lanes:find("perform rite of demons", 1, true)
+ok(verseAt and riteAt and verseAt < riteAt,
+   "prayer still goes, in front of it: a verse needs equilibrium and spends none", lanes)
 ok(not lanes:find("smite", 1, true),
    "the mace waits: a smite needs equilibrium present", lanes)
 ok(not lanes:find("perform sloth", 1, true), "...and so does sloth", lanes)
@@ -11382,12 +11535,20 @@ mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 ok(table.concat(mock.sent, " | "):find("hunt heresy", 1, true), "attack mode raises heresy first",
    table.concat(mock.sent, " | "))
 mock.feed("Char.Defences.Add", { name = "heresy", desc = "" })
+-- An exchange: the mace and the angel take turns, and heresy was the equilibrium's.
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+local turn = table.concat(mock.sent, " | ")
+ok(turn:find("smite sarapis", 1, true) and not turn:find("angel sear", 1, true),
+   "...then the mace, alone: the sear behind a smite only bounces (2026-10-23)", turn)
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 local divested = table.concat(mock.sent, " | ")
-ok(divested:find("angel sear sarapis", 1, true) and not divested:find("perform hands", 1, true),
-   "...then sends pvp.attack, whatever bashing.attack says", divested)
+ok(divested:find("angel sear sarapis", 1, true) and not divested:find("perform hands", 1, true)
+   and not divested:find("smite", 1, true),
+   "...then the angel's turn: pvp.attack, whatever bashing.attack says", divested)
 mock.feed("Char.Defences.Remove", { "heresy" })
 emunah.config.set("bashing.attack", "angel sear")
 emunah.commands.dispatch('pvp attack "angel sear"')
@@ -11972,10 +12133,15 @@ do
 
    priest.ONCE_PER_PRAYER.condemnation = true
    emunah.timers.stopAll()
+   -- A verse needs both balances (2026-10-23), and the prompts above spent them.
+   emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
    ok(priest.recite("condemnation", "Ashden"), "a once-per-prayer verse goes out")
    emunah.timers.stopAll()
    ok(not priest.canRecite("condemnation"), "...and is spent")
    ok(priest.canRecite("guilt"), "...while other verses are not")
+   emunah.timers.start("attack.balance", 2.5)
+   ok(not priest.canRecite("guilt"), "off balance, no verse: it needs both balances")
+   emunah.timers.stop("attack.balance")
    mock.feed("Char.Vitals", { charstats = { "prayer_length: 0", "conviction: 0" } })
    ok(not priest.canRecite("condemnation"),
       "a prompt still reading 0 before the verse lands does not free it")
@@ -12168,6 +12334,21 @@ do
       return table.concat(mock.sent, " | ")
    end
 
+   -- A VERSE NEEDS BOTH BALANCES, and spends neither (the spar with Erishka, 2026-10-23
+   -- 09:58: every recite sent with one down was refused). Off balance or off equilibrium it
+   -- waits; with both up it goes first, ahead of the move that spends one.
+   for _, guard in ipairs({ "attack.balance", "cure.equilibrium" }) do
+      emunah.timers.stopAll()
+      emunah.timers.start(guard, 2.5)
+      mock.sent = {}
+      mock.feed("Char.Vitals", { bal = "1", eq = "1", charstats = {
+         "prayer_length: 0", "conviction: 0" } })
+      local held = table.concat(mock.sent, " | ")
+      ok(not held:find("recite", 1, true), "no verse while " .. guard .. " is spent", held)
+   end
+   emunah.timers.stopAll()
+   R.prayerKind, R.lastKind = nil, nil
+
    -- THE FIRST PRAYER: Burn, Burn, Condemnation, an equilibrium affliction beside each, then
    -- guilt rebuke evil with the mace chastening recklessness: guilt, masochism and
    -- recklessness, three lobelia afflictions at once.
@@ -12175,6 +12356,8 @@ do
    eq(R.prayerKind, "stack", "no conviction: the first prayer")
    ok(sent:find("recite burn ashden", 1, true) and sent:find("perform sloth ashden", 1, true),
       "its first verse: Burn, with sloth", sent)
+   ok(sent:find("recite", 1, true) < sent:find("perform sloth", 1, true),
+      "...the verse first: the sloth spends the equilibrium it needs", sent)
    ok(not sent:find("smite", 1, true), "...and no mace on the same prompt", sent)
    sent = exchange(1, 0)
    ok(sent:find("recite burn ashden", 1, true), "second: Burn again", sent)
@@ -12843,7 +13026,7 @@ do
       realCecho(text)
    end
 
-   local historyBefore = #emunah.gmcp.comm.history
+   local historyBefore = emunah.gmcp.comm.seq()
    local succeeded = pcall(mock.feed, "Comm.Channel.Text", {
       channel = "ct",
       talker  = "Someone",
@@ -12853,7 +13036,7 @@ do
    })
    ok(succeeded,
       "a payload cecho cannot render does not take the GMCP handler down with it")
-   eq(#emunah.gmcp.comm.history, historyBefore + 1,
+   eq(emunah.gmcp.comm.seq(), historyBefore + 1,
       "...and the message is still captured into history regardless")
 
    _G.cecho = realCecho
@@ -14323,7 +14506,10 @@ suite("sileris is fangbarrier, myrrh is scholasticism")
    mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
    ok(table.concat(mock.sent, " | "):find("apply sileris", 1, true), "keep-up applies sileris",
       table.concat(mock.sent, " | "))
+   ok(emunah.queue.awaiting("salve") ~= nil, "(the apply is in flight)")
    mock.line("You apply a sileris berry to yourself.")
+   eq(emunah.queue.awaiting("salve"), nil,
+      "the apply line answers it: no re-arm while it hardens (2026-10-23 10:01:06.91)")
    mock.line("You may apply another salve to yourself.")
    mock.advance(3)
    mock.sent = {}
@@ -14452,13 +14638,26 @@ suite("antitheft: selfishness, the pack, and alarms on loss")
    mock.forgetSends()
    alarms = {}
    mock.feed("Char.Defences.Remove", { "selfishness" })
+   eq(#alarms, 0, "(judged on the prompt, not the loss)")
+   mock.feed("Char.Vitals", {})
    ok(alarms[1] and alarms[1]:find("Selfishness stripped", 1, true),
       "selfishness dropping with no GENEROSITY of ours raises the alarm", alarms[1])
    mock.feed("Char.Defences.Add", { name = "selfishness", desc = "" })
    mock.sentCommand("generosity")
    alarms = {}
    mock.feed("Char.Defences.Remove", { "selfishness" })
+   mock.feed("Char.Vitals", {})
    eq(#alarms, 0, "...but not when we typed GENEROSITY")
+
+   -- AN ARENA DEFEAT: every defence removed before the vitals (2026-10-23 10:00:48). The
+   -- burst is the character being reset, and selfishness in it is no thief's work.
+   local burst = { "selfishness", "levitation", "nightsight", "venom", "frost", "mindseye" }
+   for _, name in ipairs(burst) do mock.feed("Char.Defences.Add", { name = name, desc = "" }) end
+   mock.forgetSends()
+   alarms = {}
+   for _, name in ipairs(burst) do mock.feed("Char.Defences.Remove", { name }) end
+   mock.feed("Char.Vitals", {})
+   eq(#alarms, 0, "selfishness lost in a reset burst raises no alarm")
 
    -- THE THEFT ALARM: an item leaving inventory with nothing we sent to explain it.
    mock.feed("Char.Items.List", { location = "inv", items = {
@@ -17393,6 +17592,22 @@ engine.add("bound", "gmcp"); engine.add("impaled", "gmcp")
 eq(watch.dangers()[1], "dismember", "bound and impaled: dismember")
 engine.clear()
 
+-- CLEAVE, verbatim from 2026-10-23 10:00:38-10:00:48 (Erishka, from full health).
+watch.cleave = nil
+mock.line("Erishka raises her longsword over her head and begins to swing it in a wide circle, "
+   .. "gaining speed as she goes.")
+eq(watch.dangers()[1], "cleave by Erishka", "a knight's wind-up is named as a danger")
+mock.advance(5)
+mock.line("Erishka begins to bear down on you with her whirling longsword.")
+eq(watch.dangers()[1], "cleave by Erishka, at you", "...and once it bears down on you, so is that")
+mock.line("Screaming out a warcry of pure strength, Erishka brings her longsword crashing "
+   .. "straight down on your head.")
+eq(#watch.dangers(), 0, "the blow ends it")
+mock.line("Erishka raises her longsword over her head and begins to swing it in a wide circle, "
+   .. "gaining speed as she goes.")
+mock.advance(watch.CLEAVE_SECONDS + 1)
+eq(#watch.dangers(), 0, "...and so does time, with no second line")
+
 -- THE REFLECTIVE BARRIER, as the attacker sees it.
 local pvp = emunah.pvp
 mock.line("The reflective barrier surrounding Sobriquet reflects part of your attack back at you.")
@@ -17959,7 +18174,32 @@ rites.forgetAll(); emunah.timers.stopAll()
 prompt()
 eq(rites.kept.banishment, nil, "a Cyrenian: banishment is not")
 
+-- A PRAYER RUNNING: a rite's equilibrium is one the next verse needs, so it only follows a
+-- verse (2026-10-23 09:58:27.60: demons, and the prayer lapsed under it at 29.90).
+do
+   local P = emunah.class.active
+   local function riteTick(verseAgo)
+      mock.feed("Char.Vitals", { charstats = { "prayer_length: 2", "conviction: 0" },
+         bal = "1", eq = "1" })
+      emunah.queue.reset(); emunah.timers.stopAll()
+      emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
+      mock.sent = {}
+      P.pvp.lastVerse = verseAgo and { name = "guilt", at = emunah.util.now() - verseAgo } or nil
+      rites.tick()
+      return sends()
+   end
+   rites.forgetAll()
+   eq(riteTick(3), "", "a prayer running, its last verse 3s ago: the rite waits")
+   ok(rites.kept.demons and rites.kept.demons.due, "...and stays due")
+   eq(riteTick(0.2), "perform rite of demons", "straight after a verse, it goes")
+   mock.feed("Char.Vitals", { charstats = { "prayer_length: 0", "conviction: 0" } })
+   P.prayerReset()
+   P.pvp.lastVerse = nil
+   rites.forgetAll(); emunah.timers.stopAll()
+end
+
 -- The fight ending drops what it raised, and does not keep performing them.
+prompt()
 ok(rites.kept.demons, "demons was up for the fight")
 pvp.enabled, pvp.target = false, nil
 eq(prompt(), "", "the fight over: nothing is performed")
@@ -18065,6 +18305,31 @@ mock.feed("Char.Vitals", vitals)
 sent = table.concat(mock.sent, " | ")
 ok(not sent:find("groundwatch on", 1, true) and not sent:find("drink venom", 1, true),
    "the next prompt does not send them again", sent)
+
+-- AN ARENA DEFEAT removes every defence before the vitals that close it (2026-10-23
+-- 10:00:48). The first loss is answered at once; the rest wait for that prompt.
+queue.reset(); emunah.timers.stopAll(); keepup.resetBudget()
+emunah.config.set("defences.keepup", {
+   groundwatch = "keepup", skywatch = "keepup", treewatch = "keepup",
+})
+mock.feed("Char.Defences.List", {
+   { name = "groundwatch", desc = "" }, { name = "skywatch", desc = "" },
+   { name = "treewatch", desc = "" },
+})
+mock.feed("Char.Vitals", vitals)
+mock.sent = {}
+for _, name in ipairs({ "groundwatch", "skywatch", "treewatch" }) do
+   mock.feed("Char.Defences.Remove", { name })
+end
+local during = table.concat(mock.sent, " | ")
+ok(during:find("groundwatch on", 1, true) and not during:find("skywatch on", 1, true)
+   and not during:find("treewatch on", 1, true),
+   "a burst of losses: the first is raised at once, the rest wait", during)
+mock.sent = {}
+mock.feed("Char.Vitals", vitals)
+sent = table.concat(mock.sent, " | ")
+ok(sent:find("skywatch on", 1, true) and sent:find("treewatch on", 1, true),
+   "...for the prompt that closes the burst", sent)
 
 -- THE PIPES LIGHT ON THE SAME PROMPT. `light pipes` needs both balances and spends
 -- neither, so it goes in front of the equilibrium raise keep-up chose first. At the login

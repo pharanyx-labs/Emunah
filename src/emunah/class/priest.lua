@@ -383,13 +383,17 @@ M.VERSES = {
    condemnation = "condemnation",
 }
 
+--- What a verse needs: both balances, though it spends neither (2026-10-23, every recite
+--- sent with one down was refused; docs/game/priest-abilities.md).
+M.RECITE_NEEDS = { bal = true, eq = true, standing = true }
+
 --- Is this verse known, and is prayer balance free?
 function M.canRecite(verse)
    if not (verse and M.VERSES[verse]) then return false end
    if not emunah.have.skill(M.VERSES[verse]) then return false end
    if M.ONCE_PER_PRAYER[verse] and M.prayerSpent[verse] then return false end
    if not M.prayerAllows(verse) then return false end
-   if not emunah.act.can({ standing = true }) then return false end
+   if not emunah.act.can(M.RECITE_NEEDS) then return false end
    return emunah.timers.ready("pvp.prayer")
 end
 
@@ -400,7 +404,7 @@ end
 --- pvp.lua's own targeting is already name-based (see pvp.lua's M.setTarget).
 function M.recite(verse, target)
    if not (target and M.VERSES[verse]) then return false end
-   if not emunah.act.send("recite " .. verse .. " " .. target, { standing = true }) then
+   if not emunah.act.send("recite " .. verse .. " " .. target, M.RECITE_NEEDS) then
       return false
    end
    emunah.timers.start("pvp.prayer", M.RECITE_BALANCE_GUESS)

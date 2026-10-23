@@ -39,8 +39,9 @@
 ---
 --- THE FIRST EQUILIBRIA OF A FIGHT ARE THESE. One a prompt, then RITES, so the listing
 --- can say how long they have. A smite needs equilibrium present as well as the balance
---- it spends, so the mace waits those prompts. Once the listing has armed the timers the
---- three lanes share a prompt again.
+--- it spends, so the mace waits those prompts. A verse needs it too, and spends nothing:
+--- it goes in front of the rite. Once a prayer is running, a rite only follows a verse
+--- (M.AFTER_VERSE), so its equilibrium is back before the prayer would lapse.
 ---
 --- HANDS WINS THE EMERGENCY. Below curing.handsThreshold, `perform hands` wants this
 --- equilibrium and the offence's equilibrium lane already sits out for it. A rite must
@@ -363,14 +364,49 @@ local function dropFight()
    end
 end
 
+--- Seconds after a verse a fight's rite may still take the equilibrium. A prayer ends about
+--- five seconds after its last verse (2026-10-23: guilt at 09:58:24.63, "Your prayer draws
+--- to an unsatisfying conclusion." at 29.90; ash at 43.92, the prayer's end at 49.02), and
+--- every verse needs equilibrium. Cleansing's 3.6s from a second after a verse leaves the
+--- next one inside that.
+M.AFTER_VERSE = 1.0
+
+--- Whether a fight's equilibrium can go to a rite without ending the prayer. A rite of
+--- demons at 09:58:27.60 took the equilibrium the next verse needed and the prayer lapsed
+--- under it. Free when no prayer is running, or straight after a verse; the verse goes in
+--- front of the rite on a prompt they share (act.ahead).
+local function prayerRoom()
+   local class = emunah.class and emunah.class.active
+   if not (class and class.prayer and class.pvp) then return true end
+   local ok, prayer = pcall(class.prayer)
+   if not ok or type(prayer) ~= "table" or (prayer.length or 0) == 0 then return true end
+   local verse = class.pvp.lastVerse
+   return verse ~= nil and util.now() - verse.at <= M.AFTER_VERSE
+end
+
+--- Send an equilibrium command of ours, armed in the prompt's line so a verse that needs the
+--- equilibrium goes in front of it rather than behind it into a refusal.
+---
+--- BALANCE AS WELL. AB DEVOTION gives each rite's equilibrium and nothing about balance;
+--- whether one is refused off balance is not seen yet. Both, as the Priest's other
+--- equilibrium moves are until play says otherwise (class/priest_pvp.lua), which also keeps
+--- a smite from going in front of the rite and taking a balance it might want.
+local BOTH = { bal = true, eq = true }
+local BOTH_QUIET = { bal = true, eq = true, quiet = true }
+
+local function spendEq(command, needs, seconds)
+   if not emunah.act.send(command, needs, "eq") then return false end
+   emunah.act.arm("eq")
+   -- Char.Vitals goes on reporting equilibrium until the game has run it.
+   emunah.timers.start("cure.equilibrium", seconds)
+   return true
+end
+
 local function perform(key, entry)
-   if not emunah.act.send("perform rite of " .. key, { eq = true }) then return false end
+   if not spendEq("perform rite of " .. key, BOTH, M.KEEP[key]) then return false end
    entry.due = false
    entry.attempts = entry.attempts + 1
    M.check.wanted = true
-   -- Char.Vitals goes on reporting equilibrium until the game has run it.
-   emunah.gmcp.vitals.spend("eq")
-   emunah.timers.start("cure.equilibrium", M.KEEP[key])
    log.info("Rites: performing %s.", entry.name)
    return true
 end
@@ -392,6 +428,7 @@ function M.tick()
    -- emergency heal wants this equilibrium, RITES included.
    if handsWanted() then return end
    if not emunah.have.balance("equilibrium") then return end
+   if M.inFight and not prayerRoom() then return end
 
    local room = here()
    if M.inFight then
@@ -414,11 +451,9 @@ function M.tick()
    end
 
    if M.check.wanted and not M.check.sentAt then
-      if emunah.act.send("rites", { eq = true, quiet = true }) then
+      if spendEq("rites", BOTH_QUIET, M.CHECK_COST) then
          M.check.wanted = false
          M.check.sentAt = util.now()
-         emunah.gmcp.vitals.spend("eq")
-         emunah.timers.start("cure.equilibrium", M.CHECK_COST)
          emunah.timers.start("rites.check", M.CHECK_GUARD, function() M.lost() end)
       end
    end

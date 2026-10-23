@@ -360,7 +360,9 @@ M.modules = {
   state = function() return config("ui.enabled", true) end,
   does = "The panels around the game text: vitals, afflictions, defences, chat tabs, the "
       .. "room and its people, your target, and the map. The room's area is shown at the "
-      .. "end of the room-name line.",
+      .. "end of the room-name line. Chat keeps every channel under All and in a tab of its "
+      .. "own; a tab you are not looking at counts what it missed, tells in the warning "
+      .. "colour, and clicking a line's time puts the reply on the command line.",
   commands = {
    { syntax = "emset ui", handler = "ui",
      summary = "whether the panels and the map are on" },
@@ -371,6 +373,16 @@ M.modules = {
    { syntax = "emset ui auto [afflictions|defences]",
      summary = "size a panel you resized by dragging its divider to its content again "
         .. "(both when none is named); double-clicking the divider does the same" },
+   { syntax = "emset chat", handler = "chat",
+     summary = "the chat tabs: what each has kept and has unread, what is muted and rerouted" },
+   { syntax = "emset chat <tab>",
+     summary = "show a tab, as clicking it does" },
+   { syntax = "emset chat clear [tab]",
+     summary = "clear a tab's window, or every tab's; what was captured is kept" },
+   { syntax = "emset chat mute|unmute <channel>",
+     summary = "keep a channel out of the chat window; it is still captured" },
+   { syntax = "emset chat route <channel> <tab>|default",
+     summary = "send a channel to another tab, or back to the one it goes to by default" },
   } },
 
 }
@@ -408,7 +420,15 @@ M.settings = {
 { key = "ui.roomArea", default = true, type = "boolean", topic = "interface", shipped = false,
   detail = "Show the room's area at the end of the room-name line, from GMCP." },
 { key = "ui.chatTabs", default = "Tells, City, House, Market, Says, Misc", type = "list",
-  topic = "interface", shipped = true },
+  topic = "interface", shipped = true,
+  detail = "The chat tabs after All, in order. Misc is added last if left out: it is where "
+     .. "a channel with no tab of its own goes. `emset ui rebuild` after changing it." },
+{ key = "ui.chatRoutes", default = "", type = "list", topic = "interface", shipped = false,
+  detail = "channel=Tab pairs sending a channel to a tab other than its default. "
+     .. "`emset chat route` writes it." },
+{ key = "ui.chatMute", default = "", type = "list", topic = "interface", shipped = false,
+  detail = "Channels kept out of the chat window. Still captured, so unmuting and "
+     .. "`emset ui rebuild` brings them back. `emset chat mute` writes it." },
 { key = "ui.refresh", default = 0.2, type = "number", unit = "s", topic = "interface",
   shipped = true, detail = "How often balance countdowns redraw while one is running. "
        .. "0 turns the live countdowns off." },

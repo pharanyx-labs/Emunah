@@ -229,16 +229,31 @@ function M.keepSelfish()
    return true
 end
 
+--- Defences lost since the last Char.Vitals, and whether selfishness was one of them.
+---
+--- JUDGED ON THE PROMPT, NOT THE LOSS. An arena defeat removes every defence, one
+--- Char.Defences.Remove at a time, before the death line or the vitals that say so
+--- (gmcp/vitals.lua, M.stale). Judged at the loss, selfishness in that burst was a
+--- pickpocket's first step (2026-10-23 10:00:48, slain by a cleave). The prompt closes the
+--- burst: a reset's worth of losses at once is the character being reset, not a thief.
+M.lostSinceVitals, M.selfishLost = 0, false
+
 local function onDefenceLost(_, name)
-   if name ~= "selfishness" or not enabled() then return end
+   M.lostSinceVitals = M.lostSinceVitals + 1
+   if name == "selfishness" and enabled() then M.selfishLost = true end
+end
+
+local function judgeSelfishness()
+   local burst, lost = M.lostSinceVitals, M.selfishLost
+   M.lostSinceVitals, M.selfishLost = 0, false
+   if not lost or not enabled() then return end
+   local vitals = emunah.gmcp.vitals
+   if burst >= ((vitals and vitals.RESET_BURST) or 5) then return end
    local outgoing = emunah.outgoing
    if outgoing and outgoing.sentRecently("^generosity", M.EXPLAIN_WINDOW) then return end
    if dead() or emunah.act.halted then return end
    alarm("Selfishness stripped", "your selfishness dropped and you did not type GENEROSITY "
       .. "-- the usual first step of a pickpocket")
-   -- Keep-up raises it again on its own tick; this gets that tick now.
-   local keepup = emunah.curing and emunah.curing.defkeepup
-   if keepup and keepup.nudge then keepup.nudge() end
 end
 
 -- ---------------------------------------------------------------------------
@@ -351,6 +366,7 @@ event.register("emunah.items.list", function(_, location)
    if location == "inv" then M.sweep() watchGold() end
 end, "antitheft")
 event.register("emunah.defence.lost", onDefenceLost, "antitheft")
+event.register("emunah.tick", judgeSelfishness, "antitheft")
 event.register("emunah.room.playerEntered", onPlayerEntered, "antitheft")
 event.register("emunah.room.players", onPlayers, "antitheft")
 

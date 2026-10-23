@@ -115,7 +115,8 @@ emset pvp attack angel sear  <span class="c"># what attack mode sends on equilib
 <p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> to <kbd>F4</kbd> turn it on in a mode, and <kbd>F12</kbd> turns it off on the way to the safe room. <code>t &lt;name&gt;</code> sets the target and turns PvP on together. Killing your target clears it and ends the session, and so does your own death.</p>
 
 <h2 id="modes">Every balance, every prompt</h2>
-<p>A fight against a person is won by sending more than they can cure. So each balance is a lane that chooses for itself on every prompt it is free: a Zeal verse on prayer, a mace blow carrying a chasten on balance, and an affliction or a finisher on equilibrium. None waits for the others. What each lane sends is the mode's, and <kbd>F1</kbd> to <kbd>F4</kbd> choose one and turn PvP on. Offence is the mode a fresh <code>emset pvp on</code> starts in, and it has no key.</p>
+<p>A fight against a person is won by sending more than they can cure. So each balance is a lane that chooses for itself on every prompt it is free: a Zeal verse on prayer, a mace blow carrying a chasten on balance, and an affliction or a finisher on equilibrium. What each lane sends is the mode's, and <kbd>F1</kbd> to <kbd>F4</kbd> choose one and turn PvP on. Offence is the mode a fresh <code>emset pvp on</code> starts in, and it has no key.</p>
+<p>Each prompt sends a verse and one more move: a mace blow or an equilibrium move, never both. A smite needs equilibrium and the angel needs balance, so the second of the two would only be refused. A verse needs both balances and spends neither, so it waits until both are up and goes first. Attack and hinder take turns between the mace and equilibrium. Finish and offence send the equilibrium move whenever one is due.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Key</th><th>Mode</th><th>Prayer</th><th>Balance</th><th>Equilibrium</th></tr></thead>
   <tbody>
@@ -129,7 +130,7 @@ emset pvp attack angel sear  <span class="c"># what attack mode sends on equilib
 <p>Each lane takes the first move in its list that applies. An affliction the game has confirmed on the target is not given again, and one it has not confirmed is not resent blind: the lane moves on to the next and comes back to it later. A verse goes once per prayer, and hinder ends a prayer on a rebuke when it is long enough to pay. Every attacking mode strips a shield it has seen the target raise before its mace meets it. Every ability is checked against what you actually know at the moment it is chosen, so a change to your skills needs no setting.</p>
 
 <h2 id="route">Offence: Anzerloi's route</h2>
-<p>Offence follows the way Anzerloi fought in three spars against a Depthswalker. Each exchange is a verse, plus either a mace blow or an equilibrium move, never both: a smite needs equilibrium and the angel needs balance, so the second of two on one prompt would bounce.</p>
+<p>Offence follows the way Anzerloi fought in three spars against a Depthswalker. Each exchange is a verse, plus either a mace blow or an equilibrium move, as above.</p>
 <ul>
   <li><strong>The first prayer</strong> is Burn, Burn, Condemnation, each with sloth or dazzle beside it, so two herbs are hit every exchange. It closes on guilt rebuke evil, with the mace chastening recklessness: three lobelia afflictions at once.</li>
   <li><strong>Once a closed prayer has paid conviction</strong>, the next takes Reflection third and Revelations fourth, rebuking evil again. For a while afterwards the chasten keeps asthma on, because hellsight gives a random affliction about once a second until it is smoked away. The prayer after that closes on rebuke heresy, which gives inquisition when guilt and spiritburn are both on the target.</li>
@@ -164,8 +165,8 @@ emset pvp attack angel sear  <span class="c"># what attack mode sends on equilib
 
 <h2 id="safety">Safety</h2>
 <p>PvP stops below <code>pvp.stopBelowHealth</code>, 25% by default. That floor replaces the shared critical one, and a fast drop in health does not stop PvP the way it stops a hunt, because stopping does not stop the person hitting you.</p>
-<p>While you are locked, the lock is named on your prompt and the balance and equilibrium lanes are held, so your cures get them. Verses carry on, since prayer is shared with no cure. When the lock breaks, the attack resumes. Any instant kill you are open to is named on the prompt too; see <a href="curing.html#dangers">dangers</a>.</p>
-<p>The first free equilibrium of a fight goes to <code>metabolise impatience</code> when that focus is not already set, so a second player cannot reapply it inside about two seconds. Later equilibrium stays with the attack. See <a href="curing.html#situations">situational rules</a>.</p>
+<p>While you are locked, the lock is named on your prompt and the balance and equilibrium lanes are held, so your cures get them. Verses carry on whenever both balances are up, since a verse spends neither. When the lock breaks, the attack resumes. Any instant kill you are open to is named on the prompt too; see <a href="curing.html#dangers">dangers</a>.</p>
+<p>The first free equilibrium of a fight goes to <code>metabolise impatience</code> when that focus is not already set, so a second player cannot reapply it inside about two seconds. It needs balance too, and the focus counts as set only once the game reports the equilibrium used, so a refused one is tried again. Later equilibrium stays with the attack. See <a href="curing.html#situations">situational rules</a>.</p>
 <p>Starting PvP stops a hunt, the walking as well as the fighting, and starting a hunt stops PvP: a player and a denizen cannot share one balance.</p>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">

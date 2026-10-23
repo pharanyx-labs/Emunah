@@ -109,7 +109,6 @@
   <li>Mudlet 4.10 or later.</li>
   <li>An Achaea character, with Achaea's own server-side curing turned off. Emunah cures in the client, and the two should not compete.</li>
   <li>git, to clone the repository and to update it.</li>
-  <li>Optional: the MDK package, for tabbed chat. Without it, chat shows in a single window.</li>
 </ul>
 <p>Curing, defences, the interface and the map work for any class. Hunting and PvP need a class module to know how to attack, and today that is Priest.</p>
 
@@ -185,7 +184,7 @@ emset system.update false      <span class="c"># reload what is on disk, without
 
 <h2 id="developing">Developing</h2>
 <p>Edit any file under <code>src/</code> and run <code>emreload</code>. There is nothing to reimport and no client to restart, and a module added to the manifest is picked up on the same reload.</p>
-<p>The suite of 3535 behavioural tests runs the real modules against a simulated Mudlet, with no client involved. Mudlet runs Lua 5.1, and so does the suite. GitHub Actions runs the same command on every change.</p>
+<p>The suite of 3621 behavioural tests runs the real modules against a simulated Mudlet, with no client involved. Mudlet runs Lua 5.1, and so does the suite. GitHub Actions runs the same command on every change.</p>
 <pre><code>sh tools/ci.sh                  <span class="c"># compile as Lua 5.1, then the suite</span>
 lua5.1 test/run.lua             <span class="c"># the test suite</span>
 lua5.1 test/bench.lua           <span class="c"># per-prompt cost, in microseconds and bytes</span>

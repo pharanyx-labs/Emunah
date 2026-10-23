@@ -238,3 +238,27 @@ bench("chyron: one scroll step", function()
    mock.advance(emunah.ui.chyron.TICK_INTERVAL)
 end, math.min(N, 5000))
 print(string.format("%-34s %8d characters wide", "chyron: strip", emunah.ui.chyron.width()))
+
+-- ---------------------------------------------------------------------------
+-- CHAT: one channel message, captured and rendered. Only the tab on screen is drawn into;
+-- a message for a tab that is not showing is captured and counted, nothing more.
+-- ---------------------------------------------------------------------------
+
+emunah.ui.chat.build()
+local chatLine = { channel = "market", talker = "Lokri", text = "(Market): Lokri says, \"Selling 50 bloodroot.\"" }
+
+print("")
+emunah.ui.chat.show("All")
+-- The mock console keeps everything ever written to it as one string; emptied each time, or
+-- the figure is that string growing, not the chat.
+local allConsole = mock.widgets["emunah.chat.all"]
+bench("chat: a message, drawn", function()
+   allConsole.contents = ""
+   mock.feed("Comm.Channel.Text", chatLine)
+   emunah.ui.theme.paintNow()
+end, math.min(N, 5000))
+emunah.ui.chat.show("Tells")
+bench("chat: a message for another tab", function()
+   mock.feed("Comm.Channel.Text", chatLine)
+   emunah.ui.theme.paintNow()
+end, math.min(N, 5000))

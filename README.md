@@ -21,7 +21,6 @@ emset             status: curing, defences, safety floors, what is tracked
 
 - Mudlet 4.10 or later (Lua 5.1)
 - An Achaea character
-- Optional: the MDK package, for tabbed chat. Without it, chat renders in a single console.
 
 ## Installation
 
@@ -213,7 +212,7 @@ src/emunah/
   loot.lua                            -- collect gold by replica number
   class/    adapter priest priest_pvp -- class interface + auto-detection
   commands.lua
-test/       mock_mudlet.lua run.lua   -- 3535 behavioural tests
+test/       mock_mudlet.lua run.lua   -- 3621 behavioural tests
             bench.lua profile.lua     -- per-prompt cost, and where it goes
 package/    .mpackage build project
 tools/      build-xml.py build-commands-page.lua ci.sh

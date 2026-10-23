@@ -501,6 +501,12 @@ function M.batching()
    return batch ~= nil
 end
 
+--- command -> the reason it was last held, until it goes. See M.send.
+M.held, M.heldCount = {}, 0
+
+--- The most held commands remembered before the list starts again.
+M.HELD_MAX = 64
+
 --- Send a command, or don't. Returns whether it actually went.
 ---
 --- The debug line is deliberately on BOTH paths: `emunah debug` is how you tell "the bot
@@ -517,15 +523,24 @@ function M.send(command, needs, spends)
       -- Say it once, not once per retry. A step blocked on balance is retried every step
       -- delay for as long as the balance lasts, which put five identical "Held" lines in
       -- the log for one perfectly ordinary post-kill pause -- noise that buries the lines
-      -- worth reading. Repeat only when the command or the reason actually changes.
-      local held = command .. "\0" .. why
-      if M.lastHeld ~= held then
-         M.lastHeld = held
+      -- worth reading. Repeat only when that command's reason actually changes.
+      --
+      -- PER COMMAND. One remembered line let three held watches and a vault take turns
+      -- clearing it, and all four printed on every prompt of an equilibrium (2026-10-23
+      -- 10:00:48: forty-odd lines for one wait).
+      if M.held[command] ~= why then
+         -- Bounded: a command held and never sent (a target that left) stays here.
+         M.heldCount = M.heldCount + (M.held[command] == nil and 1 or 0)
+         if M.heldCount > M.HELD_MAX then M.held, M.heldCount = {}, 1 end
+         M.held[command] = why
          emunah.log.debug("Held %q -- %s.", command, why)
       end
       return false
    end
-   M.lastHeld = nil
+   if M.held[command] ~= nil then
+      M.held[command] = nil
+      M.heldCount = M.heldCount - 1
+   end
 
    -- `quiet`: don't echo the command locally. For housekeeping whose output is gagged too
    -- (pipes.lua), where a lone echoed "light pipe367581" is the noise left behind.
