@@ -8,6 +8,11 @@ that state.
 The module tree lives on disk as plain Lua and reloads with a single command, so development
 happens in a normal editor with no package reimport in the loop.
 
+> **Priest only, for now.** Emunah currently supports the Priest class alone, and that
+> support is at an early stage: it is in daily use, but not yet dependable in every
+> situation, and PvP in particular is still being refined. Support for further classes is in
+> development and coming soon. See the [roadmap](https://pharanyx-labs.github.io/Emunah/roadmap.html#classes).
+
 Documentation: **[pharanyx-labs.github.io/Emunah](https://pharanyx-labs.github.io/Emunah/)**, built from
 `website/`.
 
@@ -20,7 +25,7 @@ emset             status: curing, defences, safety floors, what is tracked
 ## Requirements
 
 - Mudlet 4.10 or later (Lua 5.1)
-- An Achaea character
+- An Achaea character, currently a Priest (see above)
 
 ## Installation
 

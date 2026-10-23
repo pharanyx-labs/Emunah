@@ -65,13 +65,17 @@ mock.feed("Char.Items.List", { location = "inv", items = {
 } })
 mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = "120" }, { name = "goldenseal", amount = "80" } })
 
-mock.feed("Char.Defences.List", {
-   { name = "rebounding" }, { name = "speed" }, { name = "levitating" }, { name = "insomnia" },
-   { name = "temperance" }, { name = "deathsight" }, { name = "mindseye" }, { name = "deafness" },
-   { name = "poisonresist" }, { name = "thirdeye" },
-})
-emunah.curing.defkeepup.setMode("cloak", "keepup")
+-- A full set, the way `emset defs` leaves one: most up, two stripped mid-fight.
+local UP = { "rebounding", "speed", "levitating", "insomnia", "temperance", "deathsight",
+   "mindseye", "deafness", "poisonresist", "thirdeye", "fangbarrier", "kola", "cloak",
+   "vigilance", "alertness", "curseward", "skywatch", "groundwatch", "telesense", "nightsight",
+   "hypersight" }
+local list = {}
+for _, name in ipairs(UP) do list[#list + 1] = { name = name } end
+mock.feed("Char.Defences.List", list)
+for _, name in ipairs(UP) do emunah.curing.defkeepup.setMode(name, "keepup") end
 emunah.curing.defkeepup.setMode("blind", "keepup")
+emunah.curing.defkeepup.setMode("selfishness", "keepup")
 
 mock.feed("Char.Afflictions.Add", { name = "anorexia", cure = "APPLY EPIDERMAL", desc = "" })
 mock.feed("Char.Afflictions.Add", { name = "asthma", cure = "EAT KELP", desc = "" })
@@ -97,6 +101,9 @@ if emunah.ui.chyron and emunah.ui.chyron.send then
 end
 
 mock.advance(0); mock.advance(0); mock.advance(0)
+-- The HUD's buttons were painted at build, before curing and keep-up were switched on above,
+-- and nothing in a fight repaints them: without this the preview reads PAUSED.
+emunah.ui.vitals.updateButtons()
 
 -- ---------------------------------------------------------------------------
 -- Geometry, the way Geyser resolves it
