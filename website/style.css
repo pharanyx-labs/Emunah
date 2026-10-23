@@ -308,7 +308,7 @@ pre .c { color: #7c8799; }
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: 64px;
-  align-items: center;
+  align-items: start;
 }
 .feature + .feature { margin-top: 120px; }
 .feature.flip { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
@@ -399,6 +399,8 @@ pre .c { color: #7c8799; }
 .loop strong { display: block; color: var(--ink); font-weight: 600; }
 .loop span { color: var(--ink-2); font-size: 0.96rem; }
 .loop li.back { background: var(--paper-2); border-style: dashed; }
+/* Names a loop beside its feature, so a PvP prompt and a hunt's room cannot be read as each other's. */
+.loop-title { color: var(--accent-ink); font-weight: 600; font-size: 0.95rem; margin: 0 0 12px; }
 
 .stops { margin-top: 18px; font-size: 0.96rem; color: var(--ink-2); }
 .stops strong { color: var(--ink); }
