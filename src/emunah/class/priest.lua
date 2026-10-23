@@ -733,7 +733,10 @@ local function installTriggers()
 
    keep(tempRegexTrigger([[^Balance used: ([\d.]+)s\.$]], function()
       local seconds = tonumber(matches[2])
-      if seconds then emunah.timers.start("attack.balance", seconds) end
+      if seconds then
+         emunah.timers.start("attack.balance", seconds)
+         emunah.timers.confirm("attack.balance")
+      end
    end))
 
    -- A rejected command never executed, so it never cost balance -- holding the guard for

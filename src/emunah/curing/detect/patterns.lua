@@ -889,7 +889,10 @@ end
 do
    local id = tempRegexTrigger([[^Equilibrium used: ([\d.]+)s\.$]], function()
       local seconds = tonumber(matches[2])
-      if seconds then emunah.timers.start("cure.equilibrium", seconds) end
+      if seconds then
+         emunah.timers.start("cure.equilibrium", seconds)
+         emunah.timers.confirm("cure.equilibrium")
+      end
    end)
    if id then
       emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}

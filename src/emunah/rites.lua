@@ -28,20 +28,13 @@
 --- LEAVING THE ROOM ENDS IT (the user, 2026-10-16). A rite belongs to the room it was
 --- performed in, and the first Room.Info for any other room forgets every rite kept there.
 ---
---- TWO MODES. Outside a fight, the rites you perform (well-being, revitalisation) are
---- renewed until you leave the room. A fight keeps its own set, and holds those. Anzerloi,
---- 2026-10-22 17:32-17:36: rites are passive chance-based helpers, besides arguably piety,
---- which is not kept. Demons and cleansing stay up for the fight. Revitalisation only
---- while health is under pressure, which he says is not typical for a Priest. The healing
---- rite only with a partner in the room; alone, angel care is the one to use, and it is
---- mutually exclusive with the rite. Banishment only against an Ashtani. The rest are
---- tactical and are not raised. Convocation is a dead letter: mass defence negates it.
----
---- THE FIRST EQUILIBRIA OF A FIGHT ARE THESE. One a prompt, then RITES, so the listing
---- can say how long they have. A smite needs equilibrium present as well as the balance
---- it spends, so the mace waits those prompts. A verse needs it too, and spends nothing:
---- it goes in front of the rite. Once a prayer is running, a rite only follows a verse
---- (M.AFTER_VERSE), so its equilibrium is back before the prayer would lapse.
+--- RITES ARE YOURS TO RAISE (the user, 2026-10-23: "change it so i put the rites up
+--- manually"). Nothing here performs a rite you have not performed. A fight used to raise
+--- demons and cleansing (and revitalisation, healing and banishment by situation) in its
+--- opening equilibria; at 17:31 that day it spent 7.1s of equilibrium on them while the mace,
+--- which needs equilibrium present, waited, and the prayer lapsed under it. Anzerloi, the
+--- same minute: "Why I generally don't use them mid-action." A rite you perform is renewed
+--- as before, and renewals wait while PvP is on.
 ---
 --- HANDS WINS THE EMERGENCY. Below curing.handsThreshold, `perform hands` wants this
 --- equilibrium and the offence's equilibrium lane already sits out for it. A rite must
@@ -68,21 +61,6 @@ M.KEEP = {
 --- Renewed outside a fight, and only once you have performed them.
 M.PVE = { ["well-being"] = true, revitalisation = true }
 
---- Health under `curing.healthThreshold`, and the feed can be trusted. Unknown health does
---- not spend four seconds of equilibrium: he called this the uncommon case for a Priest.
-local function healthPressed()
-   local vitals = emunah.gmcp and emunah.gmcp.vitals
-   if not vitals or not vitals.trusted or not vitals.trusted("hp") then return false end
-   local at = tonumber(emunah.config.get("curing.healthThreshold", 80)) or 80
-   return vitals.below("hp", at)
-end
-
---- A partner Room.Players can see. Hidden allies do not count: absent is "not seen".
-local function alliesHere()
-   local allies = emunah.allies
-   return allies ~= nil and #allies.present() > 0
-end
-
 --- `perform hands` wants the equilibrium. Same rule as the offence lane (pvp.lua): trusted
 --- health under the hands threshold. Unknown health does not count -- that path is the
 --- cure's, via vitals.below.
@@ -94,25 +72,6 @@ local function handsWanted()
    local at = tonumber(emunah.config.get("curing.handsThreshold", 50)) or 50
    return vitals.percent.hp < at
 end
-
---- The target's city, from the name database. Unknown is not Ashtan.
-local function ashtani()
-   local pvp = emunah.pvp
-   local name = pvp and pvp.target
-   if not name or name == "" then return false end
-   local person = emunah.namedb and emunah.namedb.get(name)
-   return person ~= nil and tostring(person.city or ""):lower() == "ashtan"
-end
-
---- Raised while a fight has a target, in the order one prompt spends equilibrium.
---- `when` is the situation; a false one is not performed and not renewed.
-M.PVP = {
-   { key = "demons",         when = function() return true end },
-   { key = "cleansing",      when = function() return true end },
-   { key = "revitalisation", when = healthPressed },
-   { key = "healing",        when = alliesHere },
-   { key = "banishment",     when = ashtani },
-}
 
 --- What RITES costs: "Equilibrium used: 1.00s." in the listing above.
 M.CHECK_COST = 1.0
@@ -331,59 +290,6 @@ end
 -- sending
 -- ---------------------------------------------------------------------------
 
---- A fight with a target. PvP with nobody named yet holds the quiet-room renewals and
---- raises nothing: there is no opponent for demons to chip at.
-local function fighting()
-   local pvp = emunah.pvp
-   return pvp ~= nil and pvp.enabled and pvp.target ~= nil and pvp.target ~= ""
-end
-
---- Put the fight's rites into the kept set when their situation holds. One that the fight
---- raised and whose situation has ended is left to lapse; the send below will not renew it.
-function M.raise()
-   local room = here()
-   if not room then return end
-   for index = 1, #M.PVP do
-      local spec = M.PVP[index]
-      if spec.when() and not M.kept[spec.key] then
-         local entry = keep(spec.key)
-         entry.due, entry.raised = true, "pvp"
-      end
-   end
-end
-
-local function dropFight()
-   for _, key in ipairs(sortedKeys()) do
-      if M.kept[key].raised == "pvp" then M.forget(key) end
-   end
-   -- The RITES a fight perform asked for is about rites we are no longer keeping.
-   -- A quiet-room rite still in the set keeps the check: the listing resets its timer too.
-   if next(M.kept) == nil then
-      M.check.wanted, M.check.sentAt, M.check.misses = false, nil, 0
-      emunah.timers.stop("rites.check")
-   end
-end
-
---- Seconds after a verse a fight's rite may still take the equilibrium. A prayer ends about
---- five seconds after its last verse (2026-10-23: guilt at 09:58:24.63, "Your prayer draws
---- to an unsatisfying conclusion." at 29.90; ash at 43.92, the prayer's end at 49.02), and
---- every verse needs equilibrium. Cleansing's 3.6s from a second after a verse leaves the
---- next one inside that.
-M.AFTER_VERSE = 1.0
-
---- Whether a fight's equilibrium can go to a rite without ending the prayer. A rite of
---- demons at 09:58:27.60 took the equilibrium the next verse needed and the prayer lapsed
---- under it. Free when no prayer is running, or straight after a verse; the verse goes in
---- front of the rite on a prompt they share (act.ahead).
-local function prayerRoom()
-   local class = emunah.class and emunah.class.active
-   if not (class and class.prayer and class.pvp) then return true end
-   local ok, prayer = pcall(class.prayer)
-   if not ok or type(prayer) ~= "table" or (prayer.length or 0) == 0 then return true end
-   local verse = class.pvp.lastVerse
-   return verse ~= nil and util.now() - verse.at <= M.AFTER_VERSE
-end
-
 --- Send an equilibrium command of ours, armed in the prompt's line so a verse that needs the
 --- equilibrium goes in front of it rather than behind it into a refusal.
 ---
@@ -415,38 +321,21 @@ end
 function M.tick()
    if not M.enabled() then return end
 
-   -- The fight's rites stop being kept the moment it no longer has a target. The rite
-   -- itself stays in the room until it lapses; we just stop spending equilibrium on it.
-   if M.inFight and not fighting() then dropFight() end
-   M.inFight = fighting()
-
-   if next(M.kept) == nil and not M.check.wanted and not M.inFight then return end
-   -- A PvP session with no target yet: the quiet-room renewals wait, and nothing is raised.
-   if emunah.pvp and emunah.pvp.enabled and not M.inFight then return end
-   if M.inFight then M.raise() end
+   if next(M.kept) == nil and not M.check.wanted then return end
+   -- Renewals, and the RITES that times them, wait while PvP is on: the equilibrium is the
+   -- fight's.
+   if emunah.pvp and emunah.pvp.enabled then return end
    -- Hands first. Raising above only records what is due; nothing is sent while the
    -- emergency heal wants this equilibrium, RITES included.
    if handsWanted() then return end
    if not emunah.have.balance("equilibrium") then return end
-   if M.inFight and not prayerRoom() then return end
 
    local room = here()
-   if M.inFight then
-      for index = 1, #M.PVP do
-         local spec = M.PVP[index]
-         local entry = M.kept[spec.key]
-         if entry and entry.due and entry.room == room and spec.when() then
-            perform(spec.key, entry)
-            return
-         end
-      end
-   else
-      for _, key in ipairs(sortedKeys()) do
-         local entry = M.kept[key]
-         if entry.due and entry.room == room and entry.raised ~= "pvp" then
-            perform(key, entry)
-            return
-         end
+   for _, key in ipairs(sortedKeys()) do
+      local entry = M.kept[key]
+      if entry.due and entry.room == room then
+         perform(key, entry)
+         return
       end
    end
 

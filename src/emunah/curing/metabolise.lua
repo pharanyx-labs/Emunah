@@ -97,13 +97,15 @@ local function attackHeld()
    return type(locks) == "table" and #locks > 0
 end
 
---- Whether this tick may spend the equilibrium. The first setting goes out whenever PvP
---- is on, so the focus is up before the window rather than after the alpha has landed.
---- A later change waits until a lock is already holding the attack.
+--- Whether this tick may spend the equilibrium. Never ahead of the attack: its 3s held the
+--- first smite at 17:31:20 on 2026-10-23 (a smite needs equilibrium present), and the
+--- user's verdict on that fight was "way too slow". So the first setting goes while PvP
+--- holds in defence (`t <name>` arms there, before F1) or a lock already holds the attack,
+--- and a later change only under a lock.
 local function maySpend()
    local pvp = emunah.pvp
    if not (pvp and pvp.enabled) then return false end
-   if M.focus == nil then return true end
+   if M.focus == nil and pvp.mode and pvp.mode() == "defence" then return true end
    return attackHeld()
 end
 

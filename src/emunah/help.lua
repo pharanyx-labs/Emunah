@@ -82,8 +82,9 @@ M.modules = {
       .. "smoking, FOCUS, the tree tattoo, COMPOSE, CONCENTRATE, CLOT and WRITHE. One cure "
       .. "per balance at a time, never inside a balance, never while something blocks it "
       .. "(anorexia, slickness, asthma, paralysis...). Follows the reference system's rules for what to cure "
-      .. "first and when not to. During PvP, spends one equilibrium on METABOLISE IMPATIENCE "
-      .. "so a second player cannot reapply it inside about two seconds. Sips health and mana, "
+      .. "first and when not to. While PvP holds in defence (after `t <name>`, before F1), "
+      .. "spends one equilibrium on METABOLISE IMPATIENCE so a second player cannot reapply "
+      .. "it inside about two seconds; never ahead of the attack. Sips health and mana, "
       .. "eats moss, keeps cures pulled from the rift into your inventory, and wakes you from "
       .. "a sleep you did not choose.",
   commands = {
@@ -165,11 +166,12 @@ M.modules = {
 
 { id = "rites", title = "Rites", summary = "keeps the rites you perform up until you leave the room",
   state = function() return config("rites.keepup", true) end,
-  does = "Keeps Well-being and Revitalisation up. Perform one, or type RITES where yours are "
-      .. "up, and it is performed again each time it runs out, for as long as you stay in "
-      .. "that room: leaving the room stops it. How long each has left comes from RITES, "
-      .. "read (hidden) once equilibrium is back after each perform. Held while PvP is on. "
-      .. "Three tries that do not bring a rite up and it stops, and says so.",
+  does = "Keeps up the rites you perform. You put every rite up yourself, in a fight too: "
+      .. "nothing is performed that you have not performed. Perform one, or type RITES where "
+      .. "yours are up, and it is performed again each time it runs out, for as long as you "
+      .. "stay in that room: leaving the room stops it. How long each has left comes from "
+      .. "RITES, read (hidden) once equilibrium is back after each perform. Held while PvP "
+      .. "is on. Three tries that do not bring a rite up and it stops, and says so.",
   commands = {
    { syntax = "emset rites", handler = "rites",
      summary = "the rites being kept up, and how long each has left" },
@@ -470,9 +472,11 @@ M.settings = {
   detail = "You have the Tree of Life tattoo, and curing touches it. The game never lists the "
        .. "tattoo as a defence, so this is what says it is there. Off: never touched." },
 { key = "curing.metabolise", default = true, type = "boolean", topic = "curing", shipped = false,
-  detail = "During PvP, METABOLISE IMPATIENCE once equilibrium is free, so a second player's "
-       .. "reapplication inside about two seconds is resisted. Costs 3 seconds of equilibrium. "
-       .. "Waits while PERFORM HANDS or DIAG wants it. Off leaves the focus where it is." },
+  detail = "While PvP holds in defence (after `t <name>`, before F1), METABOLISE IMPATIENCE "
+       .. "once equilibrium is free, so a second player's reapplication inside about two "
+       .. "seconds is resisted. Costs 3 seconds of equilibrium, so it never goes ahead of the "
+       .. "attack, only under a lock that holds it. Waits while PERFORM HANDS or DIAG wants "
+       .. "it. Off leaves the focus where it is." },
 { key = "curing.clotThreshold", default = 30, type = "number", topic = "curing",
   shipped = false, detail = "Bleeding above this is clotted." },
 { key = "curing.focusGuilt", default = false, type = "boolean", topic = "curing",

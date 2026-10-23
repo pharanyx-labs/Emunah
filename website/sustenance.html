@@ -127,15 +127,8 @@ emset keep kelp off      <span class="c"># keep none in hand</span></code></pre>
 <p><code>IR</code> is redrawn with a toggle beside every herb, and <code>ELIST</code> as a table, one row per fluid, so you can see at a glance which vials are running low. See <a href="curing.html#in-hand">cures in hand</a> for how pulls are timed.</p>
 
 <h2 id="rites">Rites</h2>
-<p>Perform Well-being or Revitalisation, or type <code>RITES</code> where yours are up, and each is performed again whenever it runs out, for as long as you stay in that room. Leaving the room stops it. How long each one has left is read from <code>RITES</code>, quietly, once equilibrium is back after every perform. Renewals wait while PvP is on.</p>
-<p>A fight keeps its own rites instead, chosen for what each is worth in one:</p>
-<ul>
-  <li><strong>Demons and Cleansing</strong>, always, first.</li>
-  <li><strong>Revitalisation</strong> only while your health is under pressure.</li>
-  <li><strong>Healing</strong> only with a partner in the room. Alone, your angel's care does that job, and the two cannot be up together.</li>
-  <li><strong>Banishment</strong> only against an Ashtani.</li>
-</ul>
-<p>They take the fight's first equilibria, and the mace waits for them. Once a prayer is running, a rite goes only straight after a verse, so its equilibrium is back before the prayer lapses, and none goes while Perform Hands needs the equilibrium to heal you. Three tries that do not bring a rite up stop it with a message. <code>emset rites</code> shows what is being kept and for how long.</p>
+<p>Perform Well-being or Revitalisation, or type <code>RITES</code> where yours are up, and each is performed again whenever it runs out, for as long as you stay in that room. Leaving the room stops it. How long each one has left is read from <code>RITES</code>, quietly, once equilibrium is back after every perform. Renewals wait while PvP is on, and none goes while Perform Hands needs the equilibrium to heal you.</p>
+<p>You put every rite up yourself, in a fight as well: Emunah never performs a rite you have not. Each costs three to five seconds of equilibrium, which in a fight is time the mace spends waiting, so raise the fight's rites before it starts if you want them. Three tries that do not bring a rite up stop it with a message. <code>emset rites</code> shows what is being kept and for how long.</p>
 
 <h2 id="shops">Shops</h2>
 <p><code>WARES</code> listings are made clickable. Under each item, an action line buys one, fills your rift from a tun, or opens a choice of quantities. You can also buy by the item's number directly:</p>

@@ -84,23 +84,13 @@ function mock.separatorAnswered(value)
    emunah.separator.settle(value)
 end
 
---- Mark the fight's standing rites as already up, so a suite about the three lanes is not
---- also the suite about the opening equilibria. Demons and cleansing are what a fight
---- always raises; a situational one is still raised on the next tick when its `when` holds.
---- A fresh fight's first prompts are covered where the rites themselves are tested.
+--- No rites kept and no RITES owed, so a suite about the three lanes starts from a quiet
+--- equilibrium. A fight raises no rites of its own (the user, 2026-10-23: "change it so i
+--- put the rites up manually"); this only clears what an earlier suite left.
 function mock.settleFightRites()
    local rites = emunah.rites
    if not rites then return end
-   local room = emunah.gmcp.room and emunah.gmcp.room.num
    rites.forgetAll()
-   for _, key in ipairs({ "demons", "cleansing" }) do
-      rites.kept[key] = {
-         name = key, attempts = 0, due = false, seen = true,
-         room = room, raised = "pvp",
-      }
-      emunah.timers.start("rites." .. key, 600)
-   end
-   rites.inFight = true
    rites.check.wanted, rites.check.sentAt, rites.check.misses = false, nil, 0
 end
 --- Put the offence's route at a point in its prayers: the game's prayer length and
@@ -3666,10 +3656,13 @@ do
    ok(not metabolise.eligible("blindness"), "a salve-only affliction is not named")
    eq(metabolise.choose(), "impatience", "the focus is impatience, ahead of the window")
 
+   -- Holding in defence, as `t <name>` arms a fight: the first focus is set there, never
+   -- ahead of the attack (2026-10-23 17:31, "way too slow").
    local function arm(items, defences)
       engine.clear(); queue.reset(); emunah.timers.stopAll()
       engine.enabled = true
       emunah.pvp.enabled = true
+      emunah.config.set("pvp.mode", "defence")
       metabolise.focus = nil
       mock.feed("Char.Afflictions.List", {})
       mock.feed("Char.Defences.List", defences or {})
@@ -3734,6 +3727,14 @@ do
    ok(not sent:find("metabolise", 1, true),
       "with PvP off it is not sent: it does nothing to a denizen", sent)
 
+   -- Attacking, the first focus does not take the equilibrium the mace needs present:
+   -- metabolise's 3s held the first smite at 17:31:20 on 2026-10-23.
+   arm()
+   emunah.config.set("pvp.mode", "attack")
+   sent = prompt()
+   ok(not sent:find("metabolise", 1, true),
+      "attacking, the first focus waits: it is set while holding, before F1", sent)
+
    arm()
    emunah.config.set("curing.metabolise", false)
    sent = prompt()
@@ -3797,6 +3798,7 @@ do
    eq(metabolise.focus, "asthma",
       "anorexia is not eligible, so a typed METABOLISE ANOREXIA is not recorded")
 
+   emunah.config.set("pvp.mode", nil)
    restore()
 end
 
@@ -11442,8 +11444,8 @@ ok(targetSet, "the game-side target is set too")
 -- EVERY FREE BALANCE, EVERY TICK (the user, 2026-10-15: "overwhelm my pvp opponent with a
 -- range of afflictions, damage, and finisher moves"). Offence, the default, is Anzerloi's
 -- route: a verse and, on the same prompt, the mace or an equilibrium move, never both
--- (the user, 2026-10-23), once the fight's rites are up. The first equilibria are the rites (Anzerloi, 2026-10-22):
--- a smite needs equilibrium present, so the mace waits for demons, then cleansing, then RITES.
+-- (the user, 2026-10-23). No rite takes the opening equilibria: the user puts rites up by
+-- hand, and Anzerloi does not use them mid-action (2026-10-23 17:31).
 -- have.skill() is permissive here: the skill index has not completed in this suite.
 -- Scoped: Lua 5.1 caps a function at 200 active locals, and this file is one chunk.
 do
@@ -11458,31 +11460,11 @@ mock.sent = {}
 mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
    bal = "1", eq = "1" })
 local lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("perform rite of demons", 1, true),
-   "a fresh fight's first equilibrium is demons", lanes)
-local verseAt, riteAt = lanes:find("recite burn sarapis", 1, true),
-   lanes:find("perform rite of demons", 1, true)
-ok(verseAt and riteAt and verseAt < riteAt,
-   "prayer still goes, in front of it: a verse needs equilibrium and spends none", lanes)
-ok(not lanes:find("smite", 1, true),
-   "the mace waits: a smite needs equilibrium present", lanes)
-ok(not lanes:find("perform sloth", 1, true), "...and so does sloth", lanes)
-
-emunah.timers.stopAll()
-mock.sent = {}
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("perform rite of cleansing", 1, true),
-   "the next equilibrium is cleansing", lanes)
-ok(not lanes:find("smite", 1, true), "the mace waits out cleansing too", lanes)
-
-emunah.timers.stopAll()
-mock.sent = {}
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("rites", 1, true) and not lanes:find("perform rite of", 1, true),
-   "then RITES, to learn how long the two have", lanes)
-ok(not lanes:find("smite", 1, true), "...and the mace is still waiting", lanes)
+ok(not lanes:find("perform rite of", 1, true) and not lanes:find("rites", 1, true),
+   "a fresh fight raises no rites: they are yours to put up", lanes)
+ok(lanes:find("recite burn sarapis", 1, true), "the first prayer opens on Burn at once", lanes)
+ok(lanes:find("perform sloth sarapis", 1, true),
+   "...with sloth beside it on the very first prompt", lanes)
 
 -- The listing has answered. The route starts over with the target: its first prayer opens
 -- on Burn with sloth (all three spars, 2026-10-13), and the mace waits its turn.
@@ -12699,6 +12681,59 @@ suite("PvP: t arms the fight, F1 attacks at once")
 
    pvp.clearTarget(); opp.clear("ashden"); opp.clear("ishvana")
    emunah.config.set("pvp.mode", nil)
+   emunah.timers.stopAll()
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+end)()
+
+-- ===========================================================================
+suite("PvP: no time lost, the 17:31 spar")
+
+-- 2026-10-23 17:31:20-35, the user's "way too slow": 15.9s, three verses, no blow. The
+-- opening went to metabolise (3.0s), demons (3.5s) and cleansing (3.6s), each holding the
+-- mace, which needs equilibrium present; and each time equilibrium came back (23.39, 29.19)
+-- nothing went until 25.49 and 31.53, because our timer outlasted the game's by the round
+-- trip and the attack only acted on a prompt.
+;(function()
+   local opp = emunah.curing.detect.opponent
+   pvp.stop("test"); pvp.clearTarget(); emunah.timers.stopAll(); emunah.act.typedUntil = nil
+   mock.settleFightRites()
+   emunah.config.set("rites.keepup", true)
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
+      bal = "1", eq = "1" })
+   opp.clear("anzerloi")
+   pvp.setTarget("Anzerloi")
+   emunah.timers.stopAll()
+   mock.sent = {}
+   pvp.setMode("attack")
+   local sent = table.concat(mock.sent, " | ")
+   ok(not sent:find("metabolise", 1, true), "F1: no metabolise ahead of the attack", sent)
+   ok(not sent:find("rite", 1, true), "...and no rite", sent)
+   ok(sent:find("anzerloi", 1, true), "...the attack goes on the key", sent)
+
+   -- The game's own cost line, then its report of equilibrium back a moment before our
+   -- timer would end: the prompt that says so is the one that acts.
+   mock.feed("Char.Vitals", { bal = "1", eq = "0" })
+   mock.line("Equilibrium used: 3.00s.")
+   ok(emunah.timers.confirmed("cure.equilibrium"), "(the game's cost line arms a confirmed timer)")
+   mock.advance(2.95)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+   ok(#mock.sent > 0, "equilibrium reported back: that prompt sends, not the next",
+      table.concat(mock.sent, " | "))
+
+   -- An equilibrium timer of ours lapsing with no prompt behind it: the attack acts on it.
+   emunah.timers.stopAll()
+   emunah.timers.start("cure.equilibrium", 1.0)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+   eq(#mock.sent, 0, "(our equilibrium timer running: the prompt holds the attack)",
+      table.concat(mock.sent, " | "))
+   mock.advance(1.1)
+   ok(#mock.sent > 0, "the timer lapses with no prompt: the attack goes on the lapse",
+      table.concat(mock.sent, " | "))
+
+   pvp.stop("test"); pvp.clearTarget(); opp.clear("anzerloi")
+   emunah.config.set("pvp.mode", nil); emunah.config.set("rites.keepup", nil)
    emunah.timers.stopAll()
    mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
 end)()
@@ -18546,15 +18581,14 @@ emunah.timers.stop("cure.equilibrium")
 end)()
 
 -- ===========================================================================
-suite("rites: a fight keeps its own")
+suite("rites: yours to put up, none raised for a fight")
 
--- Separate from the quiet-room keep-up. Anzerloi, 2026-10-22 17:32-17:36: demons and
--- cleansing for the fight, revitalisation only under health pressure, the healing rite
--- only with a partner here, banishment only against an Ashtani. Well-being stays the
--- quiet-room rite. No target, and the fight raises nothing (the suite above).
+-- The user, 2026-10-23: "change it so i put the rites up manually". A fight used to raise
+-- demons and cleansing in its first equilibria, and the 17:31 spar spent 7.1s on them with
+-- no blow landed; Anzerloi: "Why I generally don't use them mid-action." A rite you perform
+-- is still renewed, outside a fight.
 do
 local rites, pvp = emunah.rites, emunah.pvp
-local ndb, allies = emunah.namedb, emunah.allies
 emunah.config.set("rites.keepup", true)
 rites.forgetAll()
 pvp.enabled, pvp.target = false, nil
@@ -18582,75 +18616,19 @@ mock.feed("Room.Players", {})
 pvp.stats = { attacks = 0, recited = 0, startedAt = 0, lanes = {} }
 pvp.enabled, pvp.target = true, "anzerloi"
 
-eq(prompt(), "perform rite of demons", "a fight raises demons first")
-ok(rites.kept.cleansing and rites.kept.cleansing.due, "...and cleansing is next")
-eq(rites.kept.revitalisation, nil, "full health: no revitalisation")
-eq(rites.kept.healing, nil, "no partner in the room: no healing rite")
-eq(rites.kept.banishment, nil, "city unknown: no banishment")
-eq(rites.kept["well-being"], nil, "well-being is not a fight rite")
+eq(prompt(), "", "a fight raises no rite")
+eq(prompt(700), "", "...not under health pressure either")
+eq(next(rites.kept), nil, "...and keeps none")
 
--- Under the hands threshold the equilibrium belongs to perform hands. Demons stays due.
-rites.forgetAll(); emunah.timers.stopAll()
-eq(prompt(400), "", "under the hands threshold, the fight's rites wait")
-ok(rites.kept.demons and rites.kept.demons.due, "...and demons stays due for when health is back")
-
--- Health under the threshold. Demons is still the first equilibrium.
-rites.forgetAll(); emunah.timers.stopAll()
-eq(prompt(700), "perform rite of demons", "under health pressure, demons still goes first")
-ok(rites.kept.revitalisation and rites.kept.revitalisation.due,
-   "...and revitalisation is waiting on the next equilibrium")
-
--- A partner in the room. Room.Players is who we can see.
-rites.forgetAll(); emunah.timers.stopAll()
-allies.add("Vesper")
-mock.feed("Room.Players", { { name = "Vesper", fullname = "Vesper" } })
-prompt()
-ok(rites.kept.healing and rites.kept.healing.due, "a partner here: the healing rite is raised")
-allies.remove("Vesper")
-mock.feed("Room.Players", {})
-
--- Ashtan, and then not.
-rites.forgetAll(); emunah.timers.stopAll()
-ndb.set("anzerloi", "city", "Ashtan")
-prompt()
-ok(rites.kept.banishment and rites.kept.banishment.due, "an Ashtani: banishment is raised")
-ndb.set("anzerloi", "city", "Cyrene")
-rites.forgetAll(); emunah.timers.stopAll()
-prompt()
-eq(rites.kept.banishment, nil, "a Cyrenian: banishment is not")
-
--- A PRAYER RUNNING: a rite's equilibrium is one the next verse needs, so it only follows a
--- verse (2026-10-23 09:58:27.60: demons, and the prayer lapsed under it at 29.90).
-do
-   local P = emunah.class.active
-   local function riteTick(verseAgo)
-      mock.feed("Char.Vitals", { charstats = { "prayer_length: 2", "conviction: 0" },
-         bal = "1", eq = "1" })
-      emunah.queue.reset(); emunah.timers.stopAll()
-      emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
-      mock.sent = {}
-      P.pvp.lastVerse = verseAgo and { name = "guilt", at = emunah.util.now() - verseAgo } or nil
-      rites.tick()
-      return sends()
-   end
-   rites.forgetAll()
-   eq(riteTick(3), "", "a prayer running, its last verse 3s ago: the rite waits")
-   ok(rites.kept.demons and rites.kept.demons.due, "...and stays due")
-   eq(riteTick(0.2), "perform rite of demons", "straight after a verse, it goes")
-   mock.feed("Char.Vitals", { charstats = { "prayer_length: 0", "conviction: 0" } })
-   P.prayerReset()
-   P.pvp.lastVerse = nil
-   rites.forgetAll(); emunah.timers.stopAll()
-end
-
--- The fight ending drops what it raised, and does not keep performing them.
-prompt()
-ok(rites.kept.demons, "demons was up for the fight")
+-- One you perform in the fight is yours: kept, but not renewed while PvP is on.
+mock.command("perform rite of demons")
+emunah.act.typedUntil = nil   -- a typed command holds our own sends a moment; not this test's
+ok(rites.kept.demons, "a rite you perform is kept")
+rites.kept.demons.due = true
+eq(prompt(), "", "...but not renewed while the fight is on")
 pvp.enabled, pvp.target = false, nil
-eq(prompt(), "", "the fight over: nothing is performed")
-eq(rites.kept.demons, nil, "...and the fight's demons are no longer kept")
+eq(prompt(), "perform rite of demons", "the fight over, it is renewed in its room")
 
-ndb.forget("anzerloi")
 rites.forgetAll()
 emunah.config.set("rites.keepup", nil)
 emunah.timers.stopAll()

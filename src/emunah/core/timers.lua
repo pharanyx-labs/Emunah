@@ -69,6 +69,23 @@ function M.stop(name)
    return true
 end
 
+--- Mark a running cooldown as the game's own: started from a line saying the command ran
+--- and what it cost ("Equilibrium used: 3.00s."), not from our guess while it was in
+--- flight. Only such a cooldown may be ended by the game reporting the balance back
+--- (gmcp/vitals.lua): before the command has run, that report is the balance it is about
+--- to spend.
+function M.confirm(name)
+   local entry = registry()[name]
+   if entry then entry.confirmed = true end
+   return entry ~= nil
+end
+
+--- Is this cooldown running, and the game's own (M.confirm)?
+function M.confirmed(name)
+   local entry = registry()[name]
+   return entry ~= nil and entry.confirmed == true
+end
+
 --- How long past its end a cooldown may still be sitting in the registry before it is
 --- treated as orphaned: this, or ORPHAN_SLACK of its length if that is more. Qt's default
 --- coarse timers -- what Mudlet's tempTimer runs on -- only promise to fire within 5% of the
