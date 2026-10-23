@@ -11534,15 +11534,19 @@ eq(table.concat(held, ","), "hard,venom,soft", "...and they are hard, venom and 
 opponent.clear("sarapis")
 eq(#opponent.lockNeeds("sarapis"), 0, "one affliction is not yet a lock worth chasing")
 
--- ATTACK MODE: heresy first (it burns rebounding away, HELP HERESY), then a verse and a
--- smite every exchange. Never the hunt's attack, and no angel sear at all (the user,
--- 2026-10-23: hunting and PvP "are entirely different").
+-- ATTACK MODE: a verse and a smite every exchange, from the first: the opening verse,
+-- unflinching, gives heresy (it burns rebounding away, HELP HERESY), so no `hunt heresy`
+-- holds the mace ("I need it to attack the very moment i hit f1", the user, 2026-10-23).
+-- Never the hunt's attack, and no angel sear at all (2026-10-23: hunting and PvP "are
+-- entirely different").
 emunah.config.set("bashing.attack", "angel sear")
 ok(pvp.setMode("attack"), "emset pvp mode attack")
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-ok(table.concat(mock.sent, " | "):find("hunt heresy", 1, true), "attack mode raises heresy first",
+ok(table.concat(mock.sent, " | "):find("smite sarapis", 1, true)
+   and not table.concat(mock.sent, " | "):find("hunt heresy", 1, true),
+   "attack mode smites on its first line, with no heresy hunt ahead of it",
    table.concat(mock.sent, " | "))
 mock.feed("Char.Defences.Add", { name = "heresy", desc = "" })
 for exchange = 1, 2 do
@@ -12072,10 +12076,8 @@ do
    eq(pvp.mode(), "attack", "...attack, with no separate toggle")
    mock.settleFightRites()
    sent = sentNow()
-   ok(sent:find("hunt heresy") and sent:find("recite"), "...and the attack goes out, heresy first", sent)
-   mock.feed("Char.Defences.Add", { name = "heresy", desc = "" })
-   sent = sentNow()
-   ok(sent:find("smite ashden"), "...then the mace", sent)
+   ok(sent:find("recite") and sent:find("smite ashden") and not sent:find("hunt heresy"),
+      "...and the attack goes out, a verse and the mace together", sent)
    mock.feed("Char.Defences.Remove", { "heresy" })
    -- "If i hit f1 to pvp somebody and then press f1 again, you stop" (the user, 2026-10-23).
    mock.press(mudlet.keymodifier.None, mudlet.key.F1)
@@ -12667,9 +12669,12 @@ suite("PvP: t arms the fight, F1 attacks at once")
    local sent = table.concat(mock.sent, " | ")
    eq(pvp.mode(), "attack", "F1: attack mode")
    ok(pvp.enabled, "...PvP still on")
-   -- Attack opens with heresy and its verse, then smites.
-   ok(offensive(sent) and sent:find("ashden", 1, true),
-      "...and the attack goes at once, with no prompt", sent)
+   -- "I need it to attack the very moment i hit f1": the opening verse and a smite, on the
+   -- key's own line. The verse gives heresy; no 4s `hunt heresy` ahead of the mace.
+   ok(sent:find("recite unflinching ashden", 1, true),
+      "...the opening verse goes at once, with no prompt", sent)
+   ok(sent:find("smite ashden", 1, true), "...and the first blow with it", sent)
+   ok(not sent:find("hunt heresy", 1, true), "...with nothing holding the mace", sent)
 
    -- `t` mid-fight changes the target and keeps the mode.
    mock.command("t Ishvana")
@@ -12730,6 +12735,20 @@ suite("PvP: no time lost, the 17:31 spar")
       table.concat(mock.sent, " | "))
    mock.advance(1.1)
    ok(#mock.sent > 0, "the timer lapses with no prompt: the attack goes on the lapse",
+      table.concat(mock.sent, " | "))
+
+   -- 17:39, the same day: `t anzerloi`, F1, and LOOK three times to bring a prompt. Each
+   -- LOOK's own prompt landed inside the hold after a typed command, and the hold ended
+   -- with nothing to act on it: 16s, no verse and no blow. Its end acts now.
+   emunah.timers.stopAll(); emunah.act.typedUntil = nil
+   mock.command("look")
+   mock.sent = {}
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+   eq(#mock.sent, 0, "(LOOK's prompt lands inside the typed hold: held)",
+      table.concat(mock.sent, " | "))
+   mock.advance(emunah.act.TYPED_HOLD + 0.2)
+   ok(table.concat(mock.sent, " | "):find("anzerloi", 1, true),
+      "the hold ends with no prompt behind it: the attack goes then",
       table.concat(mock.sent, " | "))
 
    pvp.stop("test"); pvp.clearTarget(); opp.clear("anzerloi")
