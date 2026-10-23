@@ -374,7 +374,9 @@ function M.ate(name, desc)
    local item = M.itemFromDescription(desc)
    if not item then return nil end
    used(name, MOSS[item] and "moss" or "herb")
-   local cured = M.tracked[name:lower()] and M.curedBy(name, item) or nil
+   local cured, since
+   if M.tracked[name:lower()] then cured, since = M.curedBy(name, item) end
+   M.lastEat[name:lower()] = { item = item, cured = cured, since = since, at = emunah.util.now() }
    local defence = defenceFromItem(item)
    if defence and not cured then M.defenceUp(name, defence) end
    return item, cured
@@ -395,8 +397,49 @@ function M.curedBy(name, item)
          end
       end
    end
+   local since = best and tracked[best]
    if best then M.forget(name, best) end
-   return best
+   return best, since
+end
+
+--- name -> the last thing they ate: { item, cured, since, at }. Read by M.breathHeld().
+M.lastEat = {}
+
+--- How soon after an eat a held breath says what that eat cured. A tuning number: the
+--- breath is held "immediately" on the cure (Anzerloi, 2026-10-23 14:30:05).
+M.BREATH_AFTER_EAT = 2.0
+
+--- `name` began holding their breath, so asthma is not on them: "You can't do any breathing
+--- stuff with asthma" (Anzerloi, 2026-10-23 14:29:10). "If they cure asthma while
+--- upkeeping breathing and are on balance, they immediately start holding breath. So if
+--- they have multiple kelp affs, eat kelp and hold breath, confirm asthma, other kelp affs
+--- untouched" (14:30:05-14:30:21). So when the eat just before it took a different kelp
+--- affliction off by rank, that one goes back as it was and asthma comes off instead.
+function M.breathHeld(name)
+   name = tostring(name or ""):lower()
+   local eat = M.lastEat[name]
+   if eat and eat.cured and eat.cured ~= "asthma"
+      and emunah.util.now() - eat.at <= M.BREATH_AFTER_EAT then
+      for _, option in ipairs(emunah.curing.afflist.curesVia("asthma", "herb")) do
+         if option.item == eat.item or option.alt == eat.item then
+            M.tracked[name] = M.tracked[name] or {}
+            M.tracked[name][eat.cured] = eat.since or emunah.util.now()
+            eat.cured = "asthma"
+            break
+         end
+      end
+   end
+   M.forget(name, "asthma")
+end
+
+--- Register the line that says `name` began holding their breath. One capture, the actor.
+function M.watchBreath(pattern)
+   local id = tempRegexTrigger(pattern, function()
+      local name = matches and matches[2]
+      if name then M.breathHeld(name) end
+   end)
+   if id then table.insert(registry(), id) end
+   return id ~= nil
 end
 
 --- Watch for opponents eating. Called with the pattern corpus (opponent_patterns.lua), so a
@@ -450,7 +493,7 @@ end
 M.killAll()
 
 event.register("sysDisconnectionEvent", function()
-   M.tracked, M.used, M.defences = {}, {}, {}
+   M.tracked, M.used, M.defences, M.lastEat = {}, {}, {}, {}
 end, "pvp.opponent")
 
 -- Publish before loading the pattern file, same reason as curing/detect/init.lua:

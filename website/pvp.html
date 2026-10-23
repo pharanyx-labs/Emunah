@@ -162,6 +162,7 @@ emset pvp target off         <span class="c"># clear the target</span></code></p
   <li><strong>Cures.</strong> An herb they eat takes off the affliction it cures, recognised by the rift's own description or by the herb's name in the line, so an herb you hold none of still counts. A few cures say so in their own words, such as writhing free of ropes.</li>
   <li><strong>Defences.</strong> Tattoos they touch, herbs that raise a defence, insomnia, and a quicksilver shell forming, so you know what they have up.</li>
   <li><strong>Their cure balances.</strong> When they last ate, sipped or applied a salve.</li>
+  <li><strong>Their breathing.</strong> Someone holding their breath who exhales loudly has just been given asthma, by you or anyone else. Someone who starts holding their breath has just cured it, since nobody can hold their breath with asthma; when that follows a kelp eaten a moment before, the kelp took the asthma, and any other kelp affliction stays on them.</li>
 </ul>
 <p>Emunah never guesses an affliction from the move that might have caused it. A tracked affliction stays until a cure line or an eaten herb takes it off, or you disconnect.</p>
 
@@ -170,7 +171,13 @@ emset pvp target off         <span class="c"># clear the target</span></code></p
 <p>An Alchemist's reflective barrier turns part of your first blow back at you and breaks on the next, which is turned back too. Emunah notes the barrier when it first reflects and clears it when it shatters, so <code>emset pvp</code> shows it while it stands.</p>
 
 <h2 id="absolve">Finishing with absolve</h2>
-<p>A Priest kills with absolve, which needs the target low on mana. In finish mode, the equilibrium lane contemplates the target to read their mana, saps it while absolve would not yet kill, and absolves on a fresh reading once it would. A reading is only trusted for a few seconds, because mana moves as the target acts.</p>
+<p>A Priest kills with absolve, which needs the target under half their mana when it lands. As Anzerloi puts it, you win by having their mana low enough, and when that does not present itself you create the conditions to attack their mana with saps. So every attacking mode takes the kill the moment it is there:</p>
+<ul>
+  <li><strong>Absolve</strong> on a fresh reading under half.</li>
+  <li><strong>The sap that brings it in reach.</strong> When a fresh reading and one sap would take them under half, the sap goes at once, in any prayer, ahead of every other equilibrium move. What a sap takes is worked out from the afflictions confirmed on them: guilt, spiritburn and tenderskin count most, then limb breaks, mental afflictions and being prone, and inquisition makes the whole sap half as much again. Only confirmed afflictions count, so the figure never overestimates.</li>
+  <li><strong>The reading again</strong> straight after that sap, since a sap reports no figure, and absolve on it.</li>
+</ul>
+<p>The offence's drain prayer and finish mode also sap whenever absolve is not yet in reach. A reading is only trusted for a few seconds, because mana moves as the target acts. A shield is stripped before a sap or an absolve meets it.</p>
 <p><code>emset pvp</code> also shows how much of the target's maximum mana a sap would take, worked out from the afflictions tracked on them, and their mana from your last contemplate, marked stale once you have sapped since.</p>
 
 <h2 id="safety">Safety</h2>

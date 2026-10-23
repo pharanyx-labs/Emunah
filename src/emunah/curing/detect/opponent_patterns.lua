@@ -41,6 +41,15 @@ opponent.add("paralysis",   [[^Horror overcomes (\w+)'s face as \w+ body stiffen
 opponent.add("dementia",    [[^(\w+) stares about \w+ frenziedly, wild-eyed\.$]])
 opponent.add("epilepsy",    [[^(\w+) begins to shake uncontrollably\.$]])
 
+-- BREATHING, the asthma tells (Anzerloi, 2026-10-23 14:26:24-14:30:21: "Valuable tells for
+-- asthma"). "If they're holding breath and you hit with asthma (or more importantly,
+-- someone else hits them with asthma but you can't tell) they exhale." And a held breath
+-- means asthma is gone: "You can't do any breathing stuff with asthma" (opponent.breathHeld).
+-- The wording is the reference system's third-person breathing lines; "exhales softly" and
+-- "suddenly inhales deeply" are left alone until what they mean is known.
+opponent.add("asthma",      [[^(\w+) exhales loudly\.$]])
+opponent.watchBreath([[^(\w+) inhales and begins holding (?:his|her) breath\.$]])
+
 -- ---------------------------------------------------------------------------
 -- Third-person cure confirmation -- specific, unambiguous "they writhed free" messages.
 -- Only the two whose wording is certain; a plausible-but-wrong cure pattern here retracts
