@@ -461,6 +461,10 @@ function M.textPrompt()
    M.paragraphLength = 0
    local after = M.linesSinceVitals > 0
    M.linesSinceVitals = 0
+   -- Tags first, while the prompt is still the last thing drawn: the heartbeat's sends echo
+   -- after it, and "(mace on the ground)" landed on the line after `get 428794` instead of
+   -- on the prompt (2026-10-23 16:47:04.00).
+   emunah.event.raise("promptTag")
    local vitals = emunah.gmcp and emunah.gmcp.vitals
    if vitals and vitals.onPrompt then vitals.onPrompt(after) end
    -- Raised on the prompt LINE, so a handler's echo lands on the end of the prompt itself

@@ -403,6 +403,10 @@ the last-resort dwell. The first whose `when` matches wins.
 Paralysis, a numb arm, an entanglement, and both arms broken still refuse the touch. The
 last resort is unchanged: an affliction nothing else can cure, after `TREE_DWELL`.
 
+`You touch the tree of life tattoo.` answers the touch, whatever it cures. Before that,
+each touch held the tree's queue slot for the whole confirm wait ("No confirmation for
+[tree] touch tree -- re-arming.", 2026-10-23 16:47:04.30, when the cure was paranoia).
+
 **The tattoo is the `curing.tree` setting, not a defence.** Achaea never lists the Tree of Life
 tattoo in `Char.Defences` (DEFENCES at 2026-10-23 16:18:30 had no line for it). Emunah used
 to ask the defences, so the tattoo was never touched and the TREE light stayed grey. The

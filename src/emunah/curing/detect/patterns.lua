@@ -299,6 +299,19 @@ detect.balance("tree", {
    },
 })
 
+-- THE TOUCH ITSELF ANSWERS THE TOUCH. "You touch the tree of life tattoo." came, and two
+-- seconds later "No confirmation for [tree] touch tree -- re-arming." (2026-10-23
+-- 16:47:04.30): the cure it gave was paranoia, which nothing had touched it for.
+do
+   local id = tempRegexTrigger([[^You touch the tree of life tattoo\.$]], function()
+      if emunah.queue.awaiting("tree") then emunah.queue.confirm("tree") end
+   end)
+   if id then
+      emunah._persist.detectTriggers = emunah._persist.detectTriggers or {}
+      table.insert(emunah._persist.detectTriggers, id)
+   end
+end
+
 detect.balance("moss", {
    spend = {
       [[^You eat some irid moss\.$]],

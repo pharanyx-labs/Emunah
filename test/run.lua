@@ -14512,6 +14512,15 @@ detect.textCure("burning", "tree")
 prompt()
 ok(not table.concat(mock.echoed, " "):find("Illusion ignored", 1, true),
    "a tree touch's cure line is not called an illusion", table.concat(mock.echoed, " "))
+-- THE TOUCH ITSELF ANSWERS IT: "No confirmation for [tree] touch tree -- re-arming." came
+-- two seconds after "You touch the tree of life tattoo." (2026-10-23 16:47:04.30).
+reset()
+emunah.queue.push("tree", "touch tree", { tag = "tree:any2affs", confirm = 5 })
+emunah.have.recover("tree")
+emunah.queue.flush()
+ok(emunah.queue.awaiting("tree"), "(the touch in flight)")
+mock.line("You touch the tree of life tattoo.")
+eq(emunah.queue.awaiting("tree"), nil, "the touch line answers the touch")
 
 -- THE PROMPT TRIGGER: closes the block, and stands in for a missing Char.Vitals.
 reset()
@@ -15485,31 +15494,58 @@ do
    -- THE MACE ON THE PROMPT whenever it is not wielded (the user, 2026-10-23).
    mock.feed("Char.Items.Update", { location = "inv", item = mace("") })
    eq(wielded.maceWarning(), "mace not wielded", "unwielded: named")
+   -- On the prompt itself, ahead of the heartbeat's sends (16:47:04.00 put it after them).
    mock.echoed = {}
-   emunah.event.raise("prompt")
+   emunah.event.raise("promptTag")
    ok(table.concat(mock.echoed, " "):find("mace not wielded", 1, true),
       "...on the prompt", table.concat(mock.echoed, " "))
 
-   -- Dropped in fear (16:12:47.42): on the ground, and keep-up picks it up by its id.
+   -- AT ALL TIMES, defence keep-up on or off: "we need to be rewielding that mace at all
+   -- times" (the user, 2026-10-23).
+   local keepup = emunah.curing.defkeepup
+   local keepupWas = keepup.enabled
+   keepup.enabled = false
+   local function sentAll() return table.concat(mock.sent, " | ") end
+   local function count(text)
+      local n = 0
+      for _, command in ipairs(mock.sent) do if command == text then n = n + 1 end end
+      return n
+   end
+   keepup.clearSent("trackmace")
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+   mock.sent = {}
+   emunah.event.raise("prompt")
+   ok(sentAll():find("wield mace", 1, true), "unwielded: wielded again, keep-up off", sentAll())
+   ok(keepup.withinBudget("trackmace"), "...and keep-up never gives up on it")
+
+   -- Dropped in fear (16:47:04.00): picked up by its id the moment it lands, once.
    mock.feed("Char.Items.Update", { location = "inv", item = mace("l") })
+   keepup.clearSent("trackmace")
+   mock.sent = {}
    mock.feed("Char.Items.Remove", { location = "inv", item = mace("l") })
    mock.feed("Char.Items.Add", { location = "room", item = mace("") })
    mock.line("You drop a spiritual mace in your terror.")
+   emunah.event.raise("prompt")
    eq(wielded.maceWarning(), "mace on the ground", "dropped: on the ground")
-   local _, command = emunah.curing.deflist.resolve("trackmace")
-   eq(command, "get 341225", "keep-up picks our mace up, not WIELD MACE at nothing")
-   emunah.queue.reset()
-   emunah.queue.push("free", "get 341225", { tag = "def:trackmace", confirm = 2.0 })
-   emunah.queue.flush()
-   ok(emunah.queue.awaiting("free"), "(the GET in flight)")
+   eq(count("get 341225"), 1, "picked up by its id, once: the drop line lets no second GET "
+      .. "through (\"I see no \"428794\" to take.\", 16:47:04.30)", sentAll())
+   ok(not sentAll():find("wield mace", 1, true), "...and no WIELD MACE at nothing", sentAll())
+
+   -- Picked up: wielded at once, not after the GET's confirm wait (2.5s at 16:47:04.30-06.78).
+   mock.sent = {}
    mock.feed("Char.Items.Remove", { location = "room", item = mace("") })
    mock.feed("Char.Items.Add", { location = "inv", item = mace("") })
-   eq(emunah.queue.awaiting("free"), nil,
-      "picked up: the GET is answered, so the wield needs no confirm wait (16:39:33.99-45.98)")
-   _, command = emunah.curing.deflist.resolve("trackmace")
-   eq(command, "wield mace", "picked up: wielded next")
+   eq(count("wield mace"), 1, "picked up: wielded on the same packet", sentAll())
    mock.feed("Char.Items.Update", { location = "inv", item = mace("l") })
    eq(wielded.maceWarning(), nil, "wielded again: the prompt is quiet")
+
+   emunah.config.set("mace.keep", false)
+   keepup.clearSent("trackmace")
+   mock.sent = {}
+   mock.feed("Char.Items.Update", { location = "inv", item = mace("") })
+   ok(not sentAll():find("wield mace", 1, true), "mace.keep off: left as it is", sentAll())
+   emunah.config.set("mace.keep", true)
+   keepup.enabled = keepupWas
 
    emunah.config.set("mace.warn", false)
    mock.feed("Char.Items.Update", { location = "inv", item = mace("") })
@@ -16059,8 +16095,7 @@ mock.feed("Char.Defences.List", {})
 -- "CANNOT CURE" ONCE PER VECTOR AND REASON, not on every prompt.
 fight()
 mock.echoed = {}
-engine.add("masochism", "gmcp"); engine.add("inquisition", "gmcp")
-engine.add("clumsiness", "gmcp")
+afflict("masochism", "inquisition", "clumsiness")
 for _ = 1, 4 do tick() end
 local _, said = table.concat(mock.echoed, "\n"):gsub("Cannot cure masochism", "")
 eq(said, 1, "07:33:34.80 on -- the focus refusal for masochism is reported once, not per prompt")
@@ -16260,9 +16295,12 @@ local function fight()
 end
 -- As the server sends it: the engine reconciles against Char.Afflictions every 20 ticks,
 -- and one added only to the engine is gone on that tick.
-local function justice()
-   mock.feed("Char.Afflictions.Add", { name = "justice", cure = "", desc = "" })
+local function afflictions(...)
+   for _, name in ipairs({ ... }) do
+      mock.feed("Char.Afflictions.Add", { name = name, cure = "", desc = "" })
+   end
 end
+local function justice() afflictions("justice") end
 local function eaten()
    mock.sent = {}
    mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
@@ -16276,14 +16314,14 @@ local mine = {
 
 config.set("curing.ownprios", false)
 conf.apply(mine)
-fight(); engine.add("paralysis", "gmcp"); engine.add("weariness", "gmcp")
+fight(); afflictions("paralysis", "weariness")
 eq(eaten(), "bloodroot", "ownprios off: priorities.conf is ignored")
 fight(); justice()
 eq(eaten(), nil, "...and so is situations.conf: justice is still held")
 
 config.set("curing.ownprios", true)
 conf.apply(mine)
-fight(); engine.add("paralysis", "gmcp"); engine.add("weariness", "gmcp")
+fight(); afflictions("paralysis", "weariness")
 eq(eaten(), "kelp", "ownprios on: weariness.herb = 1 puts kelp first")
 fight(); justice()
 eq(eaten(), "bellwort", "...and a rule switched off in situations.conf is off")

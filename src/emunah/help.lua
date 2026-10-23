@@ -519,6 +519,9 @@ M.settings = {
   detail = "Per-affliction, per-vector rank overrides. Written by `emset prio`." },
 
 -- defences
+{ key = "mace.keep", default = true, type = "boolean", topic = "defences", shipped = false,
+  detail = "Pick the mace up and wield it whenever it is not in hand, whether or not defence "
+       .. "keep-up is on. CALL and SUMMON stay with keep-up, which never gives up on it." },
 { key = "mace.warn", default = true, type = "boolean", topic = "defences", shipped = false,
   detail = "Name the mace on the prompt whenever it is not wielded: \"(mace not wielded)\" "
        .. "or \"(mace on the ground)\". WIELDED is shown at login either way." },
