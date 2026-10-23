@@ -62,20 +62,41 @@ mock.feed("Char.Items.List", { location = "room", items = {
 mock.feed("Char.Items.List", { location = "inv", items = {
    { id = "20", name = "an epidermal salve", attrib = "" },
    { id = "21", name = "some kelp", attrib = "" },
+   { id = "22", name = "a spiritual mace", attrib = "l" },
 } })
 mock.feed("IRE.Rift.List", { { name = "bloodroot", amount = "120" }, { name = "goldenseal", amount = "80" } })
 
--- A full set, the way `emset defs` leaves one: most up, two stripped mid-fight.
-local UP = { "rebounding", "speed", "levitating", "insomnia", "temperance", "deathsight",
-   "mindseye", "deafness", "poisonresist", "thirdeye", "fangbarrier", "kola", "cloak",
-   "vigilance", "alertness", "curseward", "skywatch", "groundwatch", "telesense", "nightsight",
-   "hypersight" }
+-- A Priest's skill index, so abilities are filed under their skillsets as in play rather
+-- than under "Abilities", which is only what the panel shows before the index arrives.
+local SKILLS = {
+   Devotion     = { "bliss", "inspiration" },
+   Spirituality = { "angel", "mace" },
+   Survival     = { "insomnia", "selfishness" },
+   Tattoos      = { "cloak", "mindseye" },
+   Vision       = { "groundwatch", "hypersight", "nightsight", "skywatch", "treewatch" },
+}
+local groups = {}
+for name in pairs(SKILLS) do groups[#groups + 1] = { name = name } end
+mock.feed("Char.Skills.Groups", groups)
+for name, list in pairs(SKILLS) do mock.feed("Char.Skills.List", { group = name, list = list }) end
+
+-- A Priest's set, the way `emset defs` leaves one. Mid-fight, with afflictions tracked,
+-- keep-up raises only what costs nothing, so a defence stripped stays down: here the
+-- rebounding our own blows drop, and the selfishness a thief strips first.
+local UP = { "levitating", "poisonresist", "speed", "temperance", "blindness", "deafness",
+   "kola", "thirdeye", "fangbarrier", "bliss", "inspiration", "trackangel", "trackmace",
+   "insomnia", "cloak", "mindseye", "groundwatch", "hypersight", "nightsight", "skywatch",
+   "treewatch" }
 local list = {}
 for _, name in ipairs(UP) do list[#list + 1] = { name = name } end
 mock.feed("Char.Defences.List", list)
 for _, name in ipairs(UP) do emunah.curing.defkeepup.setMode(name, "keepup") end
-emunah.curing.defkeepup.setMode("blind", "keepup")
+emunah.curing.defkeepup.setMode("rebounding", "keepup")
 emunah.curing.defkeepup.setMode("selfishness", "keepup")
+-- Bliss, the angel and the mace are never in Char.Defences: each is tracked from its own
+-- lines or the inventory, so they are set up the way those would leave them.
+emunah.curing.deflist.setBliss(true)
+emunah.curing.detect.setAngel(true)
 
 mock.feed("Char.Afflictions.Add", { name = "anorexia", cure = "APPLY EPIDERMAL", desc = "" })
 mock.feed("Char.Afflictions.Add", { name = "asthma", cure = "EAT KELP", desc = "" })
@@ -204,7 +225,24 @@ local theme = emunah.ui.theme
 local html = {}
 local function add(text) html[#html + 1] = text end
 
+-- The panels name Ubuntu Mono, which Mudlet ships in its own fonts directory rather than
+-- installing it. Load that copy when it is there, so the preview measures text as Mudlet
+-- does; without it a wider fallback overflows labels that fit in the client.
+local fontFace = ""
+local home = os.getenv("HOME")
+for _, dir in ipairs({ home and (home .. "/.config/mudlet/fonts/ubuntu-font-family-0.83") or nil }) do
+   local regular = io.open(dir .. "/UbuntuMono-R.ttf", "rb")
+   if regular then
+      regular:close()
+      fontFace = string.format([[
+@font-face { font-family:"Ubuntu Mono"; src:url("file://%s/UbuntuMono-R.ttf"); font-weight:normal; }
+@font-face { font-family:"Ubuntu Mono"; src:url("file://%s/UbuntuMono-B.ttf"); font-weight:bold; }
+]], dir, dir)
+   end
+end
+
 add(string.format([[<!doctype html><html><head><meta charset="utf-8"><style>
+]] .. fontFace .. [[
 body { margin:0; width:%dpx; height:%dpx; background:%s; position:relative; overflow:hidden;
        font-family:"Ubuntu Mono","DejaVu Sans Mono",monospace; color:%s; }
 div.w { position:absolute; box-sizing:border-box; overflow:hidden; }
@@ -260,8 +298,13 @@ for _, widget in ipairs(ordered) do
          -- A label written with decho carries <r,g,b> tags; one written with echo, rich text.
          local contents = widget.contents or ""
          if contents:find("<:?%d+,%d+,%d+>") then contents = decho(contents) end
-         -- One block inside the flex box, as Qt lays a label's rich text out top to bottom.
-         add(string.format('<div class="w" style="%s%s"><div style="width:100%%">%s</div></div>', box, css(widget.style), contents))
+         -- One block inside the flex box, as Qt lays a label's rich text out top to bottom,
+         -- with its lines aligned the way the label's alignment puts them.
+         local align = (widget.style or ""):match("qproperty%-alignment:%s*'([^']+)'") or ""
+         local textAlign = (align:find("AlignCenter") or align:find("AlignHCenter")) and "center"
+            or align:find("AlignRight") and "right" or "left"
+         add(string.format('<div class="w" style="%s%s"><div style="width:100%%;text-align:%s">%s</div></div>',
+            box, css(widget.style), textAlign, contents))
       elseif kind == "miniconsole" then
          local size = widget.cons.fontSize or theme.font.size
          add(string.format('<div class="w console" style="%sbackground:%s;font-size:%dpt;padding:2px 4px">%s</div>',
