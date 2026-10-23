@@ -264,6 +264,20 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
     terror.`
 - **Absolve only on a contemplate under 50%.** Wrath is a second sap, not half of a
   finisher.
+- **The kelp trail, and mentals only when they pay** (Anzerloi, 2026-10-23, after the
+  17:44 spar, where attack mode paired guilt and ash with recklessness, confusion,
+  dizziness and epilepsy, and `chasten mind` three times): "See the problem? Matching
+  mentals with eatables. I get rid of them before your next attack." "Gotta only use
+  mentals when they can't focus or it can harm them." "That's why I work the kelp trail
+  primarily." "Mentals are for when you get a good lobelia trail to hold the guilt. And
+  you don't have a more worthy affliction to contribute to the kelp trail." "Between
+  another mental and hellsight, I'll go hellsight any day. But you need a little bit of
+  kelp to make it worth it." "I like saving asthma for the end." So every mode's chasten
+  goes clumsiness, healthleech, asthma; a mental (focus cures it) only with focus shut
+  (impatience, inquisition), in the slickness sequence, or with guilt and another lobelia
+  affliction held and the kelp trail full (`M.mentalsAllowed`); the mind pool likewise,
+  its capstone aside. Attack mode recites Revelations once asthma is secure, with the
+  panic and fasting that follow.
 - **The kill wherever it is** (Anzerloi, 2026-10-23 14:38:17-14:39:20): "You win by having
   their mana low enough. If that does not present itself on its own (on your
   contemplations), you attempt to create conditions to attack their mana with saps. Most of
