@@ -668,11 +668,18 @@ return function(P)
       -- F1: damage first, afflictions on the side. A verse and a smite carrying a chasten,
       -- every exchange: two afflictions and the damage. No angel sear: that is the hunt's
       -- attack, and fire without inquisition is wasted (the purge above).
+      --
+      -- THE FIRST BLOW ON THE KEY. "I need it to attack the very moment i hit f1" (the user,
+      -- 2026-10-23). `hunt heresy` used to open it, 4s of equilibrium the mace waited out,
+      -- though the opening verse gives heresy itself: "recite unflinching" at 17:31:20,
+      -- "Rage fills you as the thought of heresy inspires you". So the verse and the smite
+      -- go on F1's own line, and heresy is hunted only once a blow has rebounded
+      -- (heresyIfRebounding, below).
       attack = {
          exchange    = true,
          prayer      = { "purge", "unflinching", "guilt", "ash" },
          balance     = { "smite" },
-         equilibrium = { "heresy" },
+         equilibrium = {},
       },
       -- F2: hold the attack. Curing and the defence keep-up are not this mode's to send,
       -- and no game command for a defensive rotation has been captured.

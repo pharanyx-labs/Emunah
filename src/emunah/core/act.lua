@@ -128,7 +128,27 @@ function M.typed()
       if ok then latency = tonumber(value) or 0 end
    end
    M.typedUntil = emunah.util.now() + hold + latency
+   -- AND ACT WHEN IT ENDS. The hold used to end silently, and what it held waited for the
+   -- next prompt. A typed command's reply is a prompt that lands inside the hold, so
+   -- typing to get one sent nothing: at 17:39 on 2026-10-23, `t anzerloi` and three LOOKs
+   -- over 16s, F1 twice, no verse and no blow. When the hold held something back, its end
+   -- runs a heartbeat on the state we have, as a prompt would.
+   M.heldByTyping = false
+   local timers = emunah.timers
+   if timers then
+      timers.start("act.typed", hold + latency + 0.05, function()
+         if not M.heldByTyping then return end
+         M.heldByTyping = false
+         local vitals = emunah.gmcp and emunah.gmcp.vitals
+         if vitals and vitals.heartbeat and vitals.live and vitals.live() then
+            vitals.heartbeat()
+         end
+      end)
+   end
 end
+
+--- Did the hold after a typed command keep anything back? Then its end acts (M.typed).
+M.heldByTyping = false
 
 --- Does the character have this affliction? The curing engine's view when it is running
 --- (it knows about DIAG and refusal-detected afflictions), the server's list otherwise.
@@ -165,7 +185,10 @@ function M.blocked(needs, spends)
    -- INR ALL after QUIT, a purchase's GET GOLD -- and those are yours too. `user`: your
    -- own command off the queue (queue.user), the thing being waited for.
    if M.typedUntil and (needs.bal or needs.eq) and not needs.user then
-      if emunah.util.now() < M.typedUntil then return "you typed a command" end
+      if emunah.util.now() < M.typedUntil then
+         M.heldByTyping = true
+         return "you typed a command"
+      end
       M.typedUntil = nil
    end
 
