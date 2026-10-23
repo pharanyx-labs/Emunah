@@ -222,11 +222,12 @@ M.modules = {
    { syntax = "emset pvp target <name>|off",
      summary = "choose the target, or clear it" },
    { syntax = "emset pvp mode attack|defence|hinder|finish|offence",
-     summary = "enter a PvP mode and turn PvP on. F1 attack, F2 defence, F3 hinder, F4 finish. "
-        .. "Offence has no key. Another key switches mode; F1 again stops attack, "
-        .. "and F12 turns any of them off" },
+     summary = "enter a PvP mode and turn PvP on; it acts at once, without waiting for a "
+        .. "prompt. F1 attack, F2 defence, F3 hinder, F4 finish. Offence has no key. Another "
+        .. "key switches mode; F1 again stops attack, and F12 turns any of them off" },
    { syntax = "t <name>", alias = "t",
-     summary = "target them and start the fight: `emset pvp target <name>`, then PvP on" },
+     summary = "target them and turn PvP on, holding in defence: F1 starts the attack. "
+        .. "Already fighting, it switches target and keeps the mode" },
   } },
 
 { id = "allies", title = "Allies", summary = "the partners you fight beside",

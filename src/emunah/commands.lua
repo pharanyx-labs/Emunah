@@ -1680,12 +1680,12 @@ end))
 -- T, typed bare (the user, 2026-10-15): `t anzerloi` sets the PvP target, the same as `emset
 -- pvp target anzerloi`, including its refusal of allies and the game-side target -- and
 -- "if i ever type 't <anything>' assume it's a pvp fight": PvP goes on with it, which stops
--- a hunt and puts curing and defences on their fight footing (curing/situations.lua). A
--- refused target starts nothing. One word only: anything longer -- a T that the game reads
--- with more after it -- passes through.
+-- a hunt and puts curing and defences on their fight footing (curing/situations.lua). It
+-- goes on holding, in defence, and F1 starts the attack (2026-10-23; pvp.engage). A refused
+-- target starts nothing. One word only: anything longer -- a T that the game reads with
+-- more after it -- passes through.
 table.insert(registry(), tempAlias([[^\s*t\s+(\w+)\s*$]], function()
-   local pvp = emunah.pvp
-   if pvp.setTarget(matches[2]) and not pvp.enabled then pvp.start() end
+   emunah.pvp.engage(matches[2])
 end))
 
 -- Reflect whatever curing/keep-up state a fresh load (or a reload mid-session) actually

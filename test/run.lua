@@ -12290,10 +12290,13 @@ do
       return table.concat(mock.sent, " | ")
    end
 
-   -- HINDER: legs and paralysis. The fight's rites are already up; this is the mode.
+   -- HINDER: legs and paralysis. The fight's rites are already up; this is the mode. The
+   -- mode acts as it is entered (pvp.now()), so what it sent then counts too.
+   mock.sent = {}
    ok(pvp.setMode("hinder") and pvp.enabled, "hinder mode, and PvP on")
+   local opening = table.concat(mock.sent, " | ")
    mock.settleFightRites()
-   local sent = lanes()
+   local sent = opening .. " | " .. lanes()
    ok(sent:find("smash legs ashden chasten paralysis", 1, true), "smash the legs, chastening paralysis", sent)
    ok(sent:find("recite penance ashden", 1, true), "...penance for paralysis on prayer", sent)
 
@@ -12590,6 +12593,62 @@ do
 end
 
 -- ===========================================================================
+suite("PvP: t arms the fight, F1 attacks at once")
+
+-- The user, 2026-10-23: "when i type t <pvp target> - have it enable pvp mode but not
+-- actually start it. then, when i hit f1, it starts attacking them ... I am also required
+-- to send a command to receive a prompt for it to start. this needs to not happen". `t`
+-- used to start PvP in whatever mode was last used, so after an F1 it was already in
+-- attack, and the F1 that followed turned it off. And the loop only ran on a prompt.
+;(function()
+   local opp = emunah.curing.detect.opponent
+   pvp.stop("test"); pvp.clearTarget(); emunah.timers.stopAll(); emunah.act.typedUntil = nil
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
+      bal = "1", eq = "1" })
+   opp.clear("ashden")
+   emunah.config.set("pvp.mode", "attack")   -- the mode the last fight was left in
+   local function offensive(sent)
+      return sent:find("smite", 1, true) or sent:find("recite", 1, true)
+         or sent:find("smash", 1, true) or sent:find("angel ", 1, true)
+         or sent:find("perform sloth", 1, true) or sent:find("perform dazzle", 1, true)
+   end
+
+   mock.sent = {}
+   mock.command("t Ashden")
+   ok(pvp.enabled and pvp.target == "ashden", "t: the target is set and PvP is on")
+   eq(pvp.mode(), "defence", "...holding, in defence, whatever mode the last fight left")
+   mock.settleFightRites()
+   mock.sent = {}
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+   ok(not offensive(table.concat(mock.sent, " | ")), "...and a prompt sends nothing at them",
+      table.concat(mock.sent, " | "))
+
+   -- F1, with no prompt after it: the attack goes on the key itself.
+   emunah.timers.stopAll()
+   mock.sent = {}
+   emunah.pvp.attackKey()
+   local sent = table.concat(mock.sent, " | ")
+   eq(pvp.mode(), "attack", "F1: attack mode")
+   ok(pvp.enabled, "...PvP still on")
+   -- Attack opens with heresy and its verse, then smites.
+   ok(offensive(sent) and sent:find("ashden", 1, true),
+      "...and the attack goes at once, with no prompt", sent)
+
+   -- `t` mid-fight changes the target and keeps the mode.
+   mock.command("t Ishvana")
+   eq(pvp.target, "ishvana", "t mid-fight changes the target")
+   eq(pvp.mode(), "attack", "...and keeps the mode")
+
+   emunah.pvp.attackKey()
+   ok(not pvp.enabled, "F1 again stops the attack")
+
+   pvp.clearTarget(); opp.clear("ashden"); opp.clear("ishvana")
+   emunah.config.set("pvp.mode", nil)
+   emunah.timers.stopAll()
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+end)()
+
+-- ===========================================================================
 suite("PvP chasten: named early, a pool later, and the capstone")
 
 -- Anzerloi, 2026-10-23 14:36-14:40: name the chasten while the target is clean and the
@@ -12605,6 +12664,8 @@ suite("PvP chasten: named early, a pool later, and the capstone")
    opp.clear("ashden")
    mock.settleFightRites()
    mock.feed("Char.Defences.Add", { name = "heresy", desc = "" })
+   -- The mode acts as it is entered (pvp.now()): that is the first blow.
+   mock.sent = {}
    ok(pvp.setMode("attack"), "attack mode")
    local function blow()
       emunah.timers.stopAll()
@@ -12613,7 +12674,7 @@ suite("PvP chasten: named early, a pool later, and the capstone")
       return table.concat(mock.sent, " | ")
    end
 
-   local sent = blow()
+   local sent = table.concat(mock.sent, " | ")
    ok(sent:find("smite ashden head chasten asthma", 1, true),
       "a clean target: the chasten is named", sent)
 
@@ -12686,9 +12747,11 @@ suite("PvP chasten: named early, a pool later, and the capstone")
    ok(not sent:find("smoke skullcap", 1, true), "attacking: rebounding is not smoked", sent)
    eq(emunah.curing.deflist.held("rebounding"), "your own blows drop it while you attack",
       "...and says why")
+   emunah.timers.stopAll()
+   mock.sent = {}
    pvp.setMode("defence")
-   sent = blow()
-   ok(sent:find("smoke skullcap", 1, true), "the defence mode smokes it", sent)
+   sent = table.concat(mock.sent, " | ")
+   ok(sent:find("smoke skullcap", 1, true), "the defence mode smokes it, as it is entered", sent)
    pvp.stop("test")
    eq(emunah.curing.deflist.held("rebounding"), nil, "PvP off: nothing holds it")
    keepup.setMode("rebounding", nil)

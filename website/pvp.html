@@ -107,7 +107,7 @@
   <span class="title">Priest only, and still being refined</span>
   <p>PvP fights as a Priest, the only class Emunah supports today. It is at an early stage: the route below is rebuilt from each spar it is tested in, and it will not yet make the right choice in every fight. Further classes are in development; see the <a href="roadmap.html#classes">roadmap</a>.</p>
 </div>
-<pre><code>t sarapis                    <span class="c"># target them and start the fight</span>
+<pre><code>t sarapis                    <span class="c"># target them and hold, ready; F1 attacks</span>
 emset pvp mode offence       <span class="c"># F1 attack, F2 defence, F3 hinder, F4 finish; offence has no key</span>
 emset pvp                    <span class="c"># the target as Emunah sees them</span>
 emset pvp off                <span class="c"># stop attacking (F12 does this too)</span>
@@ -115,7 +115,7 @@ emset pvp target off         <span class="c"># clear the target</span></code></p
 
 <h2 id="target">Only the player you name</h2>
 <p>The game's list of who is in a room leaves out anyone shrouded, hidden or phased. A fight built on that list would lose an opponent the moment they concealed, or pick the wrong person outright. So a target is a name you typed, and nothing else ever sets one, except a call from a partner you trust (see <a href="allies.html">allies</a>). An ally, or you, is never accepted as a target, however it is named.</p>
-<p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> to <kbd>F4</kbd> turn it on in a mode, and another of them switches mode. <kbd>F1</kbd> pressed again stops attack mode, and <kbd>F12</kbd> turns any mode off on the way to the safe room. <code>t &lt;name&gt;</code> sets the target and turns PvP on together. Killing your target clears it and ends the session, and so does your own death.</p>
+<p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> to <kbd>F4</kbd> turn it on in a mode, and another of them switches mode. <kbd>F1</kbd> pressed again stops attack mode, and <kbd>F12</kbd> turns any mode off on the way to the safe room. <code>t &lt;name&gt;</code> sets the target and turns PvP on in defence, holding the attack while curing, keep-up and the fight's rites run as they do in a fight; <kbd>F1</kbd> then starts the attack. Typed mid-fight, it changes the target and keeps the mode. A key acts the moment it is pressed, on the balances the last prompt left, without waiting for the game to send another prompt. Killing your target clears it and ends the session, and so does your own death.</p>
 
 <h2 id="modes">Every balance, every prompt</h2>
 <p>A fight against a person is won by sending more than they can cure. So each balance is a lane that chooses for itself on every prompt it is free: a Zeal verse on prayer, a mace blow carrying a chasten on balance, and an affliction or a finisher on equilibrium. What each lane sends is the mode's, and <kbd>F1</kbd> to <kbd>F4</kbd> choose one and turn PvP on. Offence is the mode a fresh <code>emset pvp on</code> starts in, and it has no key.</p>

@@ -202,6 +202,37 @@ function M.setMode(mode)
    log.info("PvP mode: <ansi_light_green>%s<ansi_yellow>.", mode)
    event.raise("pvp.mode", mode)
    if not M.enabled then M.start() end
+   M.now()
+   return true
+end
+
+--- Act now, not on the next prompt. The loop runs on the prompt, and an idle fight has
+--- none coming: F1 pressed with nothing happening sent nothing until the user typed a
+--- command to bring a prompt (the user, 2026-10-23). So a heartbeat runs at once, on the
+--- balances the last prompt left: the whole prompt, not just this loop, so the fight's
+--- opening rites and the cures keep their turn ahead of the attack.
+function M.now()
+   if not (M.enabled and M.target) then return end
+   local vitals = emunah.gmcp and emunah.gmcp.vitals
+   if vitals and vitals.heartbeat then vitals.heartbeat() else emunah.act.batched(M.tick) end
+end
+
+--- `t <name>`: target them and put PvP on its fight footing, without attacking. "When i
+--- type t <pvp target> have it enable pvp mode but not actually start it. then, when i hit
+--- f1, it starts attacking them" (the user, 2026-10-23). A fresh session starts in defence,
+--- which holds the attack while curing, keep-up and the fight's rites run as they do in a
+--- fight. A session already running keeps its mode, and turns on the new target at once.
+function M.engage(name)
+   if not M.setTarget(name) then return false end
+   if M.enabled then
+      M.now()
+      return true
+   end
+   emunah.config.set("pvp.mode", "defence"); emunah.config.save()
+   event.raise("pvp.mode", "defence")
+   if not M.start() then return false end
+   log.info("Holding. <ansi_light_green>F1<ansi_yellow> attacks %s; F3 hinders, F4 "
+      .. "finishes.", emunah.util.capitalise(M.target))
    return true
 end
 

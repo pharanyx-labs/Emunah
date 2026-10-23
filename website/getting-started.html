@@ -154,7 +154,7 @@ emset defs           <span class="c"># the defence grid: click each to cycle off
 emset defs on        <span class="c"># keep the chosen defences up</span>
 emset hunt           <span class="c"># walk the area and bash it (F11); emset hunt off to stop</span>
 goto bank            <span class="c"># walk to the nearest bank</span>
-t sarapis            <span class="c"># target someone and start fighting them</span>
+t sarapis            <span class="c"># target someone and hold, ready; F1 attacks</span>
 pp                   <span class="c"># pause or resume curing and defences together</span></code></pre>
 <p>When you want to sleep, type <code>sleep</code> rather than the game's own command: Emunah relaxes insomnia first, and neither wakes you nor raises insomnia again until you are up.</p>
 <p>Typing <code>QUIT</code> or <code>QQ</code> tells Emunah the client is closing: it stores your pack in the rift with <code>INR ALL</code>, then sends nothing more. Reconnecting, <code>emreload</code> or <code>emset pause</code> starts it again.</p>
@@ -187,7 +187,7 @@ emset system.update false      <span class="c"># reload what is on disk, without
 
 <h2 id="developing">Developing</h2>
 <p>Edit any file under <code>src/</code> and run <code>emreload</code>. There is nothing to reimport and no client to restart, and a module added to the manifest is picked up on the same reload.</p>
-<p>The suite of 3700 behavioural tests runs the real modules against a simulated Mudlet, with no client involved. Mudlet runs Lua 5.1, and so does the suite. GitHub Actions runs the same command on every change.</p>
+<p>The suite of 3709 behavioural tests runs the real modules against a simulated Mudlet, with no client involved. Mudlet runs Lua 5.1, and so does the suite. GitHub Actions runs the same command on every change.</p>
 <pre><code>sh tools/ci.sh                  <span class="c"># compile as Lua 5.1, then the suite</span>
 lua5.1 test/run.lua             <span class="c"># the test suite</span>
 lua5.1 test/bench.lua           <span class="c"># per-prompt cost, in microseconds and bytes</span>

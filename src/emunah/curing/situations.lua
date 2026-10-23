@@ -198,7 +198,10 @@ end
 
 local function attacking()
    local pvp, bashing = emunah.pvp, emunah.bashing
-   return (pvp ~= nil and pvp.enabled == true) or (bashing ~= nil and bashing.enabled == true)
+   -- Defence holds the attack (`t <name>` starts there), so it is not attacking.
+   local fighting = pvp ~= nil and pvp.enabled == true
+      and not (pvp.mode and pvp.mode() == "defence")
+   return fighting or (bashing ~= nil and bashing.enabled == true)
 end
 
 local function healthPercent()
