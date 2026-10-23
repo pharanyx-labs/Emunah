@@ -121,8 +121,18 @@
 <p>Turn keep-up on with <code>emset defs on</code>. The same grid switches pipe relighting, riding keep-up and selfishness.</p>
 
 <h2 id="curing-first">Never at curing's expense</h2>
-<p>Defences go through the same queue as cures, at a lower priority than any cure, so the two never fight over a balance. While anything curable is on you, keep-up waits: a defence raised mid-lock is usually stripped again at once. The one exception is mindseye while you cannot see, which goes ahead of the other equilibrium defences so you are never left blind.</p>
+<p>Defences go through the same queue as cures, at a lower priority than any cure, so the two never fight over a balance. While curing is tracking an affliction, keep-up raises only what costs nothing: a defence raised mid-lock is usually stripped again at once. The one exception is mindseye while you cannot see, which goes ahead of the other equilibrium defences so you are never left blind.</p>
 <p>Every raise declares what it needs as well as what it spends. Perform Inspiration spends equilibrium but also needs balance and your feet under you; Emunah holds a raise like that until everything is there, instead of sending it into a refusal.</p>
+
+<h2 id="fast">Everything that can go, at once</h2>
+<p>Keep-up acts the moment a balance comes back, not on the next prompt, and sends every raise that can go:</p>
+<ul>
+  <li><strong>The first raise each balance can take</strong>, not the first in line, so a raise waiting on balance never holds up one that only needs equilibrium.</li>
+  <li><strong>Raises that spend nothing go together</strong>, along with the defence herbs and elixirs that take no balance, such as kola, skullcap, speed and frost.</li>
+  <li><strong>A command that needs a balance without spending it</strong>, such as wielding the mace or lighting the pipes, goes on the same line ahead of the one that spends it.</li>
+  <li><strong>Equilibrium raises go cheapest first</strong>, or in the order you give with <code>emset defs order</code>.</li>
+</ul>
+<p>On two logins of the same character, this took raising the same defences from 27.6 seconds to 21.9.</p>
 
 <h2 id="waste">Never wasted</h2>
 <ul>
@@ -155,8 +165,8 @@ emset defs remove rebounding</code></pre>
   </tbody>
 </table></div>
 
-<h2 id="shield">The mace</h2>
-<p>At login Emunah checks what you are wielding. Your mace is kept in hand at all times: dropped, it is picked up the moment it lands and wielded again, whether or not defence keep-up is on (<code>mace.keep</code>). Whenever it is not wielded, your prompt says so: <code>(mace not wielded)</code>, or <code>(mace on the ground)</code> (<code>mace.warn</code>).</p>
+<h3 id="shield">Kept in hand</h3>
+<p>At login Emunah checks what you are wielding. Your mace is kept in hand at all times: dropped, as fear makes you do, it is picked up by its own item number the moment it lands and wielded on the same line, whether or not defence keep-up is on (<code>mace.keep</code>). Whenever it is not wielded, your prompt says so: <code>(mace not wielded)</code>, or <code>(mace on the ground)</code> (<code>mace.warn</code>).</p>
 
 <h2 id="riding">Riding</h2>
 <p>Your mount is kept with you. Whenever it is in the room and you are not riding it, it is ordered to follow you, which costs nothing but needs balance and equilibrium. With riding keep-up on, you vault back onto it whenever you are off it, but only when the balance is idle: never while anything needs curing, never while hunting or PvP is using the balance, and never when the mount is not in the room.</p>
