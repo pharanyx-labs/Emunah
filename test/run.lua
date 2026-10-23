@@ -12822,6 +12822,33 @@ suite("PvP: the kelp trail, and mentals only when they pay")
    ok(mentals[chasten({ asthma = true, clumsiness = true, healthleech = true },
       { focus = "impatience" })], "their focus shut by impatience: a mental may go")
 
+   -- "Take that recklessness out" (Anzerloi, 2026-10-23): never named, and never `chasten
+   -- mind` but for its capstone, since the game may pick recklessness from the pool.
+   local shut = { focus = "impatience" }
+   local mindy = { asthma = true, clumsiness = true, healthleech = true, epilepsy = true,
+      dizziness = true, confusion = true }
+   pick = chasten(mindy, shut)
+   ok(pick ~= "recklessness" and pick ~= "mind",
+      "the other mentals on them, focus shut: still no recklessness, nor `mind`", pick)
+   for _, mode in pairs(R.CHASTEN) do
+      for _, aff in ipairs(mode) do
+         ok(aff ~= "recklessness" and #emunah.curing.afflist.curesVia(aff, "focus") == 0,
+            "no mode's chasten order names a mental", aff)
+      end
+   end
+   for _, aff in ipairs(R.MENTALS) do
+      ok(aff ~= "recklessness", "...nor the mentals a chasten may name", aff)
+   end
+
+   -- "Still too many mentals": in the slickness sequence, one is enough.
+   local wasSlick = R.slickPhase
+   R.slickPhase = function() return true end
+   ok(R.mentalsAllowed({ afflictions = { slickness = true }, blocked = {} }),
+      "slick, with no mental on them: one may go")
+   ok(not R.mentalsAllowed({ afflictions = { slickness = true, epilepsy = true }, blocked = {} }),
+      "...and with one on them, no more")
+   R.slickPhase = wasSlick
+
    -- An equilibrium move giving a mental waits too: dazzle's stupidity.
    ok(not R.MOVES.dazzle.gives or not emunah.curing.afflist.curesVia("stupidity", "focus")[1]
       or not R.mentalsAllowed({ afflictions = {}, blocked = {} }),
