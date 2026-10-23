@@ -211,12 +211,20 @@ function M.onPrompt(linesAfter)
       M.sawVitals = false
       if not linesAfter then return false end
    end
+   M.heartbeat()
+   return true
+end
+
+--- One heartbeat on the state we already have, as a prompt would run it: curing, keep-up,
+--- the fight's rites and the attack, in their usual order, as one line. For a prompt with no
+--- Char.Vitals ahead of it, and for a key that must act now rather than wait for the game
+--- to send a prompt (pvp.now()).
+function M.heartbeat()
    M.ticks = M.ticks + 1
    emunah.act.batched(function()
       event.raise("vitals", M)
       event.raise("tick", M.ticks)
    end)
-   return true
 end
 
 -- ---------------------------------------------------------------------------
