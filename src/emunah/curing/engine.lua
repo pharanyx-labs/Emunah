@@ -1231,15 +1231,15 @@ local function touchTree(tag, valid)
 end
 
 local function queueTree()
-   if emunah.config.get("curing.tree", true) == false then return end
+   if not have.tree() then return end
    if queue.pending("tree") or queue.awaiting("tree") then return end
 
-   -- The tattoo has to be inked, and its own balance has to be back. Both are checked by
-   -- have.cure() for an ordinary cure; this path builds its own command, so it asks here.
+   -- The tattoo has to be inked (have.tree(), above), and its own balance has to be back.
+   -- Both are checked by have.cure() for an ordinary cure; this path builds its own
+   -- command, so it asks here.
    -- vectorBlocked covers what refuses the touch itself: paralysis, either arm numb, an
    -- entanglement, both arms broken (afflist.blocks, have.vectorBlocked). No entry names
    -- `tree` as a cure vector, so have.cure() never sees this option.
-   if not have.def("tree") then return end
    if not have.balance("tree") then return end
    if have.vectorBlocked("tree") then return end
 

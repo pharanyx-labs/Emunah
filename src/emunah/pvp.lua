@@ -26,7 +26,7 @@
 --- "Overwhelm my pvp opponent with a range of afflictions, damage, and finisher moves ...
 --- set rules via f5-8 that will enter various pvp modes" (the user, 2026-10-15). The keys
 --- are F1-F4 now (2026-10-22): F1 attack, F2 defence, F3 hinder, F4 finish. F12 turns
---- whichever is up off. Offence stays a mode, with no key of its own. Each tick, every
+--- whichever is up off, and F1 again turns attack off (2026-10-23). Offence stays a mode, with no key of its own. Each tick, every
 --- balance that is free -- prayer, balance,
 --- equilibrium -- asks the class what this mode sends on it (class/priest_pvp.lua), and
 --- sends it. Nothing here knows a Priest from any other class.
@@ -203,6 +203,14 @@ function M.setMode(mode)
    event.raise("pvp.mode", mode)
    if not M.enabled then M.start() end
    return true
+end
+
+--- F1: attack mode, or PvP off when attack is already running. "If i hit f1 to pvp
+--- somebody and then press f1 again, you stop" (the user, 2026-10-23). F2-F4 only enter
+--- their mode, replacing whichever was running.
+function M.attackKey()
+   if M.enabled and M.mode() == "attack" then return M.stop("F1") end
+   return M.setMode("attack")
 end
 
 -- ---------------------------------------------------------------------------

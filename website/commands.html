@@ -228,6 +228,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>curing.irid</code></td><td>true</td><td></td></tr>
 <tr><td><code>curing.ownprios</code></td><td>false</td><td>Use conf/priorities.conf and conf/situations.conf. Set with <code>emset ownprios</code>.</td></tr>
 <tr><td><code>curing.diag</code></td><td>true</td><td>Send DIAG when the affliction list is in doubt. That is what answers <code>loki</code>, the one affliction GMCP does not report honestly.</td></tr>
+<tr><td><code>curing.tree</code></td><td>true</td><td>You have the Tree of Life tattoo, and curing touches it. The game never lists the tattoo as a defence, so this is what says it is there. Off: never touched.</td></tr>
 <tr><td><code>curing.metabolise</code></td><td>true</td><td>During PvP, METABOLISE IMPATIENCE once equilibrium is free, so a second player's reapplication inside about two seconds is resisted. Costs 3 seconds of equilibrium. Waits while PERFORM HANDS or DIAG wants it. Off leaves the focus where it is.</td></tr>
 <tr><td><code>curing.clotThreshold</code></td><td>30</td><td>Bleeding above this is clotted.</td></tr>
 <tr><td><code>curing.focusGuilt</code></td><td>false</td><td></td></tr>
@@ -276,7 +277,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 
 <div class="table-wrap"><table>
 <thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
-<tr><td><code>shield.watch</code></td><td>true</td><td>A notice on the chyron while no shield is wielded. Settles on the next inventory change. WIELDED is shown at login either way.</td></tr>
+<tr><td><code>mace.warn</code></td><td>true</td><td>Name the mace on the prompt whenever it is not wielded: "(mace not wielded)" or "(mace on the ground)". WIELDED is shown at login either way.</td></tr>
 <tr><td><code>defences.enabled</code></td><td>false</td><td></td></tr>
 <tr><td><code>defences.keepup</code></td><td>{}</td><td>name -&gt; "defup" or "keepup". Written by the defence grid.</td></tr>
 <tr><td><code>defences.commands</code></td><td>{}</td><td>name -&gt; the command that raises it, for defences we ship no command for.</td></tr>
@@ -417,7 +418,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 </div>
 <div class="cmd-block">
 <span class="cmd-syntax">emset pvp on|off</span>
-<p>start or stop attacking the target. F12 stops it</p>
+<p>start or stop attacking the target. F12 stops it, and so does F1 in attack mode</p>
 </div>
 <div class="cmd-block">
 <span class="cmd-syntax">emset pvp target &lt;name&gt;|off</span>
@@ -425,7 +426,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 </div>
 <div class="cmd-block">
 <span class="cmd-syntax">emset pvp mode attack|defence|hinder|finish|offence</span>
-<p>enter a PvP mode and turn PvP on. F1 attack, F2 defence, F3 hinder, F4 finish. Offence has no key. F12 turns any of them off</p>
+<p>enter a PvP mode and turn PvP on. F1 attack, F2 defence, F3 hinder, F4 finish. Offence has no key. Another key switches mode; F1 again stops attack, and F12 turns any of them off</p>
 </div>
 <div class="cmd-block">
 <span class="cmd-syntax">t &lt;name&gt;</span>

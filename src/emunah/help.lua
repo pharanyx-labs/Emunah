@@ -218,12 +218,13 @@ M.modules = {
    { syntax = "emset pvp", handler = "pvp",
      summary = "target, their afflictions and mana, attacks sent" },
    { syntax = "emset pvp on|off",
-     summary = "start or stop attacking the target. F12 stops it" },
+     summary = "start or stop attacking the target. F12 stops it, and so does F1 in attack mode" },
    { syntax = "emset pvp target <name>|off",
      summary = "choose the target, or clear it" },
    { syntax = "emset pvp mode attack|defence|hinder|finish|offence",
      summary = "enter a PvP mode and turn PvP on. F1 attack, F2 defence, F3 hinder, F4 finish. "
-        .. "Offence has no key. F12 turns any of them off" },
+        .. "Offence has no key. Another key switches mode; F1 again stops attack, "
+        .. "and F12 turns any of them off" },
    { syntax = "t <name>", alias = "t",
      summary = "target them and start the fight: `emset pvp target <name>`, then PvP on" },
   } },
@@ -464,6 +465,9 @@ M.settings = {
 { key = "curing.diag", default = true, type = "boolean", topic = "curing", shipped = false,
   detail = "Send DIAG when the affliction list is in doubt. That is what answers `loki`, "
        .. "the one affliction GMCP does not report honestly." },
+{ key = "curing.tree", default = true, type = "boolean", topic = "curing", shipped = false,
+  detail = "You have the Tree of Life tattoo, and curing touches it. The game never lists the "
+       .. "tattoo as a defence, so this is what says it is there. Off: never touched." },
 { key = "curing.metabolise", default = true, type = "boolean", topic = "curing", shipped = false,
   detail = "During PvP, METABOLISE IMPATIENCE once equilibrium is free, so a second player's "
        .. "reapplication inside about two seconds is resisted. Costs 3 seconds of equilibrium. "
@@ -515,9 +519,9 @@ M.settings = {
   detail = "Per-affliction, per-vector rank overrides. Written by `emset prio`." },
 
 -- defences
-{ key = "shield.watch", default = true, type = "boolean", topic = "defences", shipped = false,
-  detail = "A notice on the chyron while no shield is wielded. Settles on the next "
-       .. "inventory change. WIELDED is shown at login either way." },
+{ key = "mace.warn", default = true, type = "boolean", topic = "defences", shipped = false,
+  detail = "Name the mace on the prompt whenever it is not wielded: \"(mace not wielded)\" "
+       .. "or \"(mace on the ground)\". WIELDED is shown at login either way." },
 { key = "defences.enabled", default = false, type = "boolean", topic = "defences",
   shipped = true },
 { key = "defences.keepup", default = "{}", type = "table", topic = "defences", shipped = true,

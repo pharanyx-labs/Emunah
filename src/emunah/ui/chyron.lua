@@ -217,7 +217,7 @@ end
 ---
 --- A `key` makes it a standing notice rather than an announcement: sending the same key
 --- again replaces it where it stands instead of queueing a copy, and M.dismiss(key) takes
---- it down once whatever it reports is put right (shield.lua's "not wielded").
+--- it down once whatever it reports is put right.
 --- @param text string
 --- @param colour string|nil a theme.colour key, default "textBright"
 --- @param key string|nil

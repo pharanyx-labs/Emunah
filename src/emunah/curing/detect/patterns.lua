@@ -1330,6 +1330,10 @@ do
    persist(tempRegexTrigger(
       [[^Your action foils your attempt at summoning your spiritual mace\.$]],
       function() emunah.curing.deflist.noteMaceSummonFoiled() end))
+   -- Dropped in fear: angel panic's fear makes you drop what you wield (16:12:47.42 and
+   -- 16:15:21.77, 2026-10-23).
+   persist(tempRegexTrigger([[^You drop a spiritual mace in your terror\.$]],
+      function() emunah.curing.deflist.noteMaceDropped() end))
    persist(tempRegexTrigger(
       [[^You start to wield a spiritual mace in your left hand\.$]],
       function() emunah.curing.deflist.noteMaceWielded() end))

@@ -3449,16 +3449,23 @@ ok(table.concat(mock.sent, " | "):find("touch tree"),
    table.concat(mock.sent, " | "))
 emunah.gmcp.vitals.bal, emunah.gmcp.vitals.eq = true, true
 
--- Without the tattoo inked there is nothing to touch.
+-- Without the tattoo inked there is nothing to touch. The game never lists it as a defence
+-- (DEFENCES, 2026-10-23 16:18:30), so curing.tree is what says it is there.
 engine.clear(); queue.reset(); emunah.timers.stopAll()
 mock.feed("Char.Defences.List", {})
 engine.add("ablaze", "trigger")
 mock.feed("Char.Vitals", { hp = "1000", maxhp = "1000", bal = "1", eq = "1" })
 mock.advance(engine.TREE_DWELL + 0.1)
 queue.reset(); mock.sent = {}
+emunah.config.set("curing.tree", false)
 engine.tick(); queue.flush()
 ok(not table.concat(mock.sent, " | "):find("touch tree"),
    "no tree tattoo, no touch", table.concat(mock.sent, " | "))
+emunah.config.set("curing.tree", true)
+queue.reset(); mock.sent = {}
+engine.tick(); queue.flush()
+ok(table.concat(mock.sent, " | "):find("touch tree"),
+   "...with it, touched, though Char.Defences never names it", table.concat(mock.sent, " | "))
 
 -- Paralysis refuses `touch tree` too, so it must not pre-empt the last resort into a wasted
 -- round trip. Confirmed live 2026-08-03 16:14:25.08: `touch tree` sent while paralysed came
@@ -3537,8 +3544,14 @@ end
 
 local matched = treefunc.match({ asthma = true, slickness = true, impatience = true })
 eq(matched and matched.id, "forming-lock", "the three together are a reason to touch")
-eq(treefunc.match({ asthma = true, slickness = true }), nil,
-   "two of the three is not")
+local two = treefunc.match({ asthma = true, slickness = true })
+ok(two and two.id ~= "forming-lock", "two of the three is not the forming lock")
+-- ANY TWO THE TREE CAN CURE [reference: any2affs], on here so the tattoo is spent in an
+-- ordinary fight: the user saw it never touched (2026-10-23).
+eq(two and two.id, "any2affs", "...but two tree-curable afflictions are a reason")
+eq(treefunc.match({ asthma = true }), nil, "one is not")
+eq(treefunc.match({ weariness = true, lovers = true }).id, "any2affs",
+   "...counted by afflist's names, through its aliases")
 
 forming({ { id = "1", name = "a goldenseal root", attrib = "e" } })
 engine.add("asthma", "trigger")
@@ -3571,8 +3584,8 @@ forming({
 engine.add("asthma", "trigger")
 engine.add("slickness", "trigger")
 sent = prompted()
-ok(not sent:find("touch tree"),
-   "asthma and slickness alone do not spend the tattoo", sent)
+ok(sent:find("touch tree", 1, true) and sent:find("eat kelp", 1, true),
+   "asthma and slickness: two the tree can cure, touched beside the eat", sent)
 
 forming({ { id = "1", name = "a goldenseal root", attrib = "e" } })
 engine.add("asthma", "trigger")
@@ -3592,14 +3605,6 @@ engine.add("crippledrightarm", "trigger")
 sent = prompted()
 ok(not sent:find("touch tree"),
    "both arms broken, so the forming lock does not touch", sent)
-
-forming({}, {})
-engine.add("asthma", "trigger")
-engine.add("slickness", "trigger")
-engine.add("impatience", "trigger")
-sent = prompted()
-ok(not sent:find("touch tree"),
-   "no tree tattoo, so the forming lock does not touch", sent)
 
 forming({ { id = "1", name = "a goldenseal root", attrib = "e" } })
 emunah.config.set("curing.tree", false)
@@ -11493,22 +11498,30 @@ ok(lanes:find("perform sloth sarapis", 1, true), "equilibrium: sloth, the kelp b
 ok(not lanes:find("smite", 1, true), "...and no mace on the same prompt", lanes)
 
 -- PAST THE FIRST PRAYER the mace goes to the legs, and a CONFIRMED affliction is not given
--- again: the chasten moves on.
+-- again: the chasten moves on. The hellsight prayer builds asthma and a kelp affliction
+-- for Revelations (Anzerloi, 2026-10-23 16:03:25).
 mock.routeAt(1, 10)
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("smite sarapis right leg chasten clumsiness", 1, true),
-   "the second verse of a later prayer: a leg, chastening clumsiness", lanes)
+ok(lanes:find("smite sarapis right leg chasten asthma", 1, true),
+   "the second verse of the hellsight prayer: a leg, chastening asthma", lanes)
 ok(not lanes:find("perform sloth", 1, true), "...and no equilibrium move with it", lanes)
+opponent.assert("sarapis", "asthma")
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+lanes = table.concat(mock.sent, " | ")
+ok(lanes:find("smite sarapis left leg chasten clumsiness", 1, true),
+   "asthma confirmed: the other leg, and a kelp affliction beside it", lanes)
 opponent.assert("sarapis", "clumsiness")
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("smite sarapis left leg chasten paralysis", 1, true),
-   "clumsiness confirmed: the other leg, and the next chasten", lanes)
+ok(lanes:find("smite sarapis right leg chasten paralysis", 1, true),
+   "asthma secure: Anzerloi's order again", lanes)
 opponent.clear("sarapis")
 mock.routeAt(0, 0)
 pvp.setTarget("sarapis")   -- a fresh rotation: paralysis was chastened a moment ago
@@ -12048,7 +12061,7 @@ suite("PvP offence: F1, locks, sapping, the prayer")
 
 -- The user, 2026-10-15: the offence is only ever sent while PvP is on, and it must notice
 -- what the enemy is doing to you -- the reference system's lock table decides whether
--- carrying on is safe. F1 enters attack mode (2026-10-22); it does not toggle.
+-- carrying on is safe. F1 enters attack mode (2026-10-22), and stops it (2026-10-23).
 -- Scoped for the 200-locals cap.
 do
    local priest = emunah.class.active
@@ -12082,8 +12095,16 @@ do
    sent = sentNow()
    ok(sent:find("smite ashden"), "...then the mace", sent)
    mock.feed("Char.Defences.Remove", { "heresy" })
+   -- "If i hit f1 to pvp somebody and then press f1 again, you stop" (the user, 2026-10-23).
    mock.press(mudlet.keymodifier.None, mudlet.key.F1)
-   ok(pvp.enabled, "F1 again stays on: there is no toggle")
+   ok(not pvp.enabled, "F1 again stops it")
+   mock.press(mudlet.keymodifier.None, mudlet.key.F3)
+   mock.press(mudlet.keymodifier.None, mudlet.key.F1)
+   ok(pvp.enabled and pvp.mode() == "attack", "F1 from another mode switches to attack")
+   mock.press(mudlet.keymodifier.None, mudlet.key.F2)
+   ok(pvp.enabled and pvp.mode() == "defence", "F2-F4 switch, cancelling attack")
+   mock.press(mudlet.keymodifier.None, mudlet.key.F2)
+   ok(pvp.enabled and pvp.mode() == "defence", "...and stay on when pressed again")
    pvp.stop("test")
    emunah.config.set("pvp.mode", nil)
    eq(pvp.target, "ashden", "...keeping the target")
@@ -12351,6 +12372,8 @@ do
    mock.feed("Char.Skills.List", { group = "Zeal", list = { "Anoint", "Guilt", "Condemnation",
       "Ash", "Burn", "Penance", "Purge", "Revelations", "Reflection", "Wrath", "Fragility",
       "Unflinching", "Rebuke" } })
+   mock.feed("Char.Skills.List", { group = "Devotion", list = { "Hands", "Inspiration",
+      "Penitence", "Bliss", "Sloth", "Visions", "Dazzle", "Purity", "Rites", "Fasting" } })
    mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
       bal = "1", eq = "1" })
    emunah.config.set("pvp.mode", nil)
@@ -12409,35 +12432,81 @@ do
    eq(R.prayerKind, "hellsight", "10 conviction after the first prayer: hellsight")
    ok(sent:find("recite burn ashden", 1, true), "it opens on Burn", sent)
    ok(not sent:find("smite", 1, true), "...with an equilibrium affliction, not the mace", sent)
-   sent = exchange(1, 10)
-   ok(sent:find("smite ashden left leg", 1, true), "its second verse: the mace, the other leg", sent)
-   sent = exchange(2, 10)
-   ok(sent:find("recite reflection ashden", 1, true), "third: Reflection", sent)
+   -- REVELATIONS WAITS FOR ASTHMA AND ANOTHER KELP AFFLICTION, confirmed: "only give
+   -- hellsight when asthma is secure with more kelp affs" (Anzerloi, 2026-10-23 16:03:25).
+   -- Without them the slot falls back to guilt.
+   R.prayerKind = "hellsight"
+   ok(not R.asthmaSecure({ afflictions = { asthma = true } }), "asthma alone is not secure")
+   ok(not R.asthmaSecure({ afflictions = { clumsiness = true, paralysis = true } }),
+      "...nor kelp without asthma")
+   ok(R.asthmaSecure({ afflictions = { asthma = true, healthleech = true } }),
+      "asthma beside healthleech is")
+   eq(R.MOVES.panic.gives({ afflictions = { hellsight = true } }), "slickness",
+      "panic on hellsight gives slickness")
+   eq(R.MOVES.panic.gives({ afflictions = {} }), "fear", "...and fear otherwise")
    sent = exchange(3, 10)
-   ok(sent:find("recite revelations ashden rebuke evil", 1, true),
-      "fourth: Revelations, rebuke evil", sent)
-   ok(sent:find("chasten asthma", 1, true),
-      "...the mace chastening asthma: hellsight is smoked away", sent)
-
-   -- HEARD AS THE CADENCE, NOT AS A BELIEF. Asthma confirmed: not again. Eaten away: again,
-   -- while hellsight is being held.
+   ok(sent:find("recite guilt ashden rebuke evil", 1, true) and not sent:find("revelations", 1, true),
+      "nothing confirmed: guilt in Revelations' place", sent)
+   R.prayerKind = "hellsight"
+   sent = exchange(1, 10)
+   ok(sent:find("smite ashden right leg chasten asthma", 1, true),
+      "its second verse: the mace, the other leg, building asthma", sent)
    mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of "
       .. "asthma is brought down on to your victim.")
+   sent = exchange(2, 10)
+   ok(sent:find("recite reflection ashden", 1, true), "third: Reflection", sent)
+   ok(sent:find("chasten clumsiness", 1, true), "...and a kelp affliction beside the asthma", sent)
+   mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of "
+      .. "clumsiness is brought down on to your victim.")
+   sent = exchange(3, 10)
+   ok(sent:find("recite revelations ashden", 1, true) and not sent:find("rebuke", 1, true),
+      "fourth, asthma secure: Revelations, and no rebuke: the prayer carries on", sent)
+   -- ANGEL PANIC ON HELLSIGHT GIVES SLICKNESS (CLASSLEADS #178), and asthma keeps both on.
+   ok(sent:find("angel panic ashden", 1, true) and not sent:find("smite", 1, true),
+      "...and the angel's panic for slickness, in the mace's place", sent)
+   -- "On next attack guilt rebuke a mental/perform sloth" (Anzerloi, 16:08:36).
+   sent = exchange(4, 10)
+   ok(sent:find("recite guilt ashden rebuke evil", 1, true), "fifth: guilt, rebuke evil", sent)
+   ok(sent:find("perform sloth ashden", 1, true) and not sent:find("smite", 1, true),
+      "...with sloth", sent)
+   ok(not sent:find("angel panic", 1, true), "...and no second panic into the unknown", sent)
+
+   -- SLICK, BY THEIR FANGBARRIER SLOUGHING OFF (16:09:48): the chasten goes for mentals, and
+   -- fasting waits for one, so focus has two to choose from.
+   mock.line("The protective coating covering the skin of Ashden sloughs off.")
+   ok(opp.has("ashden", "slickness"), "(their fangbarrier sloughing off: slickness confirmed)")
    sent = exchange(0, 15)
    eq(R.prayerKind, "heresy", "after hellsight, at 10 or more: the heresy prayer")
+   ok(not sent:find("perform fasting", 1, true), "no fasting without a mental beside it", sent)
    sent = exchange(1, 15)
-   ok(sent:find("smite", 1, true) and not sent:find("chasten asthma", 1, true),
-      "asthma confirmed on them: the chasten moves on", sent)
+   ok(sent:find("chasten epilepsy", 1, true), "slick: the chasten gives a mental", sent)
+   mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of "
+      .. "epilepsy is brought down on to your victim.")
+   sent = exchange(2, 15)
+   ok(sent:find("perform fasting ashden", 1, true) and not sent:find("smite", 1, true),
+      "a mental on them: fasting for anorexia, which they must focus", sent)
+   sent = exchange(2, 15)
+   ok(not sent:find("perform fasting", 1, true), "...once per Revelations", sent)
+
+   -- SLICKNESS EATEN AWAY while hellsight is held: panic again.
+   mock.line("Ashden eats a bloodroot leaf.")
+   ok(not opp.has("ashden", "slickness"), "(a bloodroot leaf cures it)")
+   sent = exchange(2, 15)
+   ok(sent:find("angel panic ashden", 1, true), "slickness eaten away: panic again", sent)
+
+   -- ASTHMA EATEN AWAY inside the window: chastened again, ahead of everything.
    mock.line("Ashden eats an aurum flake.")
    ok(not opp.has("ashden", "asthma"), "(an aurum flake cures it)")
-   sent = exchange(2, 15)
-   ok(sent:find("recite guilt ashden", 1, true), "the heresy prayer's third: guilt", sent)
-   ok(sent:find("chasten asthma", 1, true), "asthma cured inside the window: again", sent)
    sent = exchange(3, 15)
    ok(sent:find("recite ash ashden rebuke heresy", 1, true),
       "fourth: ash, rebuke heresy, with guilt and spiritburn both just given", sent)
+   ok(sent:find("chasten asthma", 1, true), "asthma cured inside the window: again", sent)
    mock.advance(R.HELLSIGHT + 1)
+   opp.clear("ashden")
+   -- Another heresy prayer, where nothing builds asthma for Revelations.
+   R.prayerKind = "hellsight"
    exchange(0, 15)
+   eq(R.prayerKind, "heresy", "(a heresy prayer)")
    sent = exchange(1, 15)
    ok(sent:find("smite", 1, true) and not sent:find("chasten asthma", 1, true),
       "the window over: no more asthma for hellsight's sake", sent)
@@ -12511,7 +12580,7 @@ do
    mock.echoed = {}
    emunah.commands.dispatch("pvp")
    local shown = table.concat(mock.echoed, " ")
-   ok(shown:find("hellsight prayer, verse 2 of 4", 1, true), "the route's prayer is shown", shown)
+   ok(shown:find("hellsight prayer, verse 2 of 5", 1, true), "the route's prayer is shown", shown)
    ok(shown:find("right leg 33.2%", 1, true), "...and our blows on each leg", shown)
 
    pvp.stop("test"); pvp.clearTarget(); opp.clear("ashden")
@@ -14430,6 +14499,19 @@ prompt()
 ok(not engine.has("dizziness"), "a cure for something we do not have is ignored, not applied")
 detect.textCure("paranoia")
 prompt()   -- a wear-off / general cure needs no action in flight; must not error
+-- A TREE TOUCH CURES ONE AT RANDOM, whatever it was touched for: "The raging fire about
+-- your skin goes out." after a touch was refused as not ours (2026-10-23 16:39:03.38).
+-- The GMCP removal lands first, so the affliction is already gone when the line comes.
+reset()
+emunah.queue.push("tree", "touch tree", { tag = "tree:burning", confirm = 5 })
+emunah.have.recover("tree")
+emunah.queue.flush()
+mock.advance(0.3)
+mock.echoed = {}
+detect.textCure("burning", "tree")
+prompt()
+ok(not table.concat(mock.echoed, " "):find("Illusion ignored", 1, true),
+   "a tree touch's cure line is not called an illusion", table.concat(mock.echoed, " "))
 
 -- THE PROMPT TRIGGER: closes the block, and stands in for a missing Char.Vitals.
 reset()
@@ -15384,39 +15466,56 @@ end)()
 -- ===========================================================================
 
 -- ===========================================================================
-suite("shield: WIELDED at login, and a chyron notice while none is wielded")
+suite("wielded: WIELDED at login, and the mace on the prompt when not in hand")
 
 do
-   local shield, chyron = emunah.shield, emunah.ui.chyron
+   local wielded, chyron = emunah.wielded, emunah.ui.chyron
    chyron.clear()
-   emunah.config.set("shield.watch", true)
-   local mace = { id = "341225", name = "a spiritual mace", attrib = "l" }
-   local function kite(attrib) return { id = "680194", name = "a kite shield", attrib = attrib } end
+   emunah.config.set("mace.warn", true)
+   mock.feed("Char.Skills.List", { group = "Spirituality", list = { "Mace", "Smash", "Heresy",
+      "Sear", "Contemplate", "Sap", "Absolve", "Panic", "Chasten", "Summon", "Call", "Strip" } })
+   local function mace(attrib) return { id = "341225", name = "a spiritual mace", attrib = attrib } end
+   local kite = { id = "680194", name = "a kite shield", attrib = "" }
 
-   -- The user's WIELDED at 09:25:53.45: mace left, kite shield right.
-   mock.feed("Char.Items.List", { location = "inv", items = { mace, kite("L") } })
-   ok(not chyron.showing(shield.NOTICE), "a wielded shield puts nothing on the chyron")
+   -- NO SHIELD NOTICE: "don't alert this at all" (the user, 2026-10-23).
+   mock.feed("Char.Items.List", { location = "inv", items = { mace("l"), kite } })
+   ok(not chyron.showing("shield"), "an unwielded shield puts nothing on the chyron")
+   eq(wielded.maceWarning(), nil, "the mace in hand: nothing on the prompt")
 
-   mock.feed("Char.Items.Update", { location = "inv", item = kite("") })
-   ok(chyron.showing(shield.NOTICE), "unwielding it puts a notice up")
-   eq(chyron.messages[#chyron.messages].text, "Your kite shield is not wielded",
-      "naming the shield")
-   eq(chyron.messages[#chyron.messages].colour, "warning", "as a warning")
+   -- THE MACE ON THE PROMPT whenever it is not wielded (the user, 2026-10-23).
+   mock.feed("Char.Items.Update", { location = "inv", item = mace("") })
+   eq(wielded.maceWarning(), "mace not wielded", "unwielded: named")
+   mock.echoed = {}
+   emunah.event.raise("prompt")
+   ok(table.concat(mock.echoed, " "):find("mace not wielded", 1, true),
+      "...on the prompt", table.concat(mock.echoed, " "))
 
-   mock.feed("Char.Items.Update", { location = "inv", item = kite("") })
-   eq(#chyron.messages, 1, "a second report replaces the notice rather than queueing a copy")
+   -- Dropped in fear (16:12:47.42): on the ground, and keep-up picks it up by its id.
+   mock.feed("Char.Items.Update", { location = "inv", item = mace("l") })
+   mock.feed("Char.Items.Remove", { location = "inv", item = mace("l") })
+   mock.feed("Char.Items.Add", { location = "room", item = mace("") })
+   mock.line("You drop a spiritual mace in your terror.")
+   eq(wielded.maceWarning(), "mace on the ground", "dropped: on the ground")
+   local _, command = emunah.curing.deflist.resolve("trackmace")
+   eq(command, "get 341225", "keep-up picks our mace up, not WIELD MACE at nothing")
+   emunah.queue.reset()
+   emunah.queue.push("free", "get 341225", { tag = "def:trackmace", confirm = 2.0 })
+   emunah.queue.flush()
+   ok(emunah.queue.awaiting("free"), "(the GET in flight)")
+   mock.feed("Char.Items.Remove", { location = "room", item = mace("") })
+   mock.feed("Char.Items.Add", { location = "inv", item = mace("") })
+   eq(emunah.queue.awaiting("free"), nil,
+      "picked up: the GET is answered, so the wield needs no confirm wait (16:39:33.99-45.98)")
+   _, command = emunah.curing.deflist.resolve("trackmace")
+   eq(command, "wield mace", "picked up: wielded next")
+   mock.feed("Char.Items.Update", { location = "inv", item = mace("l") })
+   eq(wielded.maceWarning(), nil, "wielded again: the prompt is quiet")
 
-   mock.feed("Char.Items.Update", { location = "inv", item = kite("l") })
-   ok(not chyron.showing(shield.NOTICE), "wielding it again takes the notice down")
-
-   mock.feed("Char.Items.Remove", { location = "inv", item = kite("L") })
-   eq(chyron.messages[#chyron.messages] and chyron.messages[#chyron.messages].text,
-      "You are carrying no shield", "losing it altogether says so")
-
-   emunah.config.set("shield.watch", false)
-   mock.feed("Char.Items.List", { location = "inv", items = { mace } })
-   ok(not chyron.showing(shield.NOTICE), "shield.watch off takes it down")
-   emunah.config.set("shield.watch", true)
+   emunah.config.set("mace.warn", false)
+   mock.feed("Char.Items.Update", { location = "inv", item = mace("") })
+   eq(wielded.maceWarning(), nil, "mace.warn off: never named")
+   emunah.config.set("mace.warn", true)
+   mock.feed("Char.Items.Update", { location = "inv", item = mace("l") })
    chyron.clear()
 
    -- Login: WIELDED once the login burst has passed.
@@ -15430,7 +15529,7 @@ do
       return false
    end
    ok(not sentWielded(), "not straight away, into the login burst")
-   mock.advance(shield.LOGIN_DELAY)
+   mock.advance(wielded.LOGIN_DELAY)
    ok(sentWielded(), "WIELDED goes out after it", table.concat(mock.sent, " | "))
    emunah.timers.stopAll()
 end
@@ -15824,6 +15923,42 @@ engine.add("asthma", "gmcp"); engine.add("paralysis", "gmcp")
 eq(herbSent(tick(547)), "bloodroot",
    "07:33:37.12 -- at 18% health, paralysis (holding the sip and hands) goes first")
 
+-- HELLSIGHT ON THE PIPE, SLICKNESS ON BLOODROOT (2026-10-23 16:15:21.77: valerian went to
+-- the slickness and the bloodroot was dropped, leaving hellsight to feed the next panic).
+fight()
+local pipesWere = emunah.pipes.pipes
+emunah.pipes.pipes = { ["422328"] = { id = "422328", token = "pipe422328", status = "lit",
+   contents = "a valerian leaf", herb = "valerian", puffs = 10, months = 250 } }
+engine.add("hellsight", "gmcp"); engine.add("slickness", "gmcp")
+local both = tick()
+ok(both:find("smoke valerian", 1, true) and both:find("eat bloodroot", 1, true),
+   "hellsight and slickness together: valerian for hellsight, bloodroot for slickness", both)
+eq(situations.rank("hellsight", "smoke"), 2.9, "...hellsight ranked ahead on the pipe")
+-- The game's answers, so nothing is left waiting on the smoke.
+mock.line("You take a long drag of valerian off your pipe.")
+mock.line("Your lungs have recovered enough to smoke another mineral or plant.")
+mock.line("You may eat another plant or mineral.")
+
+-- A PIPE CAN GO OUT WITH NO LINE (16:13:22 smoked, 16:15:21 "That pipe isn't lit.", nothing
+-- between): the first affliction after a quiet spell relights them, quietly.
+local pipesOn = emunah.config.get("pipes.enabled")
+emunah.config.set("pipes.enabled", true)
+emunah.timers.stopAll()
+mock.advance(emunah.pipes.QUIET_SPELL + 1)
+mock.sent = {}
+mock.feed("Char.Afflictions.Add", { name = "clumsiness", cure = "", desc = "" })
+ok(table.concat(mock.sent, " | "):find("light pipes", 1, true),
+   "the first affliction after a quiet spell relights the pipes", table.concat(mock.sent, " | "))
+mock.line("You have no pipes that require lighting.")
+eq(emunah.pipes.relightDue, false, "...once")
+emunah.timers.stopAll(); mock.sent = {}
+mock.feed("Char.Afflictions.Add", { name = "asthma", cure = "", desc = "" })
+ok(not table.concat(mock.sent, " | "):find("light pipes", 1, true),
+   "...and not again inside the fight", table.concat(mock.sent, " | "))
+emunah.config.set("pipes.enabled", pipesOn)
+mock.feed("Char.Afflictions.List", {})
+emunah.pipes.pipes = pipesWere
+
 -- RE-APPLIED WEARINESS ranks last while it keeps coming back.
 fight()
 engine.add("weariness", "gmcp"); engine.add("guilt", "gmcp")
@@ -16123,6 +16258,11 @@ local function fight()
    } })
    engine.clear(); queue.reset(); emunah.timers.stopAll()
 end
+-- As the server sends it: the engine reconciles against Char.Afflictions every 20 ticks,
+-- and one added only to the engine is gone on that tick.
+local function justice()
+   mock.feed("Char.Afflictions.Add", { name = "justice", cure = "", desc = "" })
+end
 local function eaten()
    mock.sent = {}
    mock.feed("Char.Vitals", { hp = "3000", maxhp = "3000", mp = "3000", maxmp = "3000",
@@ -16138,14 +16278,14 @@ config.set("curing.ownprios", false)
 conf.apply(mine)
 fight(); engine.add("paralysis", "gmcp"); engine.add("weariness", "gmcp")
 eq(eaten(), "bloodroot", "ownprios off: priorities.conf is ignored")
-fight(); engine.add("justice", "gmcp")
+fight(); justice()
 eq(eaten(), nil, "...and so is situations.conf: justice is still held")
 
 config.set("curing.ownprios", true)
 conf.apply(mine)
 fight(); engine.add("paralysis", "gmcp"); engine.add("weariness", "gmcp")
 eq(eaten(), "kelp", "ownprios on: weariness.herb = 1 puts kelp first")
-fight(); engine.add("justice", "gmcp")
+fight(); justice()
 eq(eaten(), "bellwort", "...and a rule switched off in situations.conf is off")
 
 -- `emset prio` writes the SAVED ranks, never the file's into the profile.
@@ -16489,7 +16629,10 @@ do
    ok(table.concat(mock.echoed, ""):find("arrived: room 4", 1, true), "...it is on the next prompt")
    mock.echoed = {}
    raiseEvent("emunah.prompt")
-   eq(#mock.echoed, 0, "...once")
+   -- The walk's own tag only: other modules name things on the prompt too (the mace).
+   local function walkTag() return table.concat(mock.echoed, ""):find("arrived", 1, true)
+      or table.concat(mock.echoed, ""):find(" left", 1, true) end
+   ok(not walkTag(), "...once", table.concat(mock.echoed, ""))
    route.go(1); route.pause()
    mock.echoed = {}
    raiseEvent("emunah.prompt")
@@ -16499,7 +16642,7 @@ do
    route.go(4)
    mock.echoed = {}
    raiseEvent("emunah.prompt")
-   eq(#mock.echoed, 0, "map.showSteps off: nothing on the prompt")
+   ok(not walkTag(), "map.showSteps off: nothing on the prompt", table.concat(mock.echoed, ""))
    emunah.config.set("map.showSteps", true)
    route.stop("test")
 end

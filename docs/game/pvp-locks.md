@@ -211,8 +211,8 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
 
 - **The prayer is a fixed cadence**, chosen at each prayer's start from the conviction
   GMCP reports. Under 10 it is the *stack* (burn, burn, condemnation, guilt rebuke evil).
-  At 10 or more it alternates *hellsight* (burn, burn, reflection, revelations rebuke evil)
-  and *heresy* (burn, burn, guilt, ash rebuke heresy). At 20 or more it is the *drain*
+  At 10 or more it alternates *hellsight* (burn, burn, reflection, revelations, guilt rebuke
+  evil) and *heresy* (burn, burn, guilt, ash rebuke heresy). At 20 or more it is the *drain*
   (burn, ash, wrath, guilt rebuke evil). None of this assumes a verse landed.
 - **The verse first, and it needs both balances.** A verse spends neither, but the game
   refuses it while either is down (the spar against Erishka, 2026-10-23, in
@@ -229,9 +229,39 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
 - **The legs evenly.** Each smite goes to whichever leg our blows have hurt least, by the
   figures our own hit lines report (`priest.limbs()`). When the two are level, it goes to
   the other leg from last time.
-- **The chasten**: a lock's missing piece first; then asthma for 20s after Revelations,
-  whenever it is not confirmed on them; then recklessness beside guilt rebuke evil; then
-  clumsiness, paralysis, healthleech, asthma, epilepsy, recklessness.
+- **The chasten**: asthma for 20s after Revelations, whenever it is not confirmed on them;
+  then, once they are slick, the mind pool (below); then a lock's missing piece; then,
+  while a hellsight prayer builds to Revelations, asthma and a kelp affliction (clumsiness,
+  then healthleech); then recklessness beside guilt rebuke evil; then clumsiness,
+  paralysis, healthleech, asthma, epilepsy, recklessness.
+- **Hellsight, then slickness, then anorexia.** Since CLASSLEADS #178 (2026-10-23), `angel
+  panic` on a target with hellsight gives slickness instead of fear. Anzerloi's procedure,
+  taken as he gave it (the user: "assume everything anzerloi says is 100% correct"):
+  - "Only give hellsight when asthma is secure with more kelp affs" (16:03:56). Revelations
+    goes only with asthma and another kelp affliction confirmed. Guilt rebuke evil takes
+    its slot otherwise.
+  - "Recite hits first so that's instant slickness on top of the asthma and kelp trail,
+    don't rebuke" (16:08:36). Revelations goes without a rebuke, and the angel's panic
+    takes the mace's place on that exchange.
+  - "On next attack guilt rebuke a mental/perform sloth" (16:08:36). The hellsight prayer's
+    fifth verse is guilt rebuke evil (masochism, cured by focus), with sloth.
+  - "Minimum 1/2 chance they focus the wrong thing before you chasten another mental in
+    them" (16:08:59). Once slick, the chasten gives the mind pool: epilepsy, dizziness,
+    confusion, recklessness, then `mind` for impatience.
+  - "Next attack could be a perform fasting to get anorexia, which they'll have to focus
+    because slick. For that to be worth it, need some mentals" (16:07:08–16:07:17).
+    `perform fasting` (2.20s of equilibrium, 10 devotion) goes once per Revelations, with
+    one other mental confirmed.
+  - "If target has hellsight, or you determined your recite to be revelations, angel panic
+    becomes a slickness-giving move" (16:16:16). Panic again once their slickness is
+    confirmed and then eaten away, while hellsight is held. Their fangbarrier sloughing
+    off (`The protective coating covering the skin of X sloughs off.`) confirms the
+    slickness (16:09:48). The caster's own line does not change ("You bid your guardian to
+    rouse the mind of X into a state of panic.").
+  - The victim's line, verbatim (16:15:21.77): `Strange terrifying voices whisper through
+    your mind, and your hellish visions grow so vivid that a cold sweat of fear slicks
+    your skin.` Panic's fear also drops what is wielded: `You drop a kite shield in your
+    terror.`
 - **Absolve only on a contemplate under 50%.** Wrath is a second sap, not half of a
   finisher.
 - **A shield is stripped** before any mace blow, in every attacking mode. A shield counts as
@@ -264,3 +294,12 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
     any other means.
   - **When a limb's damage resets** on the target, so the count can follow it.
   - **How long hellsight lasts** without asthma, and whether 20s is the right window.
+  - **Panic's slickness from the caster's end.** The caster's line is the same either way
+    (16:14:24), so only the target's fangbarrier sloughing off confirms it.
+- **Third-party cures we no longer see.** Since CLASSLEADS #178, a third party sees the cure
+  of bloodfire, coldfate, conflagration, constricted, degenerate, earworm, enmeshed, guilt,
+  hatred, horror, inquisition, kkractlebrand, latched, lovers, mindravaged, mycalium,
+  petrified, rebbies, reeling, retribution, shadowmadness, snared, tension, the unweavings
+  and whisperingmadness only with the relevant skill. A partner's afflictions from that
+  list can no longer be tracked as cured. Guilt and inquisition come from Zeal, which we
+  have, so their cures should still show to us; not yet seen in a fight since the change.

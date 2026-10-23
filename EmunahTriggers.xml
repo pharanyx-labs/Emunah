@@ -11687,9 +11687,9 @@ end</script>
                     </regexCodePropertyList>
                 </Trigger>
                 <Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
-                    <name>Hellsight (tree): Thankfully, the visions of Hell have left you.</name>
+                    <name>Hellsight (smoke, tree): Thankfully, the visions of Hell have left you.</name>
                     <script>if emunah and emunah.curing and emunah.curing.detect then
-   emunah.curing.detect.textCure("hellsight", "tree")
+   emunah.curing.detect.textCure("hellsight", { "smoke", "tree" })
 end</script>
                     <triggerType>0</triggerType>
                     <conditonLineDelta>0</conditonLineDelta>

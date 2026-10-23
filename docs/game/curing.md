@@ -369,6 +369,7 @@ not the reference system's: the reference system has no equivalent for any of th
 | `inquisition-burning` | inquisition | burning (`ablaze`): tree held | [player] same Priest, 07:51:40 and after: "inquisition blocks curing of burning. Salves will fail, tree will take them out of its pool of possible cures if inquisition is there." **Every** salve fails (the user's ruling, 2026-10-05), so that half is a vector block, `afflist.blocks.inquisition = { focus, salve }`, not a rule |
 | `paralysis-holds-healing` | paralysis, health below `curing.healthThreshold` | paralysis → herb 3.5 (ahead of asthma's 4) | [play] 07:33:37.12: paralysis and asthma at 18%; kelp first, elixir (37.26) and equilibrium (38.33) unusable until death |
 | `impatience-before-hard-lock` | asthma, slickness and impatience | impatience → herb 3.8 (ahead of asthma's 4 and bloodroot's 5) | [player] Anzerloi, party, 2026-10-15 20:28:30–20:32:20, on a target prone, asthmatic, slick and impatient: "If there is any hope of not being locked within 2 seconds, it's to get rid of the impatience"; anorexia comes next, and its cures are salve (slick) and focus (impatient). See `pvp-locks.md` |
+| `hellsight-before-slickness` | hellsight and slickness | hellsight → smoke 2.9 (ahead of slickness's 3), so valerian goes to hellsight and bloodroot to slickness in the same moment | [play] 2026-10-23 16:15:21.77: angel panic on hellsight gave slickness (CLASSLEADS #178); valerian went to the slickness, the bloodroot was dropped, and hellsight stayed to feed the next panic |
 | `weariness-reapplied` | weariness back within 6s of its cure | weariness → herb 69 (last) until 15s pass without it returning | [play] sin of sloth re-applied it 0.4–4s after each cure (14.18→15.78, 17.78→19.64, 21.44→25.50, 27.00→27.42, 28.80→29.33) |
 | `justice-not-attacking` | neither PvP nor bashing running | justice held outright | [gmcp] 07:33:15.78: "any damaging attack by you against the afflictor … partially returned to you" |
 
@@ -389,9 +390,23 @@ the last-resort dwell. The first whose `when` matches wins.
 | Function | While | What it does | Evidence |
 |---|---|---|---|
 | `forming-lock` | asthma, slickness and impatience | `touch tree` immediately, alongside the goldenseal | [play] arena vs Anzerloi, 2026-10-22 16:39:59.59–16:40:02.15, paste BrxbuQVL. The three landed together; goldenseal was queued; anorexia refused the eat at 16:40:01.81; paralysis at 16:40:02.15 shut the tattoo. The tattoo was never touched. [player] the same afternoon: use it while momentum is building, because it clears one affliction at random and does not wait on herb balance |
+| `hardlock` | the hard or true lock (`watch.locks()`) | `touch tree` | [reference tree.hardlock] |
+| `blackout` | blackout | `touch tree` | [reference tree.blackout] |
+| `aeon` | aeon with asthma | `touch tree` | [reference tree.aeon] |
+| `maybevivi` | a crippled limb, three or more limbs broken | `touch tree` | [reference tree.maybevivi] |
+| `crippledandprone` | both legs crippled (no worse), prone or off salve | `touch tree` | [reference tree.crippledandprone] |
+| `getupfaster` | a leg crippled (no worse), prone, off salve | `touch tree` | [reference tree.getupfaster] |
+| `curearmsfaster` | an arm crippled (no worse), off salve | `touch tree` | [reference tree.curearmsfaster] |
+| `fractures` | a fracture, off the sip | `touch tree` | [reference tree.fractures] |
+| `any2affs` | two afflictions the tattoo can cure (`treefunc.CURABLE`, the reference system's `treecurables`) | `touch tree` | [reference tree.any2affs]. Off by default there; on here, because without it the tattoo was never touched in a fight (the user, 2026-10-23) |
 
 Paralysis, a numb arm, an entanglement, and both arms broken still refuse the touch. The
 last resort is unchanged: an affliction nothing else can cure, after `TREE_DWELL`.
+
+**The tattoo is the `curing.tree` setting, not a defence.** Achaea never lists the Tree of Life
+tattoo in `Char.Defences` (DEFENCES at 2026-10-23 16:18:30 had no line for it). Emunah used
+to ask the defences, so the tattoo was never touched and the TREE light stayed grey. The
+reference system works the same way, from its own `tree` setting.
 
 ## Metabolise (`curing/metabolise.lua`)
 

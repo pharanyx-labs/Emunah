@@ -160,7 +160,7 @@ local MANIFEST = {
 
    -- shows WIELDED at login and keeps a chyron notice up while no shield is wielded;
    -- reads gmcp.items and writes to ui.chyron
-   { path = "emunah.shield",             as = "shield"        },
+   { path = "emunah.wielded",            as = "wielded"       },
 
    -- antitheft: keeps selfishness up and valuables in the pack, and raises the alarm on an
    -- unexplained loss. Reads loot (the pack), shop (the pay window), outgoing and items;

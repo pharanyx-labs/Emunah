@@ -224,16 +224,27 @@ def statements(script):
     return out
 
 
-def walk(element, inside_group, found):
+def walk(element, inside_group, found, chained=None):
     for child in element:
         if child.tag == "TriggerGroup":
-            walk(child, True, found)
+            walk(child, True, found, chained)
         elif child.tag == "Trigger":
             has_children = any(c.tag in ("Trigger", "TriggerGroup") for c in child)
             if inside_group and not has_children:
                 found.append(child)
             # A trigger with children is a chain; its children only fire inside it, so
-            # neither it nor they are plain line matches. Not descended into.
+            # neither it nor they are plain line matches. Not converted -- but its
+            # children are kept aside, to name the routes of a cure line (main()).
+            if has_children and chained is not None:
+                walk_chain(child, chained)
+
+
+def walk_chain(element, chained):
+    for child in element:
+        if child.tag in ("Trigger", "TriggerGroup"):
+            if child.tag == "Trigger":
+                chained.append(child)
+            walk_chain(child, chained)
 
 
 def convert_illusion(trigger):
@@ -592,8 +603,8 @@ def main():
     native = native_lines()
 
     root = ET.parse(xml_path).getroot()
-    found = []
-    walk(root.find("TriggerPackage"), False, found)
+    found, chained = [], []
+    walk(root.find("TriggerPackage"), False, found, chained)
 
     skipped = {}
     converted = []
@@ -638,6 +649,23 @@ def main():
             merged[key][2].add(via)
         else:
             order.append(("other", (name, actions, kept, multiline, delta)))
+    # A CHAINED ROUTE FOR A LINE WE ALREADY HAVE. The reference system's smoke cures sit
+    # inside its pipe chain, so "Thankfully, the visions of Hell have left you." came out as
+    # a tree cure only, and a valerian smoke's cure was logged as an illusion (2026-10-23
+    # 16:15:22.53). A chained cure adds its route to the same line's cure; it never makes a
+    # trigger of its own.
+    for trigger in chained:
+        result = convert(trigger, names, known, native)
+        if isinstance(result, str):
+            continue
+        actions, kept = result
+        if len(actions) != 1 or not actions[0][0].startswith("cure@"):
+            continue
+        for pattern in kept:
+            key = ((pattern,), actions[0][1])
+            if key in merged:
+                merged[key][2].add(actions[0][0][5:])
+
     converted = []
     for kind, item in order:
         if kind == "other":

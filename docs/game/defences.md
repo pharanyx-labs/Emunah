@@ -265,9 +265,16 @@ went out in the same burst and came back `You must regain equilibrium first.`
           kite shield680194: a kite shield in your right hand.
 
 It printed no balance line, and the prompt's flags (`exckdb`) were the same on both sides of
-it. `shield.lua` sends it 2s after `Char.Name` at login, and keeps a chyron notice up while
-no item named `shield` in the inventory has a wielded attribute (`l` or `L`). It does not
-wield the shield: what `WIELD` costs or prints for a shield has not been seen.
+it. `wielded.lua` sends it 2s after `Char.Name` at login. While the mace is not wielded it
+puts `(mace not wielded)` on the prompt, or `(mace on the ground)` after a drop (`mace.warn`).
+The shield is not watched: its chyron notice was taken out at the user's request
+(2026-10-23).
+
+**Fear drops what you wield.** `You drop a spiritual mace in your terror.` (2026-10-23
+16:12:47.42) and `You drop a kite shield in your terror.` (16:15:21.77), each on angel
+panic's fear. Keep-up picks the mace up by its item id (`get 341225`), then wields it. It
+used to send `wield mace` at a mace on the ground until it gave up. `GET` printed no cost
+line (`You scoop up a kite shield.`, 16:18:52).
 
 ## A defence's name is not always what grants it
 

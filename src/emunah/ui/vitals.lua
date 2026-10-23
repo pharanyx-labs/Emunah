@@ -348,7 +348,7 @@ end
 
 local function curing(vector)
    local have, queue = emunah.have, emunah.queue
-   if vector.key == "tree" and not have.def("tree") then
+   if vector.key == "tree" and not have.tree() then
       return cell("inactive", vector.label .. " " .. DASH, false), false
    end
    if queue.heldBy(vector.key) then return cell("affliction", vector.label .. " " .. CROSS, true), false end

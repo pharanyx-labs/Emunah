@@ -69,11 +69,12 @@ end
 M.ACTIONS = {
    { name = "reload",   modifier = "Control", key = "F5",
      fn = function() emunahReload() end },
-   -- PvP modes (the user, 2026-10-22). Each enters its mode and turns PvP on. There is
-   -- no toggle: F12 turns whichever mode is up off, on the way to the safe room.
+   -- PvP modes (the user, 2026-10-22). Each enters its mode and turns PvP on, replacing
+   -- the one running. F1 pressed while attack runs turns PvP off (2026-10-23); F12 turns
+   -- whichever mode is up off, on the way to the safe room.
    -- Plain F5-F8 are unbound. Ctrl+F5 stays reload.
    { name = "pvp attack",  modifier = "None", key = "F1",
-     fn = function() emunah.commands.dispatch("pvp mode attack") end },
+     fn = function() emunah.pvp.attackKey() end },
    { name = "pvp defence", modifier = "None", key = "F2",
      fn = function() emunah.commands.dispatch("pvp mode defence") end },
    { name = "pvp hinder",  modifier = "None", key = "F3",

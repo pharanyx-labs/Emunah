@@ -83,6 +83,17 @@ M.RULES = {
       rank = { impatience = { herb = 3.8 } },
    },
 
+   -- HELLSIGHT ON THE PIPE, SLICKNESS ON BLOODROOT. Since CLASSLEADS #178 (2026-10-23) angel
+   -- panic gives slickness to anyone with hellsight. At 16:15:21.77 both landed together,
+   -- valerian went to the slickness (smoke 3 beats 6), the bloodroot for it was dropped, and
+   -- hellsight stayed to feed the next panic. Hellsight has only the pipe; slickness has
+   -- bloodroot too, so with hellsight on the pipe both go in the same moment.
+   {
+      id   = "hellsight-before-slickness",
+      when = { has = { "hellsight", "slickness" } },
+      rank = { hellsight = { smoke = 2.9 } },
+   },
+
    -- AN AFFLICTION RE-APPLIED EVERY ROUND IS NOT WORTH A HERB EVERY ROUND. The sin of sloth
    -- put weariness back 0.4-4s after each cure in that fight (14.18 -> 15.78, 17.78 -> 19.64,
    -- 21.44 -> 25.50, 27.00 -> 27.42, 28.80 -> 29.33). Back within `window` seconds of its
