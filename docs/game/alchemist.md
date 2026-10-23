@@ -50,6 +50,10 @@ Lines below are verbatim. Tags:
 | `The reflective barrier surrounding Sobriquet reflects part of your attack back at you.` / `As your attack falls, Sobriquet's reflective barrier shatters and reflects the attack.` | his `tin` barrier (the reference system: "You are protected by a reflective barrier."). The first blow comes partly back, the next breaks it and comes back too: 477 each **[log]** | `pvp.reflecting` |
 | `You yelp in pain as E'thernal, the black crystalline crocodile bashes you.` / `E'thernal, the black crystalline crocodile wounds you with a glancing cut.` | the pet: 62–95 blunt or cutting damage a hit **[log]** | nothing |
 
+**Tempered melancholic and mana.** Since CLASSLEADS #178 (2026-10-23) it also caps passive
+mana regeneration: level two at two stacks, level one at four, none at six, on top of the
+old penalty to moss. GMCP gives the stacks as `temperedmelancholic (n)`.
+
 **Reave.** An Alchemist's finisher, faster the more of your humours are tempered: two, 10s;
 three, 8s; four, 4s **[reference: sk.warnings]**. Emunah names it on the prompt (`watch.dangers()`),
 with the reference system's other instant-kill states: dismember (bound and impaled), pulp (prone and serious

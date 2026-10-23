@@ -201,7 +201,7 @@ src/emunah/
   ih.lua                              -- linkifies `ih` output
   elist.lua                           -- redraws ELIST as a table by kind
   riftlist.lua                        -- redraws IR, with a keep-in-hand toggle per herb
-  shield.lua                          -- WIELDED at login; chyron notice if no shield
+  wielded.lua                         -- WIELDED at login; the mace on the prompt if not in hand
   bashing.lua                         -- walk, target, attack, advance
   mapper/   data route info lines locate moves guard   -- the map, walks, locator lines
   namedb.lua                          -- who is a person, and what are they
@@ -212,7 +212,7 @@ src/emunah/
   loot.lua                            -- collect gold by replica number
   class/    adapter priest priest_pvp -- class interface + auto-detection
   commands.lua
-test/       mock_mudlet.lua run.lua   -- 3664 behavioural tests
+test/       mock_mudlet.lua run.lua   -- 3696 behavioural tests
             bench.lua profile.lua     -- per-prompt cost, and where it goes
 package/    .mpackage build project
 tools/      build-xml.py build-commands-page.lua ci.sh

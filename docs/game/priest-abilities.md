@@ -202,9 +202,10 @@ PvP, Spirituality and Devotion:
 | Command | Costs | Does |
 |---|---|---|
 | `smash arms\|legs <target> [chasten <body\|mind\|aff>]` | balance 2.20s | Crushes a limb, "rendering it useless". With chasten, as smite |
-| `angel panic <target>` | equilibrium 2.40s | Fear |
+| `angel panic <target>` | equilibrium 2.40s | Fear; **slickness instead on a target with hellsight** (CLASSLEADS #178, 2026-10-23) |
 | `perform visions <target>` | equilibrium 2.50s, 100 devotion, 50 mana | Dementia; shyness if already demented |
 | `perform dazzle <target>` | equilibrium 2.50s, 250 devotion | Stupidity |
+| `perform fasting <target>` | equilibrium 2.20s, 10 devotion | Anorexia. The route sends it once the target is slick and holds a mental (`pvp-locks.md`) |
 | `judge <target>` | equilibrium 5.00s | Seeks a death sentence; faster against justice |
 | `perform rite of piety` | equilibrium 3.80s, 600 devotion | Enemies struggle to leave; a balance penalty when it holds them |
 
@@ -225,7 +226,9 @@ denizens a smite burns through their magical shield, at half damage and as fire.
 adventurers a smite burns away their aura of rebounding**, which is the answer to
 smiting into rebounding (13:58:03, above). `recite unflinching <target>` (1.60s prayer)
 also conveys heresy, shorter-lived, when you are not already hunting heretics, and the
-target's next parry fails. Anzerloi (19:26:04–19:27:11): crack is the hunting attack "if
+target's next parry fails. Since CLASSLEADS #178 (2026-10-23), while heresy is active,
+finishing a prayer of at least two verses forces an extra ablaze tick on every ablaze enemy
+in the room, without resetting the next tick's timer. Anzerloi (19:26:04–19:27:11): crack is the hunting attack "if
 got the rage and no heresy"; with heresy, smite. "As for pvp you go on afflict lines and
 cure lines."
 

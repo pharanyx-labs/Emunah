@@ -280,7 +280,11 @@ local function cureBelievable(name, via)
    if not action then
       return false, ("a %s cure for %s, but nothing is being cured on %s"):format(via, name, via)
    end
-   if action.tag ~= name and not (engine and engine.has(name)) then
+   -- A touch of the tree clears one affliction at random, whatever it was touched for:
+   -- "The raging fire about your skin goes out." after a touch for burning was refused as
+   -- not ours (2026-10-23 16:39:03.38), its GMCP removal having already landed.
+   local touched = via == "tree" and tostring(action.tag or ""):find("^tree:") ~= nil
+   if not touched and action.tag ~= name and not (engine and engine.has(name)) then
       return false, ("a %s cure for %s, which we do not have"):format(via, name)
    end
    local latency = 0

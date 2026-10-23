@@ -527,7 +527,7 @@ function M.keep()
             end
          end
 
-      elseif pipe.status ~= "lit" then
+      elseif pipe.status ~= "lit" or M.relightDue then
          cold[#cold + 1] = pipe
       end
    end
@@ -538,6 +538,7 @@ function M.keep()
    -- 05:00:32.26 (balance, during the vault) and 05:00:34.45, 05:00:36.00, 05:00:40.98,
    -- 05:00:43.06 (equilibrium, during bliss, the cloak and hypersight).
    if #cold > 0 and emunah.act.send("light pipes", { quiet = true, bal = true, eq = true }) then
+      M.relightDue = false
       M.actedAll(cold)
       M.quietly("light")
       return true
@@ -850,6 +851,24 @@ event.register("emunah.tick", function()
       emunah.timers.start("pipes.poll.due", unknown and M.POLL_GUARD or every)
       M.poll()
    end
+   M.keep()
+end, "pipes")
+
+-- A PIPE CAN GO OUT WITH NO LINE. 2026-10-23: valerian smoked at 16:13:22, then refused
+-- "That pipe isn't lit." at 16:15:21 with hellsight on, and nothing between said it had gone
+-- cold (debug on throughout, so a hidden line would still have logged). So the first
+-- affliction after a quiet spell relights every pipe, quietly, on the next free balance:
+-- lit ones answer "You have no pipes that require lighting.", hidden like any LIGHT of ours.
+-- Pipes keep their status meanwhile, so a smoke is never held back for it.
+M.QUIET_SPELL = 30
+M.relightDue = false
+local lastAffliction = nil
+event.register("emunah.affliction.tracked", function()
+   local now = emunah.util.now()
+   local quietFor = lastAffliction and now - lastAffliction or math.huge
+   lastAffliction = now
+   if quietFor < M.QUIET_SPELL or not enabled() or next(M.pipes) == nil then return end
+   M.relightDue = true
    M.keep()
 end, "pipes")
 

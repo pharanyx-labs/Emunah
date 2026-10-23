@@ -184,6 +184,14 @@ function M.def(name)
    return defences and defences.has(name) or false
 end
 
+--- Is the Tree of Life tattoo inked, to be touched? Achaea never lists it in Char.Defences
+--- (DEFENCES on 2026-10-23 16:18:30 had no line for it), so asking the defences made the
+--- tree never touched and its light always grey. The setting says it, as the reference
+--- system's own `tree` setting does.
+function M.tree()
+   return emunah.config.get("curing.tree", true) ~= false
+end
+
 function M.affliction(name)
    local afflictions = emunah.gmcp.afflictions
    return afflictions and afflictions.has(name) or false
@@ -590,9 +598,9 @@ function M.cure(option)
    end
 
    if vector == "tree" then
-      if not M.def("tree") then
+      if not M.tree() then
          -- The Tree of Life tattoo has to be inked before it can be touched.
-         return false, "no tree tattoo"
+         return false, "no tree tattoo (curing.tree off)"
       end
       if M.bothArmsBroken() then
          return false, "both arms are broken"

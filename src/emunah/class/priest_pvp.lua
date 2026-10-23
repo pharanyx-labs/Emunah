@@ -235,6 +235,25 @@ return function(P)
       return ctx.heresy or not ctx.rebounding
    end
 
+   local function isKelp(aff)
+      for _, option in ipairs(emunah.curing.afflist.curesVia(aff, "herb")) do
+         if option.item == "kelp" then return true end
+      end
+      return false
+   end
+
+   --- Is asthma confirmed on them with another kelp affliction beside it? Then the next
+   --- kelp they eat may take the other, and asthma keeps the pipe shut on hellsight: "only
+   --- give hellsight when asthma is secure with more kelp affs" (Anzerloi, 2026-10-23
+   --- 16:03:25).
+   function M.asthmaSecure(ctx)
+      if not ctx.afflictions.asthma then return false end
+      for aff in pairs(ctx.afflictions) do
+         if aff ~= "asthma" and isKelp(aff) then return true end
+      end
+      return false
+   end
+
    local function verse(name, gives, extra)
       local move = { lane = "prayer", skill = name, gives = gives, verse = name,
          command = function(ctx) return "recite " .. name .. " " .. ctx.target end }
@@ -254,7 +273,7 @@ return function(P)
       -- Only once it is confirmed on them: no mode here gives it in the attack that burns.
       purge        = verse("purge", "ablaze",
          { when = function(ctx) return ctx.afflictions.inquisition == true end }),
-      revelations  = verse("revelations", "hellsight"),
+      revelations  = verse("revelations", "hellsight", { when = M.asthmaSecure }),
       reflection   = verse("reflection", nil, { cost = 2.70 }),
       wrath        = verse("wrath", nil, { cost = 3.00 }),
       fragility    = verse("fragility", nil),
@@ -301,7 +320,10 @@ return function(P)
          command = function(ctx) return "perform visions " .. ctx.target end },
       dazzle = { lane = "equilibrium", skill = "dazzle", gives = "stupidity",
          command = function(ctx) return "perform dazzle " .. ctx.target end },
-      panic = { lane = "equilibrium", skill = "panic", gives = "fear",
+      -- "ANGEL PANIC now gives slickness instead of fear if the target suffers from
+      -- HELLSIGHT" (CLASSLEADS #178, 2026-10-23).
+      panic = { lane = "equilibrium", skill = "panic",
+         gives = function(ctx) return ctx.afflictions.hellsight and "slickness" or "fear" end,
          command = function(ctx) return "angel panic " .. ctx.target end },
       -- THE KILLING BLOW. Heavy magical damage through any shield (AB PURITY: 4.00s of
       -- equilibrium, 250 devotion), "too slow to be useful" unless it kills (Anzerloi,
@@ -342,6 +364,11 @@ return function(P)
    --     is smoked away; asthma shuts the pipe. In #49 it stayed 28s with asthma reapplied,
    --     and gave confusion, stupidity, dizziness, hallucinations, epilepsy, vertigo,
    --     slickness and sleep.
+   --   * SLICKNESS ON HELLSIGHT, since CLASSLEADS #178 (2026-10-23): angel panic gives it in
+   --     place of fear. Anzerloi's procedure: "only give hellsight when asthma is secure
+   --     with more kelp affs, that's a sure slickness afflict that can easily stick"
+   --     (16:03:25). So the hellsight prayer's mace builds asthma and a kelp affliction,
+   --     Revelations waits for both confirmed, and a panic follows it.
    --   * INQUISITION on the verse after guilt and ash have both gone out.
    --   * THE LEGS. Past the first prayer the mace goes to the legs, 16.6% a blow.
    --   * THE KILL (#50): a prayer of burn, ash, wrath, with a sap and then absolve on
@@ -358,9 +385,14 @@ return function(P)
       -- His first prayer in all three spars.
       stack     = { { "burn" }, { "burn", "ash" }, { "condemnation", "guilt" },
                     { "guilt", rebuke = "evil" } },
-      -- His second, once conviction pays for Reflection (5) and Revelations (10).
+      -- His second, once conviction pays for Reflection (5) and Revelations (10). Since
+      -- panic gives slickness on hellsight, Revelations goes without a rebuke and the
+      -- prayer carries on: "don't rebuke, and on next attack guilt rebuke a mental/perform
+      -- sloth" (Anzerloi, 2026-10-23 16:08:36). Masochism, evil's, is cured by focus.
+      -- Guilt in Revelations' place still closes the prayer.
       hellsight = { { "burn" }, { "burn", "ash" }, { "reflection", "condemnation" },
-                    { "revelations", "guilt", rebuke = "evil" } },
+                    { "revelations", "guilt", rebuke = "evil", open = { revelations = true } },
+                    { "guilt", rebuke = "evil" } },
       -- #49's third and fourth closed on heresy, with guilt and spiritburn just given.
       heresy    = { { "burn" }, { "burn", "ash" }, { "guilt" }, { "ash", rebuke = "heresy" } },
       -- #50's last: tenderskin and spiritburn on them, then wrath's sap. He killed on the
@@ -409,6 +441,7 @@ return function(P)
             local move = M.MOVES[name]
             if move and allowed(name, move, ctx) and (slot or pass == 2 or not recent(name)) then
                local sin = slot and slot.rebuke
+               if slot and slot.open and slot.open[name] then sin = nil end
                if sin and not (have.skill("rebuke") and P.prayerAllows(sin)) then sin = nil end
                return setmetatable({ rebuke = sin or false }, { __index = move }), name
             end
@@ -456,16 +489,37 @@ return function(P)
       return nil
    end
 
-   --- The route's chasten. A lock's missing piece first, as in every mode; then asthma
-   --- while hellsight is being held, as soon as it is not confirmed on them; then
-   --- recklessness on the stack's close; then Anzerloi's order on the legs.
+   --- Kelp afflictions a chasten can give, to sit beside asthma before Revelations.
+   M.KELP_CHASTEN = { "clumsiness", "healthleech" }
+
+   --- The route's chasten. Asthma while hellsight is being held, as soon as it is not
+   --- confirmed on them; then, once they are slick, the mind pool (M.slickPhase); then a
+   --- lock's missing piece, as in every mode; then, while a hellsight prayer builds to
+   --- Revelations, asthma and another kelp affliction so it can go (M.asthmaSecure); then
+   --- recklessness on the stack's close; then Anzerloi's order.
    function M.routeChasten(ctx)
+      local now = util.now()
+      local holding = M.revelationsAt and now - M.revelationsAt < M.HELLSIGHT
+      -- While hellsight is held, asthma before anything: it keeps the pipe shut on it.
+      if holding and not ctx.afflictions.asthma then return "asthma" end
+      -- Slick: mentals, so focus has more than anorexia to choose from. "Minimum 1/2 chance
+      -- they focus the wrong thing before you chasten another mental in them" (16:08:59).
+      -- His newer word, ahead of a lock's other pieces; a full mind pool chastens for
+      -- impatience, the hard lock's last piece.
+      if M.slickPhase(ctx) then
+         for _, aff in ipairs(P.CHASTEN_POOLS.mind) do
+            if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
+         end
+         if not ctx.afflictions[P.CHASTEN_POOLS.mind.capstone] then return "mind" end
+      end
       local piece = lockPiece(ctx)
       if piece then return piece end
-      local now = util.now()
-      if M.revelationsAt and now - M.revelationsAt < M.HELLSIGHT
-         and not ctx.afflictions.asthma then
-         return "asthma"
+      if M.currentKind() == "hellsight" and not P.prayerSpent.revelations
+         and not M.asthmaSecure(ctx) then
+         if not ctx.afflictions.asthma then return "asthma" end
+         for _, aff in ipairs(M.KELP_CHASTEN) do
+            if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
+         end
       end
       local verse = M.lastVerse
       if verse and verse.name == "guilt" and verse.rebuke == "evil"
@@ -477,16 +531,19 @@ return function(P)
 
    --- Does this exchange want an equilibrium affliction rather than the mace? In the first
    --- prayer every exchange but the rebuke's (sloth, sloth, sloth, then the smite); after
-   --- it, a prayer's first. Never while draining, when equilibrium reads and saps, and
+   --- it, a prayer's first, and the guilt that follows Revelations ("guilt rebuke a
+   --- mental/perform sloth"). Never while draining, when equilibrium reads and saps, and
    --- never while the mace's chasten can close a forming lock.
    function M.openingDue(ctx)
       local kind = M.currentKind()
       if kind == "drain" then return false end
-      if ctx and lockPiece(ctx) then return false end
+      -- Slick, the mace chastens mentals rather than the lock's piece, so sloth may go.
+      if ctx and lockPiece(ctx) and not M.slickPhase(ctx) then return false end
       if kind == "stack" then
          local slot = currentSlot()
          return not (slot and slot.rebuke)
       end
+      if kind == "hellsight" and P.prayerSpent.revelations then return true end
       return P.prayer().length == 0
    end
 
@@ -506,6 +563,67 @@ return function(P)
    M.MOVES.openDazzle       = onlyWhen("dazzle", M.openingDue)
    M.MOVES.drainContemplate = onlyWhen("contemplate", M.draining)
    M.MOVES.drainSap         = onlyWhen("sap", M.draining)
+
+   --- When angel panic was sent last, and when slickness was last confirmed on the target.
+   M.panicAt = nil
+   M.slickAt = nil
+
+   --- Inside the window after Revelations, with asthma still holding the pipe shut.
+   local function hellsightHeld(ctx)
+      local at = M.revelationsAt
+      return at ~= nil and util.now() - at < M.HELLSIGHT and ctx.afflictions.asthma == true
+   end
+
+   --- SLICKNESS FROM HELLSIGHT. Panic on a target with hellsight gives slickness, not fear
+   --- (CLASSLEADS #178), and with asthma held they can neither smoke the hellsight away nor
+   --- the slickness: "that's a sure slickness afflict that can easily stick" (Anzerloi,
+   --- 2026-10-23 16:03:25). "If target has hellsight, or you determined your recite to be
+   --- revelations, angel panic becomes a slickness-giving move" (16:16:16): on hellsight
+   --- confirmed, or inside the window after Revelations. Nothing confirms Revelations
+   --- landed, so the window is the cadence, not a belief; on a target without hellsight the
+   --- panic gives fear.
+   ---
+   --- Once, and again only when slickness was confirmed since the last panic and has gone:
+   --- they ate it away. A panic into slickness that was never confirmed would cost the mace
+   --- every exchange. Their fangbarrier sloughing off confirms it (16:09:48).
+   M.MOVES.hellsightPanic = setmetatable({ gives = "slickness", when = function(ctx)
+      if not (ctx.afflictions.hellsight or hellsightHeld(ctx)) then return false end
+      local last = M.panicAt
+      if last == nil or (M.revelationsAt and last < M.revelationsAt) then return true end
+      return M.slickAt ~= nil and M.slickAt >= last
+   end }, { __index = M.MOVES.panic })
+
+   --- Is the target in our slickness phase: panicked since our Revelations, and either
+   --- still inside its window or slick by confirmation? Slickness from anyone else (a
+   --- partner) is not this sequence, and leaves the lock's pieces first.
+   function M.slickPhase(ctx)
+      local at, panic = M.revelationsAt, M.panicAt
+      if not (at and panic and panic >= at) then return false end
+      return ctx.afflictions.slickness == true or hellsightHeld(ctx)
+   end
+
+   --- How many afflictions focus cures are confirmed on them, anorexia aside.
+   local function mentals(ctx)
+      local n = 0
+      for aff in pairs(ctx.afflictions) do
+         if aff ~= "anorexia" and #emunah.curing.afflist.curesVia(aff, "focus") > 0 then
+            n = n + 1
+         end
+      end
+      return n
+   end
+
+   --- ANOREXIA ONCE THEY ARE SLICK. "Next attack could be a perform fasting to get
+   --- anorexia, which they'll have to focus because slick. For that to be worth it, need
+   --- some mentals" (Anzerloi, 16:07:08-16:07:17): one other mental confirmed, so focus
+   --- has two to choose from. Once per Revelations; anorexia shows no landing line yet.
+   M.MOVES.slickFasting = { lane = "equilibrium", skill = "fasting", gives = "anorexia",
+      when = function(ctx)
+         if not M.slickPhase(ctx) or mentals(ctx) < 1 then return false end
+         local last = M.sentAt.slickFasting
+         return last == nil or (M.revelationsAt ~= nil and last < M.revelationsAt)
+      end,
+      command = function(ctx) return "perform fasting " .. ctx.target end }
 
    --- The route as `emset pvp` shows it: the prayer and the legs.
    function M.routeReport(target)
@@ -550,7 +668,8 @@ return function(P)
          readMana    = true,
          prayer      = M.routePrayer,
          balance     = { "legsmite" },
-         equilibrium = { "absolve", "drainContemplate", "drainSap", "openSloth", "openDazzle" },
+         equilibrium = { "absolve", "hellsightPanic", "slickFasting", "drainContemplate",
+                         "drainSap", "openSloth", "openDazzle" },
       },
       -- F3: keep them here and slow -- legs, paralysis, fragility on the next blow.
       hinder = {
@@ -596,7 +715,9 @@ return function(P)
          if P.ONCE_PER_PRAYER[move.verse] and P.prayerSpent[move.verse] then return false end
          if not P.prayerAllows(move.verse) then return false end
       end
-      if move.gives and ctx.afflictions[move.gives] then return false end
+      local gives = move.gives
+      if type(gives) == "function" then gives = gives(ctx) end
+      if gives and ctx.afflictions[gives] then return false end
       if move.when and not move.when(ctx) then return false end
       return true
    end
@@ -684,6 +805,7 @@ return function(P)
          if move.verse == "revelations" then M.revelationsAt = now end
       end
       if move.skill == "strip" then M.strippedAt[ctx.target] = now end
+      if move.skill == "panic" then M.panicAt = now end
       if move.lane == "balance" then contemplateWithBlow(M.MODES[ctx.mode], ctx) end
       -- The pessimistic guard until the game's own line replaces it ("You may speak another
       -- holy verse." / "Balance used:" / "Equilibrium used:"), as every attack here does.
@@ -713,9 +835,17 @@ return function(P)
       emunah.event.register(name, function()
          M.sentAt, M.lastLeg, M.strippedAt = {}, {}, {}
          M.lastVerse, M.revelationsAt, M.lastExchange = nil, nil, nil
+         M.panicAt, M.slickAt = nil, nil
          P.targetLimbs = {}
       end, "priest-pvp")
    end
+   -- Slickness confirmed on the target: a panic may follow once it is eaten away.
+   emunah.event.register("emunah.opponent.afflicted", function(_, name, affliction)
+      local target = emunah.pvp and emunah.pvp.target
+      if affliction == "slickness" and target and name == tostring(target):lower() then
+         M.slickAt = util.now()
+      end
+   end, "priest-pvp")
    -- The prayer ended (priest.prayerReset()): the next verse starts the next one.
    emunah.event.register("emunah.priest.prayerEnded", function()
       M.lastKind = M.prayerKind or M.lastKind

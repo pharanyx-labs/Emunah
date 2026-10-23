@@ -550,8 +550,19 @@ local function markMaceSeen(_, location, item)
    if not (item and item.search and item.search:find("spiritual mace", 1, true)) then return end
    emunah._persist = emunah._persist or {}
    emunah._persist.maceSummoned = true
-   -- The recall landed. "Call for it" is no longer the server's latest word.
-   if emunah._persist.macePlace == "land" then emunah._persist.macePlace = nil end
+   -- The recall landed, or it was picked up: "call for it" and "on the ground" are no
+   -- longer the latest word.
+   local place = emunah._persist.macePlace
+   if place == "land" or place == "ground" then emunah._persist.macePlace = nil end
+   -- Picked up: the GET is answered, and the wield goes on the next pass rather than after
+   -- keep-up's confirm wait (12s between "You scoop up a spiritual mace." and the wield,
+   -- 2026-10-23 16:39:33.99-16:39:45.98).
+   local awaiting = emunah.queue and emunah.queue.awaiting("free")
+   if awaiting and tostring(awaiting.command or ""):find("^get ") then
+      emunah.queue.confirm("free")
+      local defkeepup = emunah.curing.defkeepup
+      if defkeepup and defkeepup.resetBudget then defkeepup.resetBudget("trackmace") end
+   end
 end
 event.register("emunah.items.added",   markMaceSeen, "curing.deflist")
 event.register("emunah.items.updated", markMaceSeen, "curing.deflist")
@@ -581,6 +592,12 @@ local function maceChanged(_, key)
    if key ~= nil and key ~= "inv" then return end
    local items = emunah.gmcp.items
    if not (items and items.inventoryListed) then return end
+   -- Its id, so a mace dropped where another priest's lies is the one picked up.
+   local held = items.first("spiritual mace", "inv")
+   if held and held.id then
+      emunah._persist = emunah._persist or {}
+      emunah._persist.maceId = held.id
+   end
    local up = M.SYNTHETIC.trackmace() and true or false
    if up == maceWasUp then return end
    local was = maceWasUp
@@ -598,6 +615,7 @@ event.register("sysDisconnectionEvent", function()
    if emunah._persist then
       emunah._persist.maceSummoned = nil
       emunah._persist.macePlace = nil
+      emunah._persist.maceId = nil
       emunah._persist.maceSummoning = nil
       emunah._persist.blissUp = nil
    end
@@ -647,6 +665,28 @@ end
 --- The reference system's "Mace interrupted": nothing is coming, so summoning may go again.
 function M.noteMaceSummonFoiled()
    if emunah._persist then emunah._persist.maceSummoning = nil end
+end
+
+--- "You drop a spiritual mace in your terror." Fear from angel panic drops what is
+--- wielded (2026-10-23 16:12:47.42). The mace is on the ground now, not wielded: the
+--- remembered place made keep-up send WIELD MACE at nothing until it gave up ("Raised
+--- trackmace 3 times and it still is not up -- stopping").
+function M.noteMaceDropped()
+   rememberMace("ground")
+end
+
+--- Our mace lying in the room, or nil: by the id it had in our pack, else by name.
+function M.maceOnGround()
+   local items = emunah.gmcp.items
+   if not items then return nil end
+   local id = emunah._persist and emunah._persist.maceId
+   if id then
+      for _, item in ipairs(items.at("room")) do
+         if item.id == id then return item end
+      end
+      return nil
+   end
+   return items.first("spiritual mace", "room")
 end
 
 function M.noteMaceWielded()
@@ -709,6 +749,17 @@ local function resolveTrackmace()
 
    if place == "land" and not liveMace then
       return "equilibrium", "call mace", nil, nil, nil
+   end
+
+   -- ON THE GROUND: picked up, and wielded on the next pass. GET spends neither balance
+   -- ("You scoop up a kite shield." with no cost line, 16:18:52) but needs both. Unseen
+   -- (blind), the drop line is all there is, and GET MACE names it.
+   if not liveMace then
+      local dropped = items and items.sighted() and M.maceOnGround()
+      if dropped or place == "ground" then
+         local what = dropped and dropped.id and tostring(dropped.id) or "mace"
+         return "free", "get " .. what, { bal = true, eq = true }, nil, nil
+      end
    end
 
    if mace or place == "hand" or place == "wielded" then
