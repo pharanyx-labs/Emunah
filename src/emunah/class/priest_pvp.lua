@@ -106,6 +106,51 @@ return function(P)
    --- (Anzerloi, 2026-10-23 14:38:04, 14:38:52). A tuning number, not a game fact.
    M.NAMED_CHASTEN_UNTIL = 3
 
+   --- MENTALS ONLY WHEN THEY PAY. Anzerloi, 2026-10-23, after the 17:44 spar: "See the
+   --- problem? Matching mentals with eatables. I get rid of them before your next attack."
+   --- "Gotta only use mentals when they can't focus or it can harm them." "That's why I
+   --- work the kelp trail primarily." "Mentals are for when you get a good lobelia trail
+   --- to hold the guilt. And you don't have a more worthy affliction to contribute to the
+   --- kelp trail." "Between another mental and hellsight, I'll go hellsight any day."
+   ---
+   --- A mental is anything FOCUS cures. One goes when:
+   ---   * focus is shut on them: impatience or inquisition confirmed (opponent.blockedVectors);
+   ---   * we are in the slickness sequence, where focus has anorexia to cure as well
+   ---     (M.slickPhase, his procedure of 16:07-16:08);
+   ---   * guilt is held on a lobelia trail (guilt and another lobelia affliction confirmed)
+   ---     and every kelp affliction a chasten gives is already on them.
+   --- Hellsight comes ahead of any of it: Revelations is a verse, on its own lane, and goes
+   --- whenever asthma is secure (M.MOVES.revelations).
+   local function isMental(aff)
+      return #emunah.curing.afflist.curesVia(aff, "focus") > 0
+   end
+   local function curedBy(aff, herb)
+      for _, option in ipairs(emunah.curing.afflist.curesVia(aff, "herb")) do
+         if option.item == herb then return true end
+      end
+      return false
+   end
+   --- The kelp afflictions a chasten can give.
+   M.KELP_TRAIL = { "asthma", "clumsiness", "healthleech" }
+   function M.lobeliaTrail(ctx)
+      if not ctx.afflictions.guilt then return false end
+      for aff in pairs(ctx.afflictions) do
+         if aff ~= "guilt" and curedBy(aff, "lobelia") then return true end
+      end
+      return false
+   end
+   function M.kelpTrailFull(ctx)
+      for _, aff in ipairs(M.KELP_TRAIL) do
+         if not ctx.afflictions[aff] then return false end
+      end
+      return true
+   end
+   function M.mentalsAllowed(ctx)
+      if ctx.blocked and ctx.blocked.focus then return true end
+      if M.slickPhase ~= nil and M.slickPhase(ctx) == true then return true end
+      return M.lobeliaTrail(ctx) and M.kelpTrailFull(ctx)
+   end
+
    --- `body` or `mind` for a smart chasten, or nil. A pool they have all of comes first:
    --- chastening it gives the capstone, and impatience comes no other way ("You can't
    --- intentionally afflict with impat", 14:35:53). Otherwise the pool with more missing,
@@ -121,6 +166,8 @@ return function(P)
          missing[category] = n
       end
       if capstoneOnly then return nil end
+      -- The mind pool is all mentals: only when they may go.
+      if not M.mentalsAllowed(ctx) then return missing.body > 0 and "body" or nil end
       if missing.body ~= missing.mind then
          return missing.body > missing.mind and "body" or "mind"
       end
@@ -156,22 +203,30 @@ return function(P)
          local pool = smartPool(ctx, order)
          if pool then return pool end
       end
+      local mentals = M.mentalsAllowed(ctx)
       for _, aff in ipairs(order) do
-         if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
+         if not ctx.afflictions[aff] and not recent("chasten:" .. aff)
+            and (mentals or not isMental(aff)) then
+            return aff
+         end
       end
       -- Everything named is on them or was just tried: a pool never repeats one they have.
       return smartPool(ctx, order) or "body"
    end
 
-   --- Per mode: the order chasten picks from. Offence's is what Anzerloi chastened on the
-   --- legs in the spars; the route puts asthma and recklessness ahead of it when its
-   --- cadence calls for them (M.routeChasten).
+   --- Per mode: the order chasten picks from. THE KELP TRAIL FIRST, ASTHMA LAST: "That's
+   --- why I work the kelp trail primarily", and "I like saving asthma for the end"
+   --- (Anzerloi, 2026-10-23). Clumsiness, healthleech and asthma are all kelp, and a kelp
+   --- eaten cures one of them, so the rest stay; asthma, which shuts the pipe, lands on a
+   --- trail already laid. Hinder leads with paralysis, its purpose. Mentals are named last
+   --- and only go when they may (M.mentalsAllowed). The route holds asthma on while
+   --- hellsight is up (M.routeChasten).
    M.CHASTEN = {
-      attack  = { "asthma", "clumsiness", "recklessness", "healthleech", "paralysis" },
-      offence = { "clumsiness", "paralysis", "healthleech", "asthma", "epilepsy",
+      attack  = { "clumsiness", "healthleech", "asthma", "paralysis", "recklessness" },
+      offence = { "clumsiness", "healthleech", "asthma", "paralysis", "epilepsy",
                   "recklessness" },
-      hinder  = { "paralysis", "asthma", "clumsiness", "epilepsy", "dizziness" },
-      finish  = { "asthma", "recklessness", "clumsiness", "confusion", "paralysis" },
+      hinder  = { "paralysis", "clumsiness", "healthleech", "asthma", "epilepsy" },
+      finish  = { "clumsiness", "healthleech", "asthma", "paralysis", "recklessness" },
    }
 
    --- Rebukes a mode ends a prayer with, best first, on any verse once the prayer is long
@@ -535,16 +590,25 @@ return function(P)
       end
       local piece = lockPiece(ctx)
       if piece then return piece end
+      -- Building to Revelations: the kelp first and asthma last ("I like saving asthma for
+      -- the end", Anzerloi, 2026-10-23), so it lands on a trail and Revelations follows.
       if M.currentKind() == "hellsight" and not P.prayerSpent.revelations
          and not M.asthmaSecure(ctx) then
-         if not ctx.afflictions.asthma then return "asthma" end
-         for _, aff in ipairs(M.KELP_CHASTEN) do
-            if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
+         local kelp = false
+         for aff in pairs(ctx.afflictions) do
+            if aff ~= "asthma" and isKelp(aff) then kelp = true end
          end
+         if not kelp then
+            for _, aff in ipairs(M.KELP_CHASTEN) do
+               if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
+            end
+         end
+         if not ctx.afflictions.asthma then return "asthma" end
       end
       local verse = M.lastVerse
       if verse and verse.name == "guilt" and verse.rebuke == "evil"
-         and now - verse.at < M.TOGETHER and not ctx.afflictions.recklessness then
+         and now - verse.at < M.TOGETHER and not ctx.afflictions.recklessness
+         and M.mentalsAllowed(ctx) then
          return "recklessness"
       end
       return chastenPick(ctx, M.CHASTEN.offence)
@@ -639,6 +703,7 @@ return function(P)
    --- some mentals" (Anzerloi, 16:07:08-16:07:17): one other mental confirmed, so focus
    --- has two to choose from. Once per Revelations; anorexia shows no landing line yet.
    M.MOVES.slickFasting = { lane = "equilibrium", skill = "fasting", gives = "anorexia",
+      mentalOk = true,
       when = function(ctx)
          if not M.slickPhase(ctx) or mentals(ctx) < 1 then return false end
          local last = M.sentAt.slickFasting
@@ -675,11 +740,16 @@ return function(P)
       -- "Rage fills you as the thought of heresy inspires you". So the verse and the smite
       -- go on F1's own line, and heresy is hunted only once a blow has rebounded
       -- (heresyIfRebounding, below).
+      --
+      -- HELLSIGHT WHEN IT CAN STICK. "Between another mental and hellsight, I'll go
+      -- hellsight any day" (Anzerloi, 2026-10-23): Revelations first in the prayer once
+      -- asthma is secure, with the panic that turns it to slickness, and fasting once they
+      -- are slick (his procedure, 16:03-16:16; the moves are the route's).
       attack = {
          exchange    = true,
-         prayer      = { "purge", "unflinching", "guilt", "ash" },
+         prayer      = { "purge", "revelations", "unflinching", "guilt", "ash" },
          balance     = { "smite" },
-         equilibrium = {},
+         equilibrium = { "hellsightPanic", "slickFasting" },
       },
       -- F2: hold the attack. Curing and the defence keep-up are not this mode's to send,
       -- and no game command for a defensive rotation has been captured.
@@ -748,6 +818,11 @@ return function(P)
       local gives = move.gives
       if type(gives) == "function" then gives = gives(ctx) end
       if gives and ctx.afflictions[gives] then return false end
+      -- A move that gives a mental waits until it may (M.mentalsAllowed), unless it is part
+      -- of a sequence that is its own reason, as fasting once they are slick is.
+      if gives and not move.mentalOk and isMental(gives) and not M.mentalsAllowed(ctx) then
+         return false
+      end
       if move.when and not move.when(ctx) then return false end
       return true
    end

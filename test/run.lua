@@ -11480,30 +11480,33 @@ ok(lanes:find("perform sloth sarapis", 1, true), "equilibrium: sloth, the kelp b
 ok(not lanes:find("smite", 1, true), "...and no mace on the same prompt", lanes)
 
 -- PAST THE FIRST PRAYER the mace goes to the legs, and a CONFIRMED affliction is not given
--- again: the chasten moves on. The hellsight prayer builds asthma and a kelp affliction
--- for Revelations (Anzerloi, 2026-10-23 16:03:25).
+-- again: the chasten moves on. The hellsight prayer builds a kelp affliction and then
+-- asthma for Revelations (Anzerloi, 2026-10-23 16:03:25; "I like saving asthma for the
+-- end", 17:48:47).
 mock.routeAt(1, 10)
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("smite sarapis right leg chasten asthma", 1, true),
-   "the second verse of the hellsight prayer: a leg, chastening asthma", lanes)
+ok(lanes:find("smite sarapis right leg chasten clumsiness", 1, true),
+   "the second verse of the hellsight prayer: a leg, the kelp trail first", lanes)
 ok(not lanes:find("perform sloth", 1, true), "...and no equilibrium move with it", lanes)
-opponent.assert("sarapis", "asthma")
-emunah.timers.stopAll()
-mock.sent = {}
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("smite sarapis left leg chasten clumsiness", 1, true),
-   "asthma confirmed: the other leg, and a kelp affliction beside it", lanes)
 opponent.assert("sarapis", "clumsiness")
 emunah.timers.stopAll()
 mock.sent = {}
 mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 lanes = table.concat(mock.sent, " | ")
-ok(lanes:find("smite sarapis right leg chasten paralysis", 1, true),
-   "asthma secure: Anzerloi's order again", lanes)
+ok(lanes:find("smite sarapis left leg chasten asthma", 1, true),
+   "clumsiness confirmed: the other leg, and asthma last, on the trail", lanes)
+opponent.assert("sarapis", "asthma")
+emunah.timers.stopAll()
+mock.sent = {}
+mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+lanes = table.concat(mock.sent, " | ")
+-- "That's why I work the kelp trail primarily" (Anzerloi, 2026-10-23): healthleech, the
+-- third kelp affliction, before paralysis.
+ok(lanes:find("smite sarapis right leg chasten healthleech", 1, true),
+   "asthma secure: the kelp trail goes on", lanes)
 opponent.clear("sarapis")
 mock.routeAt(0, 0)
 pvp.setTarget("sarapis")   -- a fresh rotation: paralysis was chastened a moment ago
@@ -12404,13 +12407,19 @@ do
    ok(not sent:find("smite", 1, true), "...and no mace on the same prompt", sent)
    sent = exchange(1, 0)
    ok(sent:find("recite burn ashden", 1, true), "second: Burn again", sent)
-   ok(sent:find("perform dazzle ashden", 1, true), "...sloth went a moment ago: dazzle", sent)
+   -- Dazzle's stupidity is a mental, and they are clean: sloth again, as he opened all
+   -- three spars (Burn with sloth, twice).
+   ok(sent:find("perform sloth ashden", 1, true) and not sent:find("dazzle", 1, true),
+      "...sloth again, not a mental they would focus away", sent)
    sent = exchange(2, 0)
    ok(sent:find("recite condemnation ashden", 1, true), "third: Condemnation", sent)
    sent = exchange(3, 0)
    ok(sent:find("recite guilt ashden rebuke evil", 1, true), "fourth: guilt, rebuke evil", sent)
-   ok(sent:find("smite ashden right leg chasten recklessness", 1, true),
-      "...and the mace, on a leg, chastening recklessness", sent)
+   -- Recklessness is a mental, and the kelp trail is not full: a kelp affliction instead
+   -- ("Mentals are for when you get a good lobelia trail to hold the guilt. And you don't
+   -- have a more worthy affliction to contribute to the kelp trail", Anzerloi, 2026-10-23).
+   ok(sent:find("smite ashden right leg chasten clumsiness", 1, true),
+      "...and the mace, on a leg, chastening the kelp trail, not a mental", sent)
    ok(not sent:find("perform sloth", 1, true) and not sent:find("perform dazzle", 1, true),
       "...without an equilibrium move", sent)
 
@@ -12435,23 +12444,28 @@ do
    ok(sent:find("recite guilt ashden rebuke evil", 1, true) and not sent:find("revelations", 1, true),
       "nothing confirmed: guilt in Revelations' place", sent)
    R.prayerKind = "hellsight"
+   -- The stack's chastens were moments ago on this clock; a fight's exchanges are 2.3s apart.
+   mock.advance(R.RECENT)
    sent = exchange(1, 10)
-   ok(sent:find("smite ashden right leg chasten asthma", 1, true),
-      "its second verse: the mace, the other leg, building asthma", sent)
-   mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of "
-      .. "asthma is brought down on to your victim.")
-   sent = exchange(2, 10)
-   ok(sent:find("recite reflection ashden", 1, true), "third: Reflection", sent)
-   ok(sent:find("chasten clumsiness", 1, true), "...and a kelp affliction beside the asthma", sent)
+   ok(sent:find("smite ashden right leg chasten clumsiness", 1, true),
+      "its second verse: the mace, the other leg, building the kelp trail", sent)
    mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of "
       .. "clumsiness is brought down on to your victim.")
+   sent = exchange(2, 10)
+   ok(sent:find("recite reflection ashden", 1, true), "third: Reflection", sent)
+   ok(sent:find("chasten asthma", 1, true),
+      "...and asthma last, on the kelp already there (\"I like saving asthma for the end\")", sent)
+   mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of "
+      .. "asthma is brought down on to your victim.")
    sent = exchange(3, 10)
    ok(sent:find("recite revelations ashden", 1, true) and not sent:find("rebuke", 1, true),
       "fourth, asthma secure: Revelations, and no rebuke: the prayer carries on", sent)
    -- ANGEL PANIC ON HELLSIGHT GIVES SLICKNESS (CLASSLEADS #178), and asthma keeps both on.
    ok(sent:find("angel panic ashden", 1, true) and not sent:find("smite", 1, true),
       "...and the angel's panic for slickness, in the mace's place", sent)
-   -- "On next attack guilt rebuke a mental/perform sloth" (Anzerloi, 16:08:36).
+   -- "On next attack guilt rebuke a mental/perform sloth" (Anzerloi, 16:08:36). An exchange
+   -- is 2.3s in a fight; these run at one instant, so the clock catches up with the sloth.
+   mock.advance(R.RECENT)
    sent = exchange(4, 10)
    ok(sent:find("recite guilt ashden rebuke evil", 1, true), "fifth: guilt, rebuke evil", sent)
    ok(sent:find("perform sloth ashden", 1, true) and not sent:find("smite", 1, true),
@@ -12758,6 +12772,76 @@ suite("PvP: no time lost, the 17:31 spar")
 end)()
 
 -- ===========================================================================
+suite("PvP: the kelp trail, and mentals only when they pay")
+
+-- The 17:44 spar on 2026-10-23: every exchange matched a verse they ate away with a
+-- chasten they focused away, three times `chasten mind`. Anzerloi: "See the problem?
+-- Matching mentals with eatables. I get rid of them before your next attack." "Gotta only
+-- use mentals when they can't focus or it can harm them." "That's why I work the kelp trail
+-- primarily." "Mentals are for when you get a good lobelia trail to hold the guilt. And you
+-- don't have a more worthy affliction to contribute to the kelp trail." "Between another
+-- mental and hellsight, I'll go hellsight any day."
+;(function()
+   local R = emunah.class.active.pvp
+   pvp.stop("test"); emunah.timers.stopAll(); emunah.act.typedUntil = nil
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
+   R.sentAt = {}
+   local function chasten(afflictions, blocked)
+      R.sentAt = {}
+      local ctx = { target = "ashden", mode = "attack", afflictions = afflictions or {},
+         blocked = blocked or {}, lockNeeds = {}, locks = {}, defences = {}, heresy = true,
+         held = {} }
+      local move = R.MOVES.smite
+      local command = move.command(ctx)
+      return command:match("chasten (%S+)$")
+   end
+   local mentals = { epilepsy = true, dizziness = true, confusion = true, recklessness = true,
+      mind = true }
+
+   -- "I like saving asthma for the end" (17:48:47).
+   eq(chasten({}), "clumsiness", "a clean target: the kelp trail, clumsiness first")
+   eq(chasten({ clumsiness = true }), "healthleech", "...then healthleech")
+   eq(chasten({ clumsiness = true, healthleech = true }), "asthma", "...and asthma last")
+   local three = { asthma = true, clumsiness = true, healthleech = true }
+   local pick = chasten(three)
+   ok(not mentals[pick], "the kelp trail full but no guilt held: still no mental", pick)
+   local late = { asthma = true, clumsiness = true, paralysis = true }
+   pick = chasten(late)
+   ok(pick == "healthleech" or pick == "body",
+      "three confirmed: the kelp still missing, or the body pool, never `mind`", pick)
+
+   -- Guilt held on a lobelia trail, and nothing left for the kelp trail: a mental pays.
+   local held = { asthma = true, clumsiness = true, healthleech = true, guilt = true,
+      tenderskin = true }
+   ok(mentals[chasten(held)], "guilt on a lobelia trail, the kelp trail full: a mental",
+      chasten(held))
+   held.tenderskin = nil
+   ok(not mentals[chasten(held)], "...but guilt alone is no trail")
+
+   -- Focus shut: impatience confirmed on them.
+   ok(mentals[chasten({ asthma = true, clumsiness = true, healthleech = true },
+      { focus = "impatience" })], "their focus shut by impatience: a mental may go")
+
+   -- An equilibrium move giving a mental waits too: dazzle's stupidity.
+   ok(not R.MOVES.dazzle.gives or not emunah.curing.afflist.curesVia("stupidity", "focus")[1]
+      or not R.mentalsAllowed({ afflictions = {}, blocked = {} }),
+      "(stupidity is a mental, and a clean target allows none)")
+
+   -- Hellsight ahead of another mental: attack mode recites Revelations once asthma is
+   -- secure.
+   local found = false
+   for _, name in ipairs(R.MODES.attack.prayer) do
+      if name == "revelations" then found = true end
+   end
+   ok(found, "attack mode's prayer has Revelations, for when asthma is secure")
+   ok(not R.MOVES.revelations.when({ afflictions = { asthma = true } }),
+      "...not on asthma alone")
+   ok(R.MOVES.revelations.when({ afflictions = { asthma = true, clumsiness = true } }),
+      "...but with asthma and another kelp affliction (\"you need a little bit of kelp\")")
+   R.sentAt = {}
+end)()
+
+-- ===========================================================================
 suite("PvP chasten: named early, a pool later, and the capstone")
 
 -- Anzerloi, 2026-10-23 14:36-14:40: name the chasten while the target is clean and the
@@ -12784,8 +12868,8 @@ suite("PvP chasten: named early, a pool later, and the capstone")
    end
 
    local sent = table.concat(mock.sent, " | ")
-   ok(sent:find("smite ashden head chasten asthma", 1, true),
-      "a clean target: the chasten is named", sent)
+   ok(sent:find("smite ashden head chasten clumsiness", 1, true),
+      "a clean target: the chasten is named, the kelp trail first", sent)
 
    for _, aff in ipairs({ "asthma", "clumsiness", "recklessness" }) do opp.assert("ashden", aff) end
    sent = blow()
