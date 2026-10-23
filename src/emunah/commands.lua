@@ -1281,11 +1281,6 @@ M.handlers.pvp = function(arg, rest)
    elseif arg == "off" or arg == "stop" then pvp.stop("requested")
    elseif arg == "mode" and rest then
       pvp.setMode(rest)
-   elseif arg == "attack" and rest then
-      -- Quotes stripped for the reason given at `emset bash attack`: a leading `"` is SAY.
-      local command = rest:match('^"(.+)"$') or rest:match("^'(.+)'$") or rest
-      emunah.config.set("pvp.attack", command); emunah.config.save()
-      log.info("PvP attack command: %s", command)
    elseif arg == "target" and rest then
       if rest == "off" or rest == "clear" or rest == "none" then
          pvp.clearTarget()
@@ -1357,14 +1352,13 @@ M.handlers.pvp = function(arg, rest)
          if r.target then row("their legs", legs .. " (our blows)") end
       end
       if r.held then row("attack held", "locked: " .. r.held, "ansi_light_red") end
-      row("attack", emunah.config.get("pvp.attack", "angel sear") .. " <name>")
       row("attacks sent", r.attacks)
       row("verses recited", r.recited)
       if r.running then row("elapsed", util.duration(r.elapsed)) end
       local here = emunah.gmcp.room.playerNames()
       row("players here", #here > 0 and table.concat(here, ", ") or "-",
          "ansi_light_black")
-      decho("\n  " .. faint("emset pvp on|off|target <name>|target off|attack <command>  -- never auto-targets"))
+      decho("\n  " .. faint("emset pvp on|off|target <name>|target off|mode <mode>  -- never auto-targets"))
    end
 end
 

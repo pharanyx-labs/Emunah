@@ -84,7 +84,7 @@ return function(P)
 
    --- A move or affliction sent this recently is passed over while something else is open.
    --- Not a game fact -- a rotation, because nothing confirms a verse landed. Moves marked
-   --- `again` (sear, contemplate, sap, absolve, heresy) are meant to repeat and skip it.
+   --- `again` (contemplate, sap, absolve, heresy, purity) are meant to repeat and skip it.
    M.RECENT = 6.0
    M.sentAt = {}
 
@@ -93,14 +93,48 @@ return function(P)
       return at ~= nil and util.now() - at < M.RECENT
    end
 
-   --- The chasten affliction to carry: the first in `order` not confirmed on the target and
-   --- not chastened a moment ago. HELP CHASTEN's pools: paralysis, healthleech, clumsiness,
-   --- nausea, asthma (body); epilepsy, dizziness, confusion, recklessness (mind).
-   --- Every affliction chasten can carry (HELP CHASTEN's two pools).
+   --- Every affliction chasten can carry, and which pool it is in (P.CHASTEN_POOLS).
    local CHASTEN_POOL = {}
-   for _, aff in ipairs({ "paralysis", "healthleech", "clumsiness", "nausea", "asthma",
-                          "epilepsy", "dizziness", "confusion", "recklessness" }) do
-      CHASTEN_POOL[aff] = true
+   for category, pool in pairs(P.CHASTEN_POOLS) do
+      for _, aff in ipairs(pool) do CHASTEN_POOL[aff] = category end
+   end
+
+   --- Fewer confirmed afflictions than this and the picture is clean enough to name the
+   --- chasten; at or over it, chasten body or mind. "You want to focus them early when the
+   --- enemy is relatively clean of affs and your estimation is good ... later on you switch
+   --- to body/mind to efficiently fill whatever's left, since picture will be uncertain"
+   --- (Anzerloi, 2026-10-23 14:38:04, 14:38:52). A tuning number, not a game fact.
+   M.NAMED_CHASTEN_UNTIL = 3
+
+   --- `body` or `mind` for a smart chasten, or nil. A pool they have all of comes first:
+   --- chastening it gives the capstone, and impatience comes no other way ("You can't
+   --- intentionally afflict with impat", 14:35:53). Otherwise the pool with more missing,
+   --- ties to the pool of the first affliction `order` still wants.
+   local function smartPool(ctx, order, capstoneOnly)
+      local missing = {}
+      for _, category in ipairs({ "mind", "body" }) do
+         local pool, n = P.CHASTEN_POOLS[category], 0
+         for _, aff in ipairs(pool) do
+            if not ctx.afflictions[aff] then n = n + 1 end
+         end
+         if n == 0 and not ctx.afflictions[pool.capstone] then return category end
+         missing[category] = n
+      end
+      if capstoneOnly then return nil end
+      if missing.body ~= missing.mind then
+         return missing.body > missing.mind and "body" or "mind"
+      end
+      for _, aff in ipairs(order) do
+         if not ctx.afflictions[aff] and CHASTEN_POOL[aff] then return CHASTEN_POOL[aff] end
+      end
+      return nil
+   end
+
+   --- How many afflictions are confirmed on the target.
+   local function confirmedCount(ctx)
+      local n = 0
+      for _ in pairs(ctx.afflictions) do n = n + 1 end
+      return n
    end
 
    local function chastenPick(ctx, order)
@@ -114,14 +148,19 @@ return function(P)
             return aff
          end
       end
-      local fallback
-      for _, aff in ipairs(order) do
-         if not ctx.afflictions[aff] then
-            fallback = fallback or aff
-            if not recent("chasten:" .. aff) then return aff end
-         end
+      -- A capstone to be had beats anything named: its pool is full, so naming one wastes it.
+      local capstone = smartPool(ctx, order, true)
+      if capstone then return capstone end
+      -- Late, or when everything named is on them: let the game pick from a pool.
+      if confirmedCount(ctx) >= M.NAMED_CHASTEN_UNTIL then
+         local pool = smartPool(ctx, order)
+         if pool then return pool end
       end
-      return fallback or order[1]
+      for _, aff in ipairs(order) do
+         if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
+      end
+      -- Everything named is on them or was just tried: a pool never repeats one they have.
+      return smartPool(ctx, order) or "body"
    end
 
    --- Per mode: the order chasten picks from. Offence's is what Anzerloi chastened on the
@@ -157,6 +196,21 @@ return function(P)
    local function freshMana(ctx)
       local reading = ctx.mana
       return reading ~= nil and not reading.stale and util.now() - reading.at <= M.FRESH
+   end
+
+   --- CONTEMPLATE RIDES ON THE BLOW. `smite anzerloi head chasten ...;contemplate anzerloi`
+   --- goes through as one line (the user, 2026-10-23 14:37:02), as Anzerloi said it would
+   --- ("you can also append 'contemplate '..target to your attack without issue", 14:53:13).
+   --- So a mode that reads mana takes its reading with every blow that has none fresh,
+   --- and equilibrium stays free for the moves. AB CONTEMPLATE: 1.00s of equilibrium, armed
+   --- as it leaves, which is also what holds a second one until the reading is back.
+   local function contemplateWithBlow(mode, ctx)
+      if not (mode and mode.readMana) or freshMana(ctx) then return end
+      if not have.skill("contemplate") then return end
+      if emunah.act.send("contemplate " .. ctx.target, { eq = true }, "eq") then
+         M.sentAt.contemplate = util.now()
+         emunah.act.arm("eq")
+      end
    end
 
    --- When a strip was sent at each target, so a shield seen before it is not stripped twice.
@@ -195,7 +249,11 @@ return function(P)
       burn         = verse("burn", "tenderskin"),
       penance      = verse("penance", "paralysis"),
       condemnation = verse("condemnation", "justice"),
-      purge        = verse("purge", "ablaze"),
+      -- NO FIRE WITHOUT INQUISITION: "Don't set people on fire at all unless they have
+      -- inquisition/you are giving it in the same attack" (Anzerloi, 2026-10-23 14:03:16).
+      -- Only once it is confirmed on them: no mode here gives it in the attack that burns.
+      purge        = verse("purge", "ablaze",
+         { when = function(ctx) return ctx.afflictions.inquisition == true end }),
       revelations  = verse("revelations", "hellsight"),
       reflection   = verse("reflection", nil, { cost = 2.70 }),
       wrath        = verse("wrath", nil, { cost = 3.00 }),
@@ -245,10 +303,16 @@ return function(P)
          command = function(ctx) return "perform dazzle " .. ctx.target end },
       panic = { lane = "equilibrium", skill = "panic", gives = "fear",
          command = function(ctx) return "angel panic " .. ctx.target end },
-      sear = { lane = "equilibrium", skill = "sear", again = true,
-         command = function(ctx)
-            return emunah.config.get("pvp.attack", "angel sear") .. " " .. ctx.target
-         end },
+      -- THE KILLING BLOW. Heavy magical damage through any shield (AB PURITY: 4.00s of
+      -- equilibrium, 250 devotion), "too slow to be useful" unless it kills (Anzerloi,
+      -- 14:45:07). So only on their health as the game gave it, at or under
+      -- pvp.purityBelow; with no reading it never goes.
+      purity = { lane = "equilibrium", skill = "purity", again = true,
+         when = function(ctx)
+            local below = tonumber(emunah.config.get("pvp.purityBelow", 20)) or 0
+            return below > 0 and ctx.health ~= nil and ctx.health <= below
+         end,
+         command = function(ctx) return "perform purity " .. ctx.target end },
       contemplate = { lane = "equilibrium", skill = "contemplate", again = true,
          when = function(ctx) return not freshMana(ctx) end,
          command = function(ctx) return "contemplate " .. ctx.target end },
@@ -462,13 +526,14 @@ return function(P)
    -- -----------------------------------------------------------------------------------
 
    M.MODES = {
-      -- F1: damage first, afflictions on the side.
+      -- F1: damage first, afflictions on the side. A verse and a smite carrying a chasten,
+      -- every exchange: two afflictions and the damage. No angel sear: that is the hunt's
+      -- attack, and fire without inquisition is wasted (the purge above).
       attack = {
          exchange    = true,
-         alternate   = true,
          prayer      = { "purge", "unflinching", "guilt", "ash" },
          balance     = { "smite" },
-         equilibrium = { "heresy", "sear" },
+         equilibrium = { "heresy" },
       },
       -- F2: hold the attack. Curing and the defence keep-up are not this mode's to send,
       -- and no game command for a defensive rotation has been captured.
@@ -482,6 +547,7 @@ return function(P)
       -- the exchanges where he used one. One of mace or equilibrium an exchange.
       offence = {
          exchange    = true,
+         readMana    = true,
          prayer      = M.routePrayer,
          balance     = { "legsmite" },
          equilibrium = { "absolve", "drainContemplate", "drainSap", "openSloth", "openDazzle" },
@@ -497,6 +563,7 @@ return function(P)
       -- F4: read their mana, sap it under half, absolve.
       finish = {
          exchange    = true,
+         readMana    = true,
          prayer      = { "wrath", "guilt", "ash" },
          balance     = { "smite" },
          equilibrium = { "absolve", "contemplate", "sap" },
@@ -505,12 +572,14 @@ return function(P)
 
    -- Every attacking mode strips a shield before its mace or its equilibrium afflictions
    -- meet it, and wants a heresy defence the moment a mace blow would rebound. Defence
-   -- holds the attack; both are attacks.
+   -- holds the attack; both are attacks. Ahead of all of it, purity, when it would kill.
    for name, mode in pairs(M.MODES) do
       if name ~= "defence" then
          local raisesHeresy = mode.equilibrium[1] == "heresy"
          table.insert(mode.equilibrium, 1, "strip")
          if not raisesHeresy then table.insert(mode.equilibrium, 1, "heresyIfRebounding") end
+         -- Through any shield, and wanting no heresy: nothing goes ahead of a kill.
+         table.insert(mode.equilibrium, 1, "purity")
       end
    end
    M.MOVES.heresyIfRebounding = { lane = "equilibrium", skill = "heresy", again = true,
@@ -566,8 +635,8 @@ return function(P)
    --- one prompt only bounces: `smite erishka head chasten clumsiness|angel sear erishka`
    --- came back "You must regain balance first." for the sear, every time (2026-10-23
    --- 09:58:41.12, 44.20). Equilibrium speaks first: the mace waits for any equilibrium move
-   --- that is due, and goes when none is. An ALTERNATING mode (attack, hinder) always has
-   --- one due -- sear repeats -- so there the two take turns, the mace first.
+   --- that is due, and goes when none is. An ALTERNATING mode (hinder) has one due most
+   --- prompts, so there the two take turns, the mace first.
    function M.plan(modeName, lane, ctx)
       local mode = M.MODES[modeName]
       if not mode then return nil end
@@ -615,6 +684,7 @@ return function(P)
          if move.verse == "revelations" then M.revelationsAt = now end
       end
       if move.skill == "strip" then M.strippedAt[ctx.target] = now end
+      if move.lane == "balance" then contemplateWithBlow(M.MODES[ctx.mode], ctx) end
       -- The pessimistic guard until the game's own line replaces it ("You may speak another
       -- holy verse." / "Balance used:" / "Equilibrium used:"), as every attack here does.
       --

@@ -773,6 +773,18 @@ M.COSTLESS = {
 --- again at the moment of sending (defkeepup's queue `valid`), because each of these can
 --- change while the raise waits for its slot.
 M.HOLDS = {
+   -- WHILE YOU ATTACK, NOT AT ALL. Your own blow drops it -- "Your aura of weapons rebounding
+   -- disappears." comes before every smite line -- and the smoke takes 8.5s to land (smoked
+   -- 14:35:29.74, aura 38.24; 14:37:11.41, aura 19.97; 2026-10-23). At a smite every 2.3s it
+   -- never lands, and each try spends a skullcap puff and the smoke balance the curing's own
+   -- smokes need. Raised again in the defence mode, and once PvP stops.
+   rebounding = function()
+      local pvp = emunah.pvp
+      if pvp and pvp.enabled and pvp.mode and pvp.mode() ~= "defence" then
+         return "your own blows drop it while you attack"
+      end
+      return nil
+   end,
    trackmace = function()
       -- NOT KNOWING WHAT WE CARRY IS NOT CARRYING NOTHING, the rule keep-up already holds item
       -- defences to. A reload starts with an empty inventory until Char.Items.Inv answers,

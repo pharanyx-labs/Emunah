@@ -315,11 +315,11 @@ local DEFAULTS = {
       -- Lowered from 60 by the user, 2026-10-15: stopping does not stop a person hitting
       -- you, so PvP fights on further than a hunt does. See pvp.lua's unsafe().
       stopBelowHealth = 25,
-      -- PvP's own attack, apart from the hunt's (the user, 2026-10-15: "they are entirely
-      -- different"). Same meaning as bashing.attack/balance/consumes; see class/priest.lua.
-      attack   = "angel sear",
-      balance  = "both",
-      consumes = "eq",
+      -- No attack command of its own: PvP is the class's offence, move by move
+      -- (class/priest_pvp.lua). A hunt-shaped "attack" setting here was the hunt's way of
+      -- fighting carried into PvP (the user, 2026-10-23: "they are entirely different").
+      -- Below this much of their health, a blow that would finish them goes (purity).
+      purityBelow = 20,
    },
 
    -- Per-affliction priority overrides; the defaults live in curing/afflist.lua.
