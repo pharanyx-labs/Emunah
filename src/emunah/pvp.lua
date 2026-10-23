@@ -163,6 +163,7 @@ function M.stop(reason)
    if not M.enabled then return false end
    M.enabled = false
    M.held = nil
+   M.closeAlert()
 
    local elapsed = emunah.util.now() - (M.stats.startedAt or emunah.util.now())
    -- Sent, not landed: a send the game refused is in these too.
@@ -383,6 +384,7 @@ function M.tick()
       balance     = lock ~= nil,
       equilibrium = lock ~= nil or hands,
    }
+   M.updateAlert(ctx)
    -- One prompt, every free lane.
    if active.pvpDefer then active.pvpDefer(true) end
    for _, lane in ipairs(M.LANES) do
@@ -402,6 +404,52 @@ function M.tick()
          end
       end
    end
+end
+
+--- THE KILL WINDOW, ON SCREEN. "Showing a gui alert when they are locked and also when they
+--- are within absolve range or able to be judged" (the user, 2026-10-23). One window, rows
+--- of what is open: the locks they are in, and the class's own kill rows (absolve, judge).
+--- Raised when what is open changes; redrawn quietly when only a figure does; closed when
+--- nothing is, or the fight ends. A click dismisses it until something new opens.
+M.ALERT = "pvp.kill"
+M.alertKinds = nil
+
+local function alertWidget()
+   return emunah.ui and emunah.ui.alert
+end
+
+function M.closeAlert()
+   M.alertKinds = nil
+   local alert = alertWidget()
+   if alert then alert.close(M.ALERT) end
+end
+
+function M.updateAlert(ctx)
+   local rows = {}
+   if ctx.locks and #ctx.locks > 0 then
+      rows[#rows + 1] = { "LOCKED", table.concat(ctx.locks, ", "), "they cannot cure out" }
+   end
+   local active = emunah.class.active
+   if active and active.pvpKillRows then
+      for _, row in ipairs(active.pvpKillRows(ctx)) do rows[#rows + 1] = row end
+   end
+   if #rows == 0 then
+      if M.alertKinds then M.closeAlert() end
+      return rows
+   end
+   local kinds = {}
+   for _, row in ipairs(rows) do kinds[#kinds + 1] = row[1] .. ":" .. row[2] end
+   kinds = table.concat(kinds, "|")
+   local alert = alertWidget()
+   if not alert then return rows end
+   local title = ("Kill window: %s"):format(emunah.util.capitalise(ctx.target or ""))
+   if kinds ~= M.alertKinds then
+      M.alertKinds = kinds
+      alert.show(M.ALERT, title, rows)
+   elseif alert.isOpen(M.ALERT) then
+      alert.update(M.ALERT, title, rows)
+   end
+   return rows
 end
 
 --- Report, for `emunah pvp`.

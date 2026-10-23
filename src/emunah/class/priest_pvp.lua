@@ -275,6 +275,42 @@ return function(P)
       return reading ~= nil and not reading.stale and util.now() - reading.at <= M.FRESH
    end
 
+   --- THEIR MANA, ESTIMATED. "Don't contemplate too much as it'll cost us valuable time. Try
+   --- and estimate it and only use contemplate when you feel they are close" (the user,
+   --- 2026-10-23). From the last reading, or full at the start of a fight with none: less
+   --- each sap and wrath of ours since, by sapPercent over what was on them as it went, and
+   --- less M.FOCUS_COST for each focus they were seen to make. Their regeneration, moss and
+   --- mana sips are not counted, so it errs low, and reads come a little early rather than
+   --- late. It only decides when to look and when to sap: absolve waits for a real reading.
+   ---
+   --- FOCUS COSTS ABOUT 13% OF MAXIMUM MANA: the user's own, twice on 2026-10-23, 94% to 81%
+   --- at 18:08:23-26 and 85% to 72% at 18:09:00-01. A tuning number for anyone else's.
+   M.FOCUS_COST = 13
+   --- Contemplate when the estimate is at or under this: close enough to the kill to look.
+   M.READ_BELOW = 60
+   --- target -> { { at, percent } }: what our saps and wraths were estimated to take.
+   M.drains = {}
+   --- When this fight began, the base of an estimate with no reading.
+   M.fightAt = nil
+
+   function M.manaEstimate(ctx)
+      local reading = ctx.mana
+      local estimate, since
+      if reading then
+         estimate, since = reading.percent, reading.at
+      else
+         estimate, since = 100, M.fightAt or 0
+      end
+      for _, drain in ipairs(M.drains[ctx.target] or {}) do
+         if drain.at >= since then estimate = estimate - drain.percent end
+      end
+      local opponent = emunah.curing.detect and emunah.curing.detect.opponent
+      if opponent and opponent.focusesSince then
+         estimate = estimate - opponent.focusesSince(ctx.target, since) * M.FOCUS_COST
+      end
+      return estimate > 0 and estimate or 0
+   end
+
    --- CONTEMPLATE RIDES ON THE BLOW. `smite anzerloi head chasten ...;contemplate anzerloi`
    --- goes through as one line (the user, 2026-10-23 14:37:02), as Anzerloi said it would
    --- ("you can also append 'contemplate '..target to your attack without issue", 14:53:13).
@@ -283,6 +319,8 @@ return function(P)
    --- as it leaves, which is also what holds a second one until the reading is back.
    local function contemplateWithBlow(mode, ctx)
       if not (mode and mode.readMana) or freshMana(ctx) then return end
+      -- Only when they may be close: a contemplate is a second of equilibrium.
+      if M.manaEstimate(ctx) > M.READ_BELOW then return end
       if not have.skill("contemplate") then return end
       if emunah.act.send("contemplate " .. ctx.target, { eq = true }, "eq") then
          M.sentAt.contemplate = util.now()
@@ -441,16 +479,25 @@ return function(P)
    --- again at once, so the absolve follows it. The sap's share is sapPercent() over what
    --- is confirmed on them, which only undercounts: nothing unconfirmed adds to it.
    M.KILL_WINDOW = 10
+   --- The sap that takes them under half, by the estimate (M.manaEstimate): a fresh
+   --- reading when there is one, the reading less what has gone since when not.
    M.MOVES.killSap = { lane = "equilibrium", skill = "sap", again = true,
       when = function(ctx)
-         if not freshMana(ctx) or P.absolveKills(ctx.mana.percent) then return false end
-         return P.absolveKills(P.sapAfter(ctx.mana.percent, ctx.afflictions))
+         local estimate = M.manaEstimate(ctx)
+         if P.absolveKills(estimate) then return false end
+         return P.absolveKills(P.sapAfter(estimate, ctx.afflictions))
       end,
       command = function(ctx) return "angel sap " .. ctx.target end }
+   --- The reading absolve waits for: straight after the kill sap, or whenever the estimate
+   --- says they are already under half. Never two inside M.FRESH, but for the kill sap's.
    M.MOVES.killRead = { lane = "equilibrium", skill = "contemplate", again = true,
       when = function(ctx)
+         if freshMana(ctx) then return false end
          local at = M.sentAt.killSap
-         return at ~= nil and util.now() - at < M.KILL_WINDOW and not freshMana(ctx)
+         if at ~= nil and util.now() - at < M.KILL_WINDOW then return true end
+         local last = math.max(M.sentAt.contemplate or 0, M.sentAt.killRead or 0)
+         if util.now() - last < M.FRESH then return false end
+         return P.absolveKills(M.manaEstimate(ctx))
       end,
       command = function(ctx) return "contemplate " .. ctx.target end }
 
@@ -684,13 +731,21 @@ return function(P)
    --- (2026-10-23 14:38:17). A tuning number, not a game fact: a sap takes a few percent to
    --- a fifth of their mana by what is on them (P.sapPercent), and their mana climbs back.
    M.DRAIN_BELOW = 70
+   --- An angel sap that takes less than this is not worth the 2.75s of equilibrium and the
+   --- blow it replaces ("step them down when it's worth it"). Wrath costs no equilibrium.
+   M.SAP_WORTH = 5
    function M.drainDue(ctx)
-      local reading = ctx.mana
-      return freshMana(ctx) and not P.absolveKills(reading.percent)
-         and reading.percent <= M.DRAIN_BELOW
+      local estimate = M.manaEstimate(ctx)
+      return not P.absolveKills(estimate) and estimate <= M.DRAIN_BELOW
    end
    M.MOVES.stepWrath = onlyWhen("wrath", M.drainDue)
-   M.MOVES.stepSap   = onlyWhen("sap", M.drainDue)
+   -- Its own move, not onlyWhen("sap"): the plain sap wants a fresh reading, and every sap
+   -- leaves the reading stale, so the step-down would stop after one.
+   M.MOVES.stepSap   = { lane = "equilibrium", skill = "sap", again = true,
+      when = function(ctx)
+         return M.drainDue(ctx) and P.sapPercent(ctx.afflictions) >= M.SAP_WORTH
+      end,
+      command = function(ctx) return "angel sap " .. ctx.target end }
 
    --- When angel panic was sent last, and when slickness was last confirmed on the target.
    M.panicAt = nil
@@ -949,6 +1004,12 @@ return function(P)
          if move.verse == "revelations" then M.revelationsAt = now end
       end
       if move.skill == "strip" then M.strippedAt[ctx.target] = now end
+      -- What it takes from their mana, for the estimate.
+      if move.skill == "sap" or move.verse == "wrath" then
+         M.drains[ctx.target] = M.drains[ctx.target] or {}
+         table.insert(M.drains[ctx.target], { at = now, percent = P.sapPercent(ctx.afflictions,
+            { via = move.verse == "wrath" and "wrath" or "angel" }) })
+      end
       if move.skill == "panic" then M.panicAt = now end
       if move.lane == "balance" then contemplateWithBlow(M.MODES[ctx.mode], ctx) end
       -- The pessimistic guard until the game's own line replaces it ("You may speak another
@@ -967,6 +1028,34 @@ return function(P)
       return true
    end
 
+   --- THE KILL WINDOW, for the alert (pvp.lua). Rows of { what, state, detail }: absolve
+   --- now on a real reading, in range or a sap away by the estimate; judge while they are
+   --- locked, or have justice. Judge's times are Anzerloi's ("I think 12 seconds. 6 if
+   --- afflicted with justice. Again, I think", 2026-10-23 18:05); nothing sends it.
+   function M.killRows(ctx)
+      local rows = {}
+      if have.skill("absolve") then
+         local estimate = M.manaEstimate(ctx)
+         if freshMana(ctx) and P.absolveKills(ctx.mana.percent) then
+            rows[#rows + 1] = { "ABSOLVE", "now", ("mana %d%%, read %.0fs ago"):format(
+               ctx.mana.percent, util.now() - ctx.mana.at) }
+         elseif P.absolveKills(estimate) then
+            rows[#rows + 1] = { "ABSOLVE", "in range", ("about %d%% by estimate; reading it")
+               :format(estimate) }
+         elseif P.absolveKills(P.sapAfter(estimate, ctx.afflictions)) then
+            rows[#rows + 1] = { "ABSOLVE", "a sap away", ("about %d%% by estimate"):format(estimate) }
+         end
+      end
+      if have.skill("judge") then
+         if ctx.afflictions.justice then
+            rows[#rows + 1] = { "JUDGE", "about 6s", "justice is on them" }
+         elseif ctx.locks and #ctx.locks > 0 then
+            rows[#rows + 1] = { "JUDGE", "about 12s", "locked; condemnation's justice halves it" }
+         end
+      end
+      return rows
+   end
+
    --- A new prompt: nothing has gone out on it yet.
    function M.defer(on)
       if on then M.thisTick = {} end
@@ -981,6 +1070,7 @@ return function(P)
          M.lastVerse, M.revelationsAt, M.lastExchange = nil, nil, nil
          M.panicAt, M.slickAt = nil, nil
          P.targetLimbs = {}
+         M.drains, M.fightAt = {}, util.now()
       end, "priest-pvp")
    end
    -- Slickness confirmed on the target: a panic may follow once it is eaten away.
@@ -1000,5 +1090,6 @@ return function(P)
    P.pvpPlan = M.plan
    P.pvpSend = M.send
    P.pvpDefer = M.defer
+   P.pvpKillRows = M.killRows
    P.PVP_MODES = M.MODES
 end

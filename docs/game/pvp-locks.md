@@ -347,10 +347,26 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   list can no longer be tracked as cured. Guilt and inquisition come from Zeal, which we
   have, so their cures should still show to us; not yet seen in a fight since the change.
 
+## Their mana, estimated, and the kill window
+
+"Don't contemplate too much as it'll cost us valuable time. Try and estimate it and only use
+contemplate when you feel they are close" (the user, 2026-10-23). `priest_pvp.manaEstimate`:
+the last contemplate (full with none), less our saps and wraths since (sapPercent over what
+was on them as each went), less `FOCUS_COST` (13%) for each focus seen. Regeneration, moss
+and mana sips are not counted, so it errs low. Contemplate rides on a blow only at or under
+`READ_BELOW` (60%); `killRead` reads when the estimate is under half (never two inside
+`FRESH`) and straight after the kill sap. `killSap` and the 70% step-down use the estimate;
+absolve only a real reading. An angel sap worth under `SAP_WORTH` (5%) is not sent to step
+them down.
+
+The kill window alert (`pvp.updateAlert`, `priest_pvp.killRows`): LOCKED, ABSOLVE (now /
+in range / a sap away), JUDGE (about 6s with justice, about 12s while locked: Anzerloi, 18:05,
+"I think"). Judge is not sent.
+
 ## FOCUS's mana cost, for estimating an opponent's mana
 
 The user's own FOCUS, 2026-10-23 18:08:23.28 to 18:08:26.11: mana 94% to 81% on the prompt
 after `focus` (a `drink mana` went on the same line, which had not yet landed). So one
 focus took about 13% of the user's maximum mana. The opponent tracker counts each
 `A look of extreme focus crosses the face of X.` (`opponent.focusesSince`) for an estimate
-of their mana; the estimate itself is not built yet.
+of their mana (above).

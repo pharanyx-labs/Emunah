@@ -12915,66 +12915,125 @@ suite("PvP attack: from the first blow to absolve")
    mock.settleFightRites()
    mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
       bal = "1", eq = "1", charstats = { "prayer_length: 0", "conviction: 0" } })
-   opp.clear("ashden"); P.targetMana = {}; P.targetLimbs = {}; R.sentAt = {}
+   opp.clear("ashden"); P.targetMana = {}; P.targetLimbs = {}
    pvp.setTarget("Ashden")
    local function exchange(length, conviction)
+      mock.advance(0.1)
       emunah.timers.stopAll()
       mock.sent = {}
       mock.feed("Char.Vitals", { bal = "1", eq = "1", charstats = {
          "prayer_length: " .. length, "conviction: " .. conviction } })
       return table.concat(mock.sent, " | ")
    end
+   local function ctx() return { target = "ashden", mana = P.mana("ashden") } end
 
-   -- F1: the first blow, on a leg, and the first reading of their mana with it.
+   -- F1: the first blow, on a leg. Nothing read yet, so they are taken as full: no
+   -- contemplate ("only use contemplate when you feel they are close").
    emunah.timers.stopAll()
    mock.sent = {}
    pvp.setMode("attack")
    local sent = table.concat(mock.sent, " | ")
    ok(sent:find("smite ashden right leg chasten clumsiness", 1, true),
       "F1: the first blow, a leg, the kelp trail", sent)
-   ok(sent:find("contemplate ashden", 1, true), "...and their mana read with it", sent)
+   ok(not sent:find("contemplate", 1, true), "...and no contemplate: they are taken as full", sent)
+   eq(R.manaEstimate(ctx()), 100, "(the estimate: full)")
 
-   -- Full mana: build. No sap, no wrath.
-   mock.line("Ashden's mana stands at 5000/5000 [100%].")
+   -- Each focus they make costs them about 13% (the user's own focus, twice, 18:08-18:09).
+   for _ = 1, 3 do mock.line("A look of extreme focus crosses the face of Ashden.") end
+   eq(R.manaEstimate(ctx()), 100 - 3 * R.FOCUS_COST, "three focuses: the estimate falls")
    sent = exchange(1, 30)
-   ok(not sent:find("angel sap", 1, true) and not sent:find("wrath", 1, true),
-      "at full mana the attack builds: no sap, no wrath", sent)
-   ok(sent:find("smite ashden left leg", 1, true), "...the other leg", sent)
+   ok(not sent:find("contemplate", 1, true), "61%: not close enough to look", sent)
+   ok(sent:find("recite wrath ashden", 1, true), "...but under 70%: wrath steps them down", sent)
+   mock.line("A look of extreme focus crosses the face of Ashden.")
+   sent = exchange(1, 30)
+   ok(sent:find("contemplate ashden", 1, true), "a fourth: 48%, under half by the estimate: look", sent)
 
-   -- Their mana falls under M.DRAIN_BELOW: wrath on the prayer, the angel's sap on
-   -- equilibrium, in the mace's place.
-   for _, aff in ipairs({ "clumsiness", "healthleech", "asthma", "paralysis" }) do
+   -- The reading says 68%: the estimate starts again from it. At or under 70%, wrath and
+   -- the angel's sap step them down, once a sap is worth it.
+   for _, aff in ipairs({ "clumsiness", "healthleech", "asthma", "paralysis", "guilt" }) do
       opp.assert("ashden", aff)
    end
    mock.line("Ashden's mana stands at 3400/5000 [68%].")
+   eq(R.manaEstimate(ctx()), 68, "a reading resets the estimate")
    sent = exchange(1, 30)
-   ok(sent:find("recite wrath ashden", 1, true), "under 70%: wrath steps them down", sent)
    ok(sent:find("angel sap ashden", 1, true) and not sent:find("smite", 1, true),
-      "...and the angel's sap, in the mace's place", sent)
+      "...and the angel's sap, worth 7.5% here, in the mace's place", sent)
    mock.line("Your guardian angel casts a piercing glance at Ashden.")
-   sent = exchange(2, 30)
-   ok(sent:find("contemplate ashden", 1, true), "a sap shows no figure: read again", sent)
+   ok(R.manaEstimate(ctx()) < 68, "the estimate counts our saps", R.manaEstimate(ctx()))
 
-   -- One sap from the kill: the sap goes, the reading follows, and absolve.
-   for _, aff in ipairs({ "guilt", "tenderskin", "spiritburn" }) do opp.assert("ashden", aff) end
-   mock.line("Ashden's mana stands at 2900/5000 [58%].")
-   sent = exchange(2, 30)
-   ok(sent:find("angel sap ashden", 1, true), "58%, one sap from the kill: it goes", sent)
-   mock.line("Your guardian angel casts a piercing glance at Ashden.")
-   sent = exchange(3, 30)
-   ok(sent:find("contemplate ashden", 1, true), "...the reading straight after", sent)
+   -- The saps go on until one takes them under half by the estimate; then the reading.
+   local saps, read = 0, false
+   for _ = 1, 4 do
+      sent = exchange(2, 30)
+      if sent:find("contemplate ashden", 1, true) then read = true break end
+      if sent:find("angel sap ashden", 1, true) then
+         saps = saps + 1
+         mock.line("Your guardian angel casts a piercing glance at Ashden.")
+      end
+   end
+   ok(saps >= 1, "the saps step them down to the kill sap", saps)
+   ok(read, "...and the reading follows the kill sap")
+   ok(R.manaEstimate(ctx()) < 50, "(the estimate is under half)", R.manaEstimate(ctx()))
    mock.line("Ashden's mana stands at 2300/5000 [46%].")
    sent = exchange(3, 30)
-   ok(sent:find("angel absolve ashden", 1, true), "under half: absolve", sent)
+   ok(sent:find("angel absolve ashden", 1, true), "under half by a real reading: absolve", sent)
 
    mock.line("You have slain Ashden.")
    ok(not pvp.enabled and pvp.target == nil, "the kill clears the target and ends the fight")
 
-   opp.clear("ashden"); P.targetMana = {}; P.targetLimbs = {}; R.sentAt = {}
+   opp.clear("ashden"); P.targetMana = {}; P.targetLimbs = {}
    emunah.config.set("pvp.mode", nil)
    emunah.timers.stopAll()
    mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1",
       charstats = { "prayer_length: 0", "conviction: 0" } })
+end)()
+
+-- ===========================================================================
+suite("PvP: the kill window alert")
+
+-- The user, 2026-10-23: "showing a gui alert when they are locked and also when they are
+-- within absolve range or able to be judged".
+;(function()
+   local hadGeyser = Geyser ~= nil
+   if not hadGeyser then mock.installGeyser() end
+   local R = emunah.class.active.pvp
+   local alert = emunah.ui.alert
+   local now = emunah.util.now()
+   R.drains, R.fightAt = {}, now
+   emunah.curing.detect.opponent.clear("ashden")
+   local function rows(c)
+      c.target = c.target or "ashden"
+      c.afflictions = c.afflictions or {}
+      c.locks = c.locks or {}
+      local out = {}
+      for _, row in ipairs(pvp.updateAlert(c)) do out[row[1]] = row[2] end
+      return out
+   end
+
+   local r = rows({ locks = { "soft" } })
+   eq(r.LOCKED, "soft", "locked: the alert names the lock")
+   if emunah.have.skill("judge") then
+      eq(r.JUDGE, "about 12s", "...and judge, about 12s without justice")
+      eq(rows({ afflictions = { justice = true } }).JUDGE, "about 6s", "with justice, about 6s")
+   end
+   ok(alert.isOpen(pvp.ALERT), "the window is up")
+
+   r = rows({ mana = { percent = 46, at = now } })
+   eq(r.ABSOLVE, "now", "a real reading under half: absolve now")
+   r = rows({ mana = { percent = 90, at = now - 30 } })
+   eq(r.ABSOLVE, nil, "90%: no absolve row")
+   for _ = 1, 4 do
+      emunah.curing.detect.opponent.focused("ashden")
+   end
+   r = rows({ mana = { percent = 90, at = now - 30 } })
+   eq(r.ABSOLVE, "in range", "four focuses since: in range by the estimate")
+
+   emunah.curing.detect.opponent.clear("ashden")
+   r = rows({ mana = { percent = 90, at = now } })
+   eq(next(r), nil, "nothing open: no rows")
+   ok(not alert.isOpen(pvp.ALERT), "...and the window closes")
+   pvp.closeAlert()
+   if not hadGeyser then mock.uninstallGeyser() end
 end)()
 
 -- ===========================================================================
@@ -13050,10 +13109,17 @@ suite("PvP chasten: named early, a pool later, and the capstone")
    sent = routeBlow()
    ok(sent:find("smite ashden", 1, true) and not sent:find("contemplate", 1, true),
       "a fresh reading: the blow goes alone", sent)
+   -- Read only when close (the user, 2026-10-23: "only use contemplate when you feel they are
+   -- close"): a stale 80% is not; a stale 56% is.
+   emunah.class.active.pvp.drains = {}
    P.targetMana.ashden.at = emunah.util.now() - 60
    sent = routeBlow()
+   ok(sent:find("smite ashden", 1, true) and not sent:find("contemplate", 1, true),
+      "a stale reading far from the kill: the blow goes alone, nothing read", sent)
+   P.targetMana.ashden = { current = 2800, max = 5000, percent = 56, at = emunah.util.now() - 60 }
+   sent = routeBlow()
    ok(sent:find("smite ashden[^|]*| contemplate ashden"),
-      "a stale one: contemplate goes on the blow's line", sent)
+      "a stale one near the kill: contemplate goes on the blow's line", sent)
    ok(not emunah.timers.ready("cure.equilibrium"), "...and holds equilibrium for its second")
    pvp.setMode("attack")
    P.targetMana.ashden.at = emunah.util.now() - 60
