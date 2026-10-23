@@ -346,3 +346,11 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   and whisperingmadness only with the relevant skill. A partner's afflictions from that
   list can no longer be tracked as cured. Guilt and inquisition come from Zeal, which we
   have, so their cures should still show to us; not yet seen in a fight since the change.
+
+## FOCUS's mana cost, for estimating an opponent's mana
+
+The user's own FOCUS, 2026-10-23 18:08:23.28 to 18:08:26.11: mana 94% to 81% on the prompt
+after `focus` (a `drink mana` went on the same line, which had not yet landed). So one
+focus took about 13% of the user's maximum mana. The opponent tracker counts each
+`A look of extreme focus crosses the face of X.` (`opponent.focusesSince`) for an estimate
+of their mana; the estimate itself is not built yet.

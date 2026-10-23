@@ -100,7 +100,7 @@ function M.addCure(affliction, pattern)
    local id = tempRegexTrigger(pattern, function()
       local name = matches and matches[2]
       if type(name) ~= "string" or name == "" then return end
-      M.forget(name, affliction)
+      M.curedNamed(name, affliction)
    end)
 
    if not id then
@@ -416,20 +416,86 @@ M.BREATH_AFTER_EAT = 2.0
 --- untouched" (14:30:05-14:30:21). So when the eat just before it took a different kelp
 --- affliction off by rank, that one goes back as it was and asthma comes off instead.
 function M.breathHeld(name)
+   M.curedNamed(name, "asthma")
+end
+
+--- A line names what `name` just cured. When an eat a moment before took a different
+--- affliction off by rank, and its herb cures this one, the eat cured this one: the other
+--- goes back as it was. "Anzerloi eats an argentum flake." then "Anzerloi straightens, as
+--- if some great burden had been lifted from his shoulders." (2026-10-23 17:43:58) is guilt
+--- cured, not the recklessness the flake would otherwise have been charged with.
+function M.curedNamed(name, affliction)
    name = tostring(name or ""):lower()
    local eat = M.lastEat[name]
-   if eat and eat.cured and eat.cured ~= "asthma"
+   if eat and eat.cured and eat.cured ~= affliction
       and emunah.util.now() - eat.at <= M.BREATH_AFTER_EAT then
-      for _, option in ipairs(emunah.curing.afflist.curesVia("asthma", "herb")) do
+      for _, option in ipairs(emunah.curing.afflist.curesVia(affliction, "herb")) do
          if option.item == eat.item or option.alt == eat.item then
             M.tracked[name] = M.tracked[name] or {}
             M.tracked[name][eat.cured] = eat.since or emunah.util.now()
-            eat.cured = "asthma"
+            eat.cured = affliction
             break
          end
       end
    end
-   M.forget(name, "asthma")
+   M.forget(name, affliction)
+end
+
+--- name -> times they were seen focusing, oldest first. For the mana a focus costs them.
+M.focuses = {}
+
+--- Take off the one tracked affliction `cures` allows, when there is exactly one. With two
+--- or more, which went is not known, and both stay.
+local function curedOneOf(name, cures)
+   local only
+   for affliction in pairs(M.tracked[name] or {}) do
+      if cures(affliction) then
+         if only then return nil end
+         only = affliction
+      end
+   end
+   if only then M.forget(name, only) end
+   return only
+end
+
+--- `name` focused: one mental cured, and their mana spent.
+function M.focused(name)
+   name = tostring(name or ""):lower()
+   used(name, "focus")
+   M.focuses[name] = M.focuses[name] or {}
+   table.insert(M.focuses[name], emunah.util.now())
+   return curedOneOf(name, function(affliction)
+      return #emunah.curing.afflist.curesVia(affliction, "focus") > 0
+   end)
+end
+
+--- `name` touched the tree: one affliction it can cure, cured.
+function M.treeTouched(name)
+   name = tostring(name or ""):lower()
+   used(name, "tree")
+   local tree = emunah.curing.treefunc
+   return curedOneOf(name, function(affliction)
+      return tree ~= nil and tree.CURABLE ~= nil and tree.CURABLE[affliction] == true
+   end)
+end
+
+--- How many times `name` focused since `since`.
+function M.focusesSince(name, since)
+   local n = 0
+   for _, at in ipairs(M.focuses[tostring(name or ""):lower()] or {}) do
+      if at >= since then n = n + 1 end
+   end
+   return n
+end
+
+--- Register a line with one capture, the actor, that calls `fn(name)`.
+function M.watchLine(pattern, fn)
+   local id = tempRegexTrigger(pattern, function()
+      local name = matches and matches[2]
+      if name then fn(name) end
+   end)
+   if id then table.insert(registry(), id) end
+   return id ~= nil
 end
 
 --- Register the line that says `name` began holding their breath. One capture, the actor.
@@ -493,7 +559,7 @@ end
 M.killAll()
 
 event.register("sysDisconnectionEvent", function()
-   M.tracked, M.used, M.defences, M.lastEat = {}, {}, {}, {}
+   M.tracked, M.used, M.defences, M.lastEat, M.focuses = {}, {}, {}, {}, {}
 end, "pvp.opponent")
 
 -- Publish before loading the pattern file, same reason as curing/detect/init.lua:

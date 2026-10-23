@@ -12645,6 +12645,37 @@ suite("Opponent asthma: the breathing tells")
    opp.clear("ashden")
 end)()
 
+suite("Opponent tracking: cure lines, focus, tree and confusion")
+
+-- From the 17:44 spar on 2026-10-23.
+;(function()
+   local opp = emunah.curing.detect.opponent
+   opp.clear("ashden")
+   -- An argentum flake, then guilt's own cure line: the flake cured guilt.
+   opp.assert("ashden", "recklessness")
+   mock.line("Ashden eats an argentum flake.")
+   mock.line("Ashden straightens, as if some great burden had been lifted from his shoulders.")
+   ok(opp.has("ashden", "recklessness"), "a cure line after an eat: the eat cured that, not the other")
+   -- Focus with one mental tracked takes it off, and is counted.
+   local before = emunah.util.now()
+   mock.line("A look of extreme focus crosses the face of Ashden.")
+   ok(not opp.has("ashden", "recklessness"), "focus with one mental tracked: that one is cured")
+   eq(opp.focusesSince("ashden", before), 1, "...and the focus is counted, for their mana")
+   -- Two candidates: which went is not known, both stay.
+   opp.assert("ashden", "epilepsy"); opp.assert("ashden", "dizziness")
+   mock.line("A look of extreme focus crosses the face of Ashden.")
+   ok(opp.has("ashden", "epilepsy") and opp.has("ashden", "dizziness"),
+      "two mentals tracked: a focus takes off neither")
+   opp.clear("ashden")
+   opp.assert("ashden", "clumsiness")
+   mock.line("Ashden touches a tree of life tattoo.")
+   ok(not opp.has("ashden", "clumsiness"), "the tree with one curable tracked: that one is cured")
+   mock.line("Ashden looks about bemusedly.")
+   ok(opp.has("ashden", "confusion"), "\"looks about bemusedly\": confusion")
+   opp.clear("ashden")
+end)()
+
+-- ===========================================================================
 -- ===========================================================================
 suite("PvP: t arms the fight, F1 attacks at once")
 
