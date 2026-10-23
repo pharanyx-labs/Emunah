@@ -177,7 +177,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 </tbody></table></div>
 
 <h2 id="curing">Curing</h2>
-<p>Tracks your afflictions from GMCP (and from EmunahTriggers.xml, with the reference system's anti-illusion) and cures them on the right balance: herbs, salves, elixirs, moss, smoking, FOCUS, the tree tattoo, COMPOSE, CONCENTRATE, CLOT and WRITHE. One cure per balance at a time, never inside a balance, never while something blocks it (anorexia, slickness, asthma, paralysis...). Follows the reference system's rules for what to cure first and when not to. During PvP, spends one equilibrium on METABOLISE IMPATIENCE so a second player cannot reapply it inside about two seconds. Sips health and mana, eats moss, keeps cures pulled from the rift into your inventory, and wakes you from a sleep you did not choose.</p>
+<p>Tracks your afflictions from GMCP (and from EmunahTriggers.xml, with the reference system's anti-illusion) and cures them on the right balance: herbs, salves, elixirs, moss, smoking, FOCUS, the tree tattoo, COMPOSE, CONCENTRATE, CLOT and WRITHE. One cure per balance at a time, never inside a balance, never while something blocks it (anorexia, slickness, asthma, paralysis...). Follows the reference system's rules for what to cure first and when not to. While PvP holds in defence (after <code>t &lt;name&gt;</code>, before F1), spends one equilibrium on METABOLISE IMPATIENCE so a second player cannot reapply it inside about two seconds; never ahead of the attack. Sips health and mana, eats moss, keeps cures pulled from the rift into your inventory, and wakes you from a sleep you did not choose.</p>
 <div class="cmd-block">
 <span class="cmd-syntax">emset curing</span>
 <p>on or off, and every affliction being tracked</p>
@@ -229,7 +229,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <tr><td><code>curing.ownprios</code></td><td>false</td><td>Use conf/priorities.conf and conf/situations.conf. Set with <code>emset ownprios</code>.</td></tr>
 <tr><td><code>curing.diag</code></td><td>true</td><td>Send DIAG when the affliction list is in doubt. That is what answers <code>loki</code>, the one affliction GMCP does not report honestly.</td></tr>
 <tr><td><code>curing.tree</code></td><td>true</td><td>You have the Tree of Life tattoo, and curing touches it. The game never lists the tattoo as a defence, so this is what says it is there. Off: never touched.</td></tr>
-<tr><td><code>curing.metabolise</code></td><td>true</td><td>During PvP, METABOLISE IMPATIENCE once equilibrium is free, so a second player's reapplication inside about two seconds is resisted. Costs 3 seconds of equilibrium. Waits while PERFORM HANDS or DIAG wants it. Off leaves the focus where it is.</td></tr>
+<tr><td><code>curing.metabolise</code></td><td>true</td><td>While PvP holds in defence (after <code>t &lt;name&gt;</code>, before F1), METABOLISE IMPATIENCE once equilibrium is free, so a second player's reapplication inside about two seconds is resisted. Costs 3 seconds of equilibrium, so it never goes ahead of the attack, only under a lock that holds it. Waits while PERFORM HANDS or DIAG wants it. Off leaves the focus where it is.</td></tr>
 <tr><td><code>curing.clotThreshold</code></td><td>30</td><td>Bleeding above this is clotted.</td></tr>
 <tr><td><code>curing.focusGuilt</code></td><td>false</td><td></td></tr>
 <tr><td><code>curing.elixirConfirm</code></td><td>7.0 s</td><td></td></tr>
@@ -325,7 +325,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 </tbody></table></div>
 
 <h2 id="rites">Rites</h2>
-<p>Keeps Well-being and Revitalisation up. Perform one, or type RITES where yours are up, and it is performed again each time it runs out, for as long as you stay in that room: leaving the room stops it. How long each has left comes from RITES, read (hidden) once equilibrium is back after each perform. Held while PvP is on. Three tries that do not bring a rite up and it stops, and says so.</p>
+<p>Keeps up the rites you perform. You put every rite up yourself, in a fight too: nothing is performed that you have not performed. Perform one, or type RITES where yours are up, and it is performed again each time it runs out, for as long as you stay in that room: leaving the room stops it. How long each has left comes from RITES, read (hidden) once equilibrium is back after each perform. Held while PvP is on. Three tries that do not bring a rite up and it stops, and says so.</p>
 <div class="cmd-block">
 <span class="cmd-syntax">emset rites</span>
 <p>the rites being kept up, and how long each has left</p>

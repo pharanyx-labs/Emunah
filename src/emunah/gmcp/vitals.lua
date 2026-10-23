@@ -174,6 +174,20 @@ local function onVitals()
    -- ONE SEND FOR THE PROMPT: everything decided from here to the end of the tick leaves
    -- together, in order (core/act.lua's batch). Mudlet catches a failing handler itself,
    -- and act.batched() sends what was collected even so.
+   -- THE GAME'S WORD ENDS OUR TIMER. "Balance used:" and "Equilibrium used:" start their
+   -- timers when the line ARRIVES, so each outlasts the game's own by the round trip: at
+   -- 17:31:23.39 on 2026-10-23 the game gave equilibrium back, our timer ran to 23.44, and
+   -- the prompt that said so held the attack. Nothing else came until 25.4. A balance the
+   -- game reports regained is regained -- once the game has said the command ran and what
+   -- it cost (timers.confirm). Before that, a report of the balance is the one the command
+   -- in flight is about to spend, and the guard has to hold (the double-send of 00:17:22).
+   if eqChanged and M.eq and emunah.timers.confirmed("cure.equilibrium") then
+      emunah.timers.stop("cure.equilibrium")
+   end
+   if balChanged and M.bal and emunah.timers.confirmed("attack.balance") then
+      emunah.timers.stop("attack.balance")
+   end
+
    emunah.act.batched(function()
       -- Balance transitions drive the action queue, so raise them before the generic tick.
       if balChanged then

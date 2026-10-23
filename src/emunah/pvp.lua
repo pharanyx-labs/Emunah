@@ -220,8 +220,8 @@ end
 --- `t <name>`: target them and put PvP on its fight footing, without attacking. "When i
 --- type t <pvp target> have it enable pvp mode but not actually start it. then, when i hit
 --- f1, it starts attacking them" (the user, 2026-10-23). A fresh session starts in defence,
---- which holds the attack while curing, keep-up and the fight's rites run as they do in a
---- fight. A session already running keeps its mode, and turns on the new target at once.
+--- which holds the attack while curing and keep-up run as they do in a fight. A session
+--- already running keeps its mode, and turns on the new target at once.
 function M.engage(name)
    if not M.setTarget(name) then return false end
    if M.enabled then
@@ -426,6 +426,15 @@ end
 -- ---------------------------------------------------------------------------
 
 event.register("emunah.tick", function() M.tick() end, "pvp")
+
+-- A BALANCE BACK WITH NO PROMPT BEHIND IT. Curing and keep-up act on the lapse (engine.lua,
+-- defkeepup.lua); the attack waited for the next prompt, which in a quiet exchange only
+-- comes when somebody else acts. The lapse runs in a batch (timers.lua), after the cures'
+-- own handlers, so a cure due on the same balance still goes first.
+M.LAPSES = { ["attack.balance"] = true, ["cure.equilibrium"] = true, ["pvp.prayer"] = true }
+event.register("emunah.timer.expired", function(_, name)
+   if M.LAPSES[name] then M.tick() end
+end, "pvp")
 
 -- Bashing and PvP must never run concurrently -- see the module header. event.raise()
 -- prefixes with "emunah.", so this listens for what bashing.lua's event.raise("bashing.
