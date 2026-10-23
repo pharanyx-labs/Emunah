@@ -172,7 +172,7 @@
     <tr><td>Blue, with an arrow</td><td>A command was sent on it and the game has not answered.</td></tr>
     <tr><td>Grey, with seconds</td><td>Recovering. The game's own figure where it states one.</td></tr>
     <tr><td>Red, with a cross</td><td>Shut by an affliction, or by paralysis.</td></tr>
-    <tr><td>Dim</td><td>Nothing to use, such as the tree cell with no tree tattoo.</td></tr>
+    <tr><td>Dim</td><td>Nothing to use, such as the tree cell with <code>curing.tree</code> off.</td></tr>
   </tbody>
 </table></div>
 <p>The strip applies exactly the rules the queue does, so it cannot show a balance as ready that Emunah would not send on.</p>
@@ -183,6 +183,7 @@
   <li>The lock you are in, as <code>(lock: soft)</code>, and any instant kill you are open to, as <code>(danger: reave 8s)</code>.</li>
   <li>A walk's destination and the steps left, then that it arrived (<code>map.showSteps</code>), and a red mark while an enemy is in the room during one.</li>
   <li>That your mount is not with you, when it has been gone too long to be walking in behind you.</li>
+  <li>That your mace is not in hand, as <code>(mace not wielded)</code> or <code>(mace on the ground)</code>, until it is wielded again.</li>
 </ul>
 
 <h2 id="chat-map">Chat, map and ticker</h2>
@@ -200,7 +201,7 @@
   <tbody>
     <tr><td>Numpad</td><td>Movement in all eight directions, 0 and . for in and out, minus and plus for up and down, and 5 to look, with or without Num Lock. <code>keys.numpad</code> turns it off.</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>F5</kbd></td><td>Reload Emunah.</td></tr>
-    <tr><td><kbd>F1</kbd></td><td>PvP attack. Turns PvP on.</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>PvP attack. Turns PvP on; pressed again in attack mode, turns it off.</td></tr>
     <tr><td><kbd>F2</kbd></td><td>PvP defence. Turns PvP on and holds the attack.</td></tr>
     <tr><td><kbd>F3</kbd></td><td>PvP hinder. Turns PvP on.</td></tr>
     <tr><td><kbd>F4</kbd></td><td>PvP finish. Turns PvP on.</td></tr>

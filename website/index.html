@@ -45,13 +45,17 @@
 <section class="hero">
   <div class="wrap">
     <div class="hero-copy">
-      <h1>A complete combat system for Achaea, running inside Mudlet.</h1>
+      <h1>A combat system for Achaea, running inside Mudlet.</h1>
       <p class="lede">Emunah cures you on every balance at once, keeps your defences up, walks you anywhere on the map, clears whole areas, and fights players with you and your allies. It reads the game as it happens, so what you see on screen is what it is about to do.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="getting-started.html#install">Install Emunah</a>
         <a class="btn btn-quiet" href="#features">See what it does</a>
       </div>
       <p class="hero-note">Free and open source under the MIT licence. Needs Mudlet 4.10 or later and an Achaea character.</p>
+      <div class="note warn hero-status">
+        <span class="title">Priest only, for now</span>
+        <p>Emunah currently supports the Priest class alone, and that support is at an early stage: it is in daily use, but not yet dependable in every situation, and PvP in particular is still being refined. Support for further classes is in development and coming soon. See the <a href="roadmap.html#classes">roadmap</a>.</p>
+      </div>
     </div>
 
     <figure class="shot">
@@ -91,7 +95,7 @@
         <p>Achaea's server-side curing stays off. Emunah reads your afflictions from GMCP, chooses the cure each balance should spend, and sends it on the prompt it becomes possible. The rankings are the reference system's, refined by rules learnt in real fights, and you can read and change every one.</p>
         <ul class="points">
           <li><strong>Every balance at once.</strong> Herb, salve, sip, purgative, smoke, focus, moss and tree each choose their own cure, so a salve never waits behind a herb.</li>
-          <li><strong>Locks cured around, not into.</strong> Anorexia, slickness, asthma, impatience and paralysis shut whole routes. Emunah cures through the one still open, and in the moments before a lock closes it cures the affliction that keeps an escape route open.</li>
+          <li><strong>Locks cured around, not into.</strong> Anorexia, slickness, asthma, impatience and paralysis shut whole routes. Emunah cures through the one still open, and in the moments before a lock closes it cures the affliction that keeps an escape route open, touching the tree tattoo on the same prompt.</li>
           <li><strong>Dangers named.</strong> The prompt names the lock you are in, and any instant kill you are open to: an Alchemist's reave, dismemberment, a pulp or a golem.</li>
           <li><strong>Illusions ignored.</strong> Text reports wait for the prompt, one illusion discards the whole block, and a gained affliction is dropped unless the server confirms it.</li>
         </ul>
@@ -133,10 +137,10 @@
       <div class="feature-copy">
         <p class="kicker">PvP, alone or together</p>
         <h3>Every free balance sends something, and every choice reads what the target can still cure.</h3>
-        <p>Name a target and pick a mode with <kbd>F1</kbd> to <kbd>F4</kbd>. On each prompt the prayer, balance and equilibrium lanes each send the next move the mode calls for, skipping what the game has already confirmed on them.</p>
+        <p>Name a target and pick a mode with <kbd>F1</kbd> to <kbd>F4</kbd>. PvP fights as a Priest today. On each prompt the prayer, balance and equilibrium lanes each send the next move the mode calls for, skipping what the game has already confirmed on them.</p>
         <ul class="points">
           <li><strong>Their curing, followed.</strong> Afflictions that land, symptoms anyone can see, the herbs they eat and the defences they raise are all read from the game text, so Emunah knows which of their routes are shut and how close they are to a lock.</li>
-          <li><strong>Built to finish a lock.</strong> Once a lock is building, the next chasten carries what it still lacks.</li>
+          <li><strong>Built to finish a lock.</strong> Once a lock is building, the next chasten carries what it still lacks. On a target with hellsight, the angel's panic gives slickness, and the mental afflictions and anorexia that follow have to be focused.</li>
           <li><strong>Allies who are never targets.</strong> A partner's call can set your target, their comings and goings are said mid-fight, and you are told who is attacking you and as what class.</li>
         </ul>
         <a class="more" href="pvp.html">How PvP works</a>
@@ -145,7 +149,7 @@
         <li><div><strong>Read</strong><span>What the target has, what they can no longer cure with, and what their defences are.</span></div></li>
         <li><div><strong>Prayer</strong><span>The next Zeal verse the mode wants, once per prayer, ending in a rebuke when it pays.</span></div></li>
         <li><div><strong>Balance</strong><span>A mace blow carrying a chasten, aimed at whatever finishes the lock.</span></div></li>
-        <li><div><strong>Equilibrium</strong><span>An affliction, the angel's sear, or contemplate, sap and absolve to finish.</span></div></li>
+        <li><div><strong>Equilibrium</strong><span>An affliction such as sloth, dazzle or panic, heresy against rebounding, or contemplate, sap and absolve to finish.</span></div></li>
         <li class="back"><div><strong>Hold when locked</strong><span>If you are locked, balance and equilibrium go to your cures until it breaks.</span></div></li>
       </ol>
     </article>
@@ -181,6 +185,8 @@
       <div><dt><a href="allies.html">Allies</a></dt><dd>Partners who can never be targeted, their target calls followed, and the class of everyone attacking you.</dd></div>
       <div><dt><a href="people.html">People and names</a></dt><dd>Everyone you have seen, with their city, house and class, from WHO lists, HONOURS and the Achaea API. Allies and enemies coloured in the game text.</dd></div>
       <div><dt><a href="sustenance.html#pipes">Pipes</a></dt><dd>Refilled with the herb they hold and relit when they go out, so smoking cures are always ready.</dd></div>
+      <div><dt><a href="defences.html#mace">The mace</a></dt><dd>Kept in hand at all times. Dropped in fear, it is picked up and wielded again on the same line, and the prompt says whenever it is not wielded.</dd></div>
+      <div><dt><a href="sustenance.html#rites">Rites</a></dt><dd>Your rites performed again as they run out, for as long as you stay in the room, and a fight's own rites raised when it starts.</dd></div>
       <div><dt><a href="defences.html#riding">Riding</a></dt><dd>Your mount kept with you and, if you want, you vaulted back on whenever the balance is idle.</dd></div>
       <div><dt><a href="sustenance.html#antitheft">Antitheft</a></dt><dd>Selfishness kept up, valuables packed, and an alert when something leaves your inventory unexplained.</dd></div>
       <div><dt><a href="sustenance.html#shops">Shops and gold</a></dt><dd>WARES listings made clickable, purchases paid from your pack, and a confirmation before anything costly.</dd></div>

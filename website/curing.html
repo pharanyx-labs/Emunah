@@ -120,7 +120,7 @@
     <tr><td>Smoke</td><td>A lit pipe. <a href="sustenance.html#pipes">Pipes</a> keeps them filled and lit.</td></tr>
     <tr><td>Focus</td><td>FOCUS, for mental afflictions, held while mana is too low to spend.</td></tr>
     <tr><td>Moss</td><td>Irid moss and potash.</td></tr>
-    <tr><td>Tree</td><td>Touching the tree tattoo, when you have one.</td></tr>
+    <tr><td>Tree</td><td>Touching the Tree of Life tattoo. See <a href="#tree">the tree</a>.</td></tr>
   </tbody>
 </table></div>
 <p>Some cures spend no curing balance and go out alongside the others: COMPOSE for fear, CONCENTRATE, CLOT for bleeding above <code>curing.clotThreshold</code>, and WRITHE for entanglement. WRITHE is sent once per entanglement and never repeated while it is under way, because a second one makes it take longer.</p>
@@ -157,7 +157,8 @@
 <div class="table-wrap"><table>
   <thead><tr><th>While</th><th>Emunah</th></tr></thead>
   <tbody>
-    <tr><td>Asthma, slickness and impatience are all on you</td><td>Eats goldenseal for the impatience first. Anorexia comes next, and its only cures are a salve (shut by slickness) and FOCUS (shut by impatience). Clearing impatience keeps FOCUS open; clearing asthma first only trades the slickness for a spent salve balance.</td></tr>
+    <tr><td>Asthma, slickness and impatience are all on you</td><td>Eats goldenseal for the impatience first. Anorexia comes next, and its only cures are a salve (shut by slickness) and FOCUS (shut by impatience). Clearing impatience keeps FOCUS open; clearing asthma first only trades the slickness for a spent salve balance. Touches the tree on the same prompt, before paralysis can shut it.</td></tr>
+    <tr><td>Hellsight and slickness are both on you</td><td>Smokes for the hellsight ahead of the slickness, so bloodroot takes the slickness in the same moment. Left on, hellsight lets an angel's panic make you slick again.</td></tr>
     <tr><td>Inquisition is up</td><td>Eats for guilt and spiritburn early, because clearing them is what ends it, and does not spend the tree on burning, which it will not cure.</td></tr>
     <tr><td>Paralysis is holding your sip at low health</td><td>Cures the paralysis ahead of asthma, so the health elixir can go.</td></tr>
     <tr><td>Weariness comes back within seconds of each cure</td><td>Drops it to last on the herb balance until it stops returning.</td></tr>
@@ -165,6 +166,17 @@
     <tr><td>PvP is on</td><td>Spends one equilibrium on <code>metabolise impatience</code>, once, so a second player's reapplication inside about two seconds is resisted. The same player can still reapply it. It waits while a heal or a diag wants that equilibrium. <code>emset curing.metabolise off</code> stops it.</td></tr>
   </tbody>
 </table></div>
+
+<h3 id="tree">The tree</h3>
+<p>The Tree of Life tattoo cures one affliction at random and does not wait on the herb balance, so it is worth most while a fight is turning against you. Achaea never lists the tattoo as a defence, so <code>curing.tree</code> is what tells Emunah you have it. It is on by default; turn it off if you have no tattoo. The tree is touched:</p>
+<ul>
+  <li>while a lock is forming, with asthma, slickness and impatience on you together;</li>
+  <li>in a hard or true lock, in blackout, and with aeon and asthma together;</li>
+  <li>with crippled or broken limbs while the salve or sip that mends them is not free;</li>
+  <li>whenever two afflictions it can cure are on you;</li>
+  <li>and, as a last resort, for an affliction nothing else can cure.</li>
+</ul>
+<p>Paralysis, a numb arm, an entanglement and both arms broken still stop the touch, and the tree's cell on the balance strip shows why.</p>
 
 <h3 id="your-own-rules">Your own rules</h3>
 <p>To use your own ranks and rule changes, write them in <code>conf/priorities.conf</code> and <code>conf/situations.conf</code> in the checkout and turn them on with <code>emset ownprios on</code>. Any shipped rule can be switched off or re-ranked there. <code>emset ownprios off</code> goes back to the shipped ones without touching the files.</p>

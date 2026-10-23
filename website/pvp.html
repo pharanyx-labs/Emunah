@@ -103,6 +103,10 @@
 <p class="crumb"><a href="getting-started.html">Documentation</a> / Features</p>
 <h1>PvP</h1>
 <p class="lede">PvP attacks the one player you name, and nobody else. Every balance that is free on a prompt sends what the mode calls for, and every choice is made from what the game has confirmed about the target: what they have, what they can still cure with, and how close they are to a lock.</p>
+<div class="note warn">
+  <span class="title">Priest only, and still being refined</span>
+  <p>PvP fights as a Priest, the only class Emunah supports today. It is at an early stage: the route below is rebuilt from each spar it is tested in, and it will not yet make the right choice in every fight. Further classes are in development; see the <a href="roadmap.html#classes">roadmap</a>.</p>
+</div>
 <pre><code>t sarapis                    <span class="c"># target them and start the fight</span>
 emset pvp mode offence       <span class="c"># F1 attack, F2 defence, F3 hinder, F4 finish; offence has no key</span>
 emset pvp                    <span class="c"># the target as Emunah sees them</span>
@@ -111,7 +115,7 @@ emset pvp target off         <span class="c"># clear the target</span></code></p
 
 <h2 id="target">Only the player you name</h2>
 <p>The game's list of who is in a room leaves out anyone shrouded, hidden or phased. A fight built on that list would lose an opponent the moment they concealed, or pick the wrong person outright. So a target is a name you typed, and nothing else ever sets one, except a call from a partner you trust (see <a href="allies.html">allies</a>). An ally, or you, is never accepted as a target, however it is named.</p>
-<p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> to <kbd>F4</kbd> turn it on in a mode, and <kbd>F12</kbd> turns it off on the way to the safe room. <code>t &lt;name&gt;</code> sets the target and turns PvP on together. Killing your target clears it and ends the session, and so does your own death.</p>
+<p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> to <kbd>F4</kbd> turn it on in a mode, and another of them switches mode. <kbd>F1</kbd> pressed again stops attack mode, and <kbd>F12</kbd> turns any mode off on the way to the safe room. <code>t &lt;name&gt;</code> sets the target and turns PvP on together. Killing your target clears it and ends the session, and so does your own death.</p>
 
 <h2 id="modes">Every balance, every prompt</h2>
 <p>A fight against a person is won by sending more than they can cure. So each balance is a lane that chooses for itself on every prompt it is free: a Zeal verse on prayer, a mace blow carrying a chasten on balance, and an affliction or a finisher on equilibrium. What each lane sends is the mode's, and <kbd>F1</kbd> to <kbd>F4</kbd> choose one and turn PvP on. Offence is the mode a fresh <code>emset pvp on</code> starts in, and it has no key.</p>
@@ -127,7 +131,7 @@ emset pvp target off         <span class="c"># clear the target</span></code></p
     <tr><td><kbd>F2</kbd></td><td>defence</td><td colspan="3">holds the attack. Curing and defence keep-up carry on.</td></tr>
     <tr><td><kbd>F3</kbd></td><td>hinder</td><td>penance, fragility, guilt</td><td>smash their legs, smite</td><td>sloth, panic</td></tr>
     <tr><td><kbd>F4</kbd></td><td>finish</td><td>wrath, guilt, ash</td><td>smite</td><td>contemplate, sap, absolve</td></tr>
-    <tr><td></td><td>offence</td><td>Anzerloi's prayers, verse by verse (below)</td><td>smite a leg, the two evenly, with chasten</td><td>sloth or dazzle where he used them; contemplate, sap, absolve in the drain</td></tr>
+    <tr><td></td><td>offence</td><td>Anzerloi's prayers, verse by verse (below)</td><td>smite a leg, the two evenly, with chasten</td><td>sloth or dazzle where he used them; panic beside Revelations; fasting once they are slick; contemplate, sap, absolve in the drain</td></tr>
   </tbody>
 </table></div>
 <p>Each lane takes the first move in its list that applies. An affliction the game has confirmed on the target is not given again, and one it has not confirmed is not resent blind: the lane moves on to the next and comes back to it later. A verse goes once per prayer, and hinder ends a prayer on a rebuke when it is long enough to pay. Every attacking mode strips a shield it has seen the target raise before its mace meets it. Every ability is checked against what you actually know at the moment it is chosen, so a change to your skills needs no setting.</p>
@@ -136,7 +140,10 @@ emset pvp target off         <span class="c"># clear the target</span></code></p
 <p>Offence follows the way Anzerloi fought in three spars against a Depthswalker. Each exchange is a verse, plus either a mace blow or an equilibrium move, as above.</p>
 <ul>
   <li><strong>The first prayer</strong> is Burn, Burn, Condemnation, each with sloth or dazzle beside it, so two herbs are hit every exchange. It closes on guilt rebuke evil, with the mace chastening recklessness: three lobelia afflictions at once.</li>
-  <li><strong>Once a closed prayer has paid conviction</strong>, the next takes Reflection third and Revelations fourth, rebuking evil again. For a while afterwards the chasten keeps asthma on, because hellsight gives a random affliction about once a second until it is smoked away. The prayer after that closes on rebuke heresy, which gives inquisition when guilt and spiritburn are both on the target.</li>
+  <li><strong>Once a closed prayer has paid conviction</strong>, the prayers alternate between hellsight and heresy. The hellsight prayer is Burn, Burn, Reflection, then Revelations, but Revelations goes only once asthma and another kelp affliction are confirmed on the target; until then guilt rebuke evil takes its place. Revelations is recited without a rebuke, and the angel's panic takes the mace's place beside it: on a target with hellsight, panic gives slickness instead of fear. The prayer then closes on guilt rebuke evil, with sloth.</li>
+  <li><strong>Hellsight needs asthma kept on.</strong> It gives a random affliction about once a second until it is smoked away, so for a while after Revelations the chasten keeps asthma on whenever it is not confirmed.</li>
+  <li><strong>Once they are slick</strong>, they cannot salve, so every mental affliction has to be focused. The chasten gives the mind pool (epilepsy, dizziness, confusion, recklessness, then impatience), and with one other mental confirmed, <code>perform fasting</code> goes once for anorexia, which they must focus too. Their slickness is confirmed by their fangbarrier sloughing off, because the caster's own line is the same either way. If it is seen eaten away while hellsight is held, the panic goes again.</li>
+  <li><strong>The heresy prayer</strong> closes on rebuke heresy, which gives inquisition when guilt and spiritburn are both on the target.</li>
   <li><strong>The mace works both legs evenly</strong>, by the figures our own blows report.</li>
   <li><strong>At 20 conviction</strong> the prayer is Burn, Ash, Wrath. Equilibrium reads the target's mana, saps, and absolves only on a reading under half.</li>
 </ul>

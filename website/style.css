@@ -248,6 +248,7 @@ pre .c { color: #7c8799; }
 }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; align-items: center; }
 .hero-note { color: var(--ink-3); font-size: var(--t-sm); margin: 18px 0 0; }
+.hero-status { max-width: 60ch; margin: 20px 0 0; font-size: var(--t-sm); }
 
 /* The product shot, with regions that light up from the caption below it. */
 .shot { margin: 56px 0 0; }
