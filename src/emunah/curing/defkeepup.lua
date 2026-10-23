@@ -425,6 +425,15 @@ function M.unclaimed()
    return out
 end
 
+--- Raised however many times it takes: the mace, at all times (the user, 2026-10-23).
+M.UNLIMITED = { trackmace = true }
+
+--- Forget when a costless raise last went, so the next can go now: the mace picked up, its
+--- wield due on the same prompt.
+function M.clearSent(name)
+   lastSent[deflist.canonical(name)] = nil
+end
+
 function M.withinBudget(name)
    -- Every other accessor here canonicalizes (mode, setMode, state, add, drop,
    -- blockedBy) so that the elixir's name and the defence's name are one budget, not two.
@@ -433,6 +442,7 @@ function M.withinBudget(name)
    -- own name (`withinBudget("frost")`, matching how `mode("frost")` already works) would
    -- silently consult an empty budget while `abandon()` had exhausted the real one.
    name = deflist.canonical(name)
+   if M.UNLIMITED[name] then return true end
    if (attempts[name] or 0) < M.ATTEMPTS then return true end
    if not warned[name] then
       warned[name] = true

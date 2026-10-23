@@ -553,16 +553,13 @@ local function markMaceSeen(_, location, item)
    -- The recall landed, or it was picked up: "call for it" and "on the ground" are no
    -- longer the latest word.
    local place = emunah._persist.macePlace
-   if place == "land" or place == "ground" then emunah._persist.macePlace = nil end
-   -- Picked up: the GET is answered, and the wield goes on the next pass rather than after
-   -- keep-up's confirm wait (12s between "You scoop up a spiritual mace." and the wield,
-   -- 2026-10-23 16:39:33.99-16:39:45.98).
-   local awaiting = emunah.queue and emunah.queue.awaiting("free")
-   if awaiting and tostring(awaiting.command or ""):find("^get ") then
-      emunah.queue.confirm("free")
-      local defkeepup = emunah.curing.defkeepup
-      if defkeepup and defkeepup.resetBudget then defkeepup.resetBudget("trackmace") end
-   end
+   if place ~= "land" and place ~= "ground" then return end
+   emunah._persist.macePlace = nil
+   -- Picked up: the GET is answered, so the wield may go on this same prompt rather than
+   -- after the GET's confirm wait (2.5s at 16:47:04.30-06.78; 12s with no prompt between,
+   -- 16:39:33.99-45.98).
+   local defkeepup = emunah.curing.defkeepup
+   if defkeepup and defkeepup.clearSent then defkeepup.clearSent("trackmace") end
 end
 event.register("emunah.items.added",   markMaceSeen, "curing.deflist")
 event.register("emunah.items.updated", markMaceSeen, "curing.deflist")
@@ -672,7 +669,12 @@ end
 --- remembered place made keep-up send WIELD MACE at nothing until it gave up ("Raised
 --- trackmace 3 times and it still is not up -- stopping").
 function M.noteMaceDropped()
-   rememberMace("ground")
+   -- Not rememberMace(): its budget reset clears keep-up's record of the GET already sent
+   -- on the GMCP that came first, and a second GET followed into "I see no "428794" to
+   -- take." (16:47:04.30).
+   emunah._persist = emunah._persist or {}
+   emunah._persist.maceSummoned = true
+   emunah._persist.macePlace = "ground"
 end
 
 --- Our mace lying in the room, or nil: by the id it had in our pack, else by name.

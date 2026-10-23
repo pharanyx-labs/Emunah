@@ -272,9 +272,18 @@ The shield is not watched: its chyron notice was taken out at the user's request
 
 **Fear drops what you wield.** `You drop a spiritual mace in your terror.` (2026-10-23
 16:12:47.42) and `You drop a kite shield in your terror.` (16:15:21.77), each on angel
-panic's fear. Keep-up picks the mace up by its item id (`get 341225`), then wields it. It
-used to send `wield mace` at a mace on the ground until it gave up. `GET` printed no cost
-line (`You scoop up a kite shield.`, 16:18:52).
+panic's fear. The mace is picked up by its item id (`get 341225`) the moment it lands, and
+wielded on the packet that brings it back. It used to send `wield mace` at a mace on the
+ground until it gave up. `GET` printed no cost line (`You scoop up a kite shield.`,
+16:18:52).
+
+**The mace is kept in hand at all times** (the user, 2026-10-23). `wielded.lua` sends the
+free raises, `get` and `wield mace`, on every prompt and every inventory change, whether or
+not defence keep-up is on (`mace.keep`). It sends through keep-up's own costless sender,
+so the two never send the same command twice. `call mace` and `summon mace` spend a balance
+and stay with keep-up, which never gives up on the mace (`defkeepup.UNLIMITED`). The drop
+line must not reset keep-up's record of the `get` already sent: once it did, and a second
+`get` met `I see no "428794" to take.` (16:47:04.30).
 
 ## A defence's name is not always what grants it
 
