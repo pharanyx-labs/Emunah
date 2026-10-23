@@ -124,6 +124,20 @@ return function(P)
    local function isMental(aff)
       return #emunah.curing.afflist.curesVia(aff, "focus") > 0
    end
+
+   --- How many afflictions focus cures are confirmed on them, anorexia aside.
+   function M.mentalCount(ctx)
+      local n = 0
+      for aff in pairs(ctx.afflictions) do
+         if aff ~= "anorexia" and isMental(aff) then n = n + 1 end
+      end
+      return n
+   end
+
+   --- The mentals a chasten names, when one may go. Never recklessness: "Take that
+   --- recklessness out" (Anzerloi, 2026-10-23). And never `chasten mind` but for its
+   --- capstone, since the game may pick recklessness from the pool.
+   M.MENTALS = { "epilepsy", "dizziness", "confusion" }
    local function curedBy(aff, herb)
       for _, option in ipairs(emunah.curing.afflist.curesVia(aff, "herb")) do
          if option.item == herb then return true end
@@ -145,9 +159,14 @@ return function(P)
       end
       return true
    end
+   --- "Still too many mentals" (Anzerloi, 2026-10-23): in the slickness sequence, one is
+   --- enough. Fasting's anorexia needs one beside it for focus to choose wrong ("Minimum
+   --- 1/2 chance they focus the wrong thing", 16:08:59), and no more.
    function M.mentalsAllowed(ctx)
       if ctx.blocked and ctx.blocked.focus then return true end
-      if M.slickPhase ~= nil and M.slickPhase(ctx) == true then return true end
+      if M.slickPhase ~= nil and M.slickPhase(ctx) == true and M.mentalCount(ctx) < 1 then
+         return true
+      end
       return M.lobeliaTrail(ctx) and M.kelpTrailFull(ctx)
    end
 
@@ -166,15 +185,9 @@ return function(P)
          missing[category] = n
       end
       if capstoneOnly then return nil end
-      -- The mind pool is all mentals: only when they may go.
-      if not M.mentalsAllowed(ctx) then return missing.body > 0 and "body" or nil end
-      if missing.body ~= missing.mind then
-         return missing.body > missing.mind and "body" or "mind"
-      end
-      for _, aff in ipairs(order) do
-         if not ctx.afflictions[aff] and CHASTEN_POOL[aff] then return CHASTEN_POOL[aff] end
-      end
-      return nil
+      -- Never `mind` but for its capstone: the pool is all mentals, and the game may pick
+      -- recklessness from it.
+      return missing.body > 0 and "body" or nil
    end
 
    --- How many afflictions are confirmed on the target.
@@ -198,16 +211,25 @@ return function(P)
       -- A capstone to be had beats anything named: its pool is full, so naming one wastes it.
       local capstone = smartPool(ctx, order, true)
       if capstone then return capstone end
+      -- A mental that pays, once the kelp trail is laid: their focus shut, or guilt held on a
+      -- lobelia trail (M.mentalsAllowed). It comes ahead of the body pool.
+      if M.mentalsAllowed(ctx) and M.kelpTrailFull(ctx) then
+         for _, aff in ipairs(M.MENTALS) do
+            if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
+         end
+      end
       -- Late, or when everything named is on them: let the game pick from a pool.
       if confirmedCount(ctx) >= M.NAMED_CHASTEN_UNTIL then
          local pool = smartPool(ctx, order)
          if pool then return pool end
       end
-      local mentals = M.mentalsAllowed(ctx)
       for _, aff in ipairs(order) do
-         if not ctx.afflictions[aff] and not recent("chasten:" .. aff)
-            and (mentals or not isMental(aff)) then
-            return aff
+         if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
+      end
+      -- The orders hold no mentals. One is named only when it may go (M.mentalsAllowed).
+      if M.mentalsAllowed(ctx) then
+         for _, aff in ipairs(M.MENTALS) do
+            if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
          end
       end
       -- Everything named is on them or was just tried: a pool never repeats one they have.
@@ -220,13 +242,13 @@ return function(P)
    --- eaten cures one of them, so the rest stay; asthma, which shuts the pipe, lands on a
    --- trail already laid. Hinder leads with paralysis, its purpose. Mentals are named last
    --- and only go when they may (M.mentalsAllowed). The route holds asthma on while
-   --- hellsight is up (M.routeChasten).
+   --- hellsight is up (M.routeChasten). No mentals: those come from M.MENTALS, and only
+   --- when they may.
    M.CHASTEN = {
-      attack  = { "clumsiness", "healthleech", "asthma", "paralysis", "recklessness" },
-      offence = { "clumsiness", "healthleech", "asthma", "paralysis", "epilepsy",
-                  "recklessness" },
-      hinder  = { "paralysis", "clumsiness", "healthleech", "asthma", "epilepsy" },
-      finish  = { "clumsiness", "healthleech", "asthma", "paralysis", "recklessness" },
+      attack  = { "clumsiness", "healthleech", "asthma", "paralysis" },
+      offence = { "clumsiness", "healthleech", "asthma", "paralysis" },
+      hinder  = { "paralysis", "clumsiness", "healthleech", "asthma" },
+      finish  = { "clumsiness", "healthleech", "asthma", "paralysis" },
    }
 
    --- Rebukes a mode ends a prayer with, best first, on any verse once the prayer is long
@@ -582,11 +604,11 @@ return function(P)
       -- they focus the wrong thing before you chasten another mental in them" (16:08:59).
       -- His newer word, ahead of a lock's other pieces; a full mind pool chastens for
       -- impatience, the hard lock's last piece.
-      if M.slickPhase(ctx) then
-         for _, aff in ipairs(P.CHASTEN_POOLS.mind) do
+      -- One mental, not a run of them ("Still too many mentals", 2026-10-23).
+      if M.slickPhase(ctx) and M.mentalCount(ctx) < 1 then
+         for _, aff in ipairs(M.MENTALS) do
             if not ctx.afflictions[aff] and not recent("chasten:" .. aff) then return aff end
          end
-         if not ctx.afflictions[P.CHASTEN_POOLS.mind.capstone] then return "mind" end
       end
       local piece = lockPiece(ctx)
       if piece then return piece end
@@ -605,12 +627,8 @@ return function(P)
          end
          if not ctx.afflictions.asthma then return "asthma" end
       end
-      local verse = M.lastVerse
-      if verse and verse.name == "guilt" and verse.rebuke == "evil"
-         and now - verse.at < M.TOGETHER and not ctx.afflictions.recklessness
-         and M.mentalsAllowed(ctx) then
-         return "recklessness"
-      end
+      -- The stack's close used to chasten recklessness beside guilt rebuke evil, three
+      -- lobelia afflictions at once. "Take that recklessness out" (Anzerloi, 2026-10-23).
       return chastenPick(ctx, M.CHASTEN.offence)
    end
 
@@ -687,17 +705,6 @@ return function(P)
       return ctx.afflictions.slickness == true or hellsightHeld(ctx)
    end
 
-   --- How many afflictions focus cures are confirmed on them, anorexia aside.
-   local function mentals(ctx)
-      local n = 0
-      for aff in pairs(ctx.afflictions) do
-         if aff ~= "anorexia" and #emunah.curing.afflist.curesVia(aff, "focus") > 0 then
-            n = n + 1
-         end
-      end
-      return n
-   end
-
    --- ANOREXIA ONCE THEY ARE SLICK. "Next attack could be a perform fasting to get
    --- anorexia, which they'll have to focus because slick. For that to be worth it, need
    --- some mentals" (Anzerloi, 16:07:08-16:07:17): one other mental confirmed, so focus
@@ -705,7 +712,7 @@ return function(P)
    M.MOVES.slickFasting = { lane = "equilibrium", skill = "fasting", gives = "anorexia",
       mentalOk = true,
       when = function(ctx)
-         if not M.slickPhase(ctx) or mentals(ctx) < 1 then return false end
+         if not M.slickPhase(ctx) or M.mentalCount(ctx) < 1 then return false end
          local last = M.sentAt.slickFasting
          return last == nil or (M.revelationsAt ~= nil and last < M.revelationsAt)
       end,

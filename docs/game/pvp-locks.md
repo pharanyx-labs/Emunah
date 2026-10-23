@@ -230,10 +230,10 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   figures our own hit lines report (`priest.limbs()`). When the two are level, it goes to
   the other leg from last time.
 - **The chasten**: asthma for 20s after Revelations, whenever it is not confirmed on them;
-  then, once they are slick, the mind pool (below); then a lock's missing piece; then,
-  while a hellsight prayer builds to Revelations, asthma and a kelp affliction (clumsiness,
-  then healthleech); then recklessness beside guilt rebuke evil; then clumsiness,
-  paralysis, healthleech, asthma, epilepsy, recklessness.
+  then, once they are slick, one mental (below); then a lock's missing piece; then, while
+  a hellsight prayer builds to Revelations, a kelp affliction and then asthma; then
+  clumsiness, healthleech, asthma, paralysis. Recklessness beside guilt rebuke evil is
+  gone: "Take that recklessness out" (Anzerloi, 2026-10-23).
 - **Hellsight, then slickness, then anorexia.** Since CLASSLEADS #178 (2026-10-23), `angel
   panic` on a target with hellsight gives slickness instead of fear. Anzerloi's procedure,
   taken as he gave it (the user: "assume everything anzerloi says is 100% correct"):
@@ -246,8 +246,8 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   - "On next attack guilt rebuke a mental/perform sloth" (16:08:36). The hellsight prayer's
     fifth verse is guilt rebuke evil (masochism, cured by focus), with sloth.
   - "Minimum 1/2 chance they focus the wrong thing before you chasten another mental in
-    them" (16:08:59). Once slick, the chasten gives the mind pool: epilepsy, dizziness,
-    confusion, recklessness, then `mind` for impatience.
+    them" (16:08:59). Once slick, the chasten gives one mental, epilepsy, dizziness or
+    confusion, and no more once one is confirmed ("Still too many mentals", 2026-10-23).
   - "Next attack could be a perform fasting to get anorexia, which they'll have to focus
     because slick. For that to be worth it, need some mentals" (16:07:08–16:07:17).
     `perform fasting` (2.20s of equilibrium, 10 devotion) goes once per Revelations, with
@@ -277,7 +277,10 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   (impatience, inquisition), in the slickness sequence, or with guilt and another lobelia
   affliction held and the kelp trail full (`M.mentalsAllowed`); the mind pool likewise,
   its capstone aside. Attack mode recites Revelations once asthma is secure, with the
-  panic and fasting that follow.
+  panic and fasting that follow. Then: "Take that recklessness out." "Still too many
+  mentals." So no order names a mental; recklessness is never chastened, and `chasten
+  mind` only for its capstone, since the game may pick recklessness from the pool; the
+  slickness sequence gives one mental and stops (`M.MENTALS`, `M.mentalCount`).
 - **The kill wherever it is** (Anzerloi, 2026-10-23 14:38:17-14:39:20): "You win by having
   their mana low enough. If that does not present itself on its own (on your
   contemplations), you attempt to create conditions to attack their mana with saps. Most of
