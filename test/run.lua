@@ -12869,6 +12869,84 @@ suite("PvP: the kelp trail, and mentals only when they pay")
 end)()
 
 -- ===========================================================================
+suite("PvP attack: from the first blow to absolve")
+
+-- The user, 2026-10-23: "we need to start drawing them into a kill condition at some
+-- point ... absolve and judge are coming to mind so we may need to drain mana for that.
+-- either way, just get us in a position where we can actually get a kill". F1 builds,
+-- reads their mana with each blow, steps them down with wrath and the angel's sap once
+-- they are within reach, and absolves under half.
+;(function()
+   local R = emunah.class.active.pvp
+   local P = emunah.class.active
+   local opp = emunah.curing.detect.opponent
+   pvp.stop("test"); pvp.clearTarget(); emunah.timers.stopAll(); emunah.act.typedUntil = nil
+   mock.settleFightRites()
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
+      bal = "1", eq = "1", charstats = { "prayer_length: 0", "conviction: 0" } })
+   opp.clear("ashden"); P.targetMana = {}; P.targetLimbs = {}; R.sentAt = {}
+   pvp.setTarget("Ashden")
+   local function exchange(length, conviction)
+      emunah.timers.stopAll()
+      mock.sent = {}
+      mock.feed("Char.Vitals", { bal = "1", eq = "1", charstats = {
+         "prayer_length: " .. length, "conviction: " .. conviction } })
+      return table.concat(mock.sent, " | ")
+   end
+
+   -- F1: the first blow, on a leg, and the first reading of their mana with it.
+   emunah.timers.stopAll()
+   mock.sent = {}
+   pvp.setMode("attack")
+   local sent = table.concat(mock.sent, " | ")
+   ok(sent:find("smite ashden right leg chasten clumsiness", 1, true),
+      "F1: the first blow, a leg, the kelp trail", sent)
+   ok(sent:find("contemplate ashden", 1, true), "...and their mana read with it", sent)
+
+   -- Full mana: build. No sap, no wrath.
+   mock.line("Ashden's mana stands at 5000/5000 [100%].")
+   sent = exchange(1, 30)
+   ok(not sent:find("angel sap", 1, true) and not sent:find("wrath", 1, true),
+      "at full mana the attack builds: no sap, no wrath", sent)
+   ok(sent:find("smite ashden left leg", 1, true), "...the other leg", sent)
+
+   -- Their mana falls under M.DRAIN_BELOW: wrath on the prayer, the angel's sap on
+   -- equilibrium, in the mace's place.
+   for _, aff in ipairs({ "clumsiness", "healthleech", "asthma", "paralysis" }) do
+      opp.assert("ashden", aff)
+   end
+   mock.line("Ashden's mana stands at 3400/5000 [68%].")
+   sent = exchange(1, 30)
+   ok(sent:find("recite wrath ashden", 1, true), "under 70%: wrath steps them down", sent)
+   ok(sent:find("angel sap ashden", 1, true) and not sent:find("smite", 1, true),
+      "...and the angel's sap, in the mace's place", sent)
+   mock.line("Your guardian angel casts a piercing glance at Ashden.")
+   sent = exchange(2, 30)
+   ok(sent:find("contemplate ashden", 1, true), "a sap shows no figure: read again", sent)
+
+   -- One sap from the kill: the sap goes, the reading follows, and absolve.
+   for _, aff in ipairs({ "guilt", "tenderskin", "spiritburn" }) do opp.assert("ashden", aff) end
+   mock.line("Ashden's mana stands at 2900/5000 [58%].")
+   sent = exchange(2, 30)
+   ok(sent:find("angel sap ashden", 1, true), "58%, one sap from the kill: it goes", sent)
+   mock.line("Your guardian angel casts a piercing glance at Ashden.")
+   sent = exchange(3, 30)
+   ok(sent:find("contemplate ashden", 1, true), "...the reading straight after", sent)
+   mock.line("Ashden's mana stands at 2300/5000 [46%].")
+   sent = exchange(3, 30)
+   ok(sent:find("angel absolve ashden", 1, true), "under half: absolve", sent)
+
+   mock.line("You have slain Ashden.")
+   ok(not pvp.enabled and pvp.target == nil, "the kill clears the target and ends the fight")
+
+   opp.clear("ashden"); P.targetMana = {}; P.targetLimbs = {}; R.sentAt = {}
+   emunah.config.set("pvp.mode", nil)
+   emunah.timers.stopAll()
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1",
+      charstats = { "prayer_length: 0", "conviction: 0" } })
+end)()
+
+-- ===========================================================================
 suite("PvP chasten: named early, a pool later, and the capstone")
 
 -- Anzerloi, 2026-10-23 14:36-14:40: name the chasten while the target is clean and the
@@ -12895,8 +12973,8 @@ suite("PvP chasten: named early, a pool later, and the capstone")
    end
 
    local sent = table.concat(mock.sent, " | ")
-   ok(sent:find("smite ashden head chasten clumsiness", 1, true),
-      "a clean target: the chasten is named, the kelp trail first", sent)
+   ok(sent:find("smite ashden right leg chasten clumsiness", 1, true),
+      "a clean target: the chasten is named, the kelp trail first, on a leg", sent)
 
    for _, aff in ipairs({ "asthma", "clumsiness", "recklessness" }) do opp.assert("ashden", aff) end
    sent = blow()
@@ -12949,7 +13027,10 @@ suite("PvP chasten: named early, a pool later, and the capstone")
    pvp.setMode("attack")
    P.targetMana.ashden.at = emunah.util.now() - 60
    sent = blow()
-   ok(not sent:find("contemplate", 1, true), "attack does not read mana", sent)
+   -- Attack reads mana too now: it has to know when absolve kills (2026-10-23, "get us in a
+   -- position where we can actually get a kill").
+   ok(sent:find("smite ashden[^|]*| contemplate ashden"),
+      "attack reads mana with the blow, so it can take the kill", sent)
 
    -- REBOUNDING IS HELD WHILE YOU ATTACK. Your own blow drops it and it takes 8.5s to land
    -- (2026-10-23 14:35:29.74 -> 38.24), so smoking it between 2.3s smites only spends the

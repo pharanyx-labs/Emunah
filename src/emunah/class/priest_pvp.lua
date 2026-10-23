@@ -372,6 +372,16 @@ return function(P)
       -- The route's blow: a leg, the one our blows have hurt least (M.legFor), carrying
       -- the route's chasten (M.routeChasten). `left leg`/`right leg` are HELP TARGET's limb
       -- words; the smite has been seen to take `head` (13:58:03), the legs not yet.
+      -- Attack's blow: a leg, the two evenly, chastening the mode's own order. The legs are
+      -- "another possible source for sap power, and to immobilize them during the kill
+      -- window" (Anzerloi, 2026-10-23 14:40:09).
+      legsmiteChasten = { lane = "balance", skill = "mace", when = mace,
+         command = function(ctx)
+            local aff = chastenPick(ctx, M.CHASTEN[ctx.mode] or M.CHASTEN.offence)
+            local leg = M.legFor(ctx.target)
+            M.lastLeg[ctx.target] = leg
+            return ("smite %s %s chasten %s"):format(ctx.target, leg, aff), "chasten:" .. aff
+         end },
       legsmite = { lane = "balance", skill = "mace", when = mace,
          command = function(ctx)
             local aff = M.routeChasten(ctx)
@@ -667,6 +677,21 @@ return function(P)
    M.MOVES.drainContemplate = onlyWhen("contemplate", M.draining)
    M.MOVES.drainSap         = onlyWhen("sap", M.draining)
 
+   --- STEPPING THEM DOWN. On a fresh reading at or under this, a mode that drains (attack)
+   --- saps with wrath on the prayer and the angel on equilibrium, toward the half where
+   --- absolve kills: "step them down when it's worth it (such as bringing 100% mana down to
+   --- 60%)" (Anzerloi, 2026-10-15 12:41), and "You win by having their mana low enough"
+   --- (2026-10-23 14:38:17). A tuning number, not a game fact: a sap takes a few percent to
+   --- a fifth of their mana by what is on them (P.sapPercent), and their mana climbs back.
+   M.DRAIN_BELOW = 70
+   function M.drainDue(ctx)
+      local reading = ctx.mana
+      return freshMana(ctx) and not P.absolveKills(reading.percent)
+         and reading.percent <= M.DRAIN_BELOW
+   end
+   M.MOVES.stepWrath = onlyWhen("wrath", M.drainDue)
+   M.MOVES.stepSap   = onlyWhen("sap", M.drainDue)
+
    --- When angel panic was sent last, and when slickness was last confirmed on the target.
    M.panicAt = nil
    M.slickAt = nil
@@ -752,11 +777,18 @@ return function(P)
       -- hellsight any day" (Anzerloi, 2026-10-23): Revelations first in the prayer once
       -- asthma is secure, with the panic that turns it to slickness, and fasting once they
       -- are slick (his procedure, 16:03-16:16; the moves are the route's).
+      --
+      -- AND THE KILL. Their mana is read with the blow (contemplate rides on it), and the
+      -- kill moves every attacking mode shares go first: absolve under half, the sap that
+      -- brings it in reach, and the reading after it. At or under M.DRAIN_BELOW, wrath and
+      -- the angel's sap step them down. The mace works the legs, for sap power and to hold
+      -- them in place for the kill.
       attack = {
          exchange    = true,
-         prayer      = { "purge", "revelations", "unflinching", "guilt", "ash" },
-         balance     = { "smite" },
-         equilibrium = { "hellsightPanic", "slickFasting" },
+         readMana    = true,
+         prayer      = { "purge", "stepWrath", "revelations", "unflinching", "guilt", "ash" },
+         balance     = { "legsmiteChasten" },
+         equilibrium = { "hellsightPanic", "slickFasting", "stepSap" },
       },
       -- F2: hold the attack. Curing and the defence keep-up are not this mode's to send,
       -- and no game command for a defensive rotation has been captured.
