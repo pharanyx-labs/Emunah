@@ -186,7 +186,8 @@
 </ul>
 
 <h2 id="chat-map">Chat, map and ticker</h2>
-<p>Channels are captured into tabs: tells, city, house, market, says and the rest, configurable with <code>ui.chatTabs</code>. Capture and display are separate, so one failing never takes the other with it.</p>
+<p>Channels are captured into tabs: All, then tells, city, house, market, says and the rest, chosen and ordered with <code>ui.chatTabs</code>. A tab you are not looking at counts what it missed, tells in the warning colour, and the chat's title bar sums them. Only the tab on screen is drawn into; the others catch up when you show them, and each keeps its own scrollback. Clicking a line's time puts the reply on the command line. History is kept per tab and survives <code>emreload</code>.</p>
+<p><code>emset chat</code> shows the tabs; <code>emset chat mute &lt;channel&gt;</code> keeps a channel out of the window, and <code>emset chat route &lt;channel&gt; &lt;tab&gt;</code> sends it to another tab. Capture and display are separate, so one failing never takes the other with it.</p>
 <p>The map sits below the chat, follows you, and lights the route of any walk. <code>emset map size small|big|biggest</code> gives it 30%, 50% or 70% of the window's height, <code>ui.mapFloat</code> detaches it into its own window, and <code>emset ui map off</code> hides it. See <a href="map.html">Map and walking</a>.</p>
 <p>The ticker across the top scrolls continuously, up to three messages at once, for notices that must not scroll away, such as having no shield wielded. A label in the game window says when curing or keep-up is paused, so a system quietly doing nothing is impossible to miss.</p>
 

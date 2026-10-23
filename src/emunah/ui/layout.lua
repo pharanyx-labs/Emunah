@@ -321,8 +321,10 @@ function M.build()
       x = "-" .. M.WIDTH_RIGHT, y = 0, width = M.WIDTH_RIGHT, height = M.rightHeight(),
       titleText = "",
    })
+   -- Kept: ui/chat.lua puts its unread count in it.
+   M.chatHeader = nil
    if M.container("right") then
-      M.titleBar(M.container("right"), "chat", "Chat",
+      M.chatHeader = M.titleBar(M.container("right"), "chat", "Chat",
          { x = 4, y = M.TITLE_Y, width = "-8px" })
    end
 

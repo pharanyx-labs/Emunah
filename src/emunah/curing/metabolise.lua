@@ -34,6 +34,7 @@ local log     = emunah.log
 local event   = emunah.event
 local queue   = emunah.queue
 local have    = emunah.have
+local util    = emunah.util
 local afflist = emunah.curing.afflist
 
 --- Seconds of equilibrium the ability costs. AB METABOLISE: "3.00 seconds of equilibrium".
@@ -119,7 +120,10 @@ function M.queue()
    queue.push("equilibrium", "metabolise " .. name, {
       priority = M.PRIORITY,
       tag      = "metabolise:" .. name,
-      needs    = { eq = true },
+      -- BALANCE TOO, though AB METABOLISE names only equilibrium: `smite erishka head
+      -- chasten asthma|metabolise impatience` came back "You must regain balance first."
+      -- (2026-10-23 09:58:24.89). Needing it keeps the smite from going in front.
+      needs    = { bal = true, eq = true },
       spends   = "eq",
       -- The cost is 3s. A 2s confirm window would lapse while the ability was still
       -- running and re-arm the vector under it, the same reason perform hands waits
@@ -133,13 +137,40 @@ function M.queue()
          return M.choose() == name
       end,
       onSent   = function()
-         M.focus = name
-         save()
+         M.sent = { name = name, at = util.now() }
          emunah.gmcp.vitals.spend("eq")
          emunah.timers.start("cure.equilibrium", M.EQUILIBRIUM)
-         log.info("Metabolising %s. A second player's rapid reapplication is resisted.", name)
       end,
    })
+end
+
+--- The METABOLISE of ours waiting on the game: { name, at }. The focus is what the game
+--- took, not what was sent. The refused one at 09:58:24.89 was announced and recorded as
+--- set, so nothing would have sent it again.
+M.sent = nil
+
+--- How long after the send its "Equilibrium used:" line still counts as its answer.
+M.ANSWER = 2.0
+
+-- "Equilibrium used: 3.00s." is the ability going through. A refusal prints no such line,
+-- and leaves the focus unset for the next free equilibrium to try again.
+-- Its own generation of triggers, killed on a reload: Mudlet keeps a temp trigger alive
+-- past the Lua state that made it.
+emunah._persist = emunah._persist or {}
+for _, old in ipairs(emunah._persist.metaboliseTriggers or {}) do killTrigger(old) end
+emunah._persist.metaboliseTriggers = {}
+do
+   local id = tempRegexTrigger([[^Equilibrium used: ]], function()
+      local pending = M.sent
+      if not pending then return end
+      M.sent = nil
+      if util.now() - pending.at > M.ANSWER then return end
+      M.focus = pending.name
+      save()
+      log.info("Metabolising %s. A second player's rapid reapplication is resisted.",
+         pending.name)
+   end)
+   if id then table.insert(emunah._persist.metaboliseTriggers, id) end
 end
 
 --- A METABOLISE you typed is the focus from here. An ineligible name is not recorded:

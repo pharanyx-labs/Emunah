@@ -32,6 +32,8 @@ to free the queue slot, since it says nothing about whether bleeding will resume
 |---|---|---|
 | `smite <id>` | spends balance 2.9-3.2s; **requires** equilibrium | Priest attack (old default). Balance is announced (`Balance used: 2.9s.`) and equilibrium is **not consumed** -- the prompt reads `e-` straight after (12:41:14.49). It only needs equilibrium to be present, so the requirement is invisible until you lack it. |
 | `angel sear <id>` | spends equilibrium 2.50s; **requires** balance too | Priest attack (shipped default since 2026-08-04) -- see [Angel Sear](#angel-sear) below. The mirror image of `smite`: same "requires both, spends one" shape, opposite resource spent. |
+| `recite <verse> <target>` | prayer balance 1.60-3.00s; **requires** balance and equilibrium, spends neither | Every recite sent with either down came back `You must regain balance first.` or `You must regain equilibrium first.`, and the smite straight after a guilt went through (2026-10-23 09:58, see [A spar against Erishka](#a-spar-against-erishka-2026-10-23-0958)). On a shared prompt the verse goes before whatever spends one of them. |
+| `metabolise <affliction>` | spends equilibrium 3.00s; **requires** balance too | AB METABOLISE names only equilibrium, but `smite ...|metabolise impatience` came back `You must regain balance first.` (2026-10-23 09:58:24.89). |
 | `perform rite of desolation on <id>` | 36 rage; 23.00s cooldown, **not** balance or equilibrium | Priest (Attainment/Battlerage) amplifier, denizens only -- see [Rite of Desolation](#rite-of-desolation) below. Sent as a pre-attack step whenever ready, independent of the attack's own balance/equilibrium state. |
 | `perform hands` | equilibrium, 3s | Priest self-heal, ~20% of the bar. Announced with `Equilibrium used: 3.00s.` Independent of sip balance, so it stacks with `drink health` -- but NOT with attacking, which needs equilibrium too. |
 | `drink health` | sip balance | Announced back with `You may drink another health or mana elixir.` |
@@ -692,8 +694,59 @@ As your praying falters, your conviction does so in concert.
 Your conviction has entirely left you.
 ```
 
-So conviction is not banked: let the chain lapse and it is gone. How fast a prayer falters
-between verses, and how much a finished prayer grants, are still not measured.
+So conviction is not banked: let the chain lapse and it is gone. The timings are measured
+from the spar against Erishka below: a prayer ends about five seconds after its last verse,
+and the conviction it grants is gone about six and a half seconds after that unless another
+prayer has started.
+
+### A spar against Erishka (2026-10-23 09:58)
+
+Maelgor against Erishka, an Auroran Knight, in attack mode (head smites and angel sear).
+Logged from Maelgor's side. About ten recites went out in 25 seconds and three landed.
+
+**A verse needs balance and equilibrium, and spends neither.** Each recite that landed went
+with both up: guilt at 24.63, unflinching at 38.00, ash at 43.92. Each one sent with either
+down was refused:
+
+```
+09:58:29.90  perform rite of demons|recite unflinching erishka
+             As you enact the rite of demons, your hackles rise.
+             Equilibrium used: 3.50s.
+             You must regain equilibrium first.
+```
+
+The same refusal on balance followed the recites at 25.24, 26.24, 41.12, 44.27 and 45.60,
+each sent while a smite's balance was out. The smite at 24.89 went through behind the guilt
+at 24.63, so the verse does not spend balance.
+
+**The prayer's window.**
+
+```
+09:58:24.63  "Know the pain which you have caused," you proselytise to Erishka.
+09:58:29.90  Your prayer draws to an unsatisfying conclusion.
+09:58:38.00  "The light shall not be denied," you declare, as you prepare for your clash with Erishka.
+09:58:43.92  "And you shall be naught but cinders," you decree, focusing your holy might upon Erishka.
+09:58:49.02  As your prayer ends, holy fire outlines your form and you feel your righteous conviction surge to
+             yet greater heights.
+             Your spirit surges with 10% holy conviction.
+09:58:55.54  As your praying falters, your conviction does so in concert.
+             Your conviction has entirely left you.
+```
+
+A one-verse prayer ended 5.27s after its verse; a two-verse prayer ended 5.10s after its
+second, granting 10%. That conviction was gone 6.52s later with no new prayer.
+
+**Unflinching** is `"The light shall not be denied," you declare, as you prepare for your
+clash with <target>.` followed by `Rage fills you as the thought of heresy inspires you to
+greater efforts.` That rage ended at 10:01:38.42 (`Your rage to destroy heretics
+subsides.`), three minutes after the verse.
+
+**Two moves that spend different balances still cannot share a prompt.** `smite erishka
+head chasten clumsiness|angel sear erishka` gave `You must regain balance first.` for the
+sear straight after the smite's lines, both times (41.12, 44.20). Each needs the balance
+the other spends.
+
+**A head smite** did 13.9% to Erishka's head, three times.
 
 ### A complete attack (13:48:20–13:49:37)
 

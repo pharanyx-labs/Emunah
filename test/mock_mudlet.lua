@@ -855,6 +855,7 @@ function mock.installGeyser()
          "setColor", "setFont", "setFontSize", "setWrap", "setBufferSize",
          "enableScrollBar", "disableScrollBar", "setBackgroundImage", "resetFormat",
          "cechoLink", "dechoLink", "echoLink", "hechoLink", "move", "resize",
+         "enableAutoWrap", "disableAutoWrap",
       },
       -- Geyser.Label
       label = {
@@ -948,6 +949,8 @@ function mock.installGeyser()
          setReleaseCallback = function(_, fn) self.onRelease = fn return self end,
          setDoubleClickCallback = function(_, fn) self.onDoubleClick = fn return self end,
          setToolTip = function(_, text) self.tooltip = text return self end,
+         enableAutoWrap  = function() self.autoWrap = true  return self end,
+         disableAutoWrap = function() self.autoWrap = false return self end,
          enableScrollBar  = function() self.scrollBar = true  return self end,
          disableScrollBar = function() self.scrollBar = false return self end,
          setValue = function(_, current, max, text)

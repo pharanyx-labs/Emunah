@@ -753,6 +753,51 @@ M.handlers.ui = function(arg, rest)
    end
 end
 
+M.handlers.chat = function(arg, rest)
+   local chat, comm = emunah.ui.chat, emunah.gmcp.comm
+   local word = arg and arg:lower()
+   if word == "clear" then
+      if rest and not chat.find(rest) then log.warn("No chat tab called %s.", rest) return end
+      chat.clear(rest)
+      log.info("%s cleared.", rest and (chat.find(rest).name .. " tab") or "Every chat tab")
+   elseif (word == "mute" or word == "unmute") and rest then
+      comm.setMuted(rest, word == "mute")
+      log.info("%s is %s.", rest:lower(), word == "mute"
+         and "muted: captured, not shown" or "shown again; `emset ui rebuild` draws what it missed")
+   elseif word == "route" and rest then
+      local channel, tab = rest:match("^(%S+)%s+(%S+)$")
+      if not channel then log.warn("Usage: emset chat route <channel> <tab>|default") return end
+      local now, why = comm.setRoute(channel, tab:lower() ~= "default" and tab or nil)
+      if not now then log.warn("%s. Tabs: %s.", why, table.concat(comm.tabs(), ", ")) return end
+      log.info("%s goes to %s.", channel:lower(), now)
+   elseif arg and not rest and chat.find(arg) then
+      if not chat.show(arg) then log.warn("No chat tab called %s.", arg) end
+   else
+      if arg then
+         log.warn("Unknown: emset chat %s. Tabs: %s.", arg .. (rest and (" " .. rest) or ""),
+            table.concat(comm.tabs(), ", "))
+      end
+      header("Chat")
+      row("window", chat.mode == "tabs" and ("showing " .. chat.active)
+         or "not built -- emset ui rebuild")
+      for _, tab in ipairs(chat.order[1] and chat.order or { chat.ALL, unpack(comm.tabs()) }) do
+         local unread = chat.unread(tab)
+         row(tab, string.format("%d kept%s", comm.count(tab ~= chat.ALL and tab or nil),
+            unread > 0 and string.format(", %d unread", unread) or ""))
+      end
+      local routes, rerouted = comm.routes(), {}
+      for _, channel in ipairs(util.keys(routes)) do
+         rerouted[#rerouted + 1] = channel .. " -> " .. routes[channel]
+      end
+      row("rerouted", #rerouted > 0 and table.concat(rerouted, ", ") or "none")
+      local mutes = comm.mutes()
+      row("muted", #mutes > 0 and table.concat(mutes, ", ") or "none")
+      if chat.dropped > 0 then row("not shown", chat.dropped .. " with no window to draw in") end
+      decho("\n  " .. faint("emset chat <tab>  |  clear [tab]  |  mute|unmute <channel>  |  "
+         .. "route <channel> <tab>|default"))
+   end
+end
+
 M.handlers.ally = function(arg, rest)
    local allies = emunah.allies
    if (arg == "add" or arg == "remove") and rest then

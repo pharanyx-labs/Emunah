@@ -350,6 +350,17 @@ do
       persist(tempRegexTrigger(pattern, function()
          local r = raising.fangbarrier
          if r and not r.eaten then r.eaten, r.window = util.now(), M.SILERIS_HARDEN end
+         -- The apply is the command's answer; the hardening, ten seconds on, is the
+         -- defence's. Left to the confirm wait, the slot lapsed into "No confirmation for
+         -- [salve] apply sileris to body -- re-arming." first (2026-10-23 10:01:06.91,
+         -- hardened 16.93). The pending window above still holds a second apply.
+         for _, vector in ipairs(queue.VECTORS) do
+            local action = queue.awaiting(vector)
+            if action and action.tag == "def:fangbarrier" then
+               queue.confirm(vector)
+               break
+            end
+         end
       end))
    end
    local function hardened()
@@ -900,7 +911,11 @@ function M.stop(silent)
    event.raise("defkeepup.disabled")
 end
 
+--- Defences lost since the last prompt. See the defence.lost handler below.
+local lostSinceTick = 0
+
 event.register("emunah.tick", function()
+   lostSinceTick = 0
    M.tick()
 end, "curing.defkeepup")
 
@@ -982,11 +997,21 @@ end, "curing.defkeepup")
 
 -- React immediately when a defence drops rather than waiting for the next tick; losing
 -- rebounding mid-fight is worth a fast response.
+--
+-- ONE LOSS, NOT A BURST. An arena defeat removes every defence one Char.Defences.Remove at
+-- a time, ahead of the death line and the vitals behind it (gmcp/vitals.lua, M.stale).
+-- Answering each one sent the whole defup into the reset: levitation, nightsight, venom,
+-- frost, mindseye, three herbs and a sileris apply went out before "You have been slain by
+-- Erishka." (2026-10-23 10:00:48), the herbs were already in the rift, and three came back
+-- "What do you want to eat?". The first loss since the prompt is answered now; the rest
+-- wait for the prompt that closes them, which sees what is left.
 event.register("emunah.defence.lost", function(_, name)
    -- Up and gone again: whatever was sent for it has been answered.
    lastSent[tostring(name or ""):lower()] = nil
+   lostSinceTick = lostSinceTick + 1
    if not M.enabled then return end
    if not util.contains(M.wanted(), tostring(name):lower()) then return end
+   if lostSinceTick > 1 then return end
    M.tick()
 end, "curing.defkeepup")
 

@@ -333,6 +333,58 @@ M.DANGERS = {
    { name = "golem destroy", test = function() return has("meltingburn") end },
 }
 
+-- CLEAVE: a knight's wind-up, seen from the receiving end (2026-10-23, Erishka, an Auroran
+-- Knight, killing from full health in the arena):
+--
+--   10:00:38.07  Erishka raises her longsword over her head and begins to swing it in a
+--                wide circle, gaining speed as she goes.
+--   10:00:43.12  Erishka begins to bear down on you with her whirling longsword.
+--   ~10:00:48    Screaming out a warcry of pure strength, Erishka brings her longsword
+--                crashing straight down on your head. ... You have been slain by Erishka.
+--
+-- About ten seconds from the first line to the kill. What stops it is not known yet, so
+-- this only warns: once at each line, and on the prompt while it lasts.
+
+--- Seconds a wind-up is named after its last line. Ten seen; the slack is the round trip.
+M.CLEAVE_SECONDS = 12
+
+--- { name = who, at = last line, onYou = bool } while a cleave is winding up, else nil.
+M.cleave = nil
+
+local function cleaveDanger()
+   local wind = M.cleave
+   if not wind then return nil end
+   local now = emunah.util.now()
+   if now - wind.at > M.CLEAVE_SECONDS then
+      M.cleave = nil
+      return nil
+   end
+   return ("cleave by %s%s"):format(wind.name, wind.onYou and ", at you" or "")
+end
+table.insert(M.DANGERS, 1, { name = "cleave", test = cleaveDanger })
+
+emunah._persist = emunah._persist or {}
+for _, old in ipairs(emunah._persist.watchTriggers or {}) do killTrigger(old) end
+emunah._persist.watchTriggers = {}
+local function watchLine(pattern, fn)
+   local id = tempRegexTrigger(pattern, fn)
+   if id then table.insert(emunah._persist.watchTriggers, id) end
+end
+
+-- \w+ for the pronoun and the weapon: whoever it is, whatever they swing.
+watchLine([[^(\w+) raises \w+ \w+ over \w+ head and begins to swing it in a wide circle]],
+   function()
+      M.cleave = { name = matches[2], at = emunah.util.now(), onYou = false }
+      log.warn("%s is winding up a cleave: about ten seconds to the blow.", matches[2])
+   end)
+watchLine([[^(\w+) begins to bear down on you with \w+ whirling \w+\.$]], function()
+   M.cleave = { name = matches[2], at = emunah.util.now(), onYou = true }
+   log.warn("%s's cleave is bearing down on you.", matches[2])
+end)
+watchLine([[brings \w+ \w+ crashing straight down on]], function()
+   M.cleave = nil
+end)
+
 --- The instant kills you are open to, most severe first, as they are named. Empty when none.
 function M.dangers()
    local found = {}

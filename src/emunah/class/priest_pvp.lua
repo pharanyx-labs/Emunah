@@ -22,7 +22,8 @@
 --- docs/game/pvp-locks.md). Its prayer lane follows his prayers verse by verse (M.PRAYERS),
 --- its mace spreads blows across the legs, and each exchange is a verse plus either the
 --- mace or one equilibrium move, never both: "Recite/bal/option eq" (13:48, 2026-10-15),
---- and so in every exchange of the three spars.
+--- and so in every exchange of the three spars. Every attacking mode exchanges the same
+--- way, for the reason in M.plan; the verse needs both balances and goes first.
 ---
 --- WHAT THE TARGET HAS is confirmed only (the user's ruling): landing lines, symptom lines and
 --- cure lines through curing/detect/opponent.lua, mana through contemplate. A verse never says
@@ -40,29 +41,39 @@ return function(P)
    -- lanes
    -- -----------------------------------------------------------------------------------
 
-   -- Both balances for anything that is not a verse: smite needs equilibrium as well as the
+   -- Both balances for everything, verses included: smite needs equilibrium as well as the
    -- balance it spends (docs/game/priest-abilities.md), Anzerloi's angel sap "requires
    -- balance" too, and HELP's default for the rest is both, until play shows otherwise.
+   --
+   -- A VERSE NEEDS BOTH AND SPENDS NEITHER. The spar with Erishka, 2026-10-23 09:58: every
+   -- recite sent with balance or equilibrium down came back "You must regain balance first."
+   -- or "...equilibrium first." (25.24, 26.24, 30.21 behind `perform rite of demons`, 41.12,
+   -- 44.27, 45.60), and the three that landed went with both up. The smite at 24.89 went
+   -- through behind the guilt at 24.63, so the verse took neither. It goes in front of the
+   -- prompt's spender (act.ahead), as Anzerloi's verse comes before his smite.
    local BOTH = { bal = true, eq = true, standing = true }
+
+   --- What each lane's sends use up. The prayer lane's own balance is its timer.
+   local SPENDS = { balance = "bal", equilibrium = "eq" }
 
    M.LANES = {
       prayer = {
          ready = function()
-            return timers.ready("pvp.prayer") and emunah.act.can({ standing = true })
+            return timers.ready("pvp.prayer") and emunah.act.can(BOTH)
          end,
       },
       balance = {
          ready = function()
             local vitals = emunah.gmcp.vitals
             return vitals and vitals.bal and timers.ready("attack.balance")
-               and emunah.act.can(BOTH)
+               and emunah.act.can(BOTH, "bal")
          end,
       },
       equilibrium = {
          ready = function()
             local vitals = emunah.gmcp.vitals
             return vitals and vitals.eq and timers.ready("cure.equilibrium")
-               and emunah.act.can(BOTH)
+               and emunah.act.can(BOTH, "eq")
          end,
       },
    }
@@ -453,6 +464,8 @@ return function(P)
    M.MODES = {
       -- F1: damage first, afflictions on the side.
       attack = {
+         exchange    = true,
+         alternate   = true,
          prayer      = { "purge", "unflinching", "guilt", "ash" },
          balance     = { "smite" },
          equilibrium = { "heresy", "sear" },
@@ -475,12 +488,15 @@ return function(P)
       },
       -- F3: keep them here and slow -- legs, paralysis, fragility on the next blow.
       hinder = {
+         exchange    = true,
+         alternate   = true,
          prayer      = { "penance", "fragility", "guilt" },
          balance     = { "smashlegs", "smite" },
          equilibrium = { "sloth", "panic" },
       },
       -- F4: read their mana, sap it under half, absolve.
       finish = {
+         exchange    = true,
          prayer      = { "wrath", "guilt", "ash" },
          balance     = { "smite" },
          equilibrium = { "absolve", "contemplate", "sap" },
@@ -539,18 +555,27 @@ return function(P)
       return nil
    end
 
+   --- The lane, mace or equilibrium, that sent the last exchange. An alternating mode gives
+   --- the other one the next.
+   M.lastExchange = nil
+
    --- The move this lane should send now, under this mode, or nil.
    ---
-   --- AN EXCHANGE MODE (offence) sends the mace or an equilibrium move on a prompt, never
+   --- EVERY ATTACKING MODE IS AN EXCHANGE: the mace or an equilibrium move on a prompt, never
    --- both. A smite needs equilibrium and the angel needs balance, so the second of two on
-   --- one prompt would only bounce. Equilibrium speaks first: the mace waits for any
-   --- equilibrium move that is due, and goes when none is.
+   --- one prompt only bounces: `smite erishka head chasten clumsiness|angel sear erishka`
+   --- came back "You must regain balance first." for the sear, every time (2026-10-23
+   --- 09:58:41.12, 44.20). Equilibrium speaks first: the mace waits for any equilibrium move
+   --- that is due, and goes when none is. An ALTERNATING mode (attack, hinder) always has
+   --- one due -- sear repeats -- so there the two take turns, the mace first.
    function M.plan(modeName, lane, ctx)
       local mode = M.MODES[modeName]
       if not mode then return nil end
       if mode.exchange then
          local eqHeld = ctx.held and ctx.held.equilibrium
-         if lane == "balance" and not eqHeld and planLane(mode, "equilibrium", ctx) then
+         local eqFirst = not mode.alternate or M.lastExchange == "balance"
+         if lane == "balance" and eqFirst and not eqHeld
+            and planLane(mode, "equilibrium", ctx) then
             return nil
          end
          if lane == "equilibrium" and M.thisTick.balance then return nil end
@@ -577,13 +602,14 @@ return function(P)
          if sin == nil then sin = rebukeFor(ctx) end
          if sin then command = command .. " rebuke " .. sin end
       end
-      local needs = move.lane == "prayer" and { standing = true } or BOTH
-      if not emunah.act.send(command, needs) then return false end
+      local spends = SPENDS[move.lane]
+      if not emunah.act.send(command, BOTH, spends) then return false end
 
       local now = util.now()
       M.sentAt[name] = now
       if tag then M.sentAt[tag] = now end
       M.thisTick[move.lane] = true
+      if spends then M.lastExchange = move.lane end
       if move.verse then
          M.lastVerse = { name = move.verse, rebuke = sin or nil, at = now }
          if move.verse == "revelations" then M.revelationsAt = now end
@@ -592,37 +618,22 @@ return function(P)
       -- The pessimistic guard until the game's own line replaces it ("You may speak another
       -- holy verse." / "Balance used:" / "Equilibrium used:"), as every attack here does.
       --
-      -- ARMED AFTER THE OTHER LANES HAVE SENT. Prayer, the mace and an equilibrium move go
-      -- out on one prompt (the user, 2026-10-15). Arming balance as the smite leaves would
-      -- hold the equilibrium move of that same prompt, which spends the other resource.
-      local function arm()
-         if move.lane == "prayer" then
-            timers.start("pvp.prayer", move.cost or P.RECITE_BALANCE_GUESS)
-            if P.ONCE_PER_PRAYER[move.verse] then P.prayerSpent[move.verse] = true end
-         elseif move.lane == "balance" then
-            timers.start("attack.balance", P.inflightGuard())
-         else
-            timers.start("cure.equilibrium", P.inflightGuard())
-         end
+      -- ARMED AS IT LEAVES. Lanes used to arm only after every lane of the prompt had sent,
+      -- so that the mace and an equilibrium move could share one -- and the second always
+      -- bounced (M.plan). Armed now, the lane after a smite waits for the balance, and a
+      -- cure or rite later in the prompt's line does not go out behind it into a refusal.
+      if move.lane == "prayer" then
+         timers.start("pvp.prayer", move.cost or P.RECITE_BALANCE_GUESS)
+         if P.ONCE_PER_PRAYER[move.verse] then P.prayerSpent[move.verse] = true end
+      else
+         emunah.act.arm(spends)
       end
-      if M.deferring then M.deferred[#M.deferred + 1] = arm else arm() end
       return true
    end
 
-   M.deferred = {}
-   M.deferring = false
-
-   --- Hold the lane guards until every lane of this prompt has been offered a send.
+   --- A new prompt: nothing has gone out on it yet.
    function M.defer(on)
-      M.deferring = on and true or false
-      if on then M.deferred, M.thisTick = {}, {} end
-   end
-
-   function M.armDeferred()
-      local pending = M.deferred
-      M.deferred = {}
-      M.deferring = false
-      for index = 1, #pending do pending[index]() end
+      if on then M.thisTick = {} end
    end
 
    -- A new fight, or a new target, starts the rotation afresh: what was sent at the last
@@ -631,7 +642,7 @@ return function(P)
    for _, name in ipairs({ "emunah.pvp.started", "emunah.pvp.target" }) do
       emunah.event.register(name, function()
          M.sentAt, M.lastLeg, M.strippedAt = {}, {}, {}
-         M.lastVerse, M.revelationsAt = nil, nil
+         M.lastVerse, M.revelationsAt, M.lastExchange = nil, nil, nil
          P.targetLimbs = {}
       end, "priest-pvp")
    end
@@ -645,6 +656,5 @@ return function(P)
    P.pvpPlan = M.plan
    P.pvpSend = M.send
    P.pvpDefer = M.defer
-   P.pvpArm = M.armDeferred
    P.PVP_MODES = M.MODES
 end
