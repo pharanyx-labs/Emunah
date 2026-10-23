@@ -122,7 +122,7 @@ src/emunah/
 conf/        one file of settings per area, and your own cure ranks and rules
 test/        mock_mudlet  run  bench  profile  latency  ui_preview
 tools/       build-xml  build-trigger-package  build-mapper-lines  build-commands-page
-             fight-report  run_tests  syntax_check</code></pre>
+             fight-report  ci</code></pre>
 <p>The load order is written out in the manifest rather than inferred, because later modules read earlier ones as they load: the interface reads the theme, curing reads the affliction table, PvP reads the name database.</p>
 
 <h2 id="gate">One gate for every command</h2>
@@ -177,7 +177,7 @@ emunah.act.send("order " .. id .. " follow me", { bal = true, eq = true })</code
 <p>On curing and balances the reference system's logic is trusted over Emunah's own. But it is several years old and the game has moved on, so where a transcript from today's game disagrees, the transcript wins, and the disagreement is written down where the code departs from the reference. A line the reference system lacks is recorded and asked about, never guessed at.</p>
 
 <h2 id="testing">Testing</h2>
-<p>The suite of 3259 behavioural tests runs the real modules against <code>test/mock_mudlet.lua</code>, with no client involved. The mock is strict on purpose: each mocked widget has only the methods the real one has, and trigger patterns are matched as the regular expressions Mudlet actually uses. Two shipped bugs once got past a looser mock that accepted anything; a strict one turns "silently wrong in the client" into a failing test.</p>
+<p>The suite of 3535 behavioural tests runs the real modules against <code>test/mock_mudlet.lua</code>, with no client involved. The mock is strict on purpose: each mocked widget has only the methods the real one has, and trigger patterns are matched as the regular expressions Mudlet actually uses. Two shipped bugs once got past a looser mock that accepted anything; a strict one turns "silently wrong in the client" into a failing test. GitHub Actions runs <code>sh tools/ci.sh</code>, which compiles every first-party file as Lua 5.1 and then runs that suite. The site is published only after that passes on main.</p>
 <p>Every behavioural fix carries a test that would have caught the original report, and the suite must be green before anything is committed. The suite also checks the documentation against the code: every command is documented, nothing documented is missing, the figures on this site match their sources, and no page on it has an em dash.</p>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">

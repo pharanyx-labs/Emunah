@@ -10,7 +10,7 @@
 --- so garbage produced here is collection latency paid by the whole client, at the exact
 --- moment the character is being locked.
 ---
---- Usage: lua test/bench.lua [iterations]
+--- Usage: lua5.1 test/bench.lua [iterations]
 
 local ROOT = (arg and arg[0] or ""):match("^(.*)/test/bench%.lua$") or "."
 package.path = ROOT .. "/test/?.lua;" .. package.path

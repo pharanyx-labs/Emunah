@@ -91,6 +91,8 @@ local MANIFEST = {
    { path = "emunah.curing.situations",  as = "curing.situations" },
    -- when to touch the tree tattoo before the last resort. Read by the engine.
    { path = "emunah.curing.treefunc",    as = "curing.treefunc" },
+   -- METABOLISE: one equilibrium, once, so a second player cannot reapply impatience.
+   { path = "emunah.curing.metabolise",  as = "curing.metabolise" },
 
    -- ui
    { path = "emunah.ui.theme",           as = "ui.theme"      },
@@ -130,7 +132,7 @@ local MANIFEST = {
    -- what the game says when a step does not simply happen (swim, doors, walls...)
    { path = "emunah.mapper.moves",       as = "mapper.moves"  },
    -- walking under attack: a big hit walks you out of the area, an enemy marks the prompt,
-   -- F12 walks to the safe room
+   -- F12 turns PvP off and walks to the safe room
    { path = "emunah.mapper.guard",       as = "mapper.guard"  },
 
    -- area walker: needs gmcp.room for position and config for its avoid list

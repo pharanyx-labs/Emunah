@@ -149,11 +149,14 @@ long enough to repay the lost swing. Desolation costs neither balance nor equili
 there is nothing to repay — it only waits on its own cooldown and rage, gated additionally on
 `denizens.isDenizen()` since HELP restricts it to denizens.
 
-### Angel Strip (hunting only)
+### Angel Strip
 
 `ANGEL STRIP <target>`: equilibrium 1.80s, 10 Angel power and 100 mana; adventurers and
 denizens; "will always strip magical shields first" (`help/ab-spirituality-strip.txt`).
-**Used for hunting only, never in PvP** (the user, 2026-10-15).
+Hunting only at first (the user, 2026-10-15). **Since 2026-10-23 it also strips a PvP
+target's shield**, and only that: the user lifted the ruling for this one use after
+Anzerloi's spar logs showed him stripping Maelgor's shield twice (`pvp-locks.md`,
+*Anzerloi's route*). PvP's strip is its own move (`class/priest_pvp.lua`).
 
 Anzerloi, 14:35:03–14:35:52 **[player]**: it **requires balance**, and it has to come
 **before** the attack, because it spends equilibrium and smite cannot go without it. The
@@ -598,7 +601,7 @@ target cures from the same herb:
 | `recite revelations <target>` | prayer balance 1.60s | Gives **hellsight**. VERSES: 10% conviction, prayer of 3, once per prayer |
 | `recite reflection <target>` | prayer balance 2.70s | For ten seconds, some afflictions dealt to you are given back to them. VERSES: 5%, prayer of 2 |
 | `recite ash <target>` | prayer balance 1.60s | **Delivers spiritburn.** Fire ticks then drain their mana, and so does moving while on fire |
-| `recite burn <target>` | prayer balance 1.60s | "Leaving them tender and pained"; applying a salve drains their mana. HELP does not name the affliction: tenderskin by its wording and by what it does, **unconfirmed** until a live cast or DIAG shows it |
+| `recite burn <target>` | prayer balance 1.60s | "Leaving them tender and pained"; applying a salve drains their mana. HELP does not name the affliction. **Tenderskin**, confirmed by Anzerloi's spars (2026-10-13): `"Burn!" commands Anzerloi, ...` then `You have been afflicted with tenderskin.` (`pvp-locks.md`, *Anzerloi's route*) |
 | `recite penance <target>` | prayer balance 1.60s | **Gives paralysis** |
 | `recite fragility <target>` | prayer balance 1.60s | Next mace blow does about 30% more limb damage |
 | `recite attend <target>` | prayer balance 1.60s | Strips their ear protection (deafness) |
@@ -660,6 +663,11 @@ So a rebuke needs its stated length **minus one** already in the prayer, and the
 ends with it (`priest.prayerAllows`). **[player]**
 
 ### A test cast that did not settle tenderskin (13:21:07–13:21:10)
+
+**Settled since** by Anzerloi's spars (2026-10-13): "Return to ash" and "And you shall be
+naught but cinders" are Ash, and give spiritburn; "Burn!" is Burn, and gives tenderskin.
+Both by the game's own `You have been afflicted with ...` (`pvp-locks.md`, *Anzerloi's
+route*). The capture below is kept as it was.
 
 Asked for tenderskin, Anzerloi cast at the user:
 
@@ -746,10 +754,11 @@ in 0.3s and the paranoia in 0.6s.
 
 ### Still needed before any of this sends
 
-- Confirmation that Burn gives tenderskin, and which affliction "Your skin begins to grow
-  uncomfortably hot." is today: a cast of each of Ash and Burn with `emset debug gmcp` on.
-- Live lines, from a spar: absolve and sap failing; wrath landing and failing; sloth
-  landing; the smite's leg words.
+- ~~Confirmation that Burn gives tenderskin~~: settled by the spars of 2026-10-13, along
+  with Ash's spiritburn, sloth's weariness, and wrath and absolve landing (the target's
+  end; `pvp-locks.md`, *Anzerloi's route*).
+- Live lines, from the caster's end: absolve and sap failing; the smite's leg words
+  (`left leg` / `right leg` are sent on HELP TARGET's word).
 - How a Priest takes down rebounding, and the line when a target raises it.
 - Whether a sap has a base amount; whether inquisition boosts wrath; whether a verse spends
   conviction.

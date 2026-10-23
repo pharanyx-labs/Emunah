@@ -1,16 +1,16 @@
-# Publishes website/ to GitHub Pages (pharanyx-labs.github.io/Emunah) whenever it changes on main.
+# Publishes website/ to GitHub Pages (pharanyx-labs.github.io/Emunah).
 #
-# The site is static files with no build step, so this uploads the directory as it is.
-# website/commands.html is generated from src/emunah/help.lua by
-# tools/build-commands-page.lua and committed; the test suite fails if the two disagree.
+# The site is the committed files. It goes out only after CI has passed on
+# main, from that same commit, so a red suite never becomes the live site.
+# website/commands.html is generated from src/emunah/help.lua and committed;
+# the suite fails when the two disagree.
 name: Website
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
-    paths:
-      - "website/**"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -18,20 +18,30 @@ permissions:
   pages: write
   id-token: write
 
-# One deployment at a time, and never cancel one half-way through.
+# One deployment at a time. A newer commit waits; it does not cancel the
+# deploy already in flight.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - name: Site is present
+        run: test -f website/index.html
       - uses: actions/configure-pages@v6
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v5
         with:
           path: website

@@ -28,8 +28,12 @@ conclusion. See that directory's own [README](docs/game/README.md) for the forma
 ## Tests
 
 ```sh
-lua test/run.lua
+sh tools/ci.sh
 ```
+
+That compiles every first-party Lua file with `lua5.1` and then runs the suite. The same
+command is what GitHub Actions runs. `lua5.1 test/run.lua` is the suite on its own. Plain
+`lua` is a later version and will not do.
 
 Must be green before committing. Mudlet is stubbed in `test/mock_mudlet.lua`; if a test
 cannot express something, the mock is usually the gap — fix the mock rather than skipping

@@ -66,7 +66,7 @@ lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()
 A successful load reports:
 
 ```
-[emunah] v0.1.0 loaded -- 75 modules.
+[emunah] v0.1.0 loaded -- 76 modules.
 ```
 
 ## Capabilities
@@ -129,7 +129,7 @@ emset curing.method minerals  a setting
 `emhelp <module>` is the reference: it says what the module does, lists its commands, and
 lists every setting with its current value. Click a setting to change it, as with the reference system's
 `vconfig`. It is generated from `src/emunah/help.lua`, which the test suite checks against the
-code, so a command or setting added without being documented fails `lua test/run.lua`.
+code, so a command or setting added without being documented fails `lua5.1 test/run.lua`.
 
 | Module | Commands |
 |---|---|
@@ -213,10 +213,10 @@ src/emunah/
   loot.lua                            -- collect gold by replica number
   class/    adapter priest priest_pvp -- class interface + auto-detection
   commands.lua
-test/       mock_mudlet.lua run.lua   -- 3259 behavioural tests
+test/       mock_mudlet.lua run.lua   -- 3535 behavioural tests
             bench.lua profile.lua     -- per-prompt cost, and where it goes
 package/    .mpackage build project
-tools/      build-xml.py syntax_check.py run_tests.py
+tools/      build-xml.py build-commands-page.lua ci.sh
             fight-report.lua          -- a pasted fight log, summarised
 ```
 
@@ -239,16 +239,19 @@ pull off for working on a local checkout.
 The test suite runs the real modules against a Mudlet mock, with no client involved:
 
 ```sh
-lua test/run.lua
-python3 tools/run_tests.py .   # if no Lua interpreter is installed
+sh tools/ci.sh             # compile as Lua 5.1, then the suite
+lua5.1 test/run.lua        # the suite on its own
 ```
+
+Mudlet runs Lua 5.1. `lua` on most machines is a later version and will not run this
+suite. GitHub Actions runs `sh tools/ci.sh` on every pull request and every push to main.
 
 The per-prompt cost is measurable without the client too. `bench.lua` reports wall time and
 bytes allocated per call; `profile.lua` is a sampling profiler that names the hottest lines:
 
 ```sh
-lua test/bench.lua      # engine.tick() and the queries under it
-lua test/profile.lua    # where the time actually goes
+lua5.1 test/bench.lua      # engine.tick() and the queries under it
+lua5.1 test/profile.lua    # where the time actually goes
 ```
 
 A fight log pasted to a file (`emset debug`, `emset debug gmcp`, and `*s` in the prompt)
@@ -256,7 +259,7 @@ summarises into damage by type, what each curing balance was spent on, how long 
 idle after the game announced it, and every cure held or refused:
 
 ```sh
-lua tools/fight-report.lua fight.log
+lua5.1 tools/fight-report.lua fight.log
 ```
 
 Build the distributable package:

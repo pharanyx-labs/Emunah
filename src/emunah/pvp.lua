@@ -24,8 +24,10 @@
 --- MODES AND LANES
 --- ---------------
 --- "Overwhelm my pvp opponent with a range of afflictions, damage, and finisher moves ...
---- set rules via f5-8 that will enter various pvp modes" (the user, 2026-10-15). F5-F8
---- choose a mode (M.MODES); each tick, every balance that is free -- prayer, balance,
+--- set rules via f5-8 that will enter various pvp modes" (the user, 2026-10-15). The keys
+--- are F1-F4 now (2026-10-22): F1 attack, F2 defence, F3 hinder, F4 finish. F12 turns
+--- whichever is up off. Offence stays a mode, with no key of its own. Each tick, every
+--- balance that is free -- prayer, balance,
 --- equilibrium -- asks the class what this mode sends on it (class/priest_pvp.lua), and
 --- sends it. Nothing here knows a Priest from any other class.
 ---
@@ -51,8 +53,9 @@ M.target  = nil   -- opponent name (lower), or nil -- never auto-acquired
 M.held    = nil   -- the locks holding the attack back, as shown, or nil
 M.stats   = { attacks = 0, recited = 0, startedAt = 0, lanes = {} }
 
---- The modes, in key order: F5, F6, F7, F8. What each sends is the class's (M.MODES there).
-M.MODES = { "attack", "offence", "hinder", "finish" }
+--- The modes. The first four are F1-F4. Offence has no key: it is what `emset pvp on`
+--- starts in. What each sends is the class's (M.MODES there).
+M.MODES = { "attack", "defence", "hinder", "finish", "offence" }
 
 --- Opponents whose aura of rebounding turned our mace back, until it is seen going down.
 M.rebounding = {}
@@ -64,7 +67,7 @@ M.config = {
    -- hurts, and stopping does not stop them hitting. It replaces watch.critical for PvP
    -- (see unsafe() below), which would otherwise stop it at 30 first.
    stopBelowHealth = 25,
-   -- The mode a fresh session starts in; F5-F8 change it.
+   -- The mode a fresh session starts in. F1-F4 change it.
    mode = "offence",
 }
 
@@ -183,7 +186,7 @@ function M.mode()
    return M.config.mode
 end
 
---- Enter a mode (F5-F8), turning PvP on if it is off.
+--- Enter a mode (F1-F4, or `emset pvp mode`), turning PvP on if it is off.
 function M.setMode(mode)
    mode = tostring(mode or ""):lower()
    local known = false
@@ -318,12 +321,19 @@ function M.tick()
    if not (active and active.pvpPlan) then return end
    local mode = M.mode()
    local ctx = context(mode)
+   -- The lanes held this prompt, in the context too: a class that trades one lane for
+   -- another (the Priest's offence sends the mace or an equilibrium move) must not give
+   -- way to a lane that will not send.
+   local hands = handsWanted()
+   ctx.held = {
+      balance     = lock ~= nil,
+      equilibrium = lock ~= nil or hands,
+   }
    -- One prompt, every free lane. The guards arm after the loop so a smite's balance
    -- does not hold the equilibrium move that shares the line.
    if active.pvpDefer then active.pvpDefer(true) end
    for _, lane in ipairs(M.LANES) do
-      local held = lane ~= "prayer" and lock ~= nil
-      if lane == "equilibrium" and handsWanted() then held = true end
+      local held = ctx.held[lane] == true
       if not held then
          local move, name = active.pvpPlan(mode, lane, ctx)
          if move and active.pvpSend(move, name, ctx) then

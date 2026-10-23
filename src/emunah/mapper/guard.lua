@@ -121,10 +121,11 @@ end, "mapper-guard")
 -- the escape route
 -- ---------------------------------------------------------------------------
 
---- F12: stop any hunt, then walk to the safe room.
+--- F12: turn off whichever PvP mode is up, stop any hunt, then walk to the safe room.
 function M.flee()
    local room = tonumber(config.get("map.safeRoom", 2096))
    if not room then log.warn("No safe room set: `emset map.safeRoom <room number>`.") return false end
+   if emunah.pvp and emunah.pvp.enabled then emunah.pvp.stop("fleeing") end
    if emunah.bashing and emunah.bashing.enabled then emunah.bashing.stop("fleeing") end
    if emunah.walker and emunah.walker.enabled then emunah.walker.stop("fleeing", true) end
    return route.go(room, "safety (" .. room .. ")")

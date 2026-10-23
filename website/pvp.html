@@ -104,28 +104,39 @@
 <h1>PvP</h1>
 <p class="lede">PvP attacks the one player you name, and nobody else. Every balance that is free on a prompt sends what the mode calls for, and every choice is made from what the game has confirmed about the target: what they have, what they can still cure with, and how close they are to a lock.</p>
 <pre><code>t sarapis                    <span class="c"># target them and start the fight</span>
-emset pvp mode offence       <span class="c"># attack, offence, hinder or finish (F5 to F8)</span>
+emset pvp mode offence       <span class="c"># F1 attack, F2 defence, F3 hinder, F4 finish; offence has no key</span>
 emset pvp                    <span class="c"># the target as Emunah sees them</span>
-emset pvp off                <span class="c"># stop attacking (F1 toggles it)</span>
+emset pvp off                <span class="c"># stop attacking (F12 does this too)</span>
 emset pvp target off         <span class="c"># clear the target</span>
 emset pvp attack angel sear  <span class="c"># what attack mode sends on equilibrium</span></code></pre>
 
 <h2 id="target">Only the player you name</h2>
 <p>The game's list of who is in a room leaves out anyone shrouded, hidden or phased. A fight built on that list would lose an opponent the moment they concealed, or pick the wrong person outright. So a target is a name you typed, and nothing else ever sets one, except a call from a partner you trust (see <a href="allies.html">allies</a>). An ally, or you, is never accepted as a target, however it is named.</p>
-<p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> turns it on and off. <code>t &lt;name&gt;</code> sets the target and turns PvP on together. Killing your target clears it and ends the session, and so does your own death.</p>
+<p>Nothing offensive is sent while PvP is off, even with a target set. <kbd>F1</kbd> to <kbd>F4</kbd> turn it on in a mode, and <kbd>F12</kbd> turns it off on the way to the safe room. <code>t &lt;name&gt;</code> sets the target and turns PvP on together. Killing your target clears it and ends the session, and so does your own death.</p>
 
 <h2 id="modes">Every balance, every prompt</h2>
-<p>A fight against a person is won by sending more than they can cure. So each balance is a lane that chooses for itself on every prompt it is free: a Zeal verse on prayer, a mace blow carrying a chasten on balance, and an affliction or a finisher on equilibrium. None waits for the others. What each lane sends is the mode's, and <kbd>F5</kbd> to <kbd>F8</kbd> choose one and turn PvP on:</p>
+<p>A fight against a person is won by sending more than they can cure. So each balance is a lane that chooses for itself on every prompt it is free: a Zeal verse on prayer, a mace blow carrying a chasten on balance, and an affliction or a finisher on equilibrium. None waits for the others. What each lane sends is the mode's, and <kbd>F1</kbd> to <kbd>F4</kbd> choose one and turn PvP on. Offence is the mode a fresh <code>emset pvp on</code> starts in, and it has no key.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Key</th><th>Mode</th><th>Prayer</th><th>Balance</th><th>Equilibrium</th></tr></thead>
   <tbody>
-    <tr><td><kbd>F5</kbd></td><td>attack</td><td>purge, unflinching, guilt, ash</td><td>smite</td><td>heresy, then <code>pvp.attack</code> (Angel Sear)</td></tr>
-    <tr><td><kbd>F6</kbd></td><td>offence</td><td>guilt, ash, burn, penance, revelations, purge</td><td>smite with chasten</td><td>sloth, visions, dazzle, panic</td></tr>
-    <tr><td><kbd>F7</kbd></td><td>hinder</td><td>penance, fragility, guilt</td><td>smash their legs, smite</td><td>sloth, panic</td></tr>
-    <tr><td><kbd>F8</kbd></td><td>finish</td><td>wrath, guilt, ash</td><td>smite</td><td>contemplate, sap, absolve</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>attack</td><td>purge, unflinching, guilt, ash</td><td>smite</td><td>heresy, then <code>pvp.attack</code> (Angel Sear)</td></tr>
+    <tr><td><kbd>F2</kbd></td><td>defence</td><td colspan="3">holds the attack. Curing and defence keep-up carry on.</td></tr>
+    <tr><td><kbd>F3</kbd></td><td>hinder</td><td>penance, fragility, guilt</td><td>smash their legs, smite</td><td>sloth, panic</td></tr>
+    <tr><td><kbd>F4</kbd></td><td>finish</td><td>wrath, guilt, ash</td><td>smite</td><td>contemplate, sap, absolve</td></tr>
+    <tr><td></td><td>offence</td><td>Anzerloi's prayers, verse by verse (below)</td><td>smite a leg, the two evenly, with chasten</td><td>sloth or dazzle where he used them; contemplate, sap, absolve in the drain</td></tr>
   </tbody>
 </table></div>
-<p>Each lane takes the first move in its list that applies. An affliction the game has confirmed on the target is not given again, and one it has not confirmed is not resent blind: the lane moves on to the next and comes back to it later. A verse goes once per prayer, and offence and hinder end a prayer on a rebuke when it is long enough to pay. Every ability is checked against what you actually know at the moment it is chosen, so a change to your skills needs no setting.</p>
+<p>Each lane takes the first move in its list that applies. An affliction the game has confirmed on the target is not given again, and one it has not confirmed is not resent blind: the lane moves on to the next and comes back to it later. A verse goes once per prayer, and hinder ends a prayer on a rebuke when it is long enough to pay. Every attacking mode strips a shield it has seen the target raise before its mace meets it. Every ability is checked against what you actually know at the moment it is chosen, so a change to your skills needs no setting.</p>
+
+<h2 id="route">Offence: Anzerloi's route</h2>
+<p>Offence follows the way Anzerloi fought in three spars against a Depthswalker. Each exchange is a verse, plus either a mace blow or an equilibrium move, never both: a smite needs equilibrium and the angel needs balance, so the second of two on one prompt would bounce.</p>
+<ul>
+  <li><strong>The first prayer</strong> is Burn, Burn, Condemnation, each with sloth or dazzle beside it, so two herbs are hit every exchange. It closes on guilt rebuke evil, with the mace chastening recklessness: three lobelia afflictions at once.</li>
+  <li><strong>Once a closed prayer has paid conviction</strong>, the next takes Reflection third and Revelations fourth, rebuking evil again. For a while afterwards the chasten keeps asthma on, because hellsight gives a random affliction about once a second until it is smoked away. The prayer after that closes on rebuke heresy, which gives inquisition when guilt and spiritburn are both on the target.</li>
+  <li><strong>The mace works both legs evenly</strong>, by the figures our own blows report.</li>
+  <li><strong>At 20 conviction</strong> the prayer is Burn, Ash, Wrath. Equilibrium reads the target's mana, saps, and absolves only on a reading under half.</li>
+</ul>
+<p>The prayer is a fixed cadence. Nothing in it assumes a verse landed, since a verse never tells the caster that it did. <code>emset pvp</code> shows which prayer the route is on, and how hard each leg has been hit.</p>
 
 <h2 id="locks">Building a lock</h2>
 <p>A lock is enough of the target's cure routes shut at once that they cannot cure their way out: slickness stops them salving, asthma stops them smoking, anorexia stops them eating, impatience stops them focusing, and paralysis stops them touching the tree. Emunah reads the target's afflictions against the same lock definitions it uses for you.</p>
@@ -154,6 +165,7 @@ emset pvp attack angel sear  <span class="c"># what attack mode sends on equilib
 <h2 id="safety">Safety</h2>
 <p>PvP stops below <code>pvp.stopBelowHealth</code>, 25% by default. That floor replaces the shared critical one, and a fast drop in health does not stop PvP the way it stops a hunt, because stopping does not stop the person hitting you.</p>
 <p>While you are locked, the lock is named on your prompt and the balance and equilibrium lanes are held, so your cures get them. Verses carry on, since prayer is shared with no cure. When the lock breaks, the attack resumes. Any instant kill you are open to is named on the prompt too; see <a href="curing.html#dangers">dangers</a>.</p>
+<p>The first free equilibrium of a fight goes to <code>metabolise impatience</code> when that focus is not already set, so a second player cannot reapply it inside about two seconds. Later equilibrium stays with the attack. See <a href="curing.html#situations">situational rules</a>.</p>
 <p>Starting PvP stops a hunt, the walking as well as the fighting, and starting a hunt stops PvP: a player and a denizen cannot share one balance.</p>
 <!-- doc:end -->
 <nav class="pager" aria-label="Pages">

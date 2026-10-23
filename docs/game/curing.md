@@ -393,6 +393,34 @@ the last-resort dwell. The first whose `when` matches wins.
 Paralysis, a numb arm, an entanglement, and both arms broken still refuse the touch. The
 last resort is unchanged: an affliction nothing else can cure, after `TREE_DWELL`.
 
+## Metabolise (`curing/metabolise.lua`)
+
+Avoidance, once the lesson is known. Saemora's `AB AVOIDANCE` on 2026-10-22 lists
+Metabolise; the 2026-10-15 ability dump still had the "not yet learned" line, and the
+wording below is that dump's, which matches the later `AB`.
+
+`METABOLISE <affliction>`. Cooldown 3.00 seconds of equilibrium. The help states no
+duration. Emunah treats the focus as lasting until another `METABOLISE`, as `AVOID`'s
+focus lasts until it is changed. If a transcript shows it wearing off, it will need a
+refresh.
+
+The first delivery lands. A different player delivering that same affliction inside about
+two seconds is resisted. The same player reapplying it still lands both. Players only.
+
+Eligibility, from the ability text: if the tree tattoo cannot cure it and it is not cured
+by eating or smoking, it cannot be metabolised. No `afflist` entry names the tree as a
+cure (unverified; see the tattoo section above), so only an affliction cured by eating or
+smoking is named. Anorexia is salve and focus, and is not metabolised.
+
+What is sent, during PvP only: `metabolise impatience`, once, on the first free
+equilibrium. Impatience is the ability's own example, and the affliction
+`impatience-before-hard-lock` moves ahead of asthma and slickness. Changing the focus
+costs another 3s, longer than the two-second window, so the focus is not moved onto
+whatever just landed. It waits while `perform hands` or `DIAG` has the equilibrium.
+While a lock is holding the attack, a focus that is something else (a `METABOLISE` typed
+by hand) is put back onto impatience. `curing.metabolise` off stops further sends. It is
+not sent outside PvP: the ability does nothing against denizens.
+
 ## Locks (the reference system's `cnrl.lockdata`)
 
 A lock is a set of afflictions that shuts every way of curing them. The reference system names them on the

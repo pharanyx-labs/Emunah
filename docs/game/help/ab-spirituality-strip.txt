@@ -3,7 +3,8 @@ Anzerloi, asked whether it works on a mob (14:34:55): "Yes." Then (14:35:03-14:3
 no rage, and no heresy defense, do that instead of smite." "Clear example of eq move
 replacing bal move." "It needs you to be on bal, but even if it didn't you'd still have to."
 "Because strip will put you off eq and you can't smite off eq." "But must strip before smite."
-The user's ruling, 2026-10-15: hunting only, never in PvP.
+The user's ruling, 2026-10-15: hunting only, never in PvP. Lifted 2026-10-23 for one PvP
+use, stripping a target's shield (docs/game/pvp-locks.md, Anzerloi's route).
 
 H:100% M:97% E:100% W:100%  exckdb  T:  14:34:37.50-ab spirituality strip
 Strip (Spirituality)                          Known: Yes

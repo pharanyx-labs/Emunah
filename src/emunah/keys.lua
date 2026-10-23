@@ -69,17 +69,18 @@ end
 M.ACTIONS = {
    { name = "reload",   modifier = "Control", key = "F5",
      fn = function() emunahReload() end },
-   -- PvP modes (the user, 2026-10-15: "set rules via f5-8 that will enter various pvp
-   -- modes"). Each enters its mode and turns PvP on; F1 still turns it off.
-   { name = "pvp attack",  modifier = "None", key = "F5",
+   -- PvP modes (the user, 2026-10-22). Each enters its mode and turns PvP on. There is
+   -- no toggle: F12 turns whichever mode is up off, on the way to the safe room.
+   -- Plain F5-F8 are unbound. Ctrl+F5 stays reload.
+   { name = "pvp attack",  modifier = "None", key = "F1",
      fn = function() emunah.commands.dispatch("pvp mode attack") end },
-   { name = "pvp offence", modifier = "None", key = "F6",
-     fn = function() emunah.commands.dispatch("pvp mode offence") end },
-   { name = "pvp hinder",  modifier = "None", key = "F7",
+   { name = "pvp defence", modifier = "None", key = "F2",
+     fn = function() emunah.commands.dispatch("pvp mode defence") end },
+   { name = "pvp hinder",  modifier = "None", key = "F3",
      fn = function() emunah.commands.dispatch("pvp mode hinder") end },
-   { name = "pvp finish",  modifier = "None", key = "F8",
+   { name = "pvp finish",  modifier = "None", key = "F4",
      fn = function() emunah.commands.dispatch("pvp mode finish") end },
-   -- Hunting support both ways: attack what the leader attacks. F5 until F5-F8 went to PvP.
+   -- Hunting support both ways: attack what the leader attacks.
    { name = "support toggle", modifier = "None", key = "F9",
      fn = function() emunah.commands.dispatch("support") end },
    -- One key for the hunt both ways (the user, 2026-10-12): on when it is off, off when on.
@@ -89,13 +90,8 @@ M.ACTIONS = {
            or (emunah.walker and emunah.walker.enabled)
         emunah.commands.dispatch(running and "hunt off" or "hunt")
      end },
-   -- PvP both ways (the user, 2026-10-15). The offence only ever sends while PvP is on, so
-   -- this key is the switch for all of it.
-   { name = "pvp toggle", modifier = "None",   key = "F1",
-     fn = function()
-        emunah.commands.dispatch(emunah.pvp and emunah.pvp.enabled and "pvp off" or "pvp on")
-     end },
    -- The escape route (the user, 2026-10-12): stop any hunt and walk to map.safeRoom, 2096.
+   -- 2026-10-22: it also turns off whichever PvP mode is up.
    -- It replaced F12's three-rooms-back retreat, which `emset hunt retreat` still does.
    { name = "safe room", modifier = "None",    key = "F12",
      fn = function() emunah.mapper.guard.flee() end },
@@ -260,7 +256,8 @@ function M.build()
    return true
 end
 
---- Install the action keys (Ctrl+F5 reload, F11 hunt on/off, F12 walk to the safe room).
+--- Install the action keys (Ctrl+F5 reload, F1-F4 the PvP modes, F11 hunt on/off, F12 to
+--- the safe room, turning PvP off on the way).
 ---
 --- Deliberately independent of `keys.numpad`: that setting is specifically about the
 --- numpad, and a function key has no bearing on it -- turning numpad movement off must not

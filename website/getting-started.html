@@ -130,7 +130,7 @@
 <p>Run this once in Mudlet's input line. It is saved per profile.</p>
 <pre><code>lua EMUNAH_ROOT = "/home/you/src/Emunah"; EmunahBootstrap()</code></pre>
 <p>A successful load says:</p>
-<pre><code>[emunah] v0.1.0 loaded -- 75 modules.</code></pre>
+<pre><code>[emunah] v0.1.0 loaded -- 76 modules.</code></pre>
 
 <h2 id="first-steps">First steps</h2>
 <p>Everything is one prefix, <code>emset</code>, and one help command, <code>emhelp</code>.</p>
@@ -185,13 +185,13 @@ emset system.update false      <span class="c"># reload what is on disk, without
 
 <h2 id="developing">Developing</h2>
 <p>Edit any file under <code>src/</code> and run <code>emreload</code>. There is nothing to reimport and no client to restart, and a module added to the manifest is picked up on the same reload.</p>
-<p>The suite of 3259 behavioural tests runs the real modules against a simulated Mudlet, with no client involved:</p>
-<pre><code>lua5.1 test/run.lua             <span class="c"># the test suite</span>
+<p>The suite of 3535 behavioural tests runs the real modules against a simulated Mudlet, with no client involved. Mudlet runs Lua 5.1, and so does the suite. GitHub Actions runs the same command on every change.</p>
+<pre><code>sh tools/ci.sh                  <span class="c"># compile as Lua 5.1, then the suite</span>
+lua5.1 test/run.lua             <span class="c"># the test suite</span>
 lua5.1 test/bench.lua           <span class="c"># per-prompt cost, in microseconds and bytes</span>
 lua5.1 test/profile.lua         <span class="c"># where the time goes</span>
 lua5.1 test/ui_preview.lua      <span class="c"># render the panels in a scripted fight, as HTML</span>
 lua5.1 tools/fight-report.lua fight.log   <span class="c"># a pasted fight, summarised</span></code></pre>
-<p>With no Lua installed, <code>python3 tools/run_tests.py .</code> runs the suite through a Python shim.</p>
 
 <h2 id="troubleshooting">Troubleshooting</h2>
 <div class="table-wrap"><table>
