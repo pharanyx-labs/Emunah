@@ -60,8 +60,8 @@ local function consumption()
    return value
 end
 
---- Send an attack at a target: the one sender behind both the hunt's attack and PvP's,
---- which differ only in what they pass in -- see M.attack and M.pvpAttack below.
+--- Send the hunt's attack at a target. PvP never comes here: its moves are its own
+--- (class/priest_pvp.lua).
 local function sendAttack(command, target, needs, consumes)
    if not target then return false end
    local sent = emunah.act.send(string.format("%s %s", command, target), {
@@ -148,32 +148,14 @@ function M.canAttack()
    return attackReady(requirement())
 end
 
--- PVP'S OWN ATTACK. "Completely divest hunting mode from pvp mode. they are entirely
--- different" (the user, 2026-10-15): PvP borrowed the hunt's attack and its `bashing.*`
--- settings, so changing what you hunt with silently changed what you fight people with.
--- It has its own now, `pvp.attack` / `pvp.balance` / `pvp.consumes`, shipped with the same
--- values (Angel Sear works on adventurers too, HELP SEAR) until the sap-and-absolve
--- offence replaces it. The target is a player's NAME.
-local function pvpRequirement()
-   local value = emunah.config.get("pvp.balance", "both")
-   if value ~= "bal" and value ~= "eq" and value ~= "both" then return "both" end
-   return value
-end
-
-local function pvpConsumption()
-   local value = emunah.config.get("pvp.consumes", "eq")
-   if value ~= "bal" and value ~= "eq" then return "eq" end
-   return value
-end
-
-function M.pvpAttack(name)
-   return sendAttack(emunah.config.get("pvp.attack", "angel sear"), name,
-      pvpRequirement(), pvpConsumption())
-end
-
-function M.canPvpAttack()
-   return attackReady(pvpRequirement())
-end
+--- HELP CHASTEN's two pools, and the capstone each gives a target that already has all of
+--- it (Anzerloi, 2026-10-23 14:39:26: "Addiction for body, impat for mind"). `chasten body`
+--- or `chasten mind` gives one of the pool the target does not have -- "smart afflicting"
+--- (14:36:51) -- and the capstone once there is none.
+M.CHASTEN_POOLS = {
+   body = { "paralysis", "healthleech", "clumsiness", "nausea", "asthma", capstone = "addiction" },
+   mind = { "epilepsy", "dizziness", "confusion", "recklessness", capstone = "impatience" },
+}
 
 -- ---------------------------------------------------------------------------
 -- Penitence
@@ -826,13 +808,27 @@ local function installTriggers()
    -- first sentence and the affliction in the second; unanchored, so the line wrapping
    -- between them does not matter. A multi-word affliction would not match (\w+) and is
    -- left untracked rather than guessed.
+   --
+   -- THE CAPSTONE NAMES A WHOLE POOL. Chastening a pool the target already has all of gives
+   -- its capstone instead: addiction for body, impatience for mind (Anzerloi, 2026-10-23
+   -- 14:39:08-14:40:37: "If you just chastened addiction, target must have had all of the
+   -- body chasten affs at the point of afflicting"). So the capstone landing confirms the
+   -- pool with it.
    local chastened
    keep(tempRegexTrigger([[dark bolt of energy through your mace towards (\w+)\.]], function()
       chastened = matches[2]:lower()
    end))
    keep(tempRegexTrigger([[The curse of (\w+) is brought]], function()
       local opponent = emunah.curing.detect.opponent
-      if chastened and opponent then opponent.assert(chastened, matches[2]) end
+      local given = matches[2]:lower()
+      if chastened and opponent then
+         opponent.assert(chastened, given)
+         for _, pool in pairs(M.CHASTEN_POOLS) do
+            if pool.capstone == given then
+               for _, aff in ipairs(pool) do opponent.assert(chastened, aff) end
+            end
+         end
+      end
       chastened = nil
    end))
 

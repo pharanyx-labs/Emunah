@@ -224,8 +224,6 @@ M.modules = {
    { syntax = "emset pvp mode attack|defence|hinder|finish|offence",
      summary = "enter a PvP mode and turn PvP on. F1 attack, F2 defence, F3 hinder, F4 finish. "
         .. "Offence has no key. F12 turns any of them off" },
-   { syntax = "emset pvp attack <command>",
-     summary = "PvP's own attack command; the hunt's is `emset bash attack`" },
    { syntax = "t <name>", alias = "t",
      summary = "target them and start the fight: `emset pvp target <name>`, then PvP on" },
   } },
@@ -619,12 +617,9 @@ M.settings = {
 -- pvp
 { key = "pvp.stopBelowHealth", default = 25, type = "number", unit = "%", topic = "pvp",
   shipped = true, detail = "Replaces watch.critical in PvP. Zero disables it." },
-{ key = "pvp.attack", default = "angel sear", type = "string", topic = "pvp", shipped = true,
-  detail = "PvP's own attack, at the target's name. Separate from bashing.attack." },
-{ key = "pvp.balance", default = "both", type = "string", topic = "pvp", shipped = true,
-  detail = "What the attack REQUIRES: eq, bal or both." },
-{ key = "pvp.consumes", default = "eq", type = "string", topic = "pvp", shipped = true,
-  detail = "What the attack SPENDS: eq or bal." },
+{ key = "pvp.purityBelow", default = 20, type = "number", unit = "%", topic = "pvp",
+  shipped = true, detail = "Perform purity when the target's health is known to be at or "
+     .. "under this. Only when the game has given their health; zero turns it off." },
 { key = "pvp.mode", default = "offence", type = "string", topic = "pvp", shipped = false,
   detail = "attack, defence, hinder, finish or offence: what each balance sends. F1-F4 set the first four." },
 

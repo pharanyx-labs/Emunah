@@ -107,8 +107,7 @@
 emset pvp mode offence       <span class="c"># F1 attack, F2 defence, F3 hinder, F4 finish; offence has no key</span>
 emset pvp                    <span class="c"># the target as Emunah sees them</span>
 emset pvp off                <span class="c"># stop attacking (F12 does this too)</span>
-emset pvp target off         <span class="c"># clear the target</span>
-emset pvp attack angel sear  <span class="c"># what attack mode sends on equilibrium</span></code></pre>
+emset pvp target off         <span class="c"># clear the target</span></code></pre>
 
 <h2 id="target">Only the player you name</h2>
 <p>The game's list of who is in a room leaves out anyone shrouded, hidden or phased. A fight built on that list would lose an opponent the moment they concealed, or pick the wrong person outright. So a target is a name you typed, and nothing else ever sets one, except a call from a partner you trust (see <a href="allies.html">allies</a>). An ally, or you, is never accepted as a target, however it is named.</p>
@@ -116,11 +115,15 @@ emset pvp attack angel sear  <span class="c"># what attack mode sends on equilib
 
 <h2 id="modes">Every balance, every prompt</h2>
 <p>A fight against a person is won by sending more than they can cure. So each balance is a lane that chooses for itself on every prompt it is free: a Zeal verse on prayer, a mace blow carrying a chasten on balance, and an affliction or a finisher on equilibrium. What each lane sends is the mode's, and <kbd>F1</kbd> to <kbd>F4</kbd> choose one and turn PvP on. Offence is the mode a fresh <code>emset pvp on</code> starts in, and it has no key.</p>
-<p>Each prompt sends a verse and one more move: a mace blow or an equilibrium move, never both. A smite needs equilibrium and the angel needs balance, so the second of the two would only be refused. A verse needs both balances and spends neither, so it waits until both are up and goes first. Attack and hinder take turns between the mace and equilibrium. Finish and offence send the equilibrium move whenever one is due.</p>
+<p>Each prompt sends a verse and one more move: a mace blow or an equilibrium move, never both. A smite needs equilibrium and the angel needs balance, so the second of the two would only be refused. A verse needs both balances and spends neither, so it waits until both are up and goes first. Hinder takes turns between the mace and equilibrium. Attack, finish and offence send the equilibrium move whenever one is due.</p>
+<p>PvP shares nothing with hunting: no attack command, no setting, no move. Angel Sear is the hunt's attack and is never sent at a person, and nothing sets them on fire until inquisition is confirmed on them. Ahead of every mode's equilibrium moves is purity, the blow that finishes them, sent only when the game has given their health and it is at or under <code>pvp.purityBelow</code> (20%).</p>
+<p>A chasten is named while the target is clean, with fewer than three afflictions confirmed: the first in the mode's order they do not have. After that it chastens <code>body</code> or <code>mind</code>, whichever pool has more missing, and the game gives one they lack. A pool they have all of comes first, because chastening it gives the capstone, addiction for body and impatience for mind, and impatience comes no other way. When the capstone lands, its whole pool is confirmed on them with it. A lock's missing piece is still named ahead of all of this.</p>
+<p>Rebounding is not kept up while you attack. Your own blow drops it, and the skullcap takes 8.5 seconds to raise it, so between smites it never lands and only spends the puff and the smoke balance your cures need. The defence mode raises it, and so does turning PvP off.</p>
+<p>Offence and finish read mana. When there is no fresh reading, <code>contemplate</code> goes on the same line as the mace blow, so equilibrium stays free for the moves.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>Key</th><th>Mode</th><th>Prayer</th><th>Balance</th><th>Equilibrium</th></tr></thead>
   <tbody>
-    <tr><td><kbd>F1</kbd></td><td>attack</td><td>purge, unflinching, guilt, ash</td><td>smite</td><td>heresy, then <code>pvp.attack</code> (Angel Sear)</td></tr>
+    <tr><td><kbd>F1</kbd></td><td>attack</td><td>purge (only once inquisition is on them), unflinching, guilt, ash</td><td>smite</td><td>heresy</td></tr>
     <tr><td><kbd>F2</kbd></td><td>defence</td><td colspan="3">holds the attack. Curing and defence keep-up carry on.</td></tr>
     <tr><td><kbd>F3</kbd></td><td>hinder</td><td>penance, fragility, guilt</td><td>smash their legs, smite</td><td>sloth, panic</td></tr>
     <tr><td><kbd>F4</kbd></td><td>finish</td><td>wrath, guilt, ash</td><td>smite</td><td>contemplate, sap, absolve</td></tr>

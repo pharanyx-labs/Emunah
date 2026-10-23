@@ -257,6 +257,16 @@ local function handsWanted()
    return vitals.trusted("hp") and vitals.percent.hp < handsAt
 end
 
+--- Their health as a percentage, when the game has said: IRE.Target.Info for the target we
+--- set by name. Nothing else is believed -- not a guess from damage dealt. Nil until then.
+function M.targetHealth()
+   local ire = emunah.gmcp.ire
+   local target = ire and ire.target
+   if not (M.target and target and target.health) then return nil end
+   if tostring(target.id or ""):lower() ~= M.target then return nil end
+   return target.health
+end
+
 --- What the class decides on: the target as the game has confirmed it. Afflictions are the
 --- opponent tracker's (landing, symptom and cure lines); nothing is assumed.
 local function context(mode)
@@ -284,6 +294,7 @@ local function context(mode)
       blocked     = blocked,
       defences    = defences,
       mana        = active and active.mana and active.mana(M.target) or nil,
+      health      = M.targetHealth(),
       heresy      = emunah.have.def("heresy"),
       rebounding  = M.rebounding[M.target] == true,
       reflecting  = M.reflecting[M.target] == true,

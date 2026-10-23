@@ -428,10 +428,6 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <p>enter a PvP mode and turn PvP on. F1 attack, F2 defence, F3 hinder, F4 finish. Offence has no key. F12 turns any of them off</p>
 </div>
 <div class="cmd-block">
-<span class="cmd-syntax">emset pvp attack &lt;command&gt;</span>
-<p>PvP's own attack command; the hunt's is <code>emset bash attack</code></p>
-</div>
-<div class="cmd-block">
 <span class="cmd-syntax">t &lt;name&gt;</span>
 <p>target them and start the fight: <code>emset pvp target &lt;name&gt;</code>, then PvP on</p>
 </div>
@@ -439,9 +435,7 @@ emset curing.method minerals  <span class="c"># a setting</span></code></pre>
 <div class="table-wrap"><table>
 <thead><tr><th>Setting</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><code>pvp.stopBelowHealth</code></td><td>25 %</td><td>Replaces watch.critical in PvP. Zero disables it.</td></tr>
-<tr><td><code>pvp.attack</code></td><td>angel sear</td><td>PvP's own attack, at the target's name. Separate from bashing.attack.</td></tr>
-<tr><td><code>pvp.balance</code></td><td>both</td><td>What the attack REQUIRES: eq, bal or both.</td></tr>
-<tr><td><code>pvp.consumes</code></td><td>eq</td><td>What the attack SPENDS: eq or bal.</td></tr>
+<tr><td><code>pvp.purityBelow</code></td><td>20 %</td><td>Perform purity when the target's health is known to be at or under this. Only when the game has given their health; zero turns it off.</td></tr>
 <tr><td><code>pvp.mode</code></td><td>offence</td><td>attack, defence, hinder, finish or offence: what each balance sends. F1-F4 set the first four.</td></tr>
 </tbody></table></div>
 

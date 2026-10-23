@@ -6236,6 +6236,7 @@ do
    ok(table.concat(mock.sent, " | "):find("perform bliss", 1, true),
       "...and it is cast", table.concat(mock.sent, " | "))
 
+
    defkeepup.setMode("bliss", nil)
    emunah.curing.deflist.setBliss(false)
    queue.reset(); emunah.timers.stopAll()
@@ -11538,10 +11539,10 @@ eq(table.concat(held, ","), "hard,venom,soft", "...and they are hard, venom and 
 opponent.clear("sarapis")
 eq(#opponent.lockNeeds("sarapis"), 0, "one affliction is not yet a lock worth chasing")
 
--- ATTACK MODE sends pvp.attack on equilibrium -- PvP's own, never the hunt's -- once heresy
--- is up (attack mode raises it first: it burns rebounding away, HELP HERESY).
-emunah.config.set("bashing.attack", "perform hands")
-emunah.config.set("pvp.attack", "angel sear")
+-- ATTACK MODE: heresy first (it burns rebounding away, HELP HERESY), then a verse and a
+-- smite every exchange. Never the hunt's attack, and no angel sear at all (the user,
+-- 2026-10-23: hunting and PvP "are entirely different").
+emunah.config.set("bashing.attack", "angel sear")
 ok(pvp.setMode("attack"), "emset pvp mode attack")
 emunah.timers.stopAll()
 mock.sent = {}
@@ -11549,26 +11550,45 @@ mock.feed("Char.Vitals", { bal = "1", eq = "1" })
 ok(table.concat(mock.sent, " | "):find("hunt heresy", 1, true), "attack mode raises heresy first",
    table.concat(mock.sent, " | "))
 mock.feed("Char.Defences.Add", { name = "heresy", desc = "" })
--- An exchange: the mace and the angel take turns, and heresy was the equilibrium's.
-emunah.timers.stopAll()
-mock.sent = {}
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-local turn = table.concat(mock.sent, " | ")
-ok(turn:find("smite sarapis", 1, true) and not turn:find("angel sear", 1, true),
-   "...then the mace, alone: the sear behind a smite only bounces (2026-10-23)", turn)
-emunah.timers.stopAll()
-mock.sent = {}
-mock.feed("Char.Vitals", { bal = "1", eq = "1" })
-local divested = table.concat(mock.sent, " | ")
-ok(divested:find("angel sear sarapis", 1, true) and not divested:find("perform hands", 1, true)
-   and not divested:find("smite", 1, true),
-   "...then the angel's turn: pvp.attack, whatever bashing.attack says", divested)
+for exchange = 1, 2 do
+   emunah.timers.stopAll()
+   mock.sent = {}
+   mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+   local turn = table.concat(mock.sent, " | ")
+   ok(turn:find("smite sarapis", 1, true) and not turn:find("angel sear", 1, true),
+      "...then a smite, exchange " .. exchange .. ", and never the hunt's angel sear", turn)
+end
+eq(emunah.config.get("pvp.attack"), nil, "PvP has no attack setting of its own to borrow")
+eq(emunah.commands.handlers.pvp ~= nil, true, "emset pvp is there")
+mock.echoed = {}
+emunah.commands.dispatch("pvp attack angel sear")
+eq(emunah.config.get("pvp.attack"), nil, "...and `emset pvp attack` sets nothing")
 mock.feed("Char.Defences.Remove", { "heresy" })
-emunah.config.set("bashing.attack", "angel sear")
-emunah.commands.dispatch('pvp attack "angel sear"')
-eq(emunah.config.get("pvp.attack"), "angel sear", "emset pvp attack sets it, quotes stripped")
-eq(emunah.config.get("bashing.attack"), "angel sear", "...without touching bashing.attack")
 emunah.config.set("pvp.mode", nil)
+
+-- NO FIRE WITHOUT INQUISITION (Anzerloi, 2026-10-23 14:03:16): purge only once it is
+-- confirmed on them.
+;(function()
+   local moves = emunah.class.active.pvp.MOVES
+   eq(moves.sear, nil, "PvP has no sear move")
+   local ctx = { target = "sarapis", afflictions = {} }
+   ok(not moves.purge.when(ctx), "purge waits for inquisition")
+   ctx.afflictions.inquisition = true
+   ok(moves.purge.when(ctx), "...and goes once it is confirmed")
+
+   -- PURITY, the killing blow, only on a health the game gave.
+   local purity = moves.purity
+   ok(not purity.when({ target = "sarapis", afflictions = {} }), "no health known: no purity")
+   ok(not purity.when({ target = "sarapis", afflictions = {}, health = 60 }), "...nor at 60%")
+   ok(purity.when({ target = "sarapis", afflictions = {}, health = 15 }), "...but at 15%")
+   for name, mode in pairs(emunah.class.active.pvp.MODES) do
+      if name ~= "defence" then eq(mode.equilibrium[1], "purity", name .. " puts purity first") end
+   end
+   mock.feed("IRE.Target.Info", { id = "sarapis", short_desc = "Sarapis", hpperc = "12" })
+   eq(pvp.targetHealth(), 12, "the target's health is read from the game's target info")
+   mock.feed("IRE.Target.Info", { id = "someone", short_desc = "Someone", hpperc = "5" })
+   eq(pvp.targetHealth(), nil, "...and only for the player targeted")
+end)()
 end
 
 pvp.clearTarget()
@@ -12041,9 +12061,6 @@ do
    end
    bash.stop("test")
    pvp.stop("test")
-   emunah.config.set("pvp.attack", "smite")
-   emunah.config.set("pvp.balance", "both")
-   emunah.config.set("pvp.consumes", "bal")
    mock.feed("Char.Vitals", {
       hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000", bal = "1", eq = "1",
    })
@@ -12060,7 +12077,11 @@ do
    eq(pvp.mode(), "attack", "...attack, with no separate toggle")
    mock.settleFightRites()
    sent = sentNow()
-   ok(sent:find("smite ashden") and sent:find("recite"), "...and the attack goes out", sent)
+   ok(sent:find("hunt heresy") and sent:find("recite"), "...and the attack goes out, heresy first", sent)
+   mock.feed("Char.Defences.Add", { name = "heresy", desc = "" })
+   sent = sentNow()
+   ok(sent:find("smite ashden"), "...then the mace", sent)
+   mock.feed("Char.Defences.Remove", { "heresy" })
    mock.press(mudlet.keymodifier.None, mudlet.key.F1)
    ok(pvp.enabled, "F1 again stays on: there is no toggle")
    pvp.stop("test")
@@ -12226,8 +12247,6 @@ do
    pvp.clearTarget()
    opp.clear("ashden")
    emunah.timers.stopAll()
-   emunah.config.set("pvp.attack", "angel sear")
-   emunah.config.set("pvp.consumes", "eq")
    mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1" })
 end
 
@@ -12500,6 +12519,119 @@ do
    mock.routeAt(0, 0)
    emunah.config.set("pvp.mode", nil)
 end
+
+-- ===========================================================================
+suite("PvP chasten: named early, a pool later, and the capstone")
+
+-- Anzerloi, 2026-10-23 14:36-14:40: name the chasten while the target is clean and the
+-- picture good; later `chasten body|mind`, which gives one of the pool they lack; a full
+-- pool gives its capstone (addiction, impatience), and that landing confirms the pool.
+;(function()
+   local P = emunah.class.active
+   local opp = emunah.curing.detect.opponent
+   pvp.stop("test"); emunah.timers.stopAll(); emunah.act.typedUntil = nil
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
+      bal = "1", eq = "1" })
+   pvp.setTarget("Ashden")
+   opp.clear("ashden")
+   mock.settleFightRites()
+   mock.feed("Char.Defences.Add", { name = "heresy", desc = "" })
+   ok(pvp.setMode("attack"), "attack mode")
+   local function blow()
+      emunah.timers.stopAll()
+      mock.sent = {}
+      mock.feed("Char.Vitals", { bal = "1", eq = "1" })
+      return table.concat(mock.sent, " | ")
+   end
+
+   local sent = blow()
+   ok(sent:find("smite ashden head chasten asthma", 1, true),
+      "a clean target: the chasten is named", sent)
+
+   for _, aff in ipairs({ "asthma", "clumsiness", "recklessness" }) do opp.assert("ashden", aff) end
+   sent = blow()
+   ok(sent:find("chasten body", 1, true),
+      "three confirmed: chasten the pool with more missing (body: 3 of 5)", sent)
+
+   for _, aff in ipairs({ "epilepsy", "dizziness", "confusion" }) do opp.assert("ashden", aff) end
+   sent = blow()
+   ok(sent:find("chasten mind", 1, true),
+      "a full mind pool: chasten mind, for impatience", sent)
+   opp.assert("ashden", "impatience")
+   sent = blow()
+   ok(sent:find("chasten paralysis", 1, true),
+      "...and with impatience on them, the lock's missing piece is still named first", sent)
+
+   -- The capstone landing confirms its whole pool.
+   opp.clear("ashden")
+   mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of addiction is brought down on to your victim.")
+   for _, aff in ipairs({ "addiction", "paralysis", "healthleech", "clumsiness", "nausea", "asthma" }) do
+      ok(opp.has("ashden", aff), "addiction landing confirms " .. aff)
+   end
+   ok(not opp.has("ashden", "epilepsy"), "...and nothing of the mind pool")
+   opp.clear("ashden")
+   mock.line("You direct a dark bolt of energy through your mace towards Ashden. The curse of impatience is brought down on to your victim.")
+   for _, aff in ipairs({ "impatience", "epilepsy", "dizziness", "confusion", "recklessness" }) do
+      ok(opp.has("ashden", aff), "impatience landing confirms " .. aff)
+   end
+
+   -- CONTEMPLATE RIDES ON THE BLOW where the mode reads mana (14:37:02: it goes through).
+   -- Offence, past its opening: the mace's exchange.
+   opp.clear("ashden")
+   P.targetMana = {}
+   ok(pvp.setMode("offence"), "offence mode")
+   local function routeBlow()
+      emunah.timers.stopAll()
+      mock.sent = {}
+      mock.feed("Char.Vitals", { bal = "1", eq = "1", charstats = {
+         "prayer_length: 1", "conviction: 10" } })
+      return table.concat(mock.sent, " | ")
+   end
+   P.targetMana.ashden = { current = 4000, max = 5000, percent = 80, at = emunah.util.now() }
+   sent = routeBlow()
+   ok(sent:find("smite ashden", 1, true) and not sent:find("contemplate", 1, true),
+      "a fresh reading: the blow goes alone", sent)
+   P.targetMana.ashden.at = emunah.util.now() - 60
+   sent = routeBlow()
+   ok(sent:find("smite ashden[^|]*| contemplate ashden"),
+      "a stale one: contemplate goes on the blow's line", sent)
+   ok(not emunah.timers.ready("cure.equilibrium"), "...and holds equilibrium for its second")
+   pvp.setMode("attack")
+   P.targetMana.ashden.at = emunah.util.now() - 60
+   sent = blow()
+   ok(not sent:find("contemplate", 1, true), "attack does not read mana", sent)
+
+   -- REBOUNDING IS HELD WHILE YOU ATTACK. Your own blow drops it and it takes 8.5s to land
+   -- (2026-10-23 14:35:29.74 -> 38.24), so smoking it between 2.3s smites only spends the
+   -- puff and the smoke balance. The defence mode, and PvP off, raise it again.
+   local keepup = emunah.curing.defkeepup
+   local wasKeepup = keepup.enabled
+   keepup.enabled = true
+   keepup.setMode("rebounding", "keepup")
+   emunah.config.set("pipes.enabled", true)
+   emunah.pipes.forget()
+   emunah.pipes.record("lit", "pipe367581", "skullcap", 10, 1)
+   mock.feed("Char.Defences.Remove", { "rebounding" })
+   pvp.setMode("attack")
+   sent = blow()
+   ok(not sent:find("smoke skullcap", 1, true), "attacking: rebounding is not smoked", sent)
+   eq(emunah.curing.deflist.held("rebounding"), "your own blows drop it while you attack",
+      "...and says why")
+   pvp.setMode("defence")
+   sent = blow()
+   ok(sent:find("smoke skullcap", 1, true), "the defence mode smokes it", sent)
+   pvp.stop("test")
+   eq(emunah.curing.deflist.held("rebounding"), nil, "PvP off: nothing holds it")
+   keepup.setMode("rebounding", nil)
+   keepup.enabled = wasKeepup
+   emunah.pipes.forget()
+   emunah.config.set("pipes.enabled", nil)
+
+   pvp.stop("test"); pvp.clearTarget(); opp.clear("ashden")
+   mock.feed("Char.Defences.Remove", { "heresy" })
+   P.targetMana = {}
+   emunah.config.set("pvp.mode", nil)
+end)()
 
 -- ===========================================================================
 suite("your queue: typed commands first, one-offs, functions")
