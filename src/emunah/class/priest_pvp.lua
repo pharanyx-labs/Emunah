@@ -56,21 +56,69 @@ return function(P)
    --- What each lane's sends use up. The prayer lane's own balance is its timer.
    local SPENDS = { balance = "bal", equilibrium = "eq" }
 
+   --- THE GAME'S QUEUE. "Any cure event, I queue new attack ... Saw you eat kelp? Updated
+   --- your aff table and run the attack selection script again. So it'll queue an attack
+   --- worthy of the new situation" (Anzerloi, 2026-10-24 14:51:20-14:51:47). With pvp.queue
+   --- on, while balance or equilibrium is out the next exchange is composed as though both
+   --- were back and put in the game's queue (HELP QUEUE: `QUEUE ADDCLEAR eqbal <command>`
+   --- clears that queue and adds it), and composed again on every cure the tracker sees. The
+   --- game runs it the moment both return, with no round trip, and says so: "[System]:
+   --- Running queued eb command: RECITE GUILT ANZERLOI|SMITE ANZERLOI RIGHT LEG CHASTEN
+   --- ASTHMA" (14:53:51.55; the separator goes through). What a move's send records -- the
+   --- verse spent, the timers armed, what it gave -- waits for that line.
+   ---
+   --- While composing, M.composing = { parts, commits, verse } and every send goes into it.
+   M.composing = nil
+   --- The exchange in the game's queue: { line, commits, at }.
+   M.queued = nil
+   --- A queued exchange the game has not run in this long is taken as lost.
+   M.QUEUE_LOST = 6.0
+
+   --- Send now, or add to the exchange being composed. `commit` runs once it has gone.
+   local function emit(command, needs, spends, commit)
+      if M.composing then
+         table.insert(M.composing.parts, command)
+         if commit then table.insert(M.composing.commits, commit) end
+         return true
+      end
+      if not emunah.act.send(command, needs, spends) then return false end
+      if commit then commit() end
+      return true
+   end
+
+   --- Is a lane free for the exchange being composed? Balance and equilibrium will be, when
+   --- the queue runs it; a verse only if its balance is back by then.
+   local function composingReady(lane)
+      if lane ~= "prayer" then return true end
+      if timers.ready("pvp.prayer") then return true end
+      local wait = math.max(timers.remaining("attack.balance") or 0,
+         timers.remaining("cure.equilibrium") or 0)
+      return (timers.remaining("pvp.prayer") or 0) <= wait
+   end
+
    M.LANES = {
       prayer = {
          ready = function()
+            if M.composing then return composingReady("prayer") end
             return timers.ready("pvp.prayer") and emunah.act.can(BOTH)
          end,
       },
       balance = {
          ready = function()
+            if M.composing then return composingReady("balance") end
             local vitals = emunah.gmcp.vitals
+            -- The mace needs equilibrium too, and an equilibrium move just sent is not yet
+            -- off the prompt: `smite anzerloi right leg chasten asthma` went on the prompt
+            -- after a panic and came back "You must regain equilibrium first." (2026-10-24
+            -- 14:40:47.11). So its guard holds the mace as well.
             return vitals and vitals.bal and timers.ready("attack.balance")
+               and timers.ready("cure.equilibrium")
                and emunah.act.can(BOTH, "bal")
          end,
       },
       equilibrium = {
          ready = function()
+            if M.composing then return composingReady("equilibrium") end
             local vitals = emunah.gmcp.vitals
             return vitals and vitals.eq and timers.ready("cure.equilibrium")
                and emunah.act.can(BOTH, "eq")
@@ -286,6 +334,12 @@ return function(P)
    --- FOCUS COSTS ABOUT 13% OF MAXIMUM MANA: the user's own, twice on 2026-10-23, 94% to 81%
    --- at 18:08:23-26 and 85% to 72% at 18:09:00-01. A tuning number for anyone else's.
    M.FOCUS_COST = 13
+   --- A mana elixir: the user's own took 84% to 98% (2026-10-24 14:33:58). Anyone's sip is
+   --- taken for mana while their health is at or over SIP_MANA_ABOVE, or unknown. Tuning.
+   M.SIP_MANA = 14
+   M.SIP_MANA_ABOVE = 80
+   --- Irid moss or potash: some of each. Not measured; a tuning number.
+   M.MOSS_MANA = 5
    --- Contemplate when the estimate is at or under this: close enough to the kill to look.
    M.READ_BELOW = 60
    --- target -> { { at, percent } }: what our saps and wraths were estimated to take.
@@ -302,13 +356,86 @@ return function(P)
          estimate, since = 100, M.fightAt or 0
       end
       for _, drain in ipairs(M.drains[ctx.target] or {}) do
-         if drain.at >= since then estimate = estimate - drain.percent end
+         -- After it, not at it: a reading taken as a sap went already shows what it took.
+         if drain.at > since then estimate = estimate - drain.percent end
       end
       local opponent = emunah.curing.detect and emunah.curing.detect.opponent
       if opponent and opponent.focusesSince then
          estimate = estimate - opponent.focusesSince(ctx.target, since) * M.FOCUS_COST
       end
+      -- What they put back: a sip while their health is high is taken for mana, and moss
+      -- restores some. Uncounted, the estimate fell under half on saps that took nothing
+      -- while he sipped and ate potash, and the kill alert lit at 98% (2026-10-24 14:33).
+      if opponent and opponent.usesSince then
+         if ctx.health == nil or ctx.health >= M.SIP_MANA_ABOVE then
+            estimate = estimate + opponent.usesSince(ctx.target, "sip", since) * M.SIP_MANA
+         end
+         estimate = estimate + opponent.usesSince(ctx.target, "moss", since) * M.MOSS_MANA
+      end
+      estimate = math.min(estimate, 100)
       return estimate > 0 and estimate or 0
+   end
+
+   --- WHAT IS ON THEM, AS CHANCES. "Iterate over target's existing affs. Preferably in
+   --- percent probabilities value ... Each of these relative to that aff's probability"
+   --- (Anzerloi, 2026-10-24 15:20-15:21). The opponent tracker keeps the odds
+   --- (opponent.oddsFor): a landing line or a verse we sent makes one certain, and a cure
+   --- that could have taken any of several shares itself among them. A verse prints no
+   --- landing line, so what it gives is suspected as it goes (M.send, opponent.suspect).
+   --- The sap and the fork go on these; absolve, the locks and the mentals' gate on what is
+   --- confirmed.
+   ---
+   --- Likely is an even chance or better.
+   M.LIKELY_AT = 0.5
+
+   local function opponent()
+      return emunah.curing.detect and emunah.curing.detect.opponent
+   end
+
+   local function gave(target, affliction, chance)
+      local tracker = opponent()
+      if target and affliction and tracker and tracker.suspect then
+         tracker.suspect(target, affliction, chance)
+      end
+   end
+
+   --- affliction -> chance, from the tracker's odds and what ctx confirms.
+   function M.picture(ctx)
+      local out = {}
+      for affliction in pairs(ctx.afflictions or {}) do out[affliction] = 1 end
+      local tracker = opponent()
+      if tracker and tracker.oddsFor and ctx.target then
+         for affliction, chance in pairs(tracker.oddsFor(ctx.target)) do
+            out[affliction] = chance > 0 and chance or nil
+         end
+      end
+      return out
+   end
+
+   function M.chance(ctx, affliction)
+      return M.picture(ctx)[affliction] or 0
+   end
+
+   function M.likely(ctx, affliction)
+      return M.chance(ctx, affliction) >= M.LIKELY_AT
+   end
+
+   --- The afflictions likely on them, as a set.
+   function M.likelySet(ctx)
+      local out = {}
+      for affliction, chance in pairs(M.picture(ctx)) do
+         if chance >= M.LIKELY_AT then out[affliction] = true end
+      end
+      return out
+   end
+
+   --- What a sap (or wrath, via "wrath") would take from them now: each affliction's value
+   --- by its chance. A verse sent on the same line lands just ahead of the sap, so it
+   --- counts. Nothing on them, nothing taken: "sap_value should only be above 0 if the
+   --- target has any actual affs" (15:45:11), and "Just use set values" (15:19:51) of the
+   --- user's measuring through his regeneration.
+   function M.sapWorth(ctx, via)
+      return (P.sapPercent(M.picture(ctx), { via = via or "angel" }))
    end
 
    --- CONTEMPLATE RIDES ON THE BLOW. `smite anzerloi head chasten ...;contemplate anzerloi`
@@ -317,15 +444,31 @@ return function(P)
    --- So a mode that reads mana takes its reading with every blow that has none fresh,
    --- and equilibrium stays free for the moves. AB CONTEMPLATE: 1.00s of equilibrium, armed
    --- as it leaves, which is also what holds a second one until the reading is back.
+   ---
+   --- AND A READING TO START FROM. A mode with `readEvery` (attack) reads on its first blow,
+   --- and again once the last reading is that many seconds old. With no reading the estimate
+   --- is "full", and against someone who never focuses it stays there, so nothing sapped:
+   --- Anzerloi, 2026-10-24 13:29:55-13:30:45, 21 attacks with no contemplate and no sap. On
+   --- the blow it costs a second of equilibrium inside the mace's 2.3s, which the next
+   --- exchange does not wait for.
+   M.READ_EVERY = 20
    local function contemplateWithBlow(mode, ctx)
       if not (mode and mode.readMana) or freshMana(ctx) then return end
       -- Only when they may be close: a contemplate is a second of equilibrium.
-      if M.manaEstimate(ctx) > M.READ_BELOW then return end
+      local due = M.manaEstimate(ctx) <= M.READ_BELOW
+      if mode.readEvery then
+         local reading = ctx.mana
+         if reading == nil or reading.at < (M.fightAt or 0)
+            or util.now() - reading.at >= mode.readEvery then
+            due = true
+         end
+      end
+      if not due then return end
       if not have.skill("contemplate") then return end
-      if emunah.act.send("contemplate " .. ctx.target, { eq = true }, "eq") then
+      emit("contemplate " .. ctx.target, { eq = true }, "eq", function()
          M.sentAt.contemplate = util.now()
          emunah.act.arm("eq")
-      end
+      end)
    end
 
    --- When a strip was sent at each target, so a shield seen before it is not stripped twice.
@@ -387,7 +530,7 @@ return function(P)
       -- inquisition/you are giving it in the same attack" (Anzerloi, 2026-10-23 14:03:16).
       -- Only once it is confirmed on them: no mode here gives it in the attack that burns.
       purge        = verse("purge", "ablaze",
-         { when = function(ctx) return ctx.afflictions.inquisition == true end }),
+         { when = function(ctx) return M.likely(ctx, "inquisition") end }),
       revelations  = verse("revelations", "hellsight", { when = M.asthmaSecure }),
       reflection   = verse("reflection", nil, { cost = 2.70 }),
       wrath        = verse("wrath", nil, { cost = 3.00 }),
@@ -415,7 +558,8 @@ return function(P)
       -- window" (Anzerloi, 2026-10-23 14:40:09).
       legsmiteChasten = { lane = "balance", skill = "mace", when = mace,
          command = function(ctx)
-            local aff = chastenPick(ctx, M.CHASTEN[ctx.mode] or M.CHASTEN.offence)
+            local aff = ctx.mode == "attack" and M.attackChasten(ctx)
+               or chastenPick(ctx, M.CHASTEN[ctx.mode] or M.CHASTEN.offence)
             local leg = M.legFor(ctx.target)
             M.lastLeg[ctx.target] = leg
             return ("smite %s %s chasten %s"):format(ctx.target, leg, aff), "chasten:" .. aff
@@ -479,13 +623,18 @@ return function(P)
    --- again at once, so the absolve follows it. The sap's share is sapPercent() over what
    --- is confirmed on them, which only undercounts: nothing unconfirmed adds to it.
    M.KILL_WINDOW = 10
+   --- The kill sap goes when it would leave them at or under this, a margin below absolve's
+   --- 50 for their regeneration and the estimate's error: "if target.MP - sap_value =< 45
+   --- then" (Anzerloi, 2026-10-24 14:44:33). "Hey my sap value is gonna be 30 and my target
+   --- has 60 mana. Recite something good and angel sap" (14:43:44).
+   M.KILL_SAP_TO = 45
    --- The sap that takes them under half, by the estimate (M.manaEstimate): a fresh
    --- reading when there is one, the reading less what has gone since when not.
    M.MOVES.killSap = { lane = "equilibrium", skill = "sap", again = true,
       when = function(ctx)
          local estimate = M.manaEstimate(ctx)
          if P.absolveKills(estimate) then return false end
-         return P.absolveKills(P.sapAfter(estimate, ctx.afflictions))
+         return estimate - M.sapWorth(ctx) <= M.KILL_SAP_TO
       end,
       command = function(ctx) return "angel sap " .. ctx.target end }
    --- The reading absolve waits for: straight after the kill sap, or whenever the estimate
@@ -738,23 +887,215 @@ return function(P)
       local estimate = M.manaEstimate(ctx)
       return not P.absolveKills(estimate) and estimate <= M.DRAIN_BELOW
    end
-   M.MOVES.stepWrath = onlyWhen("wrath", M.drainDue)
-   -- Its own move, not onlyWhen("sap"): the plain sap wants a fresh reading, and every sap
-   -- leaves the reading stale, so the step-down would stop after one.
-   M.MOVES.stepSap   = { lane = "equilibrium", skill = "sap", again = true,
+
+   -- -----------------------------------------------------------------------------------
+   -- attack (F1): what can be exploited now, else what sets one up
+   -- -----------------------------------------------------------------------------------
+   --
+   -- Anzerloi, 2026-10-24 13:36: "You think - what can I exploit now? If can't, what can I
+   -- push based on current circumstance to maybe exploit on next attack? If not if not if
+   -- not, and at the end you default to 'push kelps'." And "That was not a trail that
+   -- would've netted much sap value" of F1's kelp chastens (13:33:05): the sap's trail is
+   -- the LOBELIA one. Guilt, spiritburn and tenderskin are 3.5% each, and one herb cures all
+   -- three, one per eat, so three verses running put them on faster than they come off.
+
+   --- SAPPING AS THE ATTACK GOES. A sap worth M.PRESS_SAP goes at any mana, not only once
+   --- they are near ("you attempt to create conditions to attack their mana with saps",
+   --- 2026-10-23 14:38). Inside M.DRAIN_BELOW, M.SAP_WORTH is enough. Its own move, not
+   --- onlyWhen("sap"): the plain sap wants a fresh reading, and every sap leaves it stale.
+   --- Ten is the whole lobelia trail at once (3 x 3.5%): the trail stuck is the exploit.
+   M.PRESS_SAP = 10
+   M.MOVES.pressSap = { lane = "equilibrium", skill = "sap", again = true,
       when = function(ctx)
-         return M.drainDue(ctx) and P.sapPercent(ctx.afflictions) >= M.SAP_WORTH
+         if P.absolveKills(M.manaEstimate(ctx)) then return false end
+         return M.sapWorth(ctx) >= (M.drainDue(ctx) and M.SAP_WORTH or M.PRESS_SAP)
       end,
       command = function(ctx) return "angel sap " .. ctx.target end }
+
+   --- FIRE ONCE THEY HAVE INQUISITION. "Don't set people on fire at all unless they have
+   --- inquisition/you are giving it in the same attack" (2026-10-23 14:03:16). With
+   --- spiritburn on them each tick of fire takes mana too (HELP ASH), and ablaze is a 3.5%
+   --- sap affliction. Purge does it on the prayer; the angel's sear on equilibrium.
+   M.MOVES.inquisitionSear = { lane = "equilibrium", skill = "sear", gives = "ablaze",
+      when = function(ctx)
+         return M.likely(ctx, "inquisition") and not M.likely(ctx, "ablaze")
+      end,
+      command = function(ctx) return "angel sear " .. ctx.target end }
+   --- PUSH RIDES ON THE BLOW. "Angel push has two possible outcomes. If you do it without
+   --- smite, target becomes prone. If you do it with smite, the target needs to have
+   --- inquisition to be proned" (Anzerloi, 2026-10-24 14:04:34-14:04:50). On the smite's own
+   --- line it costs no exchange: `smite anzerloi|angel push anzerloi` went through at
+   --- 14:04:00.92, and without inquisition printed "A guardian angel reaches out to push
+   --- Anzerloi back, but he stands his ground." and no "Equilibrium used:". So with
+   --- inquisition likely, a mode with `pushWithBlow` pushes on the blow: prone is 2% of a
+   --- sap, holds them for the kill, and with ablaze lets wrath burn the body (HELP WRATH).
+   --- The answer is evidence either way: stood their ground, no inquisition; proned, it is.
+   M.PUSH_SETTLES = 3.0
+   M.pushRodeAt = nil
+   local function pushWithBlow(mode, ctx)
+      if not (mode and mode.pushWithBlow) or not have.skill("push") then return false end
+      if not M.likely(ctx, "inquisition") or (ctx.afflictions or {}).prone then return false end
+      if M.pushRodeAt and util.now() - M.pushRodeAt < M.PUSH_SETTLES then return false end
+      return emit("angel push " .. ctx.target, { eq = true }, nil, function()
+         M.pushRodeAt = util.now()
+      end)
+   end
+
+   --- THE FORK AT THE FOURTH VERSE. "At prayer length 4 you have an important fork. You may
+   --- recite for hellsight and/or rebuke for inquisition. So on prayer length 3 you check
+   --- whether either of those would be a good idea" (Anzerloi, 2026-10-24 14:37-14:38).
+   M.ATTACK_PRAYER_LENGTH = 4
+
+   --- INQUISITION: "if target has either guilt or spiritburn, you can recite the other and
+   --- rebuke heresy, now they got inquis" (14:38:55). The verse lands before its rebuke.
+   function M.heresyWith(ctx, verseName)
+      if not (have.skill("rebuke") and P.prayerAllows("heresy")) then return false end
+      local guilt = verseName == "guilt" or M.likely(ctx, "guilt")
+      local spiritburn = verseName == "ash" or M.likely(ctx, "spiritburn")
+      return guilt and spiritburn
+   end
+
+   --- HELLSIGHT: "Is my target asthmatic? If not, do they have at least one other kelp aff?
+   --- If either one of those is true, you can recite hellsight and either chasten asthma if
+   --- they don't have it, or perform sloth for weariness (if they don't have it) or chasten
+   --- a kelp aff" (14:39-14:40). The rest of that exchange is M.attackChasten and forkSloth.
+   local function kelpLikely(ctx, except)
+      for affliction in pairs(M.likelySet(ctx)) do
+         if affliction ~= except and isKelp(affliction) then return true end
+      end
+      return false
+   end
+   function M.hellsightReady(ctx)
+      return M.likely(ctx, "asthma") or kelpLikely(ctx, "asthma")
+   end
+   M.MOVES.forkRevelations = setmetatable({ when = M.hellsightReady },
+      { __index = M.MOVES.revelations })
+   --- Wrath at the fork when it is worth a sap of its own; when a kill is in reach, always.
+   M.MOVES.forkWrath = onlyWhen("wrath", function(ctx)
+      return M.sapWorth(ctx, "wrath") >= M.SAP_WORTH
+   end)
+
+   --- Revelations went out on this prompt.
+   local function revelationsNow()
+      if M.composing then return M.composing.verse == "revelations" end
+      return M.thisTick.prayer == true and M.lastVerse ~= nil
+         and M.lastVerse.name == "revelations"
+   end
+   M.MOVES.forkSloth = setmetatable({ when = function(ctx)
+      return revelationsNow() and M.likely(ctx, "asthma") and not M.likely(ctx, "weakness")
+   end }, { __index = M.MOVES.sloth })
+
+   --- HARD SET. "If you see such an opportunity, you hard set your attack and don't let
+   --- anything override it, THIS is what you want to do" (Anzerloi, 2026-10-24 14:41:17).
+   --- On the prompt Revelations goes, equilibrium is the fork's or nothing: the mace's asthma
+   --- or kelp goes with it unless sloth is the fork's piece. Only the kill, and a shield
+   --- that would stop the blow, come before it.
+   function M.attackHardSet(lane)
+      if lane == "equilibrium" and revelationsNow() then
+         return { "absolve", "strip", "forkSloth" }
+      end
+      return nil
+   end
+
+   --- They touched the tree this recently: paralysis shuts it. A tuning number. Anzerloi
+   --- touched his four times in 50 seconds (2026-10-24 13:29:58-13:30:40).
+   M.TREE_RECENT = 10
+
+   --- Attack's chasten: the fork's asthma or kelp, asthma while hellsight is held, paralysis
+   --- on a tree in use, then the mode's own order.
+   function M.attackChasten(ctx)
+      -- Held while hellsight is likely, not for a set time: at 14:34:08.80 he smoked it away
+      -- 1.6s after it landed, and eight blows chastened asthma into nothing (2026-10-24).
+      local held = M.likely(ctx, "hellsight")
+      if (revelationsNow() or held) and not M.likely(ctx, "asthma") then return "asthma" end
+      if revelationsNow() then
+         for _, aff in ipairs(M.KELP_CHASTEN) do
+            if not M.likely(ctx, aff) and not recent("chasten:" .. aff) then return aff end
+         end
+      end
+      local opponent = emunah.curing.detect and emunah.curing.detect.opponent
+      local ago = opponent and opponent.usedAgo and opponent.usedAgo(ctx.target, "tree")
+      if ago ~= nil and ago < M.TREE_RECENT and not M.likely(ctx, "paralysis")
+         and not recent("chasten:paralysis") then
+         return "paralysis"
+      end
+      return chastenPick(ctx, M.CHASTEN.attack)
+   end
+
+   --- F1'S PRAYER. The first three verses lay the lobelia trail, so the fourth can fork; the
+   --- fourth takes wrath when a kill is in reach, then hellsight, then the verse that makes
+   --- heresy land, then wrath worth a sap; and the prayer closes on a rebuke. Closing is
+   --- what banks the conviction wrath (20%) and revelations (10%) need: a prayer that never
+   --- closes grants none (13:29:55-13:30:45, 21 verses, and conviction only once F1 stopped).
+   M.ATTACK_LOBELIA = { "burn", "guilt", "ash" }
+
+   local function attackVerse(ctx, names)
+      -- One whose affliction is not already likely first: that verse would be wasted.
+      for pass = 1, 2 do
+         for _, name in ipairs(names) do
+            local move = M.MOVES[name]
+            if move and allowed(name, move, ctx) then
+               local gives = move.gives
+               if type(gives) == "function" then gives = gives(ctx) end
+               if pass == 2 or not (gives and M.likely(ctx, gives)) then return move, name end
+            end
+         end
+      end
+      return nil
+   end
+
+   --- The sin attack's verse closes the prayer with, or false for none.
+   function M.attackRebuke(ctx, verseName)
+      if not have.skill("rebuke") then return false end
+      if P.prayer().length + 1 < M.ATTACK_PRAYER_LENGTH then return false end
+      if M.heresyWith(ctx, verseName) then return "heresy" end
+      -- Revelations without heresy stays open: "don't rebuke, and on next attack guilt
+      -- rebuke a mental/perform sloth" (2026-10-23 16:08:36).
+      if verseName == "revelations" then return false end
+      for _, sin in ipairs({ "evil", "chaos", "darkness" }) do
+         if P.prayerAllows(sin) then return sin end
+      end
+      return false
+   end
+
+   function M.attackPrayer(ctx)
+      local names = {}
+      local function add(name) names[#names + 1] = name end
+      if P.prayer().length + 1 >= M.ATTACK_PRAYER_LENGTH then
+         local estimate = M.manaEstimate(ctx)
+         if not P.absolveKills(estimate)
+            and P.absolveKills(estimate - M.sapWorth(ctx, "wrath") - M.sapWorth(ctx)) then
+            add("wrath")
+         end
+         add("forkRevelations")
+         -- The other of guilt and spiritburn, for heresy.
+         local guilt, spiritburn = M.likely(ctx, "guilt"), M.likely(ctx, "spiritburn")
+         if spiritburn and not guilt then add("guilt") end
+         if guilt and not spiritburn then add("ash") end
+         add("forkWrath")
+      else
+         if ctx.rebounding and not ctx.heresy then add("unflinching") end
+         add("purge")
+      end
+      for _, name in ipairs(M.ATTACK_LOBELIA) do add(name) end
+      add("condemnation")
+      local move, name = attackVerse(ctx, names)
+      if not move then return nil end
+      return setmetatable({ rebuke = M.attackRebuke(ctx, move.verse) }, { __index = move }), name
+   end
 
    --- When angel panic was sent last, and when slickness was last confirmed on the target.
    M.panicAt = nil
    M.slickAt = nil
 
    --- Inside the window after Revelations, with asthma still holding the pipe shut.
+   --- Asthma by its odds, not the confirmed list: two aurum went down between the asthma
+   --- chasten and the panic, the slickness came, and he smoked it off at once (2026-10-24
+   --- 14:40:44-14:40:50). "Only give hellsight when asthma is secure" (16:03:25).
    local function hellsightHeld(ctx)
       local at = M.revelationsAt
-      return at ~= nil and util.now() - at < M.HELLSIGHT and ctx.afflictions.asthma == true
+      return at ~= nil and util.now() - at < M.HELLSIGHT and M.likely(ctx, "asthma")
+         and M.likely(ctx, "hellsight")
    end
 
    --- SLICKNESS FROM HELLSIGHT. Panic on a target with hellsight gives slickness, not fear
@@ -770,7 +1111,7 @@ return function(P)
    --- they ate it away. A panic into slickness that was never confirmed would cost the mace
    --- every exchange. Their fangbarrier sloughing off confirms it (16:09:48).
    M.MOVES.hellsightPanic = setmetatable({ gives = "slickness", when = function(ctx)
-      if not (ctx.afflictions.hellsight or hellsightHeld(ctx)) then return false end
+      if not (M.likely(ctx, "hellsight") and M.likely(ctx, "asthma")) then return false end
       local last = M.panicAt
       if last == nil or (M.revelationsAt and last < M.revelationsAt) then return true end
       return M.slickAt ~= nil and M.slickAt >= last
@@ -841,9 +1182,13 @@ return function(P)
       attack = {
          exchange    = true,
          readMana    = true,
-         prayer      = { "purge", "stepWrath", "revelations", "unflinching", "guilt", "ash" },
+         readEvery   = M.READ_EVERY,
+         pushWithBlow = true,
+         hardSet     = M.attackHardSet,
+         prayer      = M.attackPrayer,
          balance     = { "legsmiteChasten" },
-         equilibrium = { "hellsightPanic", "slickFasting", "stepSap" },
+         equilibrium = { "hellsightPanic", "slickFasting", "forkSloth", "inquisitionSear",
+                         "pressSap" },
       },
       -- F2: hold the attack. Curing and the defence keep-up are not this mode's to send,
       -- and no game command for a defensive rotation has been captured.
@@ -928,7 +1273,7 @@ return function(P)
    --- route's prayer is, a function choosing one.
    local function planLane(mode, lane, ctx)
       local spec = M.LANES[lane]
-      local moves = mode[lane]
+      local moves = mode.hardSet and mode.hardSet(lane, ctx) or mode[lane]
       if not (spec and moves) then return nil end
       if not spec.ready() then return nil end
       if type(moves) == "function" then return moves(ctx) end
@@ -992,38 +1337,143 @@ return function(P)
          if sin then command = command .. " rebuke " .. sin end
       end
       local spends = SPENDS[move.lane]
-      if not emunah.act.send(command, BOTH, spends) then return false end
-
-      local now = util.now()
-      M.sentAt[name] = now
-      if tag then M.sentAt[tag] = now end
+      if M.composing then
+         table.insert(M.composing.parts, command)
+         if move.verse then M.composing.verse = move.verse end
+      elseif not emunah.act.send(command, BOTH, spends) then
+         return false
+      end
       M.thisTick[move.lane] = true
-      if spends then M.lastExchange = move.lane end
-      if move.verse then
-         M.lastVerse = { name = move.verse, rebuke = sin or nil, at = now }
-         if move.verse == "revelations" then M.revelationsAt = now end
+
+      -- What its going records, now or when the game runs the queue.
+      local function commit()
+         local now = util.now()
+         M.sentAt[name] = now
+         if tag then M.sentAt[tag] = now end
+         if spends then M.lastExchange = move.lane end
+         if move.verse then
+            M.lastVerse = { name = move.verse, rebuke = sin or nil, at = now }
+            if move.verse == "revelations" then M.revelationsAt = now end
+         end
+         if move.skill == "strip" then M.strippedAt[ctx.target] = now end
+         -- What a verse and its rebuke give, for M.likely. Only these: they print no
+         -- landing line. A chasten and the angel's afflictions do, so those are believed
+         -- only when the line comes ("You calculate it PURELY on what affs your target has
+         -- at the moment it hits", Anzerloi, 2026-10-24 14:43:00).
+         if move.verse then
+            local gives = move.gives
+            if type(gives) == "function" then gives = gives(ctx) end
+            gave(ctx.target, gives)
+            -- Heresy's inquisition lands only on guilt and spiritburn both: as likely as
+            -- that. At 14:33:43 it went on ash with guilt eaten a moment before, and was
+            -- taken as certain; three saps followed on it (2026-10-24).
+            local chance = sin == "heresy"
+               and M.chance(ctx, "guilt") * M.chance(ctx, "spiritburn") or 1
+            if sin and P.REBUKES[sin] then gave(ctx.target, P.REBUKES[sin].gives, chance) end
+         end
+         -- What it takes from their mana, for the estimate.
+         if move.skill == "sap" or move.verse == "wrath" then
+            M.drains[ctx.target] = M.drains[ctx.target] or {}
+            table.insert(M.drains[ctx.target], { at = now,
+               percent = M.sapWorth(ctx, move.verse == "wrath" and "wrath" or "angel") })
+         end
+         if move.skill == "panic" then M.panicAt = now end
+         -- The pessimistic guard until the game's own line replaces it ("You may speak
+         -- another holy verse." / "Balance used:" / "Equilibrium used:").
+         --
+         -- ARMED AS IT LEAVES. Lanes used to arm only after every lane of the prompt had
+         -- sent, so that the mace and an equilibrium move could share one -- and the second
+         -- always bounced (M.plan). Armed now, the lane after a smite waits for the balance,
+         -- and a cure or rite later in the prompt's line does not go out behind it.
+         if move.lane == "prayer" then
+            timers.start("pvp.prayer", move.cost or P.RECITE_BALANCE_GUESS)
+            if P.ONCE_PER_PRAYER[move.verse] then P.prayerSpent[move.verse] = true end
+         else
+            emunah.act.arm(spends)
+         end
       end
-      if move.skill == "strip" then M.strippedAt[ctx.target] = now end
-      -- What it takes from their mana, for the estimate.
-      if move.skill == "sap" or move.verse == "wrath" then
-         M.drains[ctx.target] = M.drains[ctx.target] or {}
-         table.insert(M.drains[ctx.target], { at = now, percent = P.sapPercent(ctx.afflictions,
-            { via = move.verse == "wrath" and "wrath" or "angel" }) })
+
+      -- A ridden push may spend equilibrium when it lands, and a contemplate behind it would
+      -- bounce: one or the other on a blow. They ride after the blow, and record before it.
+      if move.lane == "balance" and not pushWithBlow(M.MODES[ctx.mode], ctx) then
+         contemplateWithBlow(M.MODES[ctx.mode], ctx)
       end
-      if move.skill == "panic" then M.panicAt = now end
-      if move.lane == "balance" then contemplateWithBlow(M.MODES[ctx.mode], ctx) end
-      -- The pessimistic guard until the game's own line replaces it ("You may speak another
-      -- holy verse." / "Balance used:" / "Equilibrium used:"), as every attack here does.
-      --
-      -- ARMED AS IT LEAVES. Lanes used to arm only after every lane of the prompt had sent,
-      -- so that the mace and an equilibrium move could share one -- and the second always
-      -- bounced (M.plan). Armed now, the lane after a smite waits for the balance, and a
-      -- cure or rite later in the prompt's line does not go out behind it into a refusal.
-      if move.lane == "prayer" then
-         timers.start("pvp.prayer", move.cost or P.RECITE_BALANCE_GUESS)
-         if P.ONCE_PER_PRAYER[move.verse] then P.prayerSpent[move.verse] = true end
+      if M.composing then
+         table.insert(M.composing.commits, commit)
       else
-         emunah.act.arm(spends)
+         commit()
+      end
+      return true
+   end
+
+   --- Compose the next exchange and put it in the game's queue, replacing what is there when
+   --- it differs. Nothing when pvp.queue is off, the mode does not exchange, a lane is held,
+   --- the game has no separator to join the exchange with, or both balances are back (the
+   --- prompt sends then, as without the queue).
+   function M.queueNext(modeName, ctx)
+      if not emunah.config.get("pvp.queue", false) then return false end
+      local mode = M.MODES[modeName]
+      if not (mode and mode.exchange) or (ctx.held and (ctx.held.balance or ctx.held.equilibrium)) then
+         M.clearQueue()
+         return false
+      end
+      local separator = emunah.act.gameSeparator and emunah.act.gameSeparator()
+      if not separator then return false end
+      local vitals = emunah.gmcp.vitals
+      local backNow = vitals and vitals.bal and vitals.eq and timers.ready("attack.balance")
+         and timers.ready("cure.equilibrium")
+      if backNow then return false end
+
+      local thisTick = M.thisTick
+      M.thisTick = {}
+      M.composing = { parts = {}, commits = {} }
+      local ok, err = pcall(function()
+         for _, lane in ipairs({ "prayer", "balance", "equilibrium" }) do
+            local move, name = M.plan(modeName, lane, ctx)
+            if move then M.send(move, name, ctx) end
+         end
+      end)
+      local composed = M.composing
+      M.composing, M.thisTick = nil, thisTick
+      if not ok then error(err, 0) end
+
+      -- A verse alone waits for the prompt: the queue is for the exchange.
+      if #composed.parts == 0 or (#composed.parts == 1 and composed.verse) then
+         M.clearQueue()
+         return false
+      end
+      local line = table.concat(composed.parts, separator)
+      if M.queued and M.queued.line == line then return true end
+      if not emunah.act.sendLine("queue addclear eqbal " .. line) then return false end
+      M.queued = { line = line, commits = composed.commits, at = util.now() }
+      return true
+   end
+
+   --- Empty our exchange out of the game's queue.
+   function M.clearQueue()
+      if not M.queued then return end
+      M.queued = nil
+      emunah.act.send("clearqueue eqbal", {})
+   end
+
+   --- The game ran a queued command: if it is our exchange, it has gone.
+   function M.queueRan(text)
+      local queued = M.queued
+      if not queued then return false end
+      if tostring(text or ""):upper() ~= queued.line:upper() then return false end
+      M.queued = nil
+      for _, commit in ipairs(queued.commits) do commit() end
+      return true
+   end
+
+   --- Is our exchange waiting in the game's queue? Then the prompt sends nothing of its own.
+   --- One the game has not run in M.QUEUE_LOST is taken as lost.
+   function M.queuePending()
+      local queued = M.queued
+      if not queued then return false end
+      if util.now() - queued.at > M.QUEUE_LOST then
+         M.queued = nil
+         return false
       end
       return true
    end
@@ -1042,7 +1492,7 @@ return function(P)
          elseif P.absolveKills(estimate) then
             rows[#rows + 1] = { "ABSOLVE", "in range", ("about %d%% by estimate; reading it")
                :format(estimate) }
-         elseif P.absolveKills(P.sapAfter(estimate, ctx.afflictions)) then
+         elseif P.absolveKills(estimate - M.sapWorth(ctx)) then
             rows[#rows + 1] = { "ABSOLVE", "a sap away", ("about %d%% by estimate"):format(estimate) }
          end
       end
@@ -1076,9 +1526,32 @@ return function(P)
    -- Slickness confirmed on the target: a panic may follow once it is eaten away.
    emunah.event.register("emunah.opponent.afflicted", function(_, name, affliction)
       local target = emunah.pvp and emunah.pvp.target
-      if affliction == "slickness" and target and name == tostring(target):lower() then
-         M.slickAt = util.now()
+      if not (target and name == tostring(target):lower()) then return end
+      if affliction == "slickness" then M.slickAt = util.now() end
+      -- Proned by a push that rode on a smite: only inquisition does that, so it is on them.
+      if affliction == "prone" and M.pushRodeAt and util.now() - M.pushRodeAt < M.PUSH_SETTLES then
+         M.pushRodeAt = nil
+         emunah.curing.detect.opponent.assert(name, "inquisition")
       end
+   end, "priest-pvp")
+   -- Every cure the tracker sees: compose again, and requeue if it changed.
+   emunah.event.register("emunah.opponent.cured", function(_, name)
+      local pvp = emunah.pvp
+      if not (M.queued and pvp and pvp.enabled and pvp.target == name) then return end
+      if pvp.contextFor then M.queueNext(pvp.mode(), pvp.contextFor(pvp.mode())) end
+   end, "priest-pvp")
+   for _, event in ipairs({ "emunah.pvp.stopped", "emunah.pvp.mode", "emunah.pvp.target" }) do
+      emunah.event.register(event, function() M.clearQueue() end, "priest-pvp")
+   end
+   -- The game running it. Kept across loads the way priest.lua keeps its triggers.
+   emunah._persist = emunah._persist or {}
+   if emunah._persist.priestPvpQueue then killTrigger(emunah._persist.priestPvpQueue) end
+   emunah._persist.priestPvpQueue = tempRegexTrigger(
+      [[^\[System\]: Running queued eb command: (.+)$]], function() M.queueRan(matches[2]) end)
+
+   -- The push stood against: no inquisition on them (the tracker takes it off).
+   emunah.event.register("emunah.opponent.pushResisted", function()
+      M.pushRodeAt = nil
    end, "priest-pvp")
    -- The prayer ended (priest.prayerReset()): the next verse starts the next one.
    emunah.event.register("emunah.priest.prayerEnded", function()
@@ -1090,6 +1563,8 @@ return function(P)
    P.pvpPlan = M.plan
    P.pvpSend = M.send
    P.pvpDefer = M.defer
+   P.pvpQueue = M.queueNext
+   P.pvpQueuePending = M.queuePending
    P.pvpKillRows = M.killRows
    P.PVP_MODES = M.MODES
 end

@@ -151,6 +151,31 @@ long enough to repay the lost swing. Desolation costs neither balance nor equili
 there is nothing to repay — it only waits on its own cooldown and rage, gated additionally on
 `denizens.isDenizen()` since HELP restricts it to denizens.
 
+### Angel Sear and Angel Push on an adventurer (2026-10-24)
+
+Captured by the user against Anzerloi, verbatim:
+
+```
+13:54:49.18  angel sear anzerloi
+             Your guardian angel's eyes glow like embers as Anzerloi is seared and bursts into flame.
+             Equilibrium used: 2.50s.
+13:54:55.32  Anzerloi takes some salve from a vial and rubs it on his body.
+13:55:14.98  angel push anzerloi
+             You beseech your guardian to strike down Anzerloi.
+             A guardian angel extends a hand in the direction of Anzerloi, and he is suddenly sent sprawling to
+             the ground by an invisible force.
+             Equilibrium used: 2.10s.
+13:55:22.57  Anzerloi stands up.
+```
+
+The sear's line confirms ablaze, the push's confirms prone, and "stands up" cures it
+(`curing/detect/opponent_patterns.lua`). He salved his body six seconds after the sear: a
+mending salve there cures ablaze, so a salve on a named location takes off the one tracked
+affliction a salve there cures, when there is only one (`opponent.salved`). Push's
+equilibrium is 2.10s here against HELP's 2.20s. `hunt heresy` at 13:54:19.00 printed "Rage
+fills you as the thought of heresy inspires you to greater efforts." and "Equilibrium used:
+4.00s.", mana 95% to 85%.
+
 ### Angel Strip
 
 `ANGEL STRIP <target>`: equilibrium 1.80s, 10 Angel power and 100 mana; adventurers and
@@ -688,6 +713,139 @@ under **firedisrupt** (its firedisrupt trigger, and `valid.focus2`'s spirit-disr
 Emunah's trigger package inherits as a firedisrupt cure. The reference system predates spiritburn and
 tenderskin, so Achaea may have reused the text; this transcript cannot tell. The GMCP
 `Char.Afflictions.Add` name would: repeat it with `emset debug gmcp`.
+
+### Rebuke heresy, and the conviction a closed prayer gives (2026-10-24 14:09-14:10)
+
+The user against Anzerloi, who did not cure. Two four-verse prayers, each closed on
+`rebuke heresy`, verbatim:
+
+```
+14:09:25.00  "Know the pain which you have caused," you proselytise to Anzerloi.
+14:09:28.62  "Burn!" you command Anzerloi, fire leaping forth to sear him.
+14:09:32.80  "Return to ash," you decree, focusing your holy might upon Anzerloi.
+14:09:36.25  "And your guilt will be made plain," you proselytise to Anzerloi.
+             You decree that Anzerloi will pay for her crimes against Creation.
+             As your prayer ends, holy fire outlines your form and you feel your righteous conviction surge to
+             yet greater heights.
+             Your spirit surges with 20% holy conviction.
+14:09:42.82  As your praying falters, your conviction does so in concert.
+             Your spirit surges with 10% holy conviction.
+14:09:49.28  As your praying falters, your conviction does so in concert.
+             Your conviction has entirely left you.
+```
+
+and condemnation, burn, guilt, `guilt rebuke heresy` (no spiritburn on him) at 14:10:03-14:10:12,
+printing the same decree line and the same 20%.
+
+- **A four-verse prayer closed by a rebuke gives 20%**, the conviction wrath needs. With the
+  two-verse prayer's 10% (09:58:49), that is 5% a verse.
+- **Heresy's rebuke line does not say whether inquisition landed**: "You decree that <name>
+  will pay for her crimes against Creation." came both with spiritburn on him and without
+  (the "her" is the game's, for Anzerloi). Inquisition is confirmed only by its effects, as a
+  push on a smite's line proning them (`pvp-locks.md`).
+- **Conviction falls 10% about every 6.5s** once the prayer is over and no other has begun
+  (14:09:36.25, 42.82, 49.28; 14:10:12.69, 19.25). Whether a new prayer holds it, so that
+  wrath can still go at that prayer's fourth verse, is not yet captured.
+- The first `recite guilt` at 14:09:21.03 landed at 14:09:25.00, after the prayer begun by
+  burn had ended at 24.74: lag, not a rule. A verse late by that much ends the chain.
+
+### One sap, measured (2026-10-24 14:10:25-14:10:54)
+
+Straight after the two heresy prayers above, Anzerloi still not curing:
+
+```
+14:10:25.75  contemplate anzerloi
+             Anzerloi's mana stands at 5339/5428 [98%].
+14:10:47.95  angel sap anzerloi
+             Your guardian angel casts a piercing glance at Anzerloi.
+             Equilibrium used: 2.75s.
+14:10:54.12  contemplate anzerloi
+             Anzerloi's mana stands at 4012/5428 [73%].
+```
+
+**One sap took 1327 of 5428, 24.4%**, and more than that by whatever he regenerated in the
+29s between readings. On him, uncured: guilt, tenderskin, spiritburn and justice from the
+verses, and inquisition if the first prayer's heresy landed (guilt and spiritburn were both
+on him for it). Anzerloi's figures (`priest.sapPercent`) give (3 x 3.5 + 1 + 1) x 1.5 =
+18.75%: they undercount here. A doubled inquisition multiplier would fit (25%), but one
+reading of an uncertain set is not enough to retune on, and undercounting is the safe
+direction: the kill sap goes later than it might, and absolve still waits for a reading.
+What it does show: with the lobelia trail and inquisition on them, two saps take a fresh
+target from full into absolve's range.
+
+### A sap on a clean target, and argentum eating the trail (2026-10-24 14:15-14:16)
+
+```
+14:15:10.90  contemplate anzerloi        Anzerloi's mana stands at 5413/5428 [99%].
+14:15:43.92  angel sap anzerloi          Your guardian angel casts a piercing glance at Anzerloi.
+14:15:46.91  contemplate anzerloi        Anzerloi's mana stands at 5318/5428 [97%].
+14:15:48.11  recite burn anzerloi        (14:16:13.01) Anzerloi eats an argentum flake.
+14:16:13.03  recite guilt anzerloi       (14:16:14.97) Anzerloi eats an argentum flake.
+                                         Anzerloi straightens, as if some great burden had been lifted from his shoulders.
+14:16:15.17  recite ash anzerloi         (14:16:17.06) Anzerloi eats an argentum flake.
+14:16:17.14  contemplate anzerloi        Anzerloi's mana stands at 5318/5428 [97%].
+14:16:20.01  angel sap anzerloi
+14:16:23.12  contemplate anzerloi        Anzerloi's mana stands at 5252/5428 [96%].
+             (14:16:22.88: the three-verse prayer lapsed for 15% conviction, 5% a verse)
+```
+
+- **A sap on nothing took 95 and 66 of 5428** (1.75%, 1.2%), but his mana was not still:
+  "Bear in mind my mana is not static. When you sapped I was below 100%, and also
+  regenerating it back. Just use set values" (Anzerloi, 15:19:22-15:19:51), and "sap_value
+  should only be above 0 if the target has any actual affs" (15:45:11). So a sap on nothing
+  counts as nothing.
+- **Spiritburn and tenderskin are cured with no line of their own**: each went with an
+  argentum eaten 0.2-0.3s after its verse, and only guilt prints one. So an eat of their
+  herb is all there is, which is what `opponent.couldHaveCured` goes on.
+- **He ate every two seconds or so, as fast as the verses landed**, so verses alone never
+  stack the lobelia trail on him. It holds only when each exchange also gives an affliction
+  of another herb, as the mace's kelp chasten does: one herb balance cannot take both.
+
+### Wrath measured, and a new prayer holds conviction (2026-10-24 14:22:54-14:23:24)
+
+Anzerloi not curing. `guilt rebuke heresy` closed burn, guilt, ash, guilt; then burn, guilt,
+ash, a contemplate, wrath, a contemplate:
+
+```
+14:23:02.47  recite guilt anzerloi rebuke heresy
+             You decree that Anzerloi will pay for her crimes against Creation.
+             Your spirit surges with 45% holy conviction.
+14:23:10.09  contemplate anzerloi    Anzerloi's mana stands at 5266/5428 [97%].
+14:23:11.32  recite wrath anzerloi
+             "And may the cleansing fires consume you!" you dictate to Anzerloi, holy flame wreathing him in
+             cleansing fury.
+14:23:14.57  contemplate anzerloi    Anzerloi's mana stands at 4658/5428 [85%].
+14:23:17.62  Your spirit surges with 65% holy conviction.
+14:23:24.10  As your praying falters ... Your spirit surges with 55% holy conviction.
+```
+
+- **A new prayer holds conviction**: no "falters" line came in the second prayer, which began
+  at 14:23:04, 1.6s after the rebuke.
+- **Wrath does not spend conviction**: 45% before it, 65% once its prayer of four ended, the
+  same 20% any four-verse prayer adds. Conviction builds prayer on prayer.
+- **Wrath took 608 of 5428, 11.2%**, with tenderskin, guilt and spiritburn on him and
+  inquisition if heresy landed. Anzerloi's figures give 3 x 3.5 + 1 = 11.5% for wrath, which
+  inquisition does not multiply: they hold for wrath, with no base.
+- Wrath's line: "And may the cleansing fires consume you!" ... "holy flame wreathing him in
+  cleansing fury."
+- The first prayer's 45% (against 20% for the same prayer at 14:09:36) is not explained by
+  the capture; leftover conviction from a prayer before it is the likely reason.
+
+### The trail's sap without inquisition, and inquisition's multiplier (2026-10-24 14:31)
+
+Anzerloi uncured: burn, guilt, ash, then
+
+```
+14:31:23.03  contemplate anzerloi    Anzerloi's mana stands at 5403/5428 [99%].
+14:31:24.33  angel sap anzerloi      Your guardian angel casts a piercing glance at Anzerloi.
+14:31:27.23  contemplate anzerloi    Anzerloi's mana stands at 4803/5428 [88%].
+```
+
+**The lobelia trail alone: 600 of 5428, 11.05%**, against 3 x 3.5 = 10.5% by Anzerloi's
+figures, which hold for the angel's sap as they did for wrath. The sap at 14:10:47 took 24.4%
+or more on the same trail with justice and (likely) inquisition, 12.5% before any
+multiplier: **inquisition about doubles a sap**, not the half again first given.
+`priest.SAP.inquisition` is 2.0.
 
 ### Conviction drains when the prayer lapses (13:48:20)
 

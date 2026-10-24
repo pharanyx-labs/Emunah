@@ -281,21 +281,62 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   mentals." So no order names a mental; recklessness is never chastened, and `chasten
   mind` only for its capstone, since the game may pick recklessness from the pool; the
   slickness sequence gives one mental and stops (`M.MENTALS`, `M.mentalCount`).
-- **F1 draws them into the kill** (the user, 2026-10-23: "just get us in a position where
-  we can actually get a kill"). Attack mode reads their mana with each blow
-  (`readMana`), smites the legs evenly ("working their legs as another possible source
-  for sap power, and to immobilize them during the kill window", 14:40:09), and at or
-  under `M.DRAIN_BELOW` (70%) on a fresh reading steps them down with wrath and the
-  angel's sap (`stepWrath`, `stepSap`; "step them down when it's worth it (such as
-  bringing 100% mana down to 60%)", 2026-10-15 12:41). The kill moves below finish it.
-  Judge is not used: its duration and lines are uncaptured.
+- **F1 is Anzerloi's exploit route** (2026-10-24 13:33-14:44, after a spar where F1 sent
+  21 attacks with no contemplate, no sap and no conviction). "You think - what can I
+  exploit now? If can't, what can I push based on current circumstance to maybe exploit on
+  next attack? ... at the end you default to 'push kelps'." In `class/priest_pvp.lua`:
+  - **A reading to start from**: contemplate rides on the first blow, and again every
+    `READ_EVERY` (20s), as well as at or under `READ_BELOW`.
+  - **The lobelia trail** (`attackPrayer`, `ATTACK_LOBELIA`): burn, guilt, ash. Tenderskin,
+    guilt and spiritburn are 3.5% of a sap each and one herb (lobelia/argentum) cures all
+    three, one per eat. "That was not a trail that would've netted much sap value" (13:33:05)
+    of the old kelp chastens; "It's just a kelp aff."
+  - **The fork at the fourth verse** ("At prayer length 4 you have an important fork. You may
+    recite for hellsight and/or rebuke for inquisition", 14:37). Wrath first if it and a sap
+    would bring absolve in reach; then Revelations when they are asthmatic or have another
+    kelp affliction (`hellsightReady`, 14:39); then the other of guilt and spiritburn with
+    `rebuke heresy` ("if target has either guilt or spiritburn, you can recite the other and
+    rebuke heresy, now they got inquis", 14:38:55: the verse lands before its rebuke); then
+    wrath worth a sap. The rebuke closes the prayer (evil when heresy cannot land), which is
+    what banks conviction. Revelations without heresy stays open.
+  - **Hard set** ("you hard set your attack and don't let anything override it", 14:41:17,
+    `attackHardSet`): on Revelations' prompt equilibrium is only absolve, strip or the fork's
+    sloth; the mace chastens asthma, else a kelp affliction, with it (14:40:29).
+  - **Saps as it goes** (`pressSap`): at any mana when worth `PRESS_SAP` (10%, the whole
+    trail), `SAP_WORTH` (5%) at or under 70%.
+  - **Fire only on inquisition**: purge on the prayer, `inquisitionSear` on equilibrium, and
+    a push riding on the blow (`pushWithBlow`). "If you do it without smite, target
+    becomes prone. If you do it with smite, the target needs to have inquisition to be
+    proned" (Anzerloi, 2026-10-24 14:04:50). `smite anzerloi|angel push anzerloi` goes on
+    one line (14:04:00.92); without inquisition it prints "A guardian angel reaches out to
+    push Anzerloi back, but he stands his ground." and no "Equilibrium used:". So the
+    answer is evidence: stood their ground clears the inquisition we took the rebuke to
+    give, and proned confirms it. Prone is 2% of a sap, and with ablaze wrath burns the
+    body too (HELP WRATH).
+  - **The tree**: chasten paralysis when they touched it within `TREE_RECENT` (10s).
+- **What is on them, as chances** (`opponent.oddsFor`, `priest_pvp.picture`). "Iterate over
+  target's existing affs. Preferably in percent probabilities value ... Each of these
+  relative to that aff's probability. If 50% I got spiritburn, then + (3.5/0.5)" (Anzerloi,
+  2026-10-24 15:20-15:21; times, by the sense of it), and "Afftracking is really the first
+  thing you should implement, before any thought of attack protocol" (15:45:44). A landing
+  line, or a verse we sent (which prints none: `opponent.suspect`), makes an affliction
+  certain. A cure that could have taken any of several shares itself among them by their
+  chances: with a total over one, each keeps 1 - 1/total; with one or less, it took them
+  all. One argentum on a certain guilt, spiritburn and tenderskin leaves each at two in
+  three; a second, one in three. A line naming the cure (guilt's "straightens") takes that
+  one off and gives the eat back to the rest. A suspicion never confirmed lapses after
+  `SUSPECT_FOR` (12s). The sap is each affliction's value times its chance, and nothing on
+  them is nothing taken ("sap_value should only be above 0 if the target has any actual
+  affs", 15:45:11). Likely, for the fork, is an even chance or better. The confirmed picture
+  (`opponent.list`) is unchanged, and absolve, the locks and the mentals' gate decide on it.
 - **The kill wherever it is** (Anzerloi, 2026-10-23 14:38:17-14:39:20): "You win by having
   their mana low enough. If that does not present itself on its own (on your
   contemplations), you attempt to create conditions to attack their mana with saps. Most of
   the fight is setting up conditions that would allow you to create such conditions to
   sap." Every attacking mode, in any prayer: absolve on a fresh reading under half; sap at
-  once when a fresh reading and one sap (`sapPercent` over what is confirmed) would take
-  them under half (`killSap`); contemplate again straight after it (`killRead`), since a
+  once when the estimate and one sap (`sapWorth`, over what is likely on them) would take
+  them to 45% or under (`killSap`, `KILL_SAP_TO`: "if target.MP - sap_value =< 45 then",
+  2026-10-24 14:44:33); contemplate again straight after it (`killRead`), since a
   sap shows no figure. A shield is stripped first: "Dazzle and purity bypass shield"
   (14:43:48), so the rest is taken not to.
 - **Asthma tells** (14:26:24-14:30:21): "If they're holding breath and you hit with asthma
@@ -347,6 +388,71 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   list can no longer be tracked as cured. Guilt and inquisition come from Zeal, which we
   have, so their cures should still show to us; not yet seen in a fight since the change.
 
+## F1 against Anzerloi, 2026-10-24 14:33-14:34: four saps, no trail
+
+F1 ran 1m17s: 29 attacks, 28 verses, four angel saps. His mana read 100% (14:33:25), 98%
+(14:33:57, after three saps), 87% (14:34:20), 90% (14:34:36, after the fourth). "Absolutely
+no trail." What it showed, and what changed:
+
+- **He cured as fast as we gave.** An argentum within a second of each lobelia verse, an
+  aurum for each kelp chasten, magnesium for each paralysis, the tree every ten seconds or
+  so, and focus. The lobelia trail never stood, so the saps had little to drain.
+- **His sips and potash put the mana back.** He drank from his vial about every eight
+  seconds and ate potash several times; at full health a sip can be mana. The estimate
+  counted none of it and fell under half, and the kill alert lit while he stood at 98%. Now
+  a sip at or over `SIP_MANA_ABOVE` (80%) health counts `SIP_MANA` (14%) back and moss
+  `MOSS_MANA` (5%), and potash and irid are recognised as eaten.
+- **Inquisition was taken as certain.** `ash rebuke heresy` went at 14:33:43.56 with guilt
+  counted likely, though an argentum had gone down at 43.00, and three saps followed on a
+  doubled value. Now the rebuke's inquisition is only as likely as guilt and spiritburn both
+  being on them. "The weight of his crimes no longer weighs so heavy upon Anzerloi."
+  (14:33:48.21) is taken as inquisition coming off (unconfirmed).
+- **Hellsight was held for a fixed time.** Revelations landed ("Anzerloi claws at his eyes,
+  fingers scrabbling frantically.", 14:34:07.16) and he smoked it away at 14:34:08.80, but the
+  mace chastened asthma for eight blows after. The pipe ("takes a long drag off his pipe") is
+  now a smoke cure shared among what a pipe takes, and proof asthma was not on them; the
+  asthma hold and the slickness panic go on hellsight's odds.
+
+## F1 again, 2026-10-24 14:39:48-14:40:59, on the code above
+
+One sap instead of four. The fork went twice: Revelations with the mace's asthma
+(14:40:30), and Revelations with sloth (14:40:43) followed by the panic that gave slickness
+("The protective coating covering the skin of Anzerloi sloughs off.", 14:40:47). Rebuke
+evil's masochism kept him focusing, seven times, and his mana touched 82%. "It's progress,
+but it's also a mess. No method." Fixed from it:
+
+- **Slickness only with asthma likely.** Two aurum went down between the asthma chasten and
+  the panic, and he smoked the slickness off at 14:40:50. The panic and the hold went on the
+  confirmed list, which still had asthma; they go on its odds now.
+- **The mace waits on equilibrium's guard.** After the panic, `smite ... chasten asthma` went
+  on the next prompt and came back "You must regain equilibrium first." (14:40:47.11): the
+  prompt still showed equilibrium, but the smite needs it and the panic had it.
+- **Masochism's symptom**: "Anzerloi smiles as he rams his fist into his jaw."
+
+## The next exchange in the game's queue (`pvp.queue`)
+
+"Any cure event, I queue new attack ... Saw you eat kelp? Updated your aff table and run the
+attack selection script again. So it'll queue an attack worthy of the new situation"
+(Anzerloi, 2026-10-24 14:51:20-14:51:47). HELP QUEUE (captured 14:52:53):
+`QUEUE ADDCLEAR <queue> <command>` clears that queue and adds; `eqbal` is reported as `eb`;
+ten queued commands at most across all queues. Seen:
+
+```
+queue add eqbal recite guilt anzerloi|smite anzerloi right leg chasten asthma
+[System]: Added RECITE GUILT ANZERLOI|SMITE ANZERLOI RIGHT LEG CHASTEN ASTHMA to your eb queue.
+[System]: Running queued eb command: RECITE GUILT ANZERLOI|SMITE ANZERLOI RIGHT LEG CHASTEN ASTHMA
+```
+
+The game queues the whole line, separators and all, and splits it only when it runs it.
+So `act.sendLine` sends it alone: joined into a batch, a command after it would be queued
+too. With `pvp.queue` on, while balance or equilibrium is out the next exchange is composed
+as though both were back (`priest_pvp.queueNext`) and queued with ADDCLEAR; each cure the
+opponent tracker sees ("opponent.cured") composes it again and requeues it if it changed.
+What its sends record waits for the "Running queued eb command" line; the prompt sends
+nothing of its own while it waits (one not run in `QUEUE_LOST`, 6s, is taken as lost), and
+stopping, a new mode or a new target clears it (`clearqueue eqbal`). Off by default until
+tried in a spar.
+
 ## Their mana, estimated, and the kill window
 
 "Don't contemplate too much as it'll cost us valuable time. Try and estimate it and only use
@@ -355,9 +461,10 @@ the last contemplate (full with none), less our saps and wraths since (sapPercen
 was on them as each went), less `FOCUS_COST` (13%) for each focus seen. Regeneration, moss
 and mana sips are not counted, so it errs low. Contemplate rides on a blow only at or under
 `READ_BELOW` (60%); `killRead` reads when the estimate is under half (never two inside
-`FRESH`) and straight after the kill sap. `killSap` and the 70% step-down use the estimate;
-absolve only a real reading. An angel sap worth under `SAP_WORTH` (5%) is not sent to step
-them down.
+`FRESH`) and straight after the kill sap. Attack also reads on its first blow and every
+`READ_EVERY` (20s): with no reading the estimate stays "full" against anyone who never
+focuses. `killSap` and the saps use the estimate, sized on what is likely on them; absolve
+only a real reading. A sap or wrath sent at the moment of a reading is already in it.
 
 The kill window alert (`pvp.updateAlert`, `priest_pvp.killRows`): LOCKED, ABSOLVE (now /
 in range / a sap away), JUDGE (about 6s with justice, about 12s while locked: Anzerloi, 18:05,

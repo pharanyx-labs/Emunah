@@ -416,8 +416,10 @@ end
 -- conviction percentage and a prayer length, and all seven are once per prayer. Guilt and
 -- Condemnation are not in it, so neither needs nor is limited by anything here.
 --
--- NOT YET KNOWN: the line a successful rebuke prints (M.prayerReset() is the hook for its
--- trigger), and whether reciting one of these spends conviction.
+-- Heresy's rebuke prints "You decree that <name> will pay for her crimes against Creation."
+-- whether or not inquisition lands (2026-10-24 14:09:36, 14:10:12): it ends the prayer, and
+-- says nothing of what it gave. The other rebukes' lines, and whether reciting one of these
+-- spends conviction, are not yet known.
 
 --- verse -> { conviction = %, length = verses }, from VERSES.
 M.VERSE_NEEDS = {
@@ -508,7 +510,11 @@ end, "priest")
 --   prone                                    2
 --   any other affliction                     1
 --
--- and inquisition adds half again to an ANGEL sap, not to `recite wrath`.
+-- and inquisition multiplies an ANGEL sap, not `recite wrath`. Anzerloi's "half again" is
+-- measured as about double: the user's, on him uncured, 2026-10-24 -- the lobelia trail
+-- alone took 11.05% (14:31:23-27; his figures give 10.5), and the trail with justice and
+-- inquisition took 24.4% or more (14:10:25-54; 12.5 before the multiplier). Wrath on the
+-- trail took 11.2% (14:23:10-14), his 11.5 with inquisition unmultiplied.
 --
 -- Whether a sap does anything with none of these present is not stated, so `base` is a
 -- parameter defaulting to 0 rather than a figure. NOTHING SENDS A SAP YET: the syntax,
@@ -523,7 +529,7 @@ M.SAP = {
    mental = 2,
    prone  = 2,
    other  = 1,
-   inquisition = 1.5,
+   inquisition = 2.0,
 }
 
 M.SAP_HEAVY = { guilt = true, spiritburn = true, tenderskin = true, burning = true, ablaze = true }
@@ -552,41 +558,57 @@ end
 
 --- How much of the target's maximum mana one sap takes, as a percentage.
 ---
---- @param afflictions table a list of names, or a set (name -> true)
+--- A set may give each affliction a CHANCE (name -> 0..1) in place of true, and each then
+--- counts for that share of its value: "Each of these relative to that aff's probability"
+--- (Anzerloi, 2026-10-24 15:21:30). Inquisition's multiplier scales the same way.
+---
+--- @param afflictions table a list of names, or a set (name -> true or a chance)
 --- @param opts table|nil { via = "angel"|"wrath" (default angel), base = number }
 --- @return number percent
 --- @return table breakdown { heavy, levels, mental, prone, other, inquisition }
 function M.sapPercent(afflictions, opts)
    opts = opts or {}
    local afflist = emunah.curing.afflist
-   local names = {}
+   local names, weight = {}, {}
    for key, value in pairs(afflictions or {}) do
       local name = type(key) == "number" and value or key
-      if value and type(name) == "string" then names[#names + 1] = name:lower() end
+      if value and type(name) == "string" then
+         name = name:lower()
+         local chance = type(value) == "number" and type(key) == "string" and value or 1
+         if chance > 0 then
+            names[#names + 1] = name
+            weight[name] = math.min(chance, 1)
+         end
+      end
    end
 
    local tally = { heavy = 0, levels = 0, mental = 0, prone = 0, other = 0, inquisition = false }
-   local limbs = {}
+   local limbs, inquisition = {}, 0
    for _, name in ipairs(names) do
       local limb, tier = breakTier(name)
+      local w = weight[name]
       if M.SAP_HEAVY[name] then
-         tally.heavy = tally.heavy + 1
+         tally.heavy = tally.heavy + w
       elseif limb then
          -- A higher tier sits on top of the lower ones, so a limb is worth its worst tier
          -- once, however many of its tiers are listed.
-         if tier > (limbs[limb] or 0) then limbs[limb] = tier end
+         local worth = tier * w
+         if worth > (limbs[limb] or 0) then limbs[limb] = worth end
       elseif name == "prone" then
-         tally.prone = 1
+         tally.prone = math.max(tally.prone, w)
       elseif #afflist.curesVia(name, "focus") > 0 then
-         tally.mental = tally.mental + 1
+         tally.mental = tally.mental + w
       else
          -- Inquisition too: it is an affliction like any other here, and its multiplier
          -- below is separate.
-         tally.other = tally.other + 1
+         tally.other = tally.other + w
       end
-      if name == "inquisition" then tally.inquisition = true end
+      if name == "inquisition" then
+         tally.inquisition = true
+         inquisition = w
+      end
    end
-   for _, tier in pairs(limbs) do tally.levels = tally.levels + tier end
+   for _, worth in pairs(limbs) do tally.levels = tally.levels + worth end
 
    local percent = (tonumber(opts.base) or 0)
       + tally.heavy  * M.SAP.heavy
@@ -595,7 +617,7 @@ function M.sapPercent(afflictions, opts)
       + tally.prone  * M.SAP.prone
       + tally.other  * M.SAP.other
    if tally.inquisition and (opts.via or "angel") == "angel" then
-      percent = percent * M.SAP.inquisition
+      percent = percent * (1 + (M.SAP.inquisition - 1) * inquisition)
    end
    return percent, tally
 end
@@ -651,8 +673,13 @@ end
 --
 -- So the caster's line names the target and the limb. It is summed per limb here and read
 -- by the offence to spread its blows across the legs. A blow the game did not report
--- (missed, parried, or a break with no figure) adds nothing. When the target's own healing
--- resets a limb is not known, so a total only clears with a new fight or target.
+-- (missed, parried, or a break with no figure) adds nothing.
+--
+-- A LIMB THEY STOP FAVOURING IS HEALED: "Anzerloi ceases to favour his left leg." and the
+-- right, a minute after the spar of 2026-10-24 14:39 (14:37:30, 14:37:36), when his salves
+-- had mended them. Its total goes back to nothing. "Counting attacks to legs instead of
+-- actually addressing known prep states on the target" is what Anzerloi warns against
+-- (15:48:02): a running sum of blows is not the leg.
 
 --- name (lower) -> limb ("left leg", "head", ...) -> percent dealt so far
 M.targetLimbs = {}
@@ -845,6 +872,12 @@ local function installTriggers()
          M.targetLimbs[name] = M.targetLimbs[name] or {}
          M.targetLimbs[name][limb] = (M.targetLimbs[name][limb] or 0) + percent
       end))
+   for _, limb in ipairs({ "left leg", "right leg", "left arm", "right arm" }) do
+      keep(tempRegexTrigger([[^(\w+) ceases to favour \w+ ]] .. limb .. [[\.$]], function()
+         local limbs = M.targetLimbs[matches[2]:lower()]
+         if limbs then limbs[limb] = nil end
+      end))
+   end
 
    keep(tempRegexTrigger([[^You can use Desolation again\.$]], function()
       emunah.timers.stop("bashing.desolation")

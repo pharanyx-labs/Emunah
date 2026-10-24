@@ -125,6 +125,9 @@ function M.assert(name, affliction)
 
    M.tracked[name] = M.tracked[name] or {}
    M.tracked[name][affliction] = emunah.util.now()
+   M.odds[name] = M.odds[name] or {}
+   M.odds[name][affliction] = 1
+   if M.suspected[name] then M.suspected[name][affliction] = nil end
    event.raise("opponent.afflicted", name, affliction)
    return true
 end
@@ -139,6 +142,7 @@ function M.forget(name, affliction)
       afflictions[tostring(affliction):lower()] = nil
    else
       M.tracked[name] = nil
+      M.odds[name], M.suspected[name] = nil, nil
    end
    return true
 end
@@ -194,8 +198,13 @@ function M.clear(name)
       if M.defences then M.defences[name] = nil end
       if M.focuses then M.focuses[name] = nil end
       if M.lastEat then M.lastEat[name] = nil end
+      if M.eatenAt then M.eatenAt[name] = nil end
+      M.odds[name], M.suspected[name], M.lastSpread[name] = nil, nil, nil
+      if M.history then M.history[name] = nil end
    else
       M.tracked, M.used, M.defences, M.focuses, M.lastEat = {}, {}, {}, {}, {}
+      M.eatenAt, M.odds, M.suspected, M.lastSpread = {}, {}, {}, {}
+      M.history = {}
    end
 end
 
@@ -229,6 +238,9 @@ local function curativeItems()
    for _, entry in pairs(emunah.curing.deflist.commands) do
       if entry.item then curatives[entry.item] = true end
    end
+   -- Moss cures no affliction, so the tables above never name it: "Anzerloi eats a potash
+   -- crystal." went unseen (2026-10-24 14:33:30), and with it the mana it gave him back.
+   curatives.irid, curatives.potash = true, true
    return curatives
 end
 
@@ -271,9 +283,15 @@ function M.blockedVectors(name)
 end
 
 --- The locks they are in, and what each other lock still needs. See watch.lockProgress().
+--- By the odds, an even chance or better: an aurum on asthma and another kelp affliction
+--- leaves neither certain, and a lock read off the confirmed list would still hold.
+M.LOCK_AT = 0.5
 function M.lockProgress(name)
    name = tostring(name or ""):lower()
-   return emunah.watch.lockProgress(function(affliction) return M.has(name, affliction) end)
+   local odds = M.oddsFor(name)
+   return emunah.watch.lockProgress(function(affliction)
+      return (odds[affliction] or 0) >= M.LOCK_AT
+   end)
 end
 
 --- How many of the lock's afflictions must already be on them before it is worth chasing.
@@ -303,6 +321,120 @@ function M.lockNeeds(name)
 end
 
 -- ---------------------------------------------------------------------------
+-- the odds: how likely each affliction is to be on them
+-- ---------------------------------------------------------------------------
+--
+-- Anzerloi, 2026-10-24 15:20:11-15:21:50: "Iterate over target's existing affs. Preferably
+-- in percent probabilities value ... Each of these relative to that aff's probability. If
+-- 50% I got spiritburn, then + (3.5/0.5)" -- times, by the sense of it: an affliction half
+-- likely counts half. And "Afftracking is really the first thing you should implement,
+-- before any thought of attack protocol" (15:45:44).
+--
+-- M.tracked stays the confirmed picture the locks and the rest decide on. Beside it,
+-- M.odds[name][affliction] is a chance from 0 to 1. A landing line makes it 1, and so does
+-- a verse we sent, which prints none (M.suspect). A cure that could have taken any of
+-- several shares itself among them by their chances (spread): one argentum with guilt,
+-- spiritburn and tenderskin all certain leaves each at two in three. A line naming what
+-- went takes that one off and gives back what the eat was charged to the others.
+
+--- name -> affliction -> chance, 0 to 1.
+M.odds = {}
+--- name -> affliction -> when we sent what gives it, for those never confirmed. A suspicion
+--- no landing line has confirmed lapses after M.SUSPECT_FOR: a verse can fail unseen.
+M.suspected = {}
+M.SUSPECT_FOR = 12
+--- name -> { at, before = { affliction -> chance } }: the last cure shared out.
+M.lastSpread = {}
+
+local function setOdds(name, affliction, chance)
+   M.odds[name] = M.odds[name] or {}
+   M.odds[name][affliction] = chance
+end
+
+--- We sent something that gives `affliction` and nothing says whether it landed. `chance`
+--- (default 1) is for one that lands only on a condition we are unsure of: heresy's
+--- inquisition needs guilt and spiritburn both on them as it goes.
+function M.suspect(name, affliction, chance)
+   name = tostring(name or ""):lower()
+   affliction = tostring(affliction or ""):lower()
+   if name == "" or affliction == "" then return false end
+   chance = math.max(0, math.min(1, tonumber(chance) or 1))
+   if chance <= 0 then return false end
+   setOdds(name, affliction, math.max(chance, (M.odds[name] or {})[affliction] or 0))
+   M.suspected[name] = M.suspected[name] or {}
+   M.suspected[name][affliction] = emunah.util.now()
+   return true
+end
+
+--- The odds for `name` as a table, affliction -> chance (0 included: known gone), with
+--- lapsed suspicions dropped. Afflictions confirmed before any odds were kept count 1.
+function M.oddsFor(name)
+   name = tostring(name or ""):lower()
+   local odds = M.odds[name] or {}
+   local suspected = M.suspected[name] or {}
+   local now = emunah.util.now()
+   for affliction, at in pairs(suspected) do
+      if now - at > M.SUSPECT_FOR then
+         suspected[affliction] = nil
+         odds[affliction] = nil
+      end
+   end
+   local out = {}
+   for affliction, chance in pairs(odds) do out[affliction] = chance end
+   for affliction in pairs(M.tracked[name] or {}) do
+      if out[affliction] == nil then out[affliction] = 1 end
+   end
+   return out
+end
+
+--- The chance `affliction` is on `name`, 0 to 1.
+function M.chance(name, affliction)
+   return M.oddsFor(name)[tostring(affliction or ""):lower()] or 0
+end
+
+--- One cure that `cures` allows, shared among what it could have taken, by their chances:
+--- with a total over one, each keeps 1 - 1/total of its chance; with one or less, it took
+--- them all.
+local function spread(name, cures)
+   local before, total = {}, 0
+   for affliction, chance in pairs(M.oddsFor(name)) do
+      if chance > 0 and cures(affliction) then
+         before[affliction] = chance
+         total = total + chance
+      end
+   end
+   if total <= 0 then return end
+   local keep = total > 1 and (1 - 1 / total) or 0
+   for affliction, chance in pairs(before) do setOdds(name, affliction, chance * keep) end
+   M.lastSpread[name] = { at = emunah.util.now(), before = before }
+   -- "Any cure event, I queue new attack" (Anzerloi, 2026-10-24 14:51:20): the offence hears
+   -- it to choose again.
+   event.raise("opponent.cured", name)
+end
+
+--- A line names the one affliction just cured: it is gone, and a cure shared out a moment
+--- before is given back to the rest.
+local function namedOdds(name, affliction)
+   local last = M.lastSpread[name]
+   if last and last.before[affliction] and emunah.util.now() - last.at <= 2.0 then
+      for other, chance in pairs(last.before) do setOdds(name, other, chance) end
+      M.lastSpread[name] = nil
+   end
+   setOdds(name, affliction, 0)
+   if M.suspected[name] then M.suspected[name][affliction] = nil end
+   event.raise("opponent.cured", name)
+end
+
+local function herbCures(item)
+   return function(affliction)
+      for _, option in ipairs(emunah.curing.afflist.curesVia(affliction, "herb")) do
+         if option.item == item or option.alt == item then return true end
+      end
+      return false
+   end
+end
+
+-- ---------------------------------------------------------------------------
 -- what they are seen using, and what they raise
 -- ---------------------------------------------------------------------------
 
@@ -311,10 +443,27 @@ M.used = {}
 --- name -> defence -> when it was seen going up.
 M.defences = {}
 
+--- name -> vector -> times seen, oldest first: for counting what they did since a moment.
+M.history = {}
+
 local function used(name, vector)
    name = name:lower()
+   local now = emunah.util.now()
    M.used[name] = M.used[name] or {}
-   M.used[name][vector] = emunah.util.now()
+   M.used[name][vector] = now
+   M.history[name] = M.history[name] or {}
+   M.history[name][vector] = M.history[name][vector] or {}
+   table.insert(M.history[name][vector], now)
+end
+
+--- How many times `name` was seen using `vector` (sip, moss, herb, salve, smoke, tree,
+--- focus) after `since`.
+function M.usesSince(name, vector, since)
+   local n = 0
+   for _, at in ipairs(((M.history[tostring(name or ""):lower()] or {})[vector]) or {}) do
+      if at > since then n = n + 1 end
+   end
+   return n
 end
 
 --- Seconds since `name` was seen curing through `vector`, or nil.
@@ -376,9 +525,12 @@ function M.ate(name, desc)
    local item = M.itemFromDescription(desc)
    if not item then return nil end
    used(name, MOSS[item] and "moss" or "herb")
+   spread(name:lower(), herbCures(item))
    local cured, since
    if M.tracked[name:lower()] then cured, since = M.curedBy(name, item) end
    M.lastEat[name:lower()] = { item = item, cured = cured, since = since, at = emunah.util.now() }
+   M.eatenAt[name:lower()] = M.eatenAt[name:lower()] or {}
+   M.eatenAt[name:lower()][item] = emunah.util.now()
    local defence = defenceFromItem(item)
    if defence and not cured then M.defenceUp(name, defence) end
    return item, cured
@@ -406,6 +558,33 @@ end
 
 --- name -> the last thing they ate: { item, cured, since, at }. Read by M.breathHeld().
 M.lastEat = {}
+--- name -> item -> when they last ate it. Read by M.couldHaveCured().
+M.eatenAt = {}
+
+--- Could `name` have cured `affliction` since `since`? True when they ate one of its herbs
+--- (or its mineral), or used any other route that cures it -- focus, tree, salve, smoke --
+--- after that moment. Which affliction an eat or a tree took is often not known, so this
+--- only ever answers "maybe": the offence uses it to doubt an affliction it gave but never
+--- saw land, never to believe one.
+function M.couldHaveCured(name, affliction, since)
+   name = tostring(name or ""):lower()
+   local afflist = emunah.curing.afflist
+   local eaten = M.eatenAt[name] or {}
+   for _, option in ipairs(afflist.curesVia(affliction, "herb")) do
+      if (eaten[option.item] or 0) > since or (option.alt and (eaten[option.alt] or 0) > since) then
+         return true
+      end
+   end
+   local used = M.used[name] or {}
+   for _, vector in ipairs(afflist.vectorsFor(affliction)) do
+      if vector ~= "herb" and (used[vector] or 0) > since then return true end
+   end
+   local tree = emunah.curing.treefunc
+   if tree and tree.CURABLE and tree.CURABLE[affliction] and (used.tree or 0) > since then
+      return true
+   end
+   return false
+end
 
 --- How soon after an eat a held breath says what that eat cured. A tuning number: the
 --- breath is held "immediately" on the cure (Anzerloi, 2026-10-23 14:30:05).
@@ -428,6 +607,7 @@ end
 --- cured, not the recklessness the flake would otherwise have been charged with.
 function M.curedNamed(name, affliction)
    name = tostring(name or ""):lower()
+   namedOdds(name, affliction)
    local eat = M.lastEat[name]
    if eat and eat.cured and eat.cured ~= affliction
       and emunah.util.now() - eat.at <= M.BREATH_AFTER_EAT then
@@ -466,9 +646,55 @@ function M.focused(name)
    used(name, "focus")
    M.focuses[name] = M.focuses[name] or {}
    table.insert(M.focuses[name], emunah.util.now())
-   return curedOneOf(name, function(affliction)
+   local function cures(affliction)
       return #emunah.curing.afflist.curesVia(affliction, "focus") > 0
-   end)
+   end
+   spread(name, cures)
+   return curedOneOf(name, cures)
+end
+
+--- `name` rubbed a salve on `location`: legs, arms, head, torso or body, and "skin" is the
+--- body. One tracked affliction a salve there cures, cured, when it is the only one. The
+--- line does not say which salve, so with two or more both stay.
+function M.salved(name, location)
+   name = tostring(name or ""):lower()
+   used(name, "salve")
+   location = location == "skin" and "body" or tostring(location or "")
+   local function cures(affliction)
+      for _, option in ipairs(emunah.curing.afflist.curesVia(affliction, "salve")) do
+         if option.location == location then return true end
+      end
+      return false
+   end
+   spread(name, cures)
+   return curedOneOf(name, cures)
+end
+
+--- `name` stood against an angel's push. A push with a smite prones only a target with
+--- inquisition (Anzerloi, 2026-10-24 14:04:50), so they have none: it comes off, and the
+--- offence hears it to stop believing its rebuke gave it.
+function M.pushResisted(name)
+   name = tostring(name or ""):lower()
+   M.forget(name, "inquisition")
+   setOdds(name, "inquisition", 0)
+   if M.suspected[name] then M.suspected[name].inquisition = nil end
+   event.raise("opponent.pushResisted", name)
+end
+
+--- `name` smoked a pipe: "Anzerloi takes a long drag off his pipe." (2026-10-24 14:34:08.80,
+--- 1.6s after a Revelations whose hellsight had landed). The line does not say which herb,
+--- so one affliction any pipe cures is shared out among them; with one, it is cured. And
+--- they could smoke, so asthma was not on them.
+function M.smoked(name)
+   name = tostring(name or ""):lower()
+   used(name, "smoke")
+   local function cures(affliction)
+      return #emunah.curing.afflist.curesVia(affliction, "smoke") > 0
+   end
+   spread(name, cures)
+   M.forget(name, "asthma")
+   setOdds(name, "asthma", 0)
+   return curedOneOf(name, cures)
 end
 
 --- `name` touched the tree: one affliction it can cure, cured.
@@ -476,9 +702,11 @@ function M.treeTouched(name)
    name = tostring(name or ""):lower()
    used(name, "tree")
    local tree = emunah.curing.treefunc
-   return curedOneOf(name, function(affliction)
+   local function cures(affliction)
       return tree ~= nil and tree.CURABLE ~= nil and tree.CURABLE[affliction] == true
-   end)
+   end
+   spread(name, cures)
+   return curedOneOf(name, cures)
 end
 
 --- How many times `name` focused since `since`.
