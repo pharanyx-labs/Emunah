@@ -517,6 +517,15 @@ function M.salved(name, location)
    end)
 end
 
+--- `name` stood against an angel's push. A push with a smite prones only a target with
+--- inquisition (Anzerloi, 2026-10-24 14:04:50), so they have none: it comes off, and the
+--- offence hears it to stop believing its rebuke gave it.
+function M.pushResisted(name)
+   name = tostring(name or ""):lower()
+   M.forget(name, "inquisition")
+   event.raise("opponent.pushResisted", name)
+end
+
 --- `name` touched the tree: one affliction it can cure, cured.
 function M.treeTouched(name)
    name = tostring(name or ""):lower()

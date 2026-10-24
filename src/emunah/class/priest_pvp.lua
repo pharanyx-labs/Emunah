@@ -839,15 +839,25 @@ return function(P)
          return M.likely(ctx, "inquisition") and not M.likely(ctx, "ablaze")
       end,
       command = function(ctx) return "angel sear " .. ctx.target end }
-   --- PRONE ON THE FIRE, before this prayer's wrath: wrath burns the body as well when they
-   --- are ablaze and prone (HELP WRATH), and prone is 2% of a sap. On its own ANGEL PUSH
-   --- needs nothing; with a smite, inquisition (HELP PUSH).
-   M.MOVES.firePush = { lane = "equilibrium", skill = "push", gives = "prone",
-      when = function(ctx)
-         return M.likely(ctx, "ablaze") and M.likely(ctx, "inquisition")
-            and not P.prayerSpent.wrath
-      end,
-      command = function(ctx) return "angel push " .. ctx.target end }
+   --- PUSH RIDES ON THE BLOW. "Angel push has two possible outcomes. If you do it without
+   --- smite, target becomes prone. If you do it with smite, the target needs to have
+   --- inquisition to be proned" (Anzerloi, 2026-10-24 14:04:34-14:04:50). On the smite's own
+   --- line it costs no exchange: `smite anzerloi|angel push anzerloi` went through at
+   --- 14:04:00.92, and without inquisition printed "A guardian angel reaches out to push
+   --- Anzerloi back, but he stands his ground." and no "Equilibrium used:". So with
+   --- inquisition likely, a mode with `pushWithBlow` pushes on the blow: prone is 2% of a
+   --- sap, holds them for the kill, and with ablaze lets wrath burn the body (HELP WRATH).
+   --- The answer is evidence either way: stood their ground, no inquisition; proned, it is.
+   M.PUSH_SETTLES = 3.0
+   M.pushRodeAt = nil
+   local function pushWithBlow(mode, ctx)
+      if not (mode and mode.pushWithBlow) or not have.skill("push") then return false end
+      if not M.likely(ctx, "inquisition") or (ctx.afflictions or {}).prone then return false end
+      if M.pushRodeAt and util.now() - M.pushRodeAt < M.PUSH_SETTLES then return false end
+      if not emunah.act.send("angel push " .. ctx.target, { eq = true }) then return false end
+      M.pushRodeAt = util.now()
+      return true
+   end
 
    --- THE FORK AT THE FOURTH VERSE. "At prayer length 4 you have an important fork. You may
    --- recite for hellsight and/or rebuke for inquisition. So on prayer length 3 you check
@@ -1085,11 +1095,12 @@ return function(P)
          exchange    = true,
          readMana    = true,
          readEvery   = M.READ_EVERY,
+         pushWithBlow = true,
          hardSet     = M.attackHardSet,
          prayer      = M.attackPrayer,
          balance     = { "legsmiteChasten" },
          equilibrium = { "hellsightPanic", "slickFasting", "forkSloth", "inquisitionSear",
-                         "pressSap", "firePush" },
+                         "pressSap" },
       },
       -- F2: hold the attack. Curing and the defence keep-up are not this mode's to send,
       -- and no game command for a defensive rotation has been captured.
@@ -1267,7 +1278,11 @@ return function(P)
             percent = M.sapWorth(ctx, move.verse == "wrath" and "wrath" or "angel") })
       end
       if move.skill == "panic" then M.panicAt = now end
-      if move.lane == "balance" then contemplateWithBlow(M.MODES[ctx.mode], ctx) end
+      -- A ridden push may spend equilibrium when it lands, and a contemplate behind it would
+      -- bounce: one or the other on a blow.
+      if move.lane == "balance" and not pushWithBlow(M.MODES[ctx.mode], ctx) then
+         contemplateWithBlow(M.MODES[ctx.mode], ctx)
+      end
       -- The pessimistic guard until the game's own line replaces it ("You may speak another
       -- holy verse." / "Balance used:" / "Equilibrium used:"), as every attack here does.
       --
@@ -1332,9 +1347,18 @@ return function(P)
    -- Slickness confirmed on the target: a panic may follow once it is eaten away.
    emunah.event.register("emunah.opponent.afflicted", function(_, name, affliction)
       local target = emunah.pvp and emunah.pvp.target
-      if affliction == "slickness" and target and name == tostring(target):lower() then
-         M.slickAt = util.now()
+      if not (target and name == tostring(target):lower()) then return end
+      if affliction == "slickness" then M.slickAt = util.now() end
+      -- Proned by a push that rode on a smite: only inquisition does that, so it is on them.
+      if affliction == "prone" and M.pushRodeAt and util.now() - M.pushRodeAt < M.PUSH_SETTLES then
+         M.pushRodeAt = nil
+         emunah.curing.detect.opponent.assert(name, "inquisition")
       end
+   end, "priest-pvp")
+   -- The push stood against: no inquisition on them, whatever the rebuke was taken to give.
+   emunah.event.register("emunah.opponent.pushResisted", function(_, name)
+      M.pushRodeAt = nil
+      if M.given[name] then M.given[name].inquisition = nil end
    end, "priest-pvp")
    -- The prayer ended (priest.prayerReset()): the next verse starts the next one.
    emunah.event.register("emunah.priest.prayerEnded", function()

@@ -13051,7 +13051,20 @@ suite("PvP attack: from the first blow to absolve")
    sent = exchange(0, 10)
    ok(sent:find("recite purge ashden", 1, true), "inquisition on them: purge", sent)
    ok(not sent:find("angel sear", 1, true), "...so no sear: purge set them ablaze", sent)
-   ok(sent:find("angel push ashden", 1, true), "...and the push, prone for wrath", sent)
+   ok(sent:find("smite ashden[^|]*| angel push ashden"),
+      "...and the push rides on the blow: with inquisition it prones", sent)
+   ok(not sent:find("contemplate", 1, true), "...in the contemplate's place on that line", sent)
+   -- The answer is evidence. Proned by a ridden push: inquisition is on them.
+   mock.line("A guardian angel extends a hand in the direction of Ashden, and he is suddenly "
+      .. "sent sprawling to the ground by an invisible force.")
+   ok(opp.has("ashden", "inquisition"), "proned by a push on a smite: inquisition confirmed")
+   mock.line("Ashden stands up.")
+   opp.forget("ashden", "inquisition")
+   -- Stood their ground (2026-10-24 14:04:00.92): no inquisition, whatever the rebuke gave.
+   R.given.ashden = { inquisition = emunah.util.now() }
+   R.pushRodeAt = emunah.util.now()
+   mock.line("A guardian angel reaches out to push Ashden back, but he stands his ground.")
+   ok(not R.likely(ctx(), "inquisition"), "stood their ground: inquisition no longer counted")
    clean()
    R.given.ashden = { inquisition = emunah.util.now() }
    sent = exchange(0, 0)

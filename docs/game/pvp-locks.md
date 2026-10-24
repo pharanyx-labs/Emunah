@@ -305,7 +305,14 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   - **Saps as it goes** (`pressSap`): at any mana when worth `PRESS_SAP` (10%, the whole
     trail), `SAP_WORTH` (5%) at or under 70%.
   - **Fire only on inquisition**: purge on the prayer, `inquisitionSear` on equilibrium, and
-    `firePush` for prone before wrath (HELP WRATH: ablaze and prone burns the body).
+    a push riding on the blow (`pushWithBlow`). "If you do it without smite, target
+    becomes prone. If you do it with smite, the target needs to have inquisition to be
+    proned" (Anzerloi, 2026-10-24 14:04:50). `smite anzerloi|angel push anzerloi` goes on
+    one line (14:04:00.92); without inquisition it prints "A guardian angel reaches out to
+    push Anzerloi back, but he stands his ground." and no "Equilibrium used:". So the
+    answer is evidence: stood their ground clears the inquisition we took the rebuke to
+    give, and proned confirms it. Prone is 2% of a sap, and with ablaze wrath burns the
+    body too (HELP WRATH).
   - **The tree**: chasten paralysis when they touched it within `TREE_RECENT` (10s).
 - **What is likely on them** (`priest_pvp.likely`, `opponent.couldHaveCured`). "You
   calculate it PURELY on what affs your target has at the moment it hits" (14:43:00). A

@@ -57,6 +57,9 @@ opponent.add("ablaze",      [[^Your guardian angel's eyes glow like embers as (\
 opponent.add("prone",       [[^A guardian angel extends a hand in the direction of (\w+), and (?:he|she) is suddenly sent sprawling to the ground by an invisible force\.$]])
 -- 7.6s after the push (13:55:22.57).
 opponent.addCure("prone",   [[^(\w+) stands up\.$]])
+-- A push on a smite's line, into a target without inquisition (2026-10-24 14:04:00.92).
+opponent.watchLine([[^A guardian angel reaches out to push (\w+) back, but \w+ stands \w+ ground\.$]],
+   opponent.pushResisted)
 
 -- Focus and the tree, both seen in the 17:44 spar. Each cures one affliction; it comes off
 -- only when exactly one tracked affliction could be it. Focus also costs their mana.
