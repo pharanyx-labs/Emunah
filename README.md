@@ -217,7 +217,7 @@ src/emunah/
   loot.lua                            -- collect gold by replica number
   class/    adapter priest priest_pvp -- class interface + auto-detection
   commands.lua
-test/       mock_mudlet.lua run.lua   -- 3811 behavioural tests
+test/       mock_mudlet.lua run.lua   -- 3821 behavioural tests
             bench.lua profile.lua     -- per-prompt cost, and where it goes
 package/    .mpackage build project
 tools/      build-xml.py build-commands-page.lua ci.sh

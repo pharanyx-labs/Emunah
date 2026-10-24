@@ -57,6 +57,14 @@ opponent.add("ablaze",      [[^Your guardian angel's eyes glow like embers as (\
 opponent.add("prone",       [[^A guardian angel extends a hand in the direction of (\w+), and (?:he|she) is suddenly sent sprawling to the ground by an invisible force\.$]])
 -- 7.6s after the push (13:55:22.57).
 opponent.addCure("prone",   [[^(\w+) stands up\.$]])
+-- Revelations landing: "And see that which Evil reaps!" then this (2026-10-24 14:34:07.16).
+opponent.add("hellsight",   [[^(\w+) claws at \w+ eyes, fingers scrabbling frantically\.$]])
+-- 4.6s after `ash rebuke heresy` on a target with guilt held (2026-10-24 14:33:43.59 to
+-- 14:33:48.21), on the eat that took guilt. Taken as inquisition coming off: heresy's
+-- rebuke line is "will pay for her crimes against Creation". Not yet confirmed by Anzerloi.
+opponent.addCure("inquisition", [[^The weight of \w+ crimes no longer weighs so heavy upon (\w+)\.$]])
+-- A pipe: one affliction a smoke cures, and they could breathe.
+opponent.watchLine([[^(\w+) takes a long drag off \w+ pipe\.$]], opponent.smoked)
 -- A push on a smite's line, into a target without inquisition (2026-10-24 14:04:00.92).
 opponent.watchLine([[^A guardian angel reaches out to push (\w+) back, but \w+ stands \w+ ground\.$]],
    opponent.pushResisted)

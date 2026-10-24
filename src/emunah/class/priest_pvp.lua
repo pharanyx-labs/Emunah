@@ -286,6 +286,12 @@ return function(P)
    --- FOCUS COSTS ABOUT 13% OF MAXIMUM MANA: the user's own, twice on 2026-10-23, 94% to 81%
    --- at 18:08:23-26 and 85% to 72% at 18:09:00-01. A tuning number for anyone else's.
    M.FOCUS_COST = 13
+   --- A mana elixir: the user's own took 84% to 98% (2026-10-24 14:33:58). Anyone's sip is
+   --- taken for mana while their health is at or over SIP_MANA_ABOVE, or unknown. Tuning.
+   M.SIP_MANA = 14
+   M.SIP_MANA_ABOVE = 80
+   --- Irid moss or potash: some of each. Not measured; a tuning number.
+   M.MOSS_MANA = 5
    --- Contemplate when the estimate is at or under this: close enough to the kill to look.
    M.READ_BELOW = 60
    --- target -> { { at, percent } }: what our saps and wraths were estimated to take.
@@ -309,6 +315,16 @@ return function(P)
       if opponent and opponent.focusesSince then
          estimate = estimate - opponent.focusesSince(ctx.target, since) * M.FOCUS_COST
       end
+      -- What they put back: a sip while their health is high is taken for mana, and moss
+      -- restores some. Uncounted, the estimate fell under half on saps that took nothing
+      -- while he sipped and ate potash, and the kill alert lit at 98% (2026-10-24 14:33).
+      if opponent and opponent.usesSince then
+         if ctx.health == nil or ctx.health >= M.SIP_MANA_ABOVE then
+            estimate = estimate + opponent.usesSince(ctx.target, "sip", since) * M.SIP_MANA
+         end
+         estimate = estimate + opponent.usesSince(ctx.target, "moss", since) * M.MOSS_MANA
+      end
+      estimate = math.min(estimate, 100)
       return estimate > 0 and estimate or 0
    end
 
@@ -328,10 +344,10 @@ return function(P)
       return emunah.curing.detect and emunah.curing.detect.opponent
    end
 
-   local function gave(target, affliction)
+   local function gave(target, affliction, chance)
       local tracker = opponent()
       if target and affliction and tracker and tracker.suspect then
-         tracker.suspect(target, affliction)
+         tracker.suspect(target, affliction, chance)
       end
    end
 
@@ -939,8 +955,9 @@ return function(P)
    --- Attack's chasten: the fork's asthma or kelp, asthma while hellsight is held, paralysis
    --- on a tree in use, then the mode's own order.
    function M.attackChasten(ctx)
-      local now = util.now()
-      local held = M.revelationsAt ~= nil and now - M.revelationsAt < M.HELLSIGHT
+      -- Held while hellsight is likely, not for a set time: at 14:34:08.80 he smoked it away
+      -- 1.6s after it landed, and eight blows chastened asthma into nothing (2026-10-24).
+      local held = M.likely(ctx, "hellsight")
       if (revelationsNow() or held) and not M.likely(ctx, "asthma") then return "asthma" end
       if revelationsNow() then
          for _, aff in ipairs(M.KELP_CHASTEN) do
@@ -1026,6 +1043,7 @@ return function(P)
    local function hellsightHeld(ctx)
       local at = M.revelationsAt
       return at ~= nil and util.now() - at < M.HELLSIGHT and ctx.afflictions.asthma == true
+         and M.likely(ctx, "hellsight")
    end
 
    --- SLICKNESS FROM HELLSIGHT. Panic on a target with hellsight gives slickness, not fear
@@ -1287,7 +1305,12 @@ return function(P)
          local gives = move.gives
          if type(gives) == "function" then gives = gives(ctx) end
          gave(ctx.target, gives)
-         if sin and P.REBUKES[sin] then gave(ctx.target, P.REBUKES[sin].gives) end
+         -- Heresy's inquisition lands only on guilt and spiritburn both: as likely as that.
+         -- At 14:33:43 it went on ash with guilt eaten a moment before, and was taken as
+         -- certain; three saps followed on it (2026-10-24).
+         local chance = sin == "heresy"
+            and M.chance(ctx, "guilt") * M.chance(ctx, "spiritburn") or 1
+         if sin and P.REBUKES[sin] then gave(ctx.target, P.REBUKES[sin].gives, chance) end
       end
       -- What it takes from their mana, for the estimate.
       if move.skill == "sap" or move.verse == "wrath" then

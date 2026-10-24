@@ -13089,6 +13089,37 @@ suite("PvP attack: from the first blow to absolve")
    sent = exchange(0, 0)
    ok(sent:find("angel sear ashden", 1, true), "no conviction for purge: the angel sears", sent)
 
+   -- THE SPAR OF 2026-10-24 14:33-14:34. Heresy on ash with guilt half likely: inquisition
+   -- only half likely, not certain.
+   clean()
+   for _, aff in ipairs({ "guilt", "tenderskin" }) do opp.suspect("ashden", aff) end
+   mock.line("Ashden eats an argentum flake.")
+   ok(math.abs(opp.chance("ashden", "guilt") - 0.5) < 0.01, "(one argentum on two: each half)")
+   sent = exchange(3, 0)
+   ok(sent:find("recite ash ashden rebuke heresy", 1, true),
+      "guilt half likely at the fourth: ash, rebuke heresy", sent)
+   ok(math.abs(opp.chance("ashden", "inquisition") - 0.5) < 0.01,
+      "...and inquisition only as likely as guilt was", opp.chance("ashden", "inquisition"))
+   mock.line("The weight of his crimes no longer weighs so heavy upon Ashden.")
+   eq(opp.chance("ashden", "inquisition"), 0, "\"the weight of his crimes\": inquisition off")
+   -- Hellsight's landing line, and the pipe that smokes it away: the asthma hold ends.
+   clean()
+   mock.line("Ashden claws at his eyes, fingers scrabbling frantically.")
+   ok(opp.has("ashden", "hellsight"), "\"claws at his eyes\": hellsight")
+   ok(R.likely(ctx(), "hellsight"), "(hellsight likely: asthma is held for it)")
+   mock.line("Ashden takes a long drag off his pipe.")
+   ok(not R.likely(ctx(), "hellsight"), "a pipe, hellsight the only smoke cure: gone")
+   eq(opp.chance("ashden", "asthma"), 0, "...and they could smoke: no asthma")
+   eq(R.attackChasten(ctx()) == "asthma", false, "...so the mace stops holding asthma")
+   -- Their sips and moss count back into the estimate.
+   clean()
+   mock.line("Ashden's mana stands at 2500/5000 [50%].")
+   mock.advance(0.1)
+   mock.line("Ashden takes a drink from an elegant diamond vial.")
+   mock.line("Ashden eats a potash crystal.")
+   eq(R.manaEstimate(ctx()), 50 + R.SIP_MANA + R.MOSS_MANA,
+      "a sip at full health and a potash: the estimate climbs back")
+
    -- THE TREE: paralysis shuts it.
    clean()
    mock.line("Ashden touches a tree of life tattoo.")

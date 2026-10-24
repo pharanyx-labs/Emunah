@@ -388,6 +388,31 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   list can no longer be tracked as cured. Guilt and inquisition come from Zeal, which we
   have, so their cures should still show to us; not yet seen in a fight since the change.
 
+## F1 against Anzerloi, 2026-10-24 14:33-14:34: four saps, no trail
+
+F1 ran 1m17s: 29 attacks, 28 verses, four angel saps. His mana read 100% (14:33:25), 98%
+(14:33:57, after three saps), 87% (14:34:20), 90% (14:34:36, after the fourth). "Absolutely
+no trail." What it showed, and what changed:
+
+- **He cured as fast as we gave.** An argentum within a second of each lobelia verse, an
+  aurum for each kelp chasten, magnesium for each paralysis, the tree every ten seconds or
+  so, and focus. The lobelia trail never stood, so the saps had little to drain.
+- **His sips and potash put the mana back.** He drank from his vial about every eight
+  seconds and ate potash several times; at full health a sip can be mana. The estimate
+  counted none of it and fell under half, and the kill alert lit while he stood at 98%. Now
+  a sip at or over `SIP_MANA_ABOVE` (80%) health counts `SIP_MANA` (14%) back and moss
+  `MOSS_MANA` (5%), and potash and irid are recognised as eaten.
+- **Inquisition was taken as certain.** `ash rebuke heresy` went at 14:33:43.56 with guilt
+  counted likely, though an argentum had gone down at 43.00, and three saps followed on a
+  doubled value. Now the rebuke's inquisition is only as likely as guilt and spiritburn both
+  being on them. "The weight of his crimes no longer weighs so heavy upon Anzerloi."
+  (14:33:48.21) is taken as inquisition coming off (unconfirmed).
+- **Hellsight was held for a fixed time.** Revelations landed ("Anzerloi claws at his eyes,
+  fingers scrabbling frantically.", 14:34:07.16) and he smoked it away at 14:34:08.80, but the
+  mace chastened asthma for eight blows after. The pipe ("takes a long drag off his pipe") is
+  now a smoke cure shared among what a pipe takes, and proof asthma was not on them; the
+  asthma hold and the slickness panic go on hellsight's odds.
+
 ## Their mana, estimated, and the kill window
 
 "Don't contemplate too much as it'll cost us valuable time. Try and estimate it and only use
