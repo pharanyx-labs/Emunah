@@ -554,41 +554,57 @@ end
 
 --- How much of the target's maximum mana one sap takes, as a percentage.
 ---
---- @param afflictions table a list of names, or a set (name -> true)
+--- A set may give each affliction a CHANCE (name -> 0..1) in place of true, and each then
+--- counts for that share of its value: "Each of these relative to that aff's probability"
+--- (Anzerloi, 2026-10-24 15:21:30). Inquisition's multiplier scales the same way.
+---
+--- @param afflictions table a list of names, or a set (name -> true or a chance)
 --- @param opts table|nil { via = "angel"|"wrath" (default angel), base = number }
 --- @return number percent
 --- @return table breakdown { heavy, levels, mental, prone, other, inquisition }
 function M.sapPercent(afflictions, opts)
    opts = opts or {}
    local afflist = emunah.curing.afflist
-   local names = {}
+   local names, weight = {}, {}
    for key, value in pairs(afflictions or {}) do
       local name = type(key) == "number" and value or key
-      if value and type(name) == "string" then names[#names + 1] = name:lower() end
+      if value and type(name) == "string" then
+         name = name:lower()
+         local chance = type(value) == "number" and type(key) == "string" and value or 1
+         if chance > 0 then
+            names[#names + 1] = name
+            weight[name] = math.min(chance, 1)
+         end
+      end
    end
 
    local tally = { heavy = 0, levels = 0, mental = 0, prone = 0, other = 0, inquisition = false }
-   local limbs = {}
+   local limbs, inquisition = {}, 0
    for _, name in ipairs(names) do
       local limb, tier = breakTier(name)
+      local w = weight[name]
       if M.SAP_HEAVY[name] then
-         tally.heavy = tally.heavy + 1
+         tally.heavy = tally.heavy + w
       elseif limb then
          -- A higher tier sits on top of the lower ones, so a limb is worth its worst tier
          -- once, however many of its tiers are listed.
-         if tier > (limbs[limb] or 0) then limbs[limb] = tier end
+         local worth = tier * w
+         if worth > (limbs[limb] or 0) then limbs[limb] = worth end
       elseif name == "prone" then
-         tally.prone = 1
+         tally.prone = math.max(tally.prone, w)
       elseif #afflist.curesVia(name, "focus") > 0 then
-         tally.mental = tally.mental + 1
+         tally.mental = tally.mental + w
       else
          -- Inquisition too: it is an affliction like any other here, and its multiplier
          -- below is separate.
-         tally.other = tally.other + 1
+         tally.other = tally.other + w
       end
-      if name == "inquisition" then tally.inquisition = true end
+      if name == "inquisition" then
+         tally.inquisition = true
+         inquisition = w
+      end
    end
-   for _, tier in pairs(limbs) do tally.levels = tally.levels + tier end
+   for _, worth in pairs(limbs) do tally.levels = tally.levels + worth end
 
    local percent = (tonumber(opts.base) or 0)
       + tally.heavy  * M.SAP.heavy
@@ -597,7 +613,7 @@ function M.sapPercent(afflictions, opts)
       + tally.prone  * M.SAP.prone
       + tally.other  * M.SAP.other
    if tally.inquisition and (opts.via or "angel") == "angel" then
-      percent = percent * M.SAP.inquisition
+      percent = percent * (1 + (M.SAP.inquisition - 1) * inquisition)
    end
    return percent, tally
 end

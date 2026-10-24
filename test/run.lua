@@ -12549,9 +12549,9 @@ do
    -- sap takes under half is sapped at once, in any prayer, read again, and absolved.
    opp.clear("ashden"); R.prayerKind = nil
    for _, aff in ipairs({ "guilt", "spiritburn", "tenderskin" }) do opp.assert("ashden", aff) end
-   eq(P.sapAfter(56, { guilt = true, spiritburn = true, tenderskin = true }), 45.5,
-      "(guilt, spiritburn and tenderskin: a sap takes 10.5%)")
-   mock.line("Ashden's mana stands at 2800/5000 [56%].")
+   eq(P.sapAfter(55, { guilt = true, spiritburn = true, tenderskin = true }), 44.5,
+      "(guilt, spiritburn and tenderskin: a sap takes 10.5%, to 45 or under)")
+   mock.line("Ashden's mana stands at 2750/5000 [55%].")
    sent = exchange(0, 0)
    eq(R.prayerKind, "stack", "(the first prayer, nowhere near the drain)")
    ok(sent:find("angel sap ashden", 1, true), "one sap from the kill: the sap goes now", sent)
@@ -12959,7 +12959,6 @@ suite("PvP attack: from the first blow to absolve")
    -- A fresh picture: nothing given, nothing confirmed, every verse usable.
    local function clean()
       mock.advance(R.RECENT + 1)
-      R.given.ashden = {}
       R.sentAt = {}
       R.drains = {}
       P.targetMana = {}
@@ -12993,17 +12992,36 @@ suite("PvP attack: from the first blow to absolve")
    ok(R.manaEstimate(ctx()) < 100, "the estimate counts it", R.manaEstimate(ctx()))
 
    -- THE SAP COUNTS WHAT IS ON THEM AS IT LANDS: "you can't just throw affs, ignore me
-   -- curing them, then throw a sap" (14:42:45). One argentum and every lobelia affliction we
-   -- gave before it is in doubt.
+   -- curing them, then throw a sap" (14:42:45), each "relative to that aff's probability"
+   -- (15:21:30). One argentum takes one of the three, not known which: each is two in three.
    ok(R.sapWorth(ctx()) >= 10.5, "(guilt, spiritburn, tenderskin: 10.5%)", R.sapWorth(ctx()))
    mock.advance(0.5)
    mock.line("Ashden eats an argentum flake.")
-   eq(R.sapWorth(ctx()), R.SAP_BASE, "an argentum eaten: none of them is counted, only the base")
+   ok(math.abs(R.sapWorth(ctx()) - 7) < 0.01, "one argentum: each two in three, 7%",
+      R.sapWorth(ctx()))
+   ok(math.abs(opp.chance("ashden", "guilt") - 2 / 3) < 0.01, "...guilt among them",
+      opp.chance("ashden", "guilt"))
+   mock.line("Ashden eats an argentum flake.")
+   ok(math.abs(R.sapWorth(ctx()) - 3.5) < 0.01, "a second: each one in three, 3.5%",
+      R.sapWorth(ctx()))
+   ok(not R.likely(ctx(), "guilt"), "...and none of them likely any more")
+   -- A line naming the cure: guilt went, and the eat is not charged to the others.
+   clean()
+   for _, aff in ipairs({ "guilt", "spiritburn" }) do opp.suspect("ashden", aff) end
+   mock.line("Ashden eats an argentum flake.")
+   mock.line("Ashden straightens, as if some great burden had been lifted from his shoulders.")
+   eq(opp.chance("ashden", "guilt"), 0, "the eat named as guilt: guilt gone")
+   eq(opp.chance("ashden", "spiritburn"), 1, "...and spiritburn certain again")
+   -- Nothing on them, nothing taken (15:45:11).
+   clean()
+   eq(R.sapWorth(ctx()), 0, "no afflictions: the sap is worth nothing")
+   eq(P.sapPercent({ spiritburn = 0.5 }), 1.75,
+      "\"If 50% I got spiritburn\": half of its 3.5%")
 
    -- THE FORK, INQUISITION: "if target has either guilt or spiritburn, you can recite the
    -- other and rebuke heresy" (14:38:55).
    clean()
-   R.given.ashden = { spiritburn = emunah.util.now() }
+   opp.suspect("ashden", "spiritburn")
    sent = exchange(3, 0)
    ok(sent:find("recite guilt ashden rebuke heresy", 1, true),
       "spiritburn on them at the fourth verse: guilt, rebuke heresy", sent)
@@ -13038,7 +13056,7 @@ suite("PvP attack: from the first blow to absolve")
    -- Wrath at the fork when it and a sap would bring absolve in reach.
    clean()
    local now = emunah.util.now()
-   R.given.ashden = { guilt = now, spiritburn = now, tenderskin = now }
+   for _, aff in ipairs({ "guilt", "spiritburn", "tenderskin" }) do opp.suspect("ashden", aff) end
    mock.line("Ashden's mana stands at 3000/5000 [60%].")
    sent = exchange(3, 25)
    ok(sent:find("recite wrath ashden rebuke heresy", 1, true),
@@ -13047,7 +13065,7 @@ suite("PvP attack: from the first blow to absolve")
    -- FIRE ONCE THEY HAVE INQUISITION: purge on the prayer, then prone for wrath's burn; or
    -- the angel's sear when purge cannot go.
    clean()
-   R.given.ashden = { inquisition = emunah.util.now() }
+   opp.suspect("ashden", "inquisition")
    sent = exchange(0, 10)
    ok(sent:find("recite purge ashden", 1, true), "inquisition on them: purge", sent)
    ok(not sent:find("angel sear", 1, true), "...so no sear: purge set them ablaze", sent)
@@ -13061,12 +13079,12 @@ suite("PvP attack: from the first blow to absolve")
    mock.line("Ashden stands up.")
    opp.forget("ashden", "inquisition")
    -- Stood their ground (2026-10-24 14:04:00.92): no inquisition, whatever the rebuke gave.
-   R.given.ashden = { inquisition = emunah.util.now() }
+   opp.suspect("ashden", "inquisition")
    R.pushRodeAt = emunah.util.now()
    mock.line("A guardian angel reaches out to push Ashden back, but he stands his ground.")
    ok(not R.likely(ctx(), "inquisition"), "stood their ground: inquisition no longer counted")
    clean()
-   R.given.ashden = { inquisition = emunah.util.now() }
+   opp.suspect("ashden", "inquisition")
    sent = exchange(0, 0)
    ok(sent:find("angel sear ashden", 1, true), "no conviction for purge: the angel sears", sent)
 
@@ -13080,7 +13098,7 @@ suite("PvP attack: from the first blow to absolve")
    -- left stale, and absolve on a real reading under half.
    clean()
    now = emunah.util.now()
-   R.given.ashden = { guilt = now, spiritburn = now, tenderskin = now }
+   for _, aff in ipairs({ "guilt", "spiritburn", "tenderskin" }) do opp.suspect("ashden", aff) end
    mock.line("Ashden's mana stands at 2750/5000 [55%].")
    sent = exchange(1, 0)
    ok(sent:find("angel sap ashden", 1, true), "55% less a 10.5% sap is under 45: sap", sent)
@@ -13092,7 +13110,7 @@ suite("PvP attack: from the first blow to absolve")
    ok(sent:find("angel absolve ashden", 1, true), "under half by a real reading: absolve", sent)
    clean()
    mock.line("Ashden's mana stands at 3000/5000 [60%].")
-   R.given.ashden = { guilt = emunah.util.now() }
+   opp.suspect("ashden", "guilt")
    local at60 = { target = "ashden", mana = P.mana("ashden"), afflictions = {} }
    ok(not R.MOVES.killSap.when(at60), "60% less 3.5%: no kill sap")
    ok(R.MOVES.pressSap.when({ target = "ashden", mana = P.mana("ashden"),
@@ -13102,7 +13120,7 @@ suite("PvP attack: from the first blow to absolve")
    ok(not pvp.enabled and pvp.target == nil, "the kill clears the target and ends the fight")
 
    opp.clear("ashden"); P.targetMana = {}; P.targetLimbs = {}; P.prayerSpent = {}
-   R.given, R.drains, R.sentAt = {}, {}, {}
+   R.drains, R.sentAt = {}, {}
    emunah.config.set("pvp.mode", nil)
    emunah.timers.stopAll()
    mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1",
@@ -13182,7 +13200,8 @@ suite("PvP chasten: named early, a pool later, and the capstone")
    emunah.class.active.pvp.PRESS_SAP = math.huge
    local function blow()
       emunah.timers.stopAll()
-      emunah.class.active.pvp.given = {}
+      emunah.curing.detect.opponent.odds.ashden = nil
+      emunah.curing.detect.opponent.suspected.ashden = nil
       mock.sent = {}
       mock.feed("Char.Vitals", { bal = "1", eq = "1" })
       return table.concat(mock.sent, " | ")
@@ -13226,7 +13245,8 @@ suite("PvP chasten: named early, a pool later, and the capstone")
    ok(pvp.setMode("offence"), "offence mode")
    local function routeBlow()
       emunah.timers.stopAll()
-      emunah.class.active.pvp.given = {}
+      emunah.curing.detect.opponent.odds.ashden = nil
+      emunah.curing.detect.opponent.suspected.ashden = nil
       mock.sent = {}
       mock.feed("Char.Vitals", { bal = "1", eq = "1", charstats = {
          "prayer_length: 1", "conviction: 10" } })

@@ -789,8 +789,11 @@ target from full into absolve's range.
              (14:16:22.88: the three-verse prayer lapsed for 15% conviction, 5% a verse)
 ```
 
-- **A sap on nothing takes about 1.2-1.75%** (95 and 66 of 5428), a little more than that for
-  his regeneration in between. `priest_pvp.SAP_BASE` takes the lower.
+- **A sap on nothing took 95 and 66 of 5428** (1.75%, 1.2%), but his mana was not still:
+  "Bear in mind my mana is not static. When you sapped I was below 100%, and also
+  regenerating it back. Just use set values" (Anzerloi, 15:19:22-15:19:51), and "sap_value
+  should only be above 0 if the target has any actual affs" (15:45:11). So a sap on nothing
+  counts as nothing.
 - **Spiritburn and tenderskin are cured with no line of their own**: each went with an
   argentum eaten 0.2-0.3s after its verse, and only guilt prints one. So an eat of their
   herb is all there is, which is what `opponent.couldHaveCured` goes on.

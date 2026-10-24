@@ -314,13 +314,21 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
     give, and proned confirms it. Prone is 2% of a sap, and with ablaze wrath burns the
     body too (HELP WRATH).
   - **The tree**: chasten paralysis when they touched it within `TREE_RECENT` (10s).
-- **What is likely on them** (`priest_pvp.likely`, `opponent.couldHaveCured`). "You
-  calculate it PURELY on what affs your target has at the moment it hits" (14:43:00). A
-  verse or rebuke prints no landing line, so what one gives counts for `LIKELY_FOR` (8s)
-  unless they ate its herb or mineral, or used another route that cures it, since; one
-  argentum doubts every lobelia affliction before it. Chastens and angel afflictions have
-  landing lines and count only when confirmed. Used for the sap's size and the fork, never
-  for absolve, the locks or the mentals' gate.
+- **What is on them, as chances** (`opponent.oddsFor`, `priest_pvp.picture`). "Iterate over
+  target's existing affs. Preferably in percent probabilities value ... Each of these
+  relative to that aff's probability. If 50% I got spiritburn, then + (3.5/0.5)" (Anzerloi,
+  2026-10-24 15:20-15:21; times, by the sense of it), and "Afftracking is really the first
+  thing you should implement, before any thought of attack protocol" (15:45:44). A landing
+  line, or a verse we sent (which prints none: `opponent.suspect`), makes an affliction
+  certain. A cure that could have taken any of several shares itself among them by their
+  chances: with a total over one, each keeps 1 - 1/total; with one or less, it took them
+  all. One argentum on a certain guilt, spiritburn and tenderskin leaves each at two in
+  three; a second, one in three. A line naming the cure (guilt's "straightens") takes that
+  one off and gives the eat back to the rest. A suspicion never confirmed lapses after
+  `SUSPECT_FOR` (12s). The sap is each affliction's value times its chance, and nothing on
+  them is nothing taken ("sap_value should only be above 0 if the target has any actual
+  affs", 15:45:11). Likely, for the fork, is an even chance or better. The confirmed picture
+  (`opponent.list`) is unchanged, and absolve, the locks and the mentals' gate decide on it.
 - **The kill wherever it is** (Anzerloi, 2026-10-23 14:38:17-14:39:20): "You win by having
   their mana low enough. If that does not present itself on its own (on your
   contemplations), you attempt to create conditions to attack their mana with saps. Most of

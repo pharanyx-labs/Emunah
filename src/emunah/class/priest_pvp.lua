@@ -312,56 +312,66 @@ return function(P)
       return estimate > 0 and estimate or 0
    end
 
-   --- WHAT WE GAVE, AND MAY STILL BE ON THEM. A verse never says it landed, and every
-   --- decision about what they HAVE rests on the confirmed picture (ctx.afflictions). But a
-   --- sap's size and Anzerloi's fork need a working guess: "if target has either guilt or
-   --- spiritburn, you can recite the other and rebuke heresy" (2026-10-24 14:38:55). So an
-   --- affliction we sent is LIKELY on them for M.LIKELY_FOR seconds, until they could have
-   --- cured it: ate its herb or mineral, or used any other route that cures it
-   --- (opponent.couldHaveCured). Which one an eat took is often not known, so one argentum
-   --- doubts every lobelia affliction given before it, and this errs low. Absolve, the locks
-   --- and the mentals' gate never use it.
-   M.LIKELY_FOR = 8.0
-   --- target -> affliction -> when we last sent something that gives it.
-   M.given = {}
+   --- WHAT IS ON THEM, AS CHANCES. "Iterate over target's existing affs. Preferably in
+   --- percent probabilities value ... Each of these relative to that aff's probability"
+   --- (Anzerloi, 2026-10-24 15:20-15:21). The opponent tracker keeps the odds
+   --- (opponent.oddsFor): a landing line or a verse we sent makes one certain, and a cure
+   --- that could have taken any of several shares itself among them. A verse prints no
+   --- landing line, so what it gives is suspected as it goes (M.send, opponent.suspect).
+   --- The sap and the fork go on these; absolve, the locks and the mentals' gate on what is
+   --- confirmed.
+   ---
+   --- Likely is an even chance or better.
+   M.LIKELY_AT = 0.5
 
-   local function gave(target, affliction, at)
-      if not (target and affliction) then return end
-      M.given[target] = M.given[target] or {}
-      M.given[target][affliction] = at
+   local function opponent()
+      return emunah.curing.detect and emunah.curing.detect.opponent
    end
 
-   function M.likely(ctx, affliction)
-      if (ctx.afflictions or {})[affliction] then return true end
-      local at = (M.given[ctx.target] or {})[affliction]
-      if at == nil or util.now() - at > M.LIKELY_FOR then return false end
-      local opponent = emunah.curing.detect and emunah.curing.detect.opponent
-      return not (opponent and opponent.couldHaveCured
-         and opponent.couldHaveCured(ctx.target, affliction, at))
+   local function gave(target, affliction)
+      local tracker = opponent()
+      if target and affliction and tracker and tracker.suspect then
+         tracker.suspect(target, affliction)
+      end
    end
 
-   --- The confirmed afflictions and the likely ones, as a set.
-   function M.likelySet(ctx)
+   --- affliction -> chance, from the tracker's odds and what ctx confirms.
+   function M.picture(ctx)
       local out = {}
-      for affliction in pairs(ctx.afflictions or {}) do out[affliction] = true end
-      for affliction in pairs(M.given[ctx.target] or {}) do
-         if not out[affliction] and M.likely(ctx, affliction) then out[affliction] = true end
+      for affliction in pairs(ctx.afflictions or {}) do out[affliction] = 1 end
+      local tracker = opponent()
+      if tracker and tracker.oddsFor and ctx.target then
+         for affliction, chance in pairs(tracker.oddsFor(ctx.target)) do
+            out[affliction] = chance > 0 and chance or nil
+         end
       end
       return out
    end
 
-   --- What a sap (or wrath, via "wrath") would take from them now, by what is likely on
-   --- them. A verse sent on the same line lands just ahead of the sap, so it counts.
-   ---
-   --- A SAP ON NOTHING STILL TAKES SOME. The user's, on a clean Anzerloi, 2026-10-24: 5413 to
-   --- 5318 of 5428 (14:15:10-14:15:46, 1.75%), and 5318 to 5252 (14:16:18-14:16:23, 1.2%)
-   --- with every verse eaten away as it landed. Both are less his regeneration in between,
-   --- so the true figure is a little over; this takes the lower. Wrath's is not measured.
-   M.SAP_BASE = 1.2
+   function M.chance(ctx, affliction)
+      return M.picture(ctx)[affliction] or 0
+   end
+
+   function M.likely(ctx, affliction)
+      return M.chance(ctx, affliction) >= M.LIKELY_AT
+   end
+
+   --- The afflictions likely on them, as a set.
+   function M.likelySet(ctx)
+      local out = {}
+      for affliction, chance in pairs(M.picture(ctx)) do
+         if chance >= M.LIKELY_AT then out[affliction] = true end
+      end
+      return out
+   end
+
+   --- What a sap (or wrath, via "wrath") would take from them now: each affliction's value
+   --- by its chance. A verse sent on the same line lands just ahead of the sap, so it
+   --- counts. Nothing on them, nothing taken: "sap_value should only be above 0 if the
+   --- target has any actual affs" (15:45:11), and "Just use set values" (15:19:51) of the
+   --- user's measuring through his regeneration.
    function M.sapWorth(ctx, via)
-      via = via or "angel"
-      return (P.sapPercent(M.likelySet(ctx), {
-         via = via, base = via == "angel" and M.SAP_BASE or 0 }))
+      return (P.sapPercent(M.picture(ctx), { via = via or "angel" }))
    end
 
    --- CONTEMPLATE RIDES ON THE BLOW. `smite anzerloi head chasten ...;contemplate anzerloi`
@@ -1276,8 +1286,8 @@ return function(P)
       if move.verse then
          local gives = move.gives
          if type(gives) == "function" then gives = gives(ctx) end
-         gave(ctx.target, gives, now)
-         if sin and P.REBUKES[sin] then gave(ctx.target, P.REBUKES[sin].gives, now) end
+         gave(ctx.target, gives)
+         if sin and P.REBUKES[sin] then gave(ctx.target, P.REBUKES[sin].gives) end
       end
       -- What it takes from their mana, for the estimate.
       if move.skill == "sap" or move.verse == "wrath" then
@@ -1349,7 +1359,7 @@ return function(P)
          M.lastVerse, M.revelationsAt, M.lastExchange = nil, nil, nil
          M.panicAt, M.slickAt = nil, nil
          P.targetLimbs = {}
-         M.drains, M.fightAt, M.given = {}, util.now(), {}
+         M.drains, M.fightAt = {}, util.now()
       end, "priest-pvp")
    end
    -- Slickness confirmed on the target: a panic may follow once it is eaten away.
@@ -1363,10 +1373,9 @@ return function(P)
          emunah.curing.detect.opponent.assert(name, "inquisition")
       end
    end, "priest-pvp")
-   -- The push stood against: no inquisition on them, whatever the rebuke was taken to give.
-   emunah.event.register("emunah.opponent.pushResisted", function(_, name)
+   -- The push stood against: no inquisition on them (the tracker takes it off).
+   emunah.event.register("emunah.opponent.pushResisted", function()
       M.pushRodeAt = nil
-      if M.given[name] then M.given[name].inquisition = nil end
    end, "priest-pvp")
    -- The prayer ended (priest.prayerReset()): the next verse starts the next one.
    emunah.event.register("emunah.priest.prayerEnded", function()
