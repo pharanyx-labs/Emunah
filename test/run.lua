@@ -12147,7 +12147,8 @@ do
    eq(sap({ "stupidity" }), 2, "a mental affliction (focus cures it) 2")
    eq(sap({ "prone" }), 2, "prone 2")
    eq(sap({ "paralysis" }), 1, "anything else 1")
-   eq(sap({ "guilt", "inquisition" }, { via = "angel" }), 6.75, "inquisition: half again on an angel sap")
+   eq(sap({ "guilt", "inquisition" }, { via = "angel" }), 9,
+      "inquisition: about double on an angel sap (measured 2026-10-24, 14:10 and 14:31)")
    eq(sap({ "guilt", "inquisition" }, { via = "wrath" }), 4.5, "...and not on recite wrath")
    eq(priest.sapAfter(60, { "guilt", "spiritburn", "tenderskin", "burning" }), 46,
       "60% less 14 leaves 46")

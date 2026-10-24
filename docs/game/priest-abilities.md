@@ -831,6 +831,22 @@ ash, a contemplate, wrath, a contemplate:
 - The first prayer's 45% (against 20% for the same prayer at 14:09:36) is not explained by
   the capture; leftover conviction from a prayer before it is the likely reason.
 
+### The trail's sap without inquisition, and inquisition's multiplier (2026-10-24 14:31)
+
+Anzerloi uncured: burn, guilt, ash, then
+
+```
+14:31:23.03  contemplate anzerloi    Anzerloi's mana stands at 5403/5428 [99%].
+14:31:24.33  angel sap anzerloi      Your guardian angel casts a piercing glance at Anzerloi.
+14:31:27.23  contemplate anzerloi    Anzerloi's mana stands at 4803/5428 [88%].
+```
+
+**The lobelia trail alone: 600 of 5428, 11.05%**, against 3 x 3.5 = 10.5% by Anzerloi's
+figures, which hold for the angel's sap as they did for wrath. The sap at 14:10:47 took 24.4%
+or more on the same trail with justice and (likely) inquisition, 12.5% before any
+multiplier: **inquisition about doubles a sap**, not the half again first given.
+`priest.SAP.inquisition` is 2.0.
+
 ### Conviction drains when the prayer lapses (13:48:20)
 
 ```

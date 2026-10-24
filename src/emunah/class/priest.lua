@@ -510,7 +510,11 @@ end, "priest")
 --   prone                                    2
 --   any other affliction                     1
 --
--- and inquisition adds half again to an ANGEL sap, not to `recite wrath`.
+-- and inquisition multiplies an ANGEL sap, not `recite wrath`. Anzerloi's "half again" is
+-- measured as about double: the user's, on him uncured, 2026-10-24 -- the lobelia trail
+-- alone took 11.05% (14:31:23-27; his figures give 10.5), and the trail with justice and
+-- inquisition took 24.4% or more (14:10:25-54; 12.5 before the multiplier). Wrath on the
+-- trail took 11.2% (14:23:10-14), his 11.5 with inquisition unmultiplied.
 --
 -- Whether a sap does anything with none of these present is not stated, so `base` is a
 -- parameter defaulting to 0 rather than a figure. NOTHING SENDS A SAP YET: the syntax,
@@ -525,7 +529,7 @@ M.SAP = {
    mental = 2,
    prone  = 2,
    other  = 1,
-   inquisition = 1.5,
+   inquisition = 2.0,
 }
 
 M.SAP_HEAVY = { guilt = true, spiritburn = true, tenderskin = true, burning = true, ablaze = true }
