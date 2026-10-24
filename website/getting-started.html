@@ -187,7 +187,7 @@ emset system.update false      <span class="c"># reload what is on disk, without
 
 <h2 id="developing">Developing</h2>
 <p>Edit any file under <code>src/</code> and run <code>emreload</code>. There is nothing to reimport and no client to restart, and a module added to the manifest is picked up on the same reload.</p>
-<p>The suite of 3778 behavioural tests runs the real modules against a simulated Mudlet, with no client involved. Mudlet runs Lua 5.1, and so does the suite. GitHub Actions runs the same command on every change.</p>
+<p>The suite of 3801 behavioural tests runs the real modules against a simulated Mudlet, with no client involved. Mudlet runs Lua 5.1, and so does the suite. GitHub Actions runs the same command on every change.</p>
 <pre><code>sh tools/ci.sh                  <span class="c"># compile as Lua 5.1, then the suite</span>
 lua5.1 test/run.lua             <span class="c"># the test suite</span>
 lua5.1 test/bench.lua           <span class="c"># per-prompt cost, in microseconds and bytes</span>

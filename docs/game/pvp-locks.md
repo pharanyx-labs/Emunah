@@ -281,21 +281,47 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   mentals." So no order names a mental; recklessness is never chastened, and `chasten
   mind` only for its capstone, since the game may pick recklessness from the pool; the
   slickness sequence gives one mental and stops (`M.MENTALS`, `M.mentalCount`).
-- **F1 draws them into the kill** (the user, 2026-10-23: "just get us in a position where
-  we can actually get a kill"). Attack mode reads their mana with each blow
-  (`readMana`), smites the legs evenly ("working their legs as another possible source
-  for sap power, and to immobilize them during the kill window", 14:40:09), and at or
-  under `M.DRAIN_BELOW` (70%) on a fresh reading steps them down with wrath and the
-  angel's sap (`stepWrath`, `stepSap`; "step them down when it's worth it (such as
-  bringing 100% mana down to 60%)", 2026-10-15 12:41). The kill moves below finish it.
-  Judge is not used: its duration and lines are uncaptured.
+- **F1 is Anzerloi's exploit route** (2026-10-24 13:33-14:44, after a spar where F1 sent
+  21 attacks with no contemplate, no sap and no conviction). "You think - what can I
+  exploit now? If can't, what can I push based on current circumstance to maybe exploit on
+  next attack? ... at the end you default to 'push kelps'." In `class/priest_pvp.lua`:
+  - **A reading to start from**: contemplate rides on the first blow, and again every
+    `READ_EVERY` (20s), as well as at or under `READ_BELOW`.
+  - **The lobelia trail** (`attackPrayer`, `ATTACK_LOBELIA`): burn, guilt, ash. Tenderskin,
+    guilt and spiritburn are 3.5% of a sap each and one herb (lobelia/argentum) cures all
+    three, one per eat. "That was not a trail that would've netted much sap value" (13:33:05)
+    of the old kelp chastens; "It's just a kelp aff."
+  - **The fork at the fourth verse** ("At prayer length 4 you have an important fork. You may
+    recite for hellsight and/or rebuke for inquisition", 14:37). Wrath first if it and a sap
+    would bring absolve in reach; then Revelations when they are asthmatic or have another
+    kelp affliction (`hellsightReady`, 14:39); then the other of guilt and spiritburn with
+    `rebuke heresy` ("if target has either guilt or spiritburn, you can recite the other and
+    rebuke heresy, now they got inquis", 14:38:55: the verse lands before its rebuke); then
+    wrath worth a sap. The rebuke closes the prayer (evil when heresy cannot land), which is
+    what banks conviction. Revelations without heresy stays open.
+  - **Hard set** ("you hard set your attack and don't let anything override it", 14:41:17,
+    `attackHardSet`): on Revelations' prompt equilibrium is only absolve, strip or the fork's
+    sloth; the mace chastens asthma, else a kelp affliction, with it (14:40:29).
+  - **Saps as it goes** (`pressSap`): at any mana when worth `PRESS_SAP` (10%, the whole
+    trail), `SAP_WORTH` (5%) at or under 70%.
+  - **Fire only on inquisition**: purge on the prayer, `inquisitionSear` on equilibrium, and
+    `firePush` for prone before wrath (HELP WRATH: ablaze and prone burns the body).
+  - **The tree**: chasten paralysis when they touched it within `TREE_RECENT` (10s).
+- **What is likely on them** (`priest_pvp.likely`, `opponent.couldHaveCured`). "You
+  calculate it PURELY on what affs your target has at the moment it hits" (14:43:00). A
+  verse or rebuke prints no landing line, so what one gives counts for `LIKELY_FOR` (8s)
+  unless they ate its herb or mineral, or used another route that cures it, since; one
+  argentum doubts every lobelia affliction before it. Chastens and angel afflictions have
+  landing lines and count only when confirmed. Used for the sap's size and the fork, never
+  for absolve, the locks or the mentals' gate.
 - **The kill wherever it is** (Anzerloi, 2026-10-23 14:38:17-14:39:20): "You win by having
   their mana low enough. If that does not present itself on its own (on your
   contemplations), you attempt to create conditions to attack their mana with saps. Most of
   the fight is setting up conditions that would allow you to create such conditions to
   sap." Every attacking mode, in any prayer: absolve on a fresh reading under half; sap at
-  once when a fresh reading and one sap (`sapPercent` over what is confirmed) would take
-  them under half (`killSap`); contemplate again straight after it (`killRead`), since a
+  once when the estimate and one sap (`sapWorth`, over what is likely on them) would take
+  them to 45% or under (`killSap`, `KILL_SAP_TO`: "if target.MP - sap_value =< 45 then",
+  2026-10-24 14:44:33); contemplate again straight after it (`killRead`), since a
   sap shows no figure. A shield is stripped first: "Dazzle and purity bypass shield"
   (14:43:48), so the rest is taken not to.
 - **Asthma tells** (14:26:24-14:30:21): "If they're holding breath and you hit with asthma
@@ -355,9 +381,10 @@ the last contemplate (full with none), less our saps and wraths since (sapPercen
 was on them as each went), less `FOCUS_COST` (13%) for each focus seen. Regeneration, moss
 and mana sips are not counted, so it errs low. Contemplate rides on a blow only at or under
 `READ_BELOW` (60%); `killRead` reads when the estimate is under half (never two inside
-`FRESH`) and straight after the kill sap. `killSap` and the 70% step-down use the estimate;
-absolve only a real reading. An angel sap worth under `SAP_WORTH` (5%) is not sent to step
-them down.
+`FRESH`) and straight after the kill sap. Attack also reads on its first blow and every
+`READ_EVERY` (20s): with no reading the estimate stays "full" against anyone who never
+focuses. `killSap` and the saps use the estimate, sized on what is likely on them; absolve
+only a real reading. A sap or wrath sent at the moment of a reading is already in it.
 
 The kill window alert (`pvp.updateAlert`, `priest_pvp.killRows`): LOCKED, ABSOLVE (now /
 in range / a sap away), JUDGE (about 6s with justice, about 12s while locked: Anzerloi, 18:05,

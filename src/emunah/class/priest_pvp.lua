@@ -302,7 +302,8 @@ return function(P)
          estimate, since = 100, M.fightAt or 0
       end
       for _, drain in ipairs(M.drains[ctx.target] or {}) do
-         if drain.at >= since then estimate = estimate - drain.percent end
+         -- After it, not at it: a reading taken as a sap went already shows what it took.
+         if drain.at > since then estimate = estimate - drain.percent end
       end
       local opponent = emunah.curing.detect and emunah.curing.detect.opponent
       if opponent and opponent.focusesSince then
@@ -311,16 +312,76 @@ return function(P)
       return estimate > 0 and estimate or 0
    end
 
+   --- WHAT WE GAVE, AND MAY STILL BE ON THEM. A verse never says it landed, and every
+   --- decision about what they HAVE rests on the confirmed picture (ctx.afflictions). But a
+   --- sap's size and Anzerloi's fork need a working guess: "if target has either guilt or
+   --- spiritburn, you can recite the other and rebuke heresy" (2026-10-24 14:38:55). So an
+   --- affliction we sent is LIKELY on them for M.LIKELY_FOR seconds, until they could have
+   --- cured it: ate its herb or mineral, or used any other route that cures it
+   --- (opponent.couldHaveCured). Which one an eat took is often not known, so one argentum
+   --- doubts every lobelia affliction given before it, and this errs low. Absolve, the locks
+   --- and the mentals' gate never use it.
+   M.LIKELY_FOR = 8.0
+   --- target -> affliction -> when we last sent something that gives it.
+   M.given = {}
+
+   local function gave(target, affliction, at)
+      if not (target and affliction) then return end
+      M.given[target] = M.given[target] or {}
+      M.given[target][affliction] = at
+   end
+
+   function M.likely(ctx, affliction)
+      if (ctx.afflictions or {})[affliction] then return true end
+      local at = (M.given[ctx.target] or {})[affliction]
+      if at == nil or util.now() - at > M.LIKELY_FOR then return false end
+      local opponent = emunah.curing.detect and emunah.curing.detect.opponent
+      return not (opponent and opponent.couldHaveCured
+         and opponent.couldHaveCured(ctx.target, affliction, at))
+   end
+
+   --- The confirmed afflictions and the likely ones, as a set.
+   function M.likelySet(ctx)
+      local out = {}
+      for affliction in pairs(ctx.afflictions or {}) do out[affliction] = true end
+      for affliction in pairs(M.given[ctx.target] or {}) do
+         if not out[affliction] and M.likely(ctx, affliction) then out[affliction] = true end
+      end
+      return out
+   end
+
+   --- What a sap (or wrath, via "wrath") would take from them now, by what is likely on
+   --- them. A verse sent on the same line lands just ahead of the sap, so it counts.
+   function M.sapWorth(ctx, via)
+      return (P.sapPercent(M.likelySet(ctx), { via = via or "angel" }))
+   end
+
    --- CONTEMPLATE RIDES ON THE BLOW. `smite anzerloi head chasten ...;contemplate anzerloi`
    --- goes through as one line (the user, 2026-10-23 14:37:02), as Anzerloi said it would
    --- ("you can also append 'contemplate '..target to your attack without issue", 14:53:13).
    --- So a mode that reads mana takes its reading with every blow that has none fresh,
    --- and equilibrium stays free for the moves. AB CONTEMPLATE: 1.00s of equilibrium, armed
    --- as it leaves, which is also what holds a second one until the reading is back.
+   ---
+   --- AND A READING TO START FROM. A mode with `readEvery` (attack) reads on its first blow,
+   --- and again once the last reading is that many seconds old. With no reading the estimate
+   --- is "full", and against someone who never focuses it stays there, so nothing sapped:
+   --- Anzerloi, 2026-10-24 13:29:55-13:30:45, 21 attacks with no contemplate and no sap. On
+   --- the blow it costs a second of equilibrium inside the mace's 2.3s, which the next
+   --- exchange does not wait for.
+   M.READ_EVERY = 20
    local function contemplateWithBlow(mode, ctx)
       if not (mode and mode.readMana) or freshMana(ctx) then return end
       -- Only when they may be close: a contemplate is a second of equilibrium.
-      if M.manaEstimate(ctx) > M.READ_BELOW then return end
+      local due = M.manaEstimate(ctx) <= M.READ_BELOW
+      if mode.readEvery then
+         local reading = ctx.mana
+         if reading == nil or reading.at < (M.fightAt or 0)
+            or util.now() - reading.at >= mode.readEvery then
+            due = true
+         end
+      end
+      if not due then return end
       if not have.skill("contemplate") then return end
       if emunah.act.send("contemplate " .. ctx.target, { eq = true }, "eq") then
          M.sentAt.contemplate = util.now()
@@ -387,7 +448,7 @@ return function(P)
       -- inquisition/you are giving it in the same attack" (Anzerloi, 2026-10-23 14:03:16).
       -- Only once it is confirmed on them: no mode here gives it in the attack that burns.
       purge        = verse("purge", "ablaze",
-         { when = function(ctx) return ctx.afflictions.inquisition == true end }),
+         { when = function(ctx) return M.likely(ctx, "inquisition") end }),
       revelations  = verse("revelations", "hellsight", { when = M.asthmaSecure }),
       reflection   = verse("reflection", nil, { cost = 2.70 }),
       wrath        = verse("wrath", nil, { cost = 3.00 }),
@@ -415,7 +476,8 @@ return function(P)
       -- window" (Anzerloi, 2026-10-23 14:40:09).
       legsmiteChasten = { lane = "balance", skill = "mace", when = mace,
          command = function(ctx)
-            local aff = chastenPick(ctx, M.CHASTEN[ctx.mode] or M.CHASTEN.offence)
+            local aff = ctx.mode == "attack" and M.attackChasten(ctx)
+               or chastenPick(ctx, M.CHASTEN[ctx.mode] or M.CHASTEN.offence)
             local leg = M.legFor(ctx.target)
             M.lastLeg[ctx.target] = leg
             return ("smite %s %s chasten %s"):format(ctx.target, leg, aff), "chasten:" .. aff
@@ -479,13 +541,18 @@ return function(P)
    --- again at once, so the absolve follows it. The sap's share is sapPercent() over what
    --- is confirmed on them, which only undercounts: nothing unconfirmed adds to it.
    M.KILL_WINDOW = 10
+   --- The kill sap goes when it would leave them at or under this, a margin below absolve's
+   --- 50 for their regeneration and the estimate's error: "if target.MP - sap_value =< 45
+   --- then" (Anzerloi, 2026-10-24 14:44:33). "Hey my sap value is gonna be 30 and my target
+   --- has 60 mana. Recite something good and angel sap" (14:43:44).
+   M.KILL_SAP_TO = 45
    --- The sap that takes them under half, by the estimate (M.manaEstimate): a fresh
    --- reading when there is one, the reading less what has gone since when not.
    M.MOVES.killSap = { lane = "equilibrium", skill = "sap", again = true,
       when = function(ctx)
          local estimate = M.manaEstimate(ctx)
          if P.absolveKills(estimate) then return false end
-         return P.absolveKills(P.sapAfter(estimate, ctx.afflictions))
+         return estimate - M.sapWorth(ctx) <= M.KILL_SAP_TO
       end,
       command = function(ctx) return "angel sap " .. ctx.target end }
    --- The reading absolve waits for: straight after the kill sap, or whenever the estimate
@@ -738,14 +805,190 @@ return function(P)
       local estimate = M.manaEstimate(ctx)
       return not P.absolveKills(estimate) and estimate <= M.DRAIN_BELOW
    end
-   M.MOVES.stepWrath = onlyWhen("wrath", M.drainDue)
-   -- Its own move, not onlyWhen("sap"): the plain sap wants a fresh reading, and every sap
-   -- leaves the reading stale, so the step-down would stop after one.
-   M.MOVES.stepSap   = { lane = "equilibrium", skill = "sap", again = true,
+
+   -- -----------------------------------------------------------------------------------
+   -- attack (F1): what can be exploited now, else what sets one up
+   -- -----------------------------------------------------------------------------------
+   --
+   -- Anzerloi, 2026-10-24 13:36: "You think - what can I exploit now? If can't, what can I
+   -- push based on current circumstance to maybe exploit on next attack? If not if not if
+   -- not, and at the end you default to 'push kelps'." And "That was not a trail that
+   -- would've netted much sap value" of F1's kelp chastens (13:33:05): the sap's trail is
+   -- the LOBELIA one. Guilt, spiritburn and tenderskin are 3.5% each, and one herb cures all
+   -- three, one per eat, so three verses running put them on faster than they come off.
+
+   --- SAPPING AS THE ATTACK GOES. A sap worth M.PRESS_SAP goes at any mana, not only once
+   --- they are near ("you attempt to create conditions to attack their mana with saps",
+   --- 2026-10-23 14:38). Inside M.DRAIN_BELOW, M.SAP_WORTH is enough. Its own move, not
+   --- onlyWhen("sap"): the plain sap wants a fresh reading, and every sap leaves it stale.
+   --- Ten is the whole lobelia trail at once (3 x 3.5%): the trail stuck is the exploit.
+   M.PRESS_SAP = 10
+   M.MOVES.pressSap = { lane = "equilibrium", skill = "sap", again = true,
       when = function(ctx)
-         return M.drainDue(ctx) and P.sapPercent(ctx.afflictions) >= M.SAP_WORTH
+         if P.absolveKills(M.manaEstimate(ctx)) then return false end
+         return M.sapWorth(ctx) >= (M.drainDue(ctx) and M.SAP_WORTH or M.PRESS_SAP)
       end,
       command = function(ctx) return "angel sap " .. ctx.target end }
+
+   --- FIRE ONCE THEY HAVE INQUISITION. "Don't set people on fire at all unless they have
+   --- inquisition/you are giving it in the same attack" (2026-10-23 14:03:16). With
+   --- spiritburn on them each tick of fire takes mana too (HELP ASH), and ablaze is a 3.5%
+   --- sap affliction. Purge does it on the prayer; the angel's sear on equilibrium.
+   M.MOVES.inquisitionSear = { lane = "equilibrium", skill = "sear", gives = "ablaze",
+      when = function(ctx)
+         return M.likely(ctx, "inquisition") and not M.likely(ctx, "ablaze")
+      end,
+      command = function(ctx) return "angel sear " .. ctx.target end }
+   --- PRONE ON THE FIRE, before this prayer's wrath: wrath burns the body as well when they
+   --- are ablaze and prone (HELP WRATH), and prone is 2% of a sap. On its own ANGEL PUSH
+   --- needs nothing; with a smite, inquisition (HELP PUSH).
+   M.MOVES.firePush = { lane = "equilibrium", skill = "push", gives = "prone",
+      when = function(ctx)
+         return M.likely(ctx, "ablaze") and M.likely(ctx, "inquisition")
+            and not P.prayerSpent.wrath
+      end,
+      command = function(ctx) return "angel push " .. ctx.target end }
+
+   --- THE FORK AT THE FOURTH VERSE. "At prayer length 4 you have an important fork. You may
+   --- recite for hellsight and/or rebuke for inquisition. So on prayer length 3 you check
+   --- whether either of those would be a good idea" (Anzerloi, 2026-10-24 14:37-14:38).
+   M.ATTACK_PRAYER_LENGTH = 4
+
+   --- INQUISITION: "if target has either guilt or spiritburn, you can recite the other and
+   --- rebuke heresy, now they got inquis" (14:38:55). The verse lands before its rebuke.
+   function M.heresyWith(ctx, verseName)
+      if not (have.skill("rebuke") and P.prayerAllows("heresy")) then return false end
+      local guilt = verseName == "guilt" or M.likely(ctx, "guilt")
+      local spiritburn = verseName == "ash" or M.likely(ctx, "spiritburn")
+      return guilt and spiritburn
+   end
+
+   --- HELLSIGHT: "Is my target asthmatic? If not, do they have at least one other kelp aff?
+   --- If either one of those is true, you can recite hellsight and either chasten asthma if
+   --- they don't have it, or perform sloth for weariness (if they don't have it) or chasten
+   --- a kelp aff" (14:39-14:40). The rest of that exchange is M.attackChasten and forkSloth.
+   local function kelpLikely(ctx, except)
+      for affliction in pairs(M.likelySet(ctx)) do
+         if affliction ~= except and isKelp(affliction) then return true end
+      end
+      return false
+   end
+   function M.hellsightReady(ctx)
+      return M.likely(ctx, "asthma") or kelpLikely(ctx, "asthma")
+   end
+   M.MOVES.forkRevelations = setmetatable({ when = M.hellsightReady },
+      { __index = M.MOVES.revelations })
+   --- Wrath at the fork when it is worth a sap of its own; when a kill is in reach, always.
+   M.MOVES.forkWrath = onlyWhen("wrath", function(ctx)
+      return M.sapWorth(ctx, "wrath") >= M.SAP_WORTH
+   end)
+
+   --- Revelations went out on this prompt.
+   local function revelationsNow()
+      return M.thisTick.prayer == true and M.lastVerse ~= nil
+         and M.lastVerse.name == "revelations"
+   end
+   M.MOVES.forkSloth = setmetatable({ when = function(ctx)
+      return revelationsNow() and M.likely(ctx, "asthma") and not M.likely(ctx, "weakness")
+   end }, { __index = M.MOVES.sloth })
+
+   --- HARD SET. "If you see such an opportunity, you hard set your attack and don't let
+   --- anything override it, THIS is what you want to do" (Anzerloi, 2026-10-24 14:41:17).
+   --- On the prompt Revelations goes, equilibrium is the fork's or nothing: the mace's asthma
+   --- or kelp goes with it unless sloth is the fork's piece. Only the kill, and a shield
+   --- that would stop the blow, come before it.
+   function M.attackHardSet(lane)
+      if lane == "equilibrium" and revelationsNow() then
+         return { "absolve", "strip", "forkSloth" }
+      end
+      return nil
+   end
+
+   --- They touched the tree this recently: paralysis shuts it. A tuning number. Anzerloi
+   --- touched his four times in 50 seconds (2026-10-24 13:29:58-13:30:40).
+   M.TREE_RECENT = 10
+
+   --- Attack's chasten: the fork's asthma or kelp, asthma while hellsight is held, paralysis
+   --- on a tree in use, then the mode's own order.
+   function M.attackChasten(ctx)
+      local now = util.now()
+      local held = M.revelationsAt ~= nil and now - M.revelationsAt < M.HELLSIGHT
+      if (revelationsNow() or held) and not M.likely(ctx, "asthma") then return "asthma" end
+      if revelationsNow() then
+         for _, aff in ipairs(M.KELP_CHASTEN) do
+            if not M.likely(ctx, aff) and not recent("chasten:" .. aff) then return aff end
+         end
+      end
+      local opponent = emunah.curing.detect and emunah.curing.detect.opponent
+      local ago = opponent and opponent.usedAgo and opponent.usedAgo(ctx.target, "tree")
+      if ago ~= nil and ago < M.TREE_RECENT and not M.likely(ctx, "paralysis")
+         and not recent("chasten:paralysis") then
+         return "paralysis"
+      end
+      return chastenPick(ctx, M.CHASTEN.attack)
+   end
+
+   --- F1'S PRAYER. The first three verses lay the lobelia trail, so the fourth can fork; the
+   --- fourth takes wrath when a kill is in reach, then hellsight, then the verse that makes
+   --- heresy land, then wrath worth a sap; and the prayer closes on a rebuke. Closing is
+   --- what banks the conviction wrath (20%) and revelations (10%) need: a prayer that never
+   --- closes grants none (13:29:55-13:30:45, 21 verses, and conviction only once F1 stopped).
+   M.ATTACK_LOBELIA = { "burn", "guilt", "ash" }
+
+   local function attackVerse(ctx, names)
+      -- One whose affliction is not already likely first: that verse would be wasted.
+      for pass = 1, 2 do
+         for _, name in ipairs(names) do
+            local move = M.MOVES[name]
+            if move and allowed(name, move, ctx) then
+               local gives = move.gives
+               if type(gives) == "function" then gives = gives(ctx) end
+               if pass == 2 or not (gives and M.likely(ctx, gives)) then return move, name end
+            end
+         end
+      end
+      return nil
+   end
+
+   --- The sin attack's verse closes the prayer with, or false for none.
+   function M.attackRebuke(ctx, verseName)
+      if not have.skill("rebuke") then return false end
+      if P.prayer().length + 1 < M.ATTACK_PRAYER_LENGTH then return false end
+      if M.heresyWith(ctx, verseName) then return "heresy" end
+      -- Revelations without heresy stays open: "don't rebuke, and on next attack guilt
+      -- rebuke a mental/perform sloth" (2026-10-23 16:08:36).
+      if verseName == "revelations" then return false end
+      for _, sin in ipairs({ "evil", "chaos", "darkness" }) do
+         if P.prayerAllows(sin) then return sin end
+      end
+      return false
+   end
+
+   function M.attackPrayer(ctx)
+      local names = {}
+      local function add(name) names[#names + 1] = name end
+      if P.prayer().length + 1 >= M.ATTACK_PRAYER_LENGTH then
+         local estimate = M.manaEstimate(ctx)
+         if not P.absolveKills(estimate)
+            and P.absolveKills(estimate - M.sapWorth(ctx, "wrath") - M.sapWorth(ctx)) then
+            add("wrath")
+         end
+         add("forkRevelations")
+         -- The other of guilt and spiritburn, for heresy.
+         local guilt, spiritburn = M.likely(ctx, "guilt"), M.likely(ctx, "spiritburn")
+         if spiritburn and not guilt then add("guilt") end
+         if guilt and not spiritburn then add("ash") end
+         add("forkWrath")
+      else
+         if ctx.rebounding and not ctx.heresy then add("unflinching") end
+         add("purge")
+      end
+      for _, name in ipairs(M.ATTACK_LOBELIA) do add(name) end
+      add("condemnation")
+      local move, name = attackVerse(ctx, names)
+      if not move then return nil end
+      return setmetatable({ rebuke = M.attackRebuke(ctx, move.verse) }, { __index = move }), name
+   end
 
    --- When angel panic was sent last, and when slickness was last confirmed on the target.
    M.panicAt = nil
@@ -841,9 +1084,12 @@ return function(P)
       attack = {
          exchange    = true,
          readMana    = true,
-         prayer      = { "purge", "stepWrath", "revelations", "unflinching", "guilt", "ash" },
+         readEvery   = M.READ_EVERY,
+         hardSet     = M.attackHardSet,
+         prayer      = M.attackPrayer,
          balance     = { "legsmiteChasten" },
-         equilibrium = { "hellsightPanic", "slickFasting", "stepSap" },
+         equilibrium = { "hellsightPanic", "slickFasting", "forkSloth", "inquisitionSear",
+                         "pressSap", "firePush" },
       },
       -- F2: hold the attack. Curing and the defence keep-up are not this mode's to send,
       -- and no game command for a defensive rotation has been captured.
@@ -928,7 +1174,7 @@ return function(P)
    --- route's prayer is, a function choosing one.
    local function planLane(mode, lane, ctx)
       local spec = M.LANES[lane]
-      local moves = mode[lane]
+      local moves = mode.hardSet and mode.hardSet(lane, ctx) or mode[lane]
       if not (spec and moves) then return nil end
       if not spec.ready() then return nil end
       if type(moves) == "function" then return moves(ctx) end
@@ -1004,11 +1250,21 @@ return function(P)
          if move.verse == "revelations" then M.revelationsAt = now end
       end
       if move.skill == "strip" then M.strippedAt[ctx.target] = now end
+      -- What a verse and its rebuke give, for M.likely. Only these: they print no landing
+      -- line. A chasten and the angel's afflictions do, so those are believed only when the
+      -- line comes ("You calculate it PURELY on what affs your target has at the moment it
+      -- hits", Anzerloi, 2026-10-24 14:43:00).
+      if move.verse then
+         local gives = move.gives
+         if type(gives) == "function" then gives = gives(ctx) end
+         gave(ctx.target, gives, now)
+         if sin and P.REBUKES[sin] then gave(ctx.target, P.REBUKES[sin].gives, now) end
+      end
       -- What it takes from their mana, for the estimate.
       if move.skill == "sap" or move.verse == "wrath" then
          M.drains[ctx.target] = M.drains[ctx.target] or {}
-         table.insert(M.drains[ctx.target], { at = now, percent = P.sapPercent(ctx.afflictions,
-            { via = move.verse == "wrath" and "wrath" or "angel" }) })
+         table.insert(M.drains[ctx.target], { at = now,
+            percent = M.sapWorth(ctx, move.verse == "wrath" and "wrath" or "angel") })
       end
       if move.skill == "panic" then M.panicAt = now end
       if move.lane == "balance" then contemplateWithBlow(M.MODES[ctx.mode], ctx) end
@@ -1042,7 +1298,7 @@ return function(P)
          elseif P.absolveKills(estimate) then
             rows[#rows + 1] = { "ABSOLVE", "in range", ("about %d%% by estimate; reading it")
                :format(estimate) }
-         elseif P.absolveKills(P.sapAfter(estimate, ctx.afflictions)) then
+         elseif P.absolveKills(estimate - M.sapWorth(ctx)) then
             rows[#rows + 1] = { "ABSOLVE", "a sap away", ("about %d%% by estimate"):format(estimate) }
          end
       end
@@ -1070,7 +1326,7 @@ return function(P)
          M.lastVerse, M.revelationsAt, M.lastExchange = nil, nil, nil
          M.panicAt, M.slickAt = nil, nil
          P.targetLimbs = {}
-         M.drains, M.fightAt = {}, util.now()
+         M.drains, M.fightAt, M.given = {}, util.now(), {}
       end, "priest-pvp")
    end
    -- Slickness confirmed on the target: a panic may follow once it is eaten away.

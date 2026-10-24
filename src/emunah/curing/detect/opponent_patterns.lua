@@ -52,6 +52,11 @@ opponent.add("asthma",      [[^(\w+) exhales loudly\.$]])
 -- Confusion landing: right after "The curse of confusion is brought down on to your victim."
 -- at 17:44:40.85 on 2026-10-23, "Anzerloi looks about bemusedly."
 opponent.add("confusion",   [[^(\w+) looks about bemusedly\.$]])
+-- Our angel's sear and push, 2026-10-24 13:54:49 and 13:55:14, on Anzerloi.
+opponent.add("ablaze",      [[^Your guardian angel's eyes glow like embers as (\w+) is seared and bursts into flame\.$]])
+opponent.add("prone",       [[^A guardian angel extends a hand in the direction of (\w+), and (?:he|she) is suddenly sent sprawling to the ground by an invisible force\.$]])
+-- 7.6s after the push (13:55:22.57).
+opponent.addCure("prone",   [[^(\w+) stands up\.$]])
 
 -- Focus and the tree, both seen in the 17:44 spar. Each cures one affliction; it comes off
 -- only when exactly one tracked affliction could be it. Focus also costs their mana.
@@ -86,8 +91,14 @@ opponent.watchEats()
 -- ---------------------------------------------------------------------------
 
 opponent.watchUse("sip", [[^(\w+) takes a drink from .+ vial\.$]])
-opponent.watchUse("salve", [[^(\w+) takes some salve from a vial and rubs it on (?:his|her) skin\.$]])
 opponent.watchUse("salve", [[^(\w+) applies an? \w+ \w+ to (?:himself|herself)\.$]])
+-- A salve and where it went, which narrows what it cured (opponent.salved): "rubs it on
+-- his legs" (2026-10-24 13:30:32.06, as our blows worked his legs), "on his body" (13:54:55.32,
+-- 6s after our sear set him ablaze), and "on (his|her) skin" from Synbios's defences.
+for _, location in ipairs({ "legs", "arms", "head", "torso", "body", "skin" }) do
+   opponent.watchLine([[^(\w+) takes some salve from a vial and rubs it on \w+ ]] .. location
+      .. [[\.$]], function(name) opponent.salved(name, location) end)
+end
 
 -- Our own insomnia is "You clench your fists, grit your teeth, and banish all possibility
 -- of sleep." [reference]; this is the same act seen from outside.

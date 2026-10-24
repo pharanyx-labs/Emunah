@@ -194,8 +194,10 @@ function M.clear(name)
       if M.defences then M.defences[name] = nil end
       if M.focuses then M.focuses[name] = nil end
       if M.lastEat then M.lastEat[name] = nil end
+      if M.eatenAt then M.eatenAt[name] = nil end
    else
       M.tracked, M.used, M.defences, M.focuses, M.lastEat = {}, {}, {}, {}, {}
+      M.eatenAt = {}
    end
 end
 
@@ -379,6 +381,8 @@ function M.ate(name, desc)
    local cured, since
    if M.tracked[name:lower()] then cured, since = M.curedBy(name, item) end
    M.lastEat[name:lower()] = { item = item, cured = cured, since = since, at = emunah.util.now() }
+   M.eatenAt[name:lower()] = M.eatenAt[name:lower()] or {}
+   M.eatenAt[name:lower()][item] = emunah.util.now()
    local defence = defenceFromItem(item)
    if defence and not cured then M.defenceUp(name, defence) end
    return item, cured
@@ -406,6 +410,33 @@ end
 
 --- name -> the last thing they ate: { item, cured, since, at }. Read by M.breathHeld().
 M.lastEat = {}
+--- name -> item -> when they last ate it. Read by M.couldHaveCured().
+M.eatenAt = {}
+
+--- Could `name` have cured `affliction` since `since`? True when they ate one of its herbs
+--- (or its mineral), or used any other route that cures it -- focus, tree, salve, smoke --
+--- after that moment. Which affliction an eat or a tree took is often not known, so this
+--- only ever answers "maybe": the offence uses it to doubt an affliction it gave but never
+--- saw land, never to believe one.
+function M.couldHaveCured(name, affliction, since)
+   name = tostring(name or ""):lower()
+   local afflist = emunah.curing.afflist
+   local eaten = M.eatenAt[name] or {}
+   for _, option in ipairs(afflist.curesVia(affliction, "herb")) do
+      if (eaten[option.item] or 0) > since or (option.alt and (eaten[option.alt] or 0) > since) then
+         return true
+      end
+   end
+   local used = M.used[name] or {}
+   for _, vector in ipairs(afflist.vectorsFor(affliction)) do
+      if vector ~= "herb" and (used[vector] or 0) > since then return true end
+   end
+   local tree = emunah.curing.treefunc
+   if tree and tree.CURABLE and tree.CURABLE[affliction] and (used.tree or 0) > since then
+      return true
+   end
+   return false
+end
 
 --- How soon after an eat a held breath says what that eat cured. A tuning number: the
 --- breath is held "immediately" on the cure (Anzerloi, 2026-10-23 14:30:05).
@@ -468,6 +499,21 @@ function M.focused(name)
    table.insert(M.focuses[name], emunah.util.now())
    return curedOneOf(name, function(affliction)
       return #emunah.curing.afflist.curesVia(affliction, "focus") > 0
+   end)
+end
+
+--- `name` rubbed a salve on `location`: legs, arms, head, torso or body, and "skin" is the
+--- body. One tracked affliction a salve there cures, cured, when it is the only one. The
+--- line does not say which salve, so with two or more both stay.
+function M.salved(name, location)
+   name = tostring(name or ""):lower()
+   used(name, "salve")
+   location = location == "skin" and "body" or tostring(location or "")
+   return curedOneOf(name, function(affliction)
+      for _, option in ipairs(emunah.curing.afflist.curesVia(affliction, "salve")) do
+         if option.location == location then return true end
+      end
+      return false
    end)
 end
 

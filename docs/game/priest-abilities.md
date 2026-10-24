@@ -151,6 +151,31 @@ long enough to repay the lost swing. Desolation costs neither balance nor equili
 there is nothing to repay — it only waits on its own cooldown and rage, gated additionally on
 `denizens.isDenizen()` since HELP restricts it to denizens.
 
+### Angel Sear and Angel Push on an adventurer (2026-10-24)
+
+Captured by the user against Anzerloi, verbatim:
+
+```
+13:54:49.18  angel sear anzerloi
+             Your guardian angel's eyes glow like embers as Anzerloi is seared and bursts into flame.
+             Equilibrium used: 2.50s.
+13:54:55.32  Anzerloi takes some salve from a vial and rubs it on his body.
+13:55:14.98  angel push anzerloi
+             You beseech your guardian to strike down Anzerloi.
+             A guardian angel extends a hand in the direction of Anzerloi, and he is suddenly sent sprawling to
+             the ground by an invisible force.
+             Equilibrium used: 2.10s.
+13:55:22.57  Anzerloi stands up.
+```
+
+The sear's line confirms ablaze, the push's confirms prone, and "stands up" cures it
+(`curing/detect/opponent_patterns.lua`). He salved his body six seconds after the sear: a
+mending salve there cures ablaze, so a salve on a named location takes off the one tracked
+affliction a salve there cures, when there is only one (`opponent.salved`). Push's
+equilibrium is 2.10s here against HELP's 2.20s. `hunt heresy` at 13:54:19.00 printed "Rage
+fills you as the thought of heresy inspires you to greater efforts." and "Equilibrium used:
+4.00s.", mana 95% to 85%.
+
 ### Angel Strip
 
 `ANGEL STRIP <target>`: equilibrium 1.80s, 10 Angel power and 100 mana; adventurers and
