@@ -429,6 +429,30 @@ but it's also a mess. No method." Fixed from it:
   prompt still showed equilibrium, but the smite needs it and the panic had it.
 - **Masochism's symptom**: "Anzerloi smiles as he rams his fist into his jaw."
 
+## The next exchange in the game's queue (`pvp.queue`)
+
+"Any cure event, I queue new attack ... Saw you eat kelp? Updated your aff table and run the
+attack selection script again. So it'll queue an attack worthy of the new situation"
+(Anzerloi, 2026-10-24 14:51:20-14:51:47). HELP QUEUE (captured 14:52:53):
+`QUEUE ADDCLEAR <queue> <command>` clears that queue and adds; `eqbal` is reported as `eb`;
+ten queued commands at most across all queues. Seen:
+
+```
+queue add eqbal recite guilt anzerloi|smite anzerloi right leg chasten asthma
+[System]: Added RECITE GUILT ANZERLOI|SMITE ANZERLOI RIGHT LEG CHASTEN ASTHMA to your eb queue.
+[System]: Running queued eb command: RECITE GUILT ANZERLOI|SMITE ANZERLOI RIGHT LEG CHASTEN ASTHMA
+```
+
+The game queues the whole line, separators and all, and splits it only when it runs it.
+So `act.sendLine` sends it alone: joined into a batch, a command after it would be queued
+too. With `pvp.queue` on, while balance or equilibrium is out the next exchange is composed
+as though both were back (`priest_pvp.queueNext`) and queued with ADDCLEAR; each cure the
+opponent tracker sees ("opponent.cured") composes it again and requeues it if it changed.
+What its sends record waits for the "Running queued eb command" line; the prompt sends
+nothing of its own while it waits (one not run in `QUEUE_LOST`, 6s, is taken as lost), and
+stopping, a new mode or a new target clears it (`clearqueue eqbal`). Off by default until
+tried in a spar.
+
 ## Their mana, estimated, and the kill window
 
 "Don't contemplate too much as it'll cost us valuable time. Try and estimate it and only use

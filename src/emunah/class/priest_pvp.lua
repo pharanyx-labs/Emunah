@@ -56,14 +56,56 @@ return function(P)
    --- What each lane's sends use up. The prayer lane's own balance is its timer.
    local SPENDS = { balance = "bal", equilibrium = "eq" }
 
+   --- THE GAME'S QUEUE. "Any cure event, I queue new attack ... Saw you eat kelp? Updated
+   --- your aff table and run the attack selection script again. So it'll queue an attack
+   --- worthy of the new situation" (Anzerloi, 2026-10-24 14:51:20-14:51:47). With pvp.queue
+   --- on, while balance or equilibrium is out the next exchange is composed as though both
+   --- were back and put in the game's queue (HELP QUEUE: `QUEUE ADDCLEAR eqbal <command>`
+   --- clears that queue and adds it), and composed again on every cure the tracker sees. The
+   --- game runs it the moment both return, with no round trip, and says so: "[System]:
+   --- Running queued eb command: RECITE GUILT ANZERLOI|SMITE ANZERLOI RIGHT LEG CHASTEN
+   --- ASTHMA" (14:53:51.55; the separator goes through). What a move's send records -- the
+   --- verse spent, the timers armed, what it gave -- waits for that line.
+   ---
+   --- While composing, M.composing = { parts, commits, verse } and every send goes into it.
+   M.composing = nil
+   --- The exchange in the game's queue: { line, commits, at }.
+   M.queued = nil
+   --- A queued exchange the game has not run in this long is taken as lost.
+   M.QUEUE_LOST = 6.0
+
+   --- Send now, or add to the exchange being composed. `commit` runs once it has gone.
+   local function emit(command, needs, spends, commit)
+      if M.composing then
+         table.insert(M.composing.parts, command)
+         if commit then table.insert(M.composing.commits, commit) end
+         return true
+      end
+      if not emunah.act.send(command, needs, spends) then return false end
+      if commit then commit() end
+      return true
+   end
+
+   --- Is a lane free for the exchange being composed? Balance and equilibrium will be, when
+   --- the queue runs it; a verse only if its balance is back by then.
+   local function composingReady(lane)
+      if lane ~= "prayer" then return true end
+      if timers.ready("pvp.prayer") then return true end
+      local wait = math.max(timers.remaining("attack.balance") or 0,
+         timers.remaining("cure.equilibrium") or 0)
+      return (timers.remaining("pvp.prayer") or 0) <= wait
+   end
+
    M.LANES = {
       prayer = {
          ready = function()
+            if M.composing then return composingReady("prayer") end
             return timers.ready("pvp.prayer") and emunah.act.can(BOTH)
          end,
       },
       balance = {
          ready = function()
+            if M.composing then return composingReady("balance") end
             local vitals = emunah.gmcp.vitals
             -- The mace needs equilibrium too, and an equilibrium move just sent is not yet
             -- off the prompt: `smite anzerloi right leg chasten asthma` went on the prompt
@@ -76,6 +118,7 @@ return function(P)
       },
       equilibrium = {
          ready = function()
+            if M.composing then return composingReady("equilibrium") end
             local vitals = emunah.gmcp.vitals
             return vitals and vitals.eq and timers.ready("cure.equilibrium")
                and emunah.act.can(BOTH, "eq")
@@ -422,10 +465,10 @@ return function(P)
       end
       if not due then return end
       if not have.skill("contemplate") then return end
-      if emunah.act.send("contemplate " .. ctx.target, { eq = true }, "eq") then
+      emit("contemplate " .. ctx.target, { eq = true }, "eq", function()
          M.sentAt.contemplate = util.now()
          emunah.act.arm("eq")
-      end
+      end)
    end
 
    --- When a strip was sent at each target, so a shield seen before it is not stripped twice.
@@ -893,9 +936,9 @@ return function(P)
       if not (mode and mode.pushWithBlow) or not have.skill("push") then return false end
       if not M.likely(ctx, "inquisition") or (ctx.afflictions or {}).prone then return false end
       if M.pushRodeAt and util.now() - M.pushRodeAt < M.PUSH_SETTLES then return false end
-      if not emunah.act.send("angel push " .. ctx.target, { eq = true }) then return false end
-      M.pushRodeAt = util.now()
-      return true
+      return emit("angel push " .. ctx.target, { eq = true }, nil, function()
+         M.pushRodeAt = util.now()
+      end)
    end
 
    --- THE FORK AT THE FOURTH VERSE. "At prayer length 4 you have an important fork. You may
@@ -934,6 +977,7 @@ return function(P)
 
    --- Revelations went out on this prompt.
    local function revelationsNow()
+      if M.composing then return M.composing.verse == "revelations" end
       return M.thisTick.prayer == true and M.lastVerse ~= nil
          and M.lastVerse.name == "revelations"
    end
@@ -1293,57 +1337,143 @@ return function(P)
          if sin then command = command .. " rebuke " .. sin end
       end
       local spends = SPENDS[move.lane]
-      if not emunah.act.send(command, BOTH, spends) then return false end
-
-      local now = util.now()
-      M.sentAt[name] = now
-      if tag then M.sentAt[tag] = now end
+      if M.composing then
+         table.insert(M.composing.parts, command)
+         if move.verse then M.composing.verse = move.verse end
+      elseif not emunah.act.send(command, BOTH, spends) then
+         return false
+      end
       M.thisTick[move.lane] = true
-      if spends then M.lastExchange = move.lane end
-      if move.verse then
-         M.lastVerse = { name = move.verse, rebuke = sin or nil, at = now }
-         if move.verse == "revelations" then M.revelationsAt = now end
+
+      -- What its going records, now or when the game runs the queue.
+      local function commit()
+         local now = util.now()
+         M.sentAt[name] = now
+         if tag then M.sentAt[tag] = now end
+         if spends then M.lastExchange = move.lane end
+         if move.verse then
+            M.lastVerse = { name = move.verse, rebuke = sin or nil, at = now }
+            if move.verse == "revelations" then M.revelationsAt = now end
+         end
+         if move.skill == "strip" then M.strippedAt[ctx.target] = now end
+         -- What a verse and its rebuke give, for M.likely. Only these: they print no
+         -- landing line. A chasten and the angel's afflictions do, so those are believed
+         -- only when the line comes ("You calculate it PURELY on what affs your target has
+         -- at the moment it hits", Anzerloi, 2026-10-24 14:43:00).
+         if move.verse then
+            local gives = move.gives
+            if type(gives) == "function" then gives = gives(ctx) end
+            gave(ctx.target, gives)
+            -- Heresy's inquisition lands only on guilt and spiritburn both: as likely as
+            -- that. At 14:33:43 it went on ash with guilt eaten a moment before, and was
+            -- taken as certain; three saps followed on it (2026-10-24).
+            local chance = sin == "heresy"
+               and M.chance(ctx, "guilt") * M.chance(ctx, "spiritburn") or 1
+            if sin and P.REBUKES[sin] then gave(ctx.target, P.REBUKES[sin].gives, chance) end
+         end
+         -- What it takes from their mana, for the estimate.
+         if move.skill == "sap" or move.verse == "wrath" then
+            M.drains[ctx.target] = M.drains[ctx.target] or {}
+            table.insert(M.drains[ctx.target], { at = now,
+               percent = M.sapWorth(ctx, move.verse == "wrath" and "wrath" or "angel") })
+         end
+         if move.skill == "panic" then M.panicAt = now end
+         -- The pessimistic guard until the game's own line replaces it ("You may speak
+         -- another holy verse." / "Balance used:" / "Equilibrium used:").
+         --
+         -- ARMED AS IT LEAVES. Lanes used to arm only after every lane of the prompt had
+         -- sent, so that the mace and an equilibrium move could share one -- and the second
+         -- always bounced (M.plan). Armed now, the lane after a smite waits for the balance,
+         -- and a cure or rite later in the prompt's line does not go out behind it.
+         if move.lane == "prayer" then
+            timers.start("pvp.prayer", move.cost or P.RECITE_BALANCE_GUESS)
+            if P.ONCE_PER_PRAYER[move.verse] then P.prayerSpent[move.verse] = true end
+         else
+            emunah.act.arm(spends)
+         end
       end
-      if move.skill == "strip" then M.strippedAt[ctx.target] = now end
-      -- What a verse and its rebuke give, for M.likely. Only these: they print no landing
-      -- line. A chasten and the angel's afflictions do, so those are believed only when the
-      -- line comes ("You calculate it PURELY on what affs your target has at the moment it
-      -- hits", Anzerloi, 2026-10-24 14:43:00).
-      if move.verse then
-         local gives = move.gives
-         if type(gives) == "function" then gives = gives(ctx) end
-         gave(ctx.target, gives)
-         -- Heresy's inquisition lands only on guilt and spiritburn both: as likely as that.
-         -- At 14:33:43 it went on ash with guilt eaten a moment before, and was taken as
-         -- certain; three saps followed on it (2026-10-24).
-         local chance = sin == "heresy"
-            and M.chance(ctx, "guilt") * M.chance(ctx, "spiritburn") or 1
-         if sin and P.REBUKES[sin] then gave(ctx.target, P.REBUKES[sin].gives, chance) end
-      end
-      -- What it takes from their mana, for the estimate.
-      if move.skill == "sap" or move.verse == "wrath" then
-         M.drains[ctx.target] = M.drains[ctx.target] or {}
-         table.insert(M.drains[ctx.target], { at = now,
-            percent = M.sapWorth(ctx, move.verse == "wrath" and "wrath" or "angel") })
-      end
-      if move.skill == "panic" then M.panicAt = now end
+
       -- A ridden push may spend equilibrium when it lands, and a contemplate behind it would
-      -- bounce: one or the other on a blow.
+      -- bounce: one or the other on a blow. They ride after the blow, and record before it.
       if move.lane == "balance" and not pushWithBlow(M.MODES[ctx.mode], ctx) then
          contemplateWithBlow(M.MODES[ctx.mode], ctx)
       end
-      -- The pessimistic guard until the game's own line replaces it ("You may speak another
-      -- holy verse." / "Balance used:" / "Equilibrium used:"), as every attack here does.
-      --
-      -- ARMED AS IT LEAVES. Lanes used to arm only after every lane of the prompt had sent,
-      -- so that the mace and an equilibrium move could share one -- and the second always
-      -- bounced (M.plan). Armed now, the lane after a smite waits for the balance, and a
-      -- cure or rite later in the prompt's line does not go out behind it into a refusal.
-      if move.lane == "prayer" then
-         timers.start("pvp.prayer", move.cost or P.RECITE_BALANCE_GUESS)
-         if P.ONCE_PER_PRAYER[move.verse] then P.prayerSpent[move.verse] = true end
+      if M.composing then
+         table.insert(M.composing.commits, commit)
       else
-         emunah.act.arm(spends)
+         commit()
+      end
+      return true
+   end
+
+   --- Compose the next exchange and put it in the game's queue, replacing what is there when
+   --- it differs. Nothing when pvp.queue is off, the mode does not exchange, a lane is held,
+   --- the game has no separator to join the exchange with, or both balances are back (the
+   --- prompt sends then, as without the queue).
+   function M.queueNext(modeName, ctx)
+      if not emunah.config.get("pvp.queue", false) then return false end
+      local mode = M.MODES[modeName]
+      if not (mode and mode.exchange) or (ctx.held and (ctx.held.balance or ctx.held.equilibrium)) then
+         M.clearQueue()
+         return false
+      end
+      local separator = emunah.act.gameSeparator and emunah.act.gameSeparator()
+      if not separator then return false end
+      local vitals = emunah.gmcp.vitals
+      local backNow = vitals and vitals.bal and vitals.eq and timers.ready("attack.balance")
+         and timers.ready("cure.equilibrium")
+      if backNow then return false end
+
+      local thisTick = M.thisTick
+      M.thisTick = {}
+      M.composing = { parts = {}, commits = {} }
+      local ok, err = pcall(function()
+         for _, lane in ipairs({ "prayer", "balance", "equilibrium" }) do
+            local move, name = M.plan(modeName, lane, ctx)
+            if move then M.send(move, name, ctx) end
+         end
+      end)
+      local composed = M.composing
+      M.composing, M.thisTick = nil, thisTick
+      if not ok then error(err, 0) end
+
+      -- A verse alone waits for the prompt: the queue is for the exchange.
+      if #composed.parts == 0 or (#composed.parts == 1 and composed.verse) then
+         M.clearQueue()
+         return false
+      end
+      local line = table.concat(composed.parts, separator)
+      if M.queued and M.queued.line == line then return true end
+      if not emunah.act.sendLine("queue addclear eqbal " .. line) then return false end
+      M.queued = { line = line, commits = composed.commits, at = util.now() }
+      return true
+   end
+
+   --- Empty our exchange out of the game's queue.
+   function M.clearQueue()
+      if not M.queued then return end
+      M.queued = nil
+      emunah.act.send("clearqueue eqbal", {})
+   end
+
+   --- The game ran a queued command: if it is our exchange, it has gone.
+   function M.queueRan(text)
+      local queued = M.queued
+      if not queued then return false end
+      if tostring(text or ""):upper() ~= queued.line:upper() then return false end
+      M.queued = nil
+      for _, commit in ipairs(queued.commits) do commit() end
+      return true
+   end
+
+   --- Is our exchange waiting in the game's queue? Then the prompt sends nothing of its own.
+   --- One the game has not run in M.QUEUE_LOST is taken as lost.
+   function M.queuePending()
+      local queued = M.queued
+      if not queued then return false end
+      if util.now() - queued.at > M.QUEUE_LOST then
+         M.queued = nil
+         return false
       end
       return true
    end
@@ -1404,6 +1534,21 @@ return function(P)
          emunah.curing.detect.opponent.assert(name, "inquisition")
       end
    end, "priest-pvp")
+   -- Every cure the tracker sees: compose again, and requeue if it changed.
+   emunah.event.register("emunah.opponent.cured", function(_, name)
+      local pvp = emunah.pvp
+      if not (M.queued and pvp and pvp.enabled and pvp.target == name) then return end
+      if pvp.contextFor then M.queueNext(pvp.mode(), pvp.contextFor(pvp.mode())) end
+   end, "priest-pvp")
+   for _, event in ipairs({ "emunah.pvp.stopped", "emunah.pvp.mode", "emunah.pvp.target" }) do
+      emunah.event.register(event, function() M.clearQueue() end, "priest-pvp")
+   end
+   -- The game running it. Kept across loads the way priest.lua keeps its triggers.
+   emunah._persist = emunah._persist or {}
+   if emunah._persist.priestPvpQueue then killTrigger(emunah._persist.priestPvpQueue) end
+   emunah._persist.priestPvpQueue = tempRegexTrigger(
+      [[^\[System\]: Running queued eb command: (.+)$]], function() M.queueRan(matches[2]) end)
+
    -- The push stood against: no inquisition on them (the tracker takes it off).
    emunah.event.register("emunah.opponent.pushResisted", function()
       M.pushRodeAt = nil
@@ -1418,6 +1563,8 @@ return function(P)
    P.pvpPlan = M.plan
    P.pvpSend = M.send
    P.pvpDefer = M.defer
+   P.pvpQueue = M.queueNext
+   P.pvpQueuePending = M.queuePending
    P.pvpKillRows = M.killRows
    P.PVP_MODES = M.MODES
 end

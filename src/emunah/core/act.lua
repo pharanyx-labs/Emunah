@@ -538,6 +538,19 @@ M.HELD_MAX = 64
 --- @return boolean sent
 --- @param spends string|nil "bal" | "eq" | "both": what the command uses up, as against what
 ---   it only needs. See M.ahead.
+--- Send one line whole and alone: never joined into a batch, never split at the game's
+--- separator. For a command that takes the rest of its line as its argument: QUEUE ADDCLEAR
+--- eqbal <command|command> queues the whole of it ("[System]: Added RECITE GUILT
+--- ANZERLOI|SMITE ANZERLOI RIGHT LEG CHASTEN ASTHMA to your eb queue.", 2026-10-24
+--- 14:53:51), so a command joined after it would be queued too, and one split from it would
+--- go at once.
+function M.sendLine(text)
+   if type(text) ~= "string" or text == "" then return false end
+   if M.blocked({}, nil) then return false end
+   transmit(text, true)
+   return true
+end
+
 function M.send(command, needs, spends)
    if type(command) ~= "string" or command == "" then return false end
 

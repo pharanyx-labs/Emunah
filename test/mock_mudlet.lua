@@ -442,7 +442,11 @@ function mock.install(homeDir)
             mock.sent[#mock.sent + 1] = part
             mock.echoed_sends[#mock.echoed_sends + 1] = echo ~= false
          end
-         if mock.gameSeparator and mock.gameSeparator ~= "" then
+         -- QUEUE ADD and its kin take the rest of the line, separators and all: the game
+         -- queued "RECITE GUILT ANZERLOI|SMITE ANZERLOI RIGHT LEG CHASTEN ASTHMA" whole
+         -- (2026-10-24 14:53:51), and splits it only when it runs it.
+         local queueing = piece:lower():find("^queue %a+ ") ~= nil
+         if mock.gameSeparator and mock.gameSeparator ~= "" and not queueing then
             split(piece, mock.gameSeparator, run)
          else
             run(piece)

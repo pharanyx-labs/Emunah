@@ -629,6 +629,10 @@ M.settings = {
 -- pvp
 { key = "pvp.stopBelowHealth", default = 25, type = "number", unit = "%", topic = "pvp",
   shipped = true, detail = "Replaces watch.critical in PvP. Zero disables it." },
+{ key = "pvp.queue", default = false, type = "boolean", topic = "pvp", shipped = true,
+  detail = "While balance or equilibrium is out, put the next exchange in the game's queue "
+     .. "(QUEUE ADDCLEAR eqbal) and choose it again on every cure seen, so it goes the moment "
+     .. "both are back. Needs the game's command separator." },
 { key = "pvp.promptLocks", default = true, type = "boolean", topic = "pvp", shipped = true,
   detail = "Show the target's lock afflictions on the prompt: asthma, slickness, anorexia, "
      .. "paralysis and impatience, a doubtful one with its chance, and any lock they are in." },

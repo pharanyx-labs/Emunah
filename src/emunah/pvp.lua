@@ -384,9 +384,15 @@ function M.tick()
       balance     = lock ~= nil,
       equilibrium = lock ~= nil or hands,
    }
+   M.lastHeld = ctx.held
    M.updateAlert(ctx)
-   -- One prompt, every free lane.
+   -- One prompt, every free lane -- unless our exchange is waiting in the game's queue,
+   -- which sends it the moment both balances are back (priest_pvp.queueNext).
    if active.pvpDefer then active.pvpDefer(true) end
+   if active.pvpQueuePending and active.pvpQueuePending() then
+      if active.pvpQueue then active.pvpQueue(mode, ctx) end
+      return
+   end
    for _, lane in ipairs(M.LANES) do
       local held = ctx.held[lane] == true
       if not held then
@@ -404,6 +410,15 @@ function M.tick()
          end
       end
    end
+   -- Off balance now: the next exchange goes in the game's queue (pvp.queue).
+   if active.pvpQueue then active.pvpQueue(mode, ctx) end
+end
+
+--- The context the class decides on, for a decision between prompts (a cure seen).
+function M.contextFor(mode)
+   local ctx = context(mode)
+   ctx.held = M.lastHeld or { balance = false, equilibrium = false }
+   return ctx
 end
 
 --- THE KILL WINDOW, ON SCREEN. "Showing a gui alert when they are locked and also when they

@@ -407,6 +407,9 @@ local function spread(name, cures)
    local keep = total > 1 and (1 - 1 / total) or 0
    for affliction, chance in pairs(before) do setOdds(name, affliction, chance * keep) end
    M.lastSpread[name] = { at = emunah.util.now(), before = before }
+   -- "Any cure event, I queue new attack" (Anzerloi, 2026-10-24 14:51:20): the offence hears
+   -- it to choose again.
+   event.raise("opponent.cured", name)
 end
 
 --- A line names the one affliction just cured: it is gone, and a cure shared out a moment
@@ -419,6 +422,7 @@ local function namedOdds(name, affliction)
    end
    setOdds(name, affliction, 0)
    if M.suspected[name] then M.suspected[name][affliction] = nil end
+   event.raise("opponent.cured", name)
 end
 
 local function herbCures(item)

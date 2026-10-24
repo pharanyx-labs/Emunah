@@ -13219,6 +13219,97 @@ suite("PvP attack: from the first blow to absolve")
 end)()
 
 -- ===========================================================================
+suite("PvP: the next exchange in the game's queue")
+
+-- "Any cure event, I queue new attack ... Saw you eat kelp? Updated your aff table and run
+-- the attack selection script again. So it'll queue an attack worthy of the new situation"
+-- (Anzerloi, 2026-10-24 14:51). HELP QUEUE: QUEUE ADDCLEAR eqbal; the game says "[System]:
+-- Running queued eb command: ..." as it runs one (14:53:51).
+;(function()
+   local R = emunah.class.active.pvp
+   local P = emunah.class.active
+   local opp = emunah.curing.detect.opponent
+   pvp.stop("test"); pvp.clearTarget(); emunah.timers.stopAll(); emunah.act.typedUntil = nil
+   mock.settleFightRites()
+   mock.separatorAnswered("|")
+   emunah.config.set("pvp.queue", true)
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", mp = "3000", maxmp = "3000",
+      bal = "1", eq = "1", charstats = { "prayer_length: 0", "conviction: 0" } })
+   opp.clear("ashden"); P.targetMana = {}; P.targetLimbs = {}; P.prayerSpent = {}
+   R.queued = nil
+   pvp.setTarget("Ashden")
+   local function queuedLines()
+      local out = {}
+      for _, line in ipairs(mock.sent) do
+         if line:find("^queue addclear eqbal ") then out[#out + 1] = line end
+      end
+      return out
+   end
+
+   mock.sent = {}
+   pvp.setMode("attack")
+   local sent = table.concat(mock.sent, " | ")
+   ok(sent:find("recite burn ashden", 1, true) and sent:find("smite ashden", 1, true),
+      "F1 on both balances: the exchange goes at once, as without the queue", sent)
+   ok(#queuedLines() >= 1, "...and the next is put in the game's queue", sent)
+
+   -- The game says what the blow cost: the queue composes again with the verse in it.
+   mock.sent = {}
+   mock.line("Balance used: 2.3s.")
+   mock.feed("Char.Vitals", { bal = "0", eq = "1", charstats = {
+      "prayer_length: 1", "conviction: 0" } })
+   local lines = queuedLines()
+   local last = lines[#lines] or R.queued and ("queue addclear eqbal " .. R.queued.line) or ""
+   ok(last:find("recite guilt ashden", 1, true) and last:find("smite ashden", 1, true),
+      "off balance: verse and blow in the queue, joined by the separator", last)
+   ok(not table.concat(mock.sent, " | "):find("^smite", 1), "...and nothing sent of its own")
+
+   -- A cure seen: tenderskin no longer likely, so the verse to queue is burn again.
+   mock.sent = {}
+   mock.line("Ashden eats an argentum flake.")
+   lines = queuedLines()
+   ok(#lines == 1 and lines[1]:find("recite burn ashden", 1, true),
+      "an argentum eaten: the queue is chosen again, burn in guilt's place",
+      table.concat(mock.sent, " | "))
+   mock.sent = {}
+   mock.line("Ashden eats a potash crystal.")
+   eq(#queuedLines(), 0, "a cure that changes nothing: the queue is left as it is")
+
+   -- While it waits, a prompt with both back sends nothing of its own.
+   mock.sent = {}
+   mock.feed("Char.Vitals", { bal = "1", eq = "1", charstats = {
+      "prayer_length: 1", "conviction: 0" } })
+   ok(not table.concat(mock.sent, " | "):find("smite ashden", 1, true)
+      or table.concat(mock.sent, " | "):find("^queue addclear", 1),
+      "our exchange waiting in the queue: the prompt does not send it too",
+      table.concat(mock.sent, " | "))
+
+   -- The game runs it: now it has gone.
+   local line = R.queued and R.queued.line or ""
+   ok(line:find("smite ashden", 1, true), "(the blow is in it)", line)
+   R.sentAt.legsmiteChasten = nil
+   mock.line("[System]: Running queued eb command: " .. line:upper())
+   eq(R.queued, nil, "the game ran it: nothing waits")
+   ok(R.sentAt.legsmiteChasten ~= nil, "...and what it sent is recorded as gone")
+
+   -- Stopping empties it.
+   R.queued = { line = "smite ashden head", commits = {}, at = emunah.util.now() }
+   mock.sent = {}
+   pvp.stop("test")
+   ok(table.concat(mock.sent, " | "):find("clearqueue eqbal", 1, true),
+      "PvP stopped: the queue is cleared", table.concat(mock.sent, " | "))
+   eq(R.queued, nil, "...and nothing is taken as waiting")
+
+   emunah.config.set("pvp.queue", nil)
+   emunah.config.set("pvp.mode", nil)
+   opp.clear("ashden"); P.targetMana = {}; P.prayerSpent = {}
+   R.drains, R.sentAt = {}, {}
+   emunah.timers.stopAll()
+   mock.feed("Char.Vitals", { hp = "4000", maxhp = "4000", bal = "1", eq = "1",
+      charstats = { "prayer_length: 0", "conviction: 0" } })
+end)()
+
+-- ===========================================================================
 suite("PvP: the kill window alert")
 
 -- The user, 2026-10-23: "showing a gui alert when they are locked and also when they are
