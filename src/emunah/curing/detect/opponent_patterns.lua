@@ -48,6 +48,15 @@ opponent.add("epilepsy",    [[^(\w+) begins to shake uncontrollably\.$]])
 -- The wording is the reference system's third-person breathing lines; "exhales softly" and
 -- "suddenly inhales deeply" are left alone until what they mean is known.
 opponent.add("asthma",      [[^(\w+) exhales loudly\.$]])
+
+-- Confusion landing: right after "The curse of confusion is brought down on to your victim."
+-- at 17:44:40.85 on 2026-10-23, "Anzerloi looks about bemusedly."
+opponent.add("confusion",   [[^(\w+) looks about bemusedly\.$]])
+
+-- Focus and the tree, both seen in the 17:44 spar. Each cures one affliction; it comes off
+-- only when exactly one tracked affliction could be it. Focus also costs their mana.
+opponent.watchLine([[^A look of extreme focus crosses the face of (\w+)\.$]], opponent.focused)
+opponent.watchLine([[^(\w+) touches a tree of life tattoo\.$]], opponent.treeTouched)
 opponent.watchBreath([[^(\w+) inhales and begins holding (?:his|her) breath\.$]])
 
 -- ---------------------------------------------------------------------------
