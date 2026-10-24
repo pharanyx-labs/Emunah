@@ -773,6 +773,31 @@ direction: the kill sap goes later than it might, and absolve still waits for a 
 What it does show: with the lobelia trail and inquisition on them, two saps take a fresh
 target from full into absolve's range.
 
+### A sap on a clean target, and argentum eating the trail (2026-10-24 14:15-14:16)
+
+```
+14:15:10.90  contemplate anzerloi        Anzerloi's mana stands at 5413/5428 [99%].
+14:15:43.92  angel sap anzerloi          Your guardian angel casts a piercing glance at Anzerloi.
+14:15:46.91  contemplate anzerloi        Anzerloi's mana stands at 5318/5428 [97%].
+14:15:48.11  recite burn anzerloi        (14:16:13.01) Anzerloi eats an argentum flake.
+14:16:13.03  recite guilt anzerloi       (14:16:14.97) Anzerloi eats an argentum flake.
+                                         Anzerloi straightens, as if some great burden had been lifted from his shoulders.
+14:16:15.17  recite ash anzerloi         (14:16:17.06) Anzerloi eats an argentum flake.
+14:16:17.14  contemplate anzerloi        Anzerloi's mana stands at 5318/5428 [97%].
+14:16:20.01  angel sap anzerloi
+14:16:23.12  contemplate anzerloi        Anzerloi's mana stands at 5252/5428 [96%].
+             (14:16:22.88: the three-verse prayer lapsed for 15% conviction, 5% a verse)
+```
+
+- **A sap on nothing takes about 1.2-1.75%** (95 and 66 of 5428), a little more than that for
+  his regeneration in between. `priest_pvp.SAP_BASE` takes the lower.
+- **Spiritburn and tenderskin are cured with no line of their own**: each went with an
+  argentum eaten 0.2-0.3s after its verse, and only guilt prints one. So an eat of their
+  herb is all there is, which is what `opponent.couldHaveCured` goes on.
+- **He ate every two seconds or so, as fast as the verses landed**, so verses alone never
+  stack the lobelia trail on him. It holds only when each exchange also gives an affliction
+  of another herb, as the mace's kelp chasten does: one herb balance cannot take both.
+
 ### Conviction drains when the prayer lapses (13:48:20)
 
 ```

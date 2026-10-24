@@ -12998,7 +12998,7 @@ suite("PvP attack: from the first blow to absolve")
    ok(R.sapWorth(ctx()) >= 10.5, "(guilt, spiritburn, tenderskin: 10.5%)", R.sapWorth(ctx()))
    mock.advance(0.5)
    mock.line("Ashden eats an argentum flake.")
-   eq(R.sapWorth(ctx()), 0, "an argentum eaten: none of them is counted")
+   eq(R.sapWorth(ctx()), R.SAP_BASE, "an argentum eaten: none of them is counted, only the base")
 
    -- THE FORK, INQUISITION: "if target has either guilt or spiritburn, you can recite the
    -- other and rebuke heresy" (14:38:55).

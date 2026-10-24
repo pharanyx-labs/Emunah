@@ -352,8 +352,16 @@ return function(P)
 
    --- What a sap (or wrath, via "wrath") would take from them now, by what is likely on
    --- them. A verse sent on the same line lands just ahead of the sap, so it counts.
+   ---
+   --- A SAP ON NOTHING STILL TAKES SOME. The user's, on a clean Anzerloi, 2026-10-24: 5413 to
+   --- 5318 of 5428 (14:15:10-14:15:46, 1.75%), and 5318 to 5252 (14:16:18-14:16:23, 1.2%)
+   --- with every verse eaten away as it landed. Both are less his regeneration in between,
+   --- so the true figure is a little over; this takes the lower. Wrath's is not measured.
+   M.SAP_BASE = 1.2
    function M.sapWorth(ctx, via)
-      return (P.sapPercent(M.likelySet(ctx), { via = via or "angel" }))
+      via = via or "angel"
+      return (P.sapPercent(M.likelySet(ctx), {
+         via = via, base = via == "angel" and M.SAP_BASE or 0 }))
    end
 
    --- CONTEMPLATE RIDES ON THE BLOW. `smite anzerloi head chasten ...;contemplate anzerloi`
