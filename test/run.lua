@@ -13150,6 +13150,26 @@ suite("PvP attack: from the first blow to absolve")
    sent = exchange(1, 0)
    ok(sent:find("chasten paralysis", 1, true), "they touched the tree: chasten paralysis", sent)
 
+   -- THE TARGET'S LOCK AFFLICTIONS ON THE PROMPT (the user, 2026-10-24: "so i can see at a
+   -- glance"): certain ones plainly, doubtful ones with their chance, any lock they are in.
+   clean()
+   eq(pvp.lockTag(), nil, "nothing of a lock on them: nothing on the prompt")
+   for _, aff in ipairs({ "asthma", "weakness" }) do opp.assert("ashden", aff) end
+   opp.assert("ashden", "paralysis")
+   mock.line("Ashden eats an aurum flake.")
+   local tag = (pvp.lockTag() or ""):gsub("<[^>]*>", "")
+   ok(tag:find("ashden: asthma 50%, paralysis", 1, true),
+      "asthma half likely after an aurum, paralysis certain", tag)
+   opp.assert("ashden", "asthma"); opp.assert("ashden", "slickness"); opp.assert("ashden", "anorexia")
+   mock.echoed = {}
+   raiseEvent("emunah.prompt")
+   local echoed = table.concat(mock.echoed, " "):gsub("<[^>]*>", "")
+   ok(echoed:find("slick", 1, true) and echoed:find("locked: ", 1, true),
+      "...and on the prompt, with the lock they are in", echoed)
+   emunah.config.set("pvp.promptLocks", false)
+   eq(pvp.lockTag(), nil, "pvp.promptLocks off: not shown")
+   emunah.config.set("pvp.promptLocks", nil)
+
    -- THE KILL. "if target.MP - sap_value =< 45 then" (14:44:33): the sap, the reading it
    -- left stale, and absolve on a real reading under half.
    clean()

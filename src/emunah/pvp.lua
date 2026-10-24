@@ -473,6 +473,55 @@ end
 -- wiring
 -- ---------------------------------------------------------------------------
 
+-- ---------------------------------------------------------------------------
+-- on the prompt: what of a lock is on them
+-- ---------------------------------------------------------------------------
+--
+-- The user, 2026-10-24: "start echoing the lock afflictions of my opponent onto the prompt
+-- so i can see at a glance". The five a lock is made of, by the opponent tracker's odds: a
+-- certain one plainly, a doubtful one with its chance, a gone one not at all; then any lock
+-- they are in. Our own locks are watch.lua's "(lock: ...)".
+
+M.LOCK_AFFLICTIONS = { "asthma", "slickness", "anorexia", "paralysis", "impatience" }
+M.LOCK_WORDS = { slickness = "slick" }
+--- Below this chance an affliction is left off the prompt.
+M.PROMPT_FLOOR = 0.25
+
+function M.lockTag()
+   if not M.target or emunah.config.get("pvp.promptLocks", true) == false then return nil end
+   local opponent = emunah.curing.detect and emunah.curing.detect.opponent
+   if not (opponent and opponent.oddsFor) then return nil end
+   local theme = emunah.ui.theme
+   local odds = opponent.oddsFor(M.target)
+   local parts = {}
+   for _, affliction in ipairs(M.LOCK_AFFLICTIONS) do
+      local chance = odds[affliction] or 0
+      local word = M.LOCK_WORDS[affliction] or affliction
+      if chance >= 1 then
+         parts[#parts + 1] = theme.dc("affliction") .. word
+      elseif chance >= M.PROMPT_FLOOR then
+         parts[#parts + 1] = ("%s%s%s %d%%"):format(theme.dc("warning"), word,
+            theme.dc("textDim"), math.floor(chance * 100 + 0.5))
+      end
+   end
+   local locks = opponent.lockProgress(M.target)
+   if #parts == 0 and #locks == 0 then return nil end
+   local text = (" %s(%s%s%s: "):format(theme.dc("textDim"), theme.dc("accent"), M.target,
+      theme.dc("textDim"))
+   text = text .. (#parts > 0 and table.concat(parts, theme.dc("textDim") .. ", ")
+      or theme.dc("textDim") .. "none")
+   if #locks > 0 then
+      text = text .. ("%s | %slocked: %s"):format(theme.dc("textDim"), theme.dc("danger"),
+         table.concat(locks, ", "))
+   end
+   return text .. theme.dc("textDim") .. ")"
+end
+
+event.register("emunah.prompt", function()
+   local tag = M.lockTag()
+   if tag and type(decho) == "function" then decho(tag) end
+end, "pvp-prompt")
+
 event.register("emunah.tick", function() M.tick() end, "pvp")
 
 -- A BALANCE BACK WITH NO PROMPT BEHIND IT. Curing and keep-up act on the lapse (engine.lua,

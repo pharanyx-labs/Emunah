@@ -629,6 +629,9 @@ M.settings = {
 -- pvp
 { key = "pvp.stopBelowHealth", default = 25, type = "number", unit = "%", topic = "pvp",
   shipped = true, detail = "Replaces watch.critical in PvP. Zero disables it." },
+{ key = "pvp.promptLocks", default = true, type = "boolean", topic = "pvp", shipped = true,
+  detail = "Show the target's lock afflictions on the prompt: asthma, slickness, anorexia, "
+     .. "paralysis and impatience, a doubtful one with its chance, and any lock they are in." },
 { key = "pvp.purityBelow", default = 20, type = "number", unit = "%", topic = "pvp",
   shipped = true, detail = "Perform purity when the target's health is known to be at or "
      .. "under this. Only when the game has given their health; zero turns it off." },
