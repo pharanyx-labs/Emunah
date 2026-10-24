@@ -798,6 +798,36 @@ target from full into absolve's range.
   stack the lobelia trail on him. It holds only when each exchange also gives an affliction
   of another herb, as the mace's kelp chasten does: one herb balance cannot take both.
 
+### Wrath measured, and a new prayer holds conviction (2026-10-24 14:22:54-14:23:24)
+
+Anzerloi not curing. `guilt rebuke heresy` closed burn, guilt, ash, guilt; then burn, guilt,
+ash, a contemplate, wrath, a contemplate:
+
+```
+14:23:02.47  recite guilt anzerloi rebuke heresy
+             You decree that Anzerloi will pay for her crimes against Creation.
+             Your spirit surges with 45% holy conviction.
+14:23:10.09  contemplate anzerloi    Anzerloi's mana stands at 5266/5428 [97%].
+14:23:11.32  recite wrath anzerloi
+             "And may the cleansing fires consume you!" you dictate to Anzerloi, holy flame wreathing him in
+             cleansing fury.
+14:23:14.57  contemplate anzerloi    Anzerloi's mana stands at 4658/5428 [85%].
+14:23:17.62  Your spirit surges with 65% holy conviction.
+14:23:24.10  As your praying falters ... Your spirit surges with 55% holy conviction.
+```
+
+- **A new prayer holds conviction**: no "falters" line came in the second prayer, which began
+  at 14:23:04, 1.6s after the rebuke.
+- **Wrath does not spend conviction**: 45% before it, 65% once its prayer of four ended, the
+  same 20% any four-verse prayer adds. Conviction builds prayer on prayer.
+- **Wrath took 608 of 5428, 11.2%**, with tenderskin, guilt and spiritburn on him and
+  inquisition if heresy landed. Anzerloi's figures give 3 x 3.5 + 1 = 11.5% for wrath, which
+  inquisition does not multiply: they hold for wrath, with no base.
+- Wrath's line: "And may the cleansing fires consume you!" ... "holy flame wreathing him in
+  cleansing fury."
+- The first prayer's 45% (against 20% for the same prayer at 14:09:36) is not explained by
+  the capture; leftover conviction from a prayer before it is the likely reason.
+
 ### Conviction drains when the prayer lapses (13:48:20)
 
 ```
