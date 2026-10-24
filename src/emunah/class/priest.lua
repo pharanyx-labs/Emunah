@@ -416,8 +416,10 @@ end
 -- conviction percentage and a prayer length, and all seven are once per prayer. Guilt and
 -- Condemnation are not in it, so neither needs nor is limited by anything here.
 --
--- NOT YET KNOWN: the line a successful rebuke prints (M.prayerReset() is the hook for its
--- trigger), and whether reciting one of these spends conviction.
+-- Heresy's rebuke prints "You decree that <name> will pay for her crimes against Creation."
+-- whether or not inquisition lands (2026-10-24 14:09:36, 14:10:12): it ends the prayer, and
+-- says nothing of what it gave. The other rebukes' lines, and whether reciting one of these
+-- spends conviction, are not yet known.
 
 --- verse -> { conviction = %, length = verses }, from VERSES.
 M.VERSE_NEEDS = {

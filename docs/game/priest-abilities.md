@@ -714,6 +714,65 @@ Emunah's trigger package inherits as a firedisrupt cure. The reference system pr
 tenderskin, so Achaea may have reused the text; this transcript cannot tell. The GMCP
 `Char.Afflictions.Add` name would: repeat it with `emset debug gmcp`.
 
+### Rebuke heresy, and the conviction a closed prayer gives (2026-10-24 14:09-14:10)
+
+The user against Anzerloi, who did not cure. Two four-verse prayers, each closed on
+`rebuke heresy`, verbatim:
+
+```
+14:09:25.00  "Know the pain which you have caused," you proselytise to Anzerloi.
+14:09:28.62  "Burn!" you command Anzerloi, fire leaping forth to sear him.
+14:09:32.80  "Return to ash," you decree, focusing your holy might upon Anzerloi.
+14:09:36.25  "And your guilt will be made plain," you proselytise to Anzerloi.
+             You decree that Anzerloi will pay for her crimes against Creation.
+             As your prayer ends, holy fire outlines your form and you feel your righteous conviction surge to
+             yet greater heights.
+             Your spirit surges with 20% holy conviction.
+14:09:42.82  As your praying falters, your conviction does so in concert.
+             Your spirit surges with 10% holy conviction.
+14:09:49.28  As your praying falters, your conviction does so in concert.
+             Your conviction has entirely left you.
+```
+
+and condemnation, burn, guilt, `guilt rebuke heresy` (no spiritburn on him) at 14:10:03-14:10:12,
+printing the same decree line and the same 20%.
+
+- **A four-verse prayer closed by a rebuke gives 20%**, the conviction wrath needs. With the
+  two-verse prayer's 10% (09:58:49), that is 5% a verse.
+- **Heresy's rebuke line does not say whether inquisition landed**: "You decree that <name>
+  will pay for her crimes against Creation." came both with spiritburn on him and without
+  (the "her" is the game's, for Anzerloi). Inquisition is confirmed only by its effects, as a
+  push on a smite's line proning them (`pvp-locks.md`).
+- **Conviction falls 10% about every 6.5s** once the prayer is over and no other has begun
+  (14:09:36.25, 42.82, 49.28; 14:10:12.69, 19.25). Whether a new prayer holds it, so that
+  wrath can still go at that prayer's fourth verse, is not yet captured.
+- The first `recite guilt` at 14:09:21.03 landed at 14:09:25.00, after the prayer begun by
+  burn had ended at 24.74: lag, not a rule. A verse late by that much ends the chain.
+
+### One sap, measured (2026-10-24 14:10:25-14:10:54)
+
+Straight after the two heresy prayers above, Anzerloi still not curing:
+
+```
+14:10:25.75  contemplate anzerloi
+             Anzerloi's mana stands at 5339/5428 [98%].
+14:10:47.95  angel sap anzerloi
+             Your guardian angel casts a piercing glance at Anzerloi.
+             Equilibrium used: 2.75s.
+14:10:54.12  contemplate anzerloi
+             Anzerloi's mana stands at 4012/5428 [73%].
+```
+
+**One sap took 1327 of 5428, 24.4%**, and more than that by whatever he regenerated in the
+29s between readings. On him, uncured: guilt, tenderskin, spiritburn and justice from the
+verses, and inquisition if the first prayer's heresy landed (guilt and spiritburn were both
+on him for it). Anzerloi's figures (`priest.sapPercent`) give (3 x 3.5 + 1 + 1) x 1.5 =
+18.75%: they undercount here. A doubled inquisition multiplier would fit (25%), but one
+reading of an uncertain set is not enough to retune on, and undercounting is the safe
+direction: the kill sap goes later than it might, and absolve still waits for a reading.
+What it does show: with the lobelia trail and inquisition on them, two saps take a fresh
+target from full into absolve's range.
+
 ### Conviction drains when the prayer lapses (13:48:20)
 
 ```
