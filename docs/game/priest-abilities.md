@@ -206,7 +206,7 @@ PvP, Spirituality and Devotion:
 | `perform visions <target>` | equilibrium 2.50s, 100 devotion, 50 mana | Dementia; shyness if already demented |
 | `perform dazzle <target>` | equilibrium 2.50s, 250 devotion | Stupidity |
 | `perform fasting <target>` | equilibrium 2.20s, 10 devotion | Anorexia. The route sends it once the target is slick and holds a mental (`pvp-locks.md`) |
-| `judge <target>` | equilibrium 5.00s | Seeks a death sentence; faster against justice |
+| `judge <target>` | equilibrium 5.00s | Seeks a death sentence; faster against justice. **Not used**: how long it takes, whether anything interrupts it, and every line it prints are uncaptured, so the offence kills with absolve. Capture `judge <target>` in the Arena, with and without justice (condemnation) on them, to build on it |
 | `perform rite of piety` | equilibrium 3.80s, 600 devotion | Enemies struggle to leave; a balance penalty when it holds them |
 
 Weaponry `TARGET <body part>`: HEAD, TORSO, RIGHT/LEFT ARM, RIGHT/LEFT LEG, NOTHING. Torso

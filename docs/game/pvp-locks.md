@@ -281,6 +281,14 @@ Offence is this route (`class/priest_pvp.lua`, `M.PRAYERS`). The user's rulings,
   mentals." So no order names a mental; recklessness is never chastened, and `chasten
   mind` only for its capstone, since the game may pick recklessness from the pool; the
   slickness sequence gives one mental and stops (`M.MENTALS`, `M.mentalCount`).
+- **F1 draws them into the kill** (the user, 2026-10-23: "just get us in a position where
+  we can actually get a kill"). Attack mode reads their mana with each blow
+  (`readMana`), smites the legs evenly ("working their legs as another possible source
+  for sap power, and to immobilize them during the kill window", 14:40:09), and at or
+  under `M.DRAIN_BELOW` (70%) on a fresh reading steps them down with wrath and the
+  angel's sap (`stepWrath`, `stepSap`; "step them down when it's worth it (such as
+  bringing 100% mana down to 60%)", 2026-10-15 12:41). The kill moves below finish it.
+  Judge is not used: its duration and lines are uncaptured.
 - **The kill wherever it is** (Anzerloi, 2026-10-23 14:38:17-14:39:20): "You win by having
   their mana low enough. If that does not present itself on its own (on your
   contemplations), you attempt to create conditions to attack their mana with saps. Most of
