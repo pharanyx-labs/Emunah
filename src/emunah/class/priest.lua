@@ -673,8 +673,13 @@ end
 --
 -- So the caster's line names the target and the limb. It is summed per limb here and read
 -- by the offence to spread its blows across the legs. A blow the game did not report
--- (missed, parried, or a break with no figure) adds nothing. When the target's own healing
--- resets a limb is not known, so a total only clears with a new fight or target.
+-- (missed, parried, or a break with no figure) adds nothing.
+--
+-- A LIMB THEY STOP FAVOURING IS HEALED: "Anzerloi ceases to favour his left leg." and the
+-- right, a minute after the spar of 2026-10-24 14:39 (14:37:30, 14:37:36), when his salves
+-- had mended them. Its total goes back to nothing. "Counting attacks to legs instead of
+-- actually addressing known prep states on the target" is what Anzerloi warns against
+-- (15:48:02): a running sum of blows is not the leg.
 
 --- name (lower) -> limb ("left leg", "head", ...) -> percent dealt so far
 M.targetLimbs = {}
@@ -867,6 +872,12 @@ local function installTriggers()
          M.targetLimbs[name] = M.targetLimbs[name] or {}
          M.targetLimbs[name][limb] = (M.targetLimbs[name][limb] or 0) + percent
       end))
+   for _, limb in ipairs({ "left leg", "right leg", "left arm", "right arm" }) do
+      keep(tempRegexTrigger([[^(\w+) ceases to favour \w+ ]] .. limb .. [[\.$]], function()
+         local limbs = M.targetLimbs[matches[2]:lower()]
+         if limbs then limbs[limb] = nil end
+      end))
+   end
 
    keep(tempRegexTrigger([[^You can use Desolation again\.$]], function()
       emunah.timers.stop("bashing.desolation")

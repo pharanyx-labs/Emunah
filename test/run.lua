@@ -13150,6 +13150,21 @@ suite("PvP attack: from the first blow to absolve")
    sent = exchange(1, 0)
    ok(sent:find("chasten paralysis", 1, true), "they touched the tree: chasten paralysis", sent)
 
+   -- A LEG THEY STOP FAVOURING IS HEALED: not a running count of blows (Anzerloi, 15:48:02).
+   P.targetLimbs = { ashden = { ["left leg"] = 41.7, ["right leg"] = 27.8 } }
+   mock.line("Ashden ceases to favour his left leg.")
+   eq(P.limbs("ashden")["left leg"], nil, "\"ceases to favour his left leg\": healed")
+   eq(P.limbs("ashden")["right leg"], 27.8, "...the other untouched")
+   eq(R.legFor("ashden"), "left leg", "...and the mace goes back to the healed one")
+   P.targetLimbs = {}
+   -- Locks by the odds: an aurum on asthma and weariness leaves neither certain.
+   clean()
+   for _, aff in ipairs({ "slickness", "anorexia", "asthma", "weakness" }) do opp.assert("ashden", aff) end
+   ok(#opp.lockProgress("ashden") > 0, "(slick, anorexic, asthmatic: a lock)")
+   mock.line("Ashden eats an aurum flake.")
+   mock.line("Ashden eats an aurum flake.")
+   eq(#opp.lockProgress("ashden"), 0, "two aurum on two kelp afflictions: no longer taken as locked")
+
    -- THE TARGET'S LOCK AFFLICTIONS ON THE PROMPT (the user, 2026-10-24: "so i can see at a
    -- glance"): certain ones plainly, doubtful ones with their chance, any lock they are in.
    clean()

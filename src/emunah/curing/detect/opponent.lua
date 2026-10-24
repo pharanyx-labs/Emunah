@@ -283,9 +283,15 @@ function M.blockedVectors(name)
 end
 
 --- The locks they are in, and what each other lock still needs. See watch.lockProgress().
+--- By the odds, an even chance or better: an aurum on asthma and another kelp affliction
+--- leaves neither certain, and a lock read off the confirmed list would still hold.
+M.LOCK_AT = 0.5
 function M.lockProgress(name)
    name = tostring(name or ""):lower()
-   return emunah.watch.lockProgress(function(affliction) return M.has(name, affliction) end)
+   local odds = M.oddsFor(name)
+   return emunah.watch.lockProgress(function(affliction)
+      return (odds[affliction] or 0) >= M.LOCK_AT
+   end)
 end
 
 --- How many of the lock's afflictions must already be on them before it is worth chasing.
