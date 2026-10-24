@@ -27,6 +27,8 @@ local opponent = emunah.curing.detect.opponent
 -- ---------------------------------------------------------------------------
 
 opponent.add("masochism",   [[^The face of (\w+) contorts in horrified revulsion\.$]])
+-- Masochism hurting them: twice after `rebuke evil` (2026-10-24 14:39:59.94, 14:40:51.77).
+opponent.add("masochism",   [[^(\w+) smiles as \w+ rams \w+ fist into \w+ jaw\.$]])
 opponent.add("slickness",   [[^The protective coating covering the skin of (\w+) sloughs off\.$]])
 opponent.add("clumsiness",  [[^(\w+) stumbles clumsily as the blow lands\.$]])
 opponent.add("dizziness",   [[^(\w+) begins to sway unsteadily\.$]])

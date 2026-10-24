@@ -13046,6 +13046,30 @@ suite("PvP attack: from the first blow to absolve")
    opp.assert("ashden", "weakness")
    sent = exchange(4, 15)
    ok(sent:find("angel panic ashden", 1, true), "the attack after: panic, for slickness", sent)
+   -- Not on asthma in doubt (2026-10-24 14:40:44-50): two aurum on asthma and weariness and
+   -- neither is likely. The mace chastens asthma again, and the panic waits for it.
+   clean()
+   for _, aff in ipairs({ "hellsight", "asthma", "weakness" }) do opp.assert("ashden", aff) end
+   R.revelationsAt = emunah.util.now()
+   mock.line("Ashden eats an aurum flake.")
+   mock.line("Ashden eats an aurum flake.")
+   ok(not R.likely(ctx(), "asthma"), "(two aurum on two kelp afflictions: asthma in doubt)")
+   sent = exchange(1, 15)
+   ok(not sent:find("angel panic", 1, true), "asthma in doubt: no panic for slickness", sent)
+   ok(sent:find("chasten asthma", 1, true), "...the mace puts asthma back first", sent)
+   -- The mace waits on equilibrium's guard: a smite needs it.
+   clean()
+   emunah.timers.stopAll()
+   emunah.timers.start("cure.equilibrium", 1)
+   mock.sent = {}
+   mock.feed("Char.Vitals", { bal = "1", eq = "1", charstats = {
+      "prayer_length: 1", "conviction: 0" } })
+   ok(not table.concat(mock.sent, " | "):find("smite", 1, true),
+      "an equilibrium move just sent: the mace waits for it", table.concat(mock.sent, " | "))
+   emunah.timers.stopAll()
+   -- Masochism hurting them.
+   mock.line("Ashden smiles as he rams his fist into his jaw.")
+   ok(opp.has("ashden", "masochism"), "\"rams his fist into his jaw\": masochism")
 
    -- The prayer CLOSES at the fourth verse when neither fork is there: the rebuke is what
    -- banks the conviction wrath and Revelations need.

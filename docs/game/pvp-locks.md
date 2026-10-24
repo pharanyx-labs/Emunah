@@ -413,6 +413,22 @@ no trail." What it showed, and what changed:
   now a smoke cure shared among what a pipe takes, and proof asthma was not on them; the
   asthma hold and the slickness panic go on hellsight's odds.
 
+## F1 again, 2026-10-24 14:39:48-14:40:59, on the code above
+
+One sap instead of four. The fork went twice: Revelations with the mace's asthma
+(14:40:30), and Revelations with sloth (14:40:43) followed by the panic that gave slickness
+("The protective coating covering the skin of Anzerloi sloughs off.", 14:40:47). Rebuke
+evil's masochism kept him focusing, seven times, and his mana touched 82%. "It's progress,
+but it's also a mess. No method." Fixed from it:
+
+- **Slickness only with asthma likely.** Two aurum went down between the asthma chasten and
+  the panic, and he smoked the slickness off at 14:40:50. The panic and the hold went on the
+  confirmed list, which still had asthma; they go on its odds now.
+- **The mace waits on equilibrium's guard.** After the panic, `smite ... chasten asthma` went
+  on the next prompt and came back "You must regain equilibrium first." (14:40:47.11): the
+  prompt still showed equilibrium, but the smite needs it and the panic had it.
+- **Masochism's symptom**: "Anzerloi smiles as he rams his fist into his jaw."
+
 ## Their mana, estimated, and the kill window
 
 "Don't contemplate too much as it'll cost us valuable time. Try and estimate it and only use

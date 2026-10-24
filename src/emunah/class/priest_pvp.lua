@@ -65,7 +65,12 @@ return function(P)
       balance = {
          ready = function()
             local vitals = emunah.gmcp.vitals
+            -- The mace needs equilibrium too, and an equilibrium move just sent is not yet
+            -- off the prompt: `smite anzerloi right leg chasten asthma` went on the prompt
+            -- after a panic and came back "You must regain equilibrium first." (2026-10-24
+            -- 14:40:47.11). So its guard holds the mace as well.
             return vitals and vitals.bal and timers.ready("attack.balance")
+               and timers.ready("cure.equilibrium")
                and emunah.act.can(BOTH, "bal")
          end,
       },
@@ -1040,9 +1045,12 @@ return function(P)
    M.slickAt = nil
 
    --- Inside the window after Revelations, with asthma still holding the pipe shut.
+   --- Asthma by its odds, not the confirmed list: two aurum went down between the asthma
+   --- chasten and the panic, the slickness came, and he smoked it off at once (2026-10-24
+   --- 14:40:44-14:40:50). "Only give hellsight when asthma is secure" (16:03:25).
    local function hellsightHeld(ctx)
       local at = M.revelationsAt
-      return at ~= nil and util.now() - at < M.HELLSIGHT and ctx.afflictions.asthma == true
+      return at ~= nil and util.now() - at < M.HELLSIGHT and M.likely(ctx, "asthma")
          and M.likely(ctx, "hellsight")
    end
 
@@ -1059,7 +1067,7 @@ return function(P)
    --- they ate it away. A panic into slickness that was never confirmed would cost the mace
    --- every exchange. Their fangbarrier sloughing off confirms it (16:09:48).
    M.MOVES.hellsightPanic = setmetatable({ gives = "slickness", when = function(ctx)
-      if not (ctx.afflictions.hellsight or hellsightHeld(ctx)) then return false end
+      if not (M.likely(ctx, "hellsight") and M.likely(ctx, "asthma")) then return false end
       local last = M.panicAt
       if last == nil or (M.revelationsAt and last < M.revelationsAt) then return true end
       return M.slickAt ~= nil and M.slickAt >= last
