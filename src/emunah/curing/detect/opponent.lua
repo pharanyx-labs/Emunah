@@ -192,8 +192,10 @@ function M.clear(name)
       M.tracked[name] = nil
       if M.used then M.used[name] = nil end
       if M.defences then M.defences[name] = nil end
+      if M.focuses then M.focuses[name] = nil end
+      if M.lastEat then M.lastEat[name] = nil end
    else
-      M.tracked, M.used, M.defences = {}, {}, {}
+      M.tracked, M.used, M.defences, M.focuses, M.lastEat = {}, {}, {}, {}, {}
    end
 end
 

@@ -1323,8 +1323,8 @@ M.handlers.pvp = function(arg, rest)
          end
          if #cures > 0 then row("last cured", table.concat(cures, ", "), "ansi_light_black") end
          if r.reflecting then row("reflecting", "a barrier: the next blow breaks it, and comes back", "ansi_light_red") end
-         -- From the tracked afflictions alone, so it is only as good as they are. Nothing
-         -- sends a sap yet; this is the figure the offence will decide with.
+         -- From the tracked afflictions alone, so it is only as good as they are: the figure
+         -- the offence saps and estimates their mana with.
          local priest = emunah.class.active
          if priest and priest.sapPercent then
             row("a sap would take", ("%.1f%% angel, %.1f%% wrath (of max mana)"):format(
@@ -1337,6 +1337,13 @@ M.handlers.pvp = function(arg, rest)
                mana.percent, util.duration(util.now() - mana.at),
                mana.stale and " -- sapped since" or ""),
                mana.stale and "ansi_light_black" or "reset")
+         end
+         -- What the offence decides when to look and sap by: that reading (or full, with
+         -- none) less our saps since and their focuses (class/priest_pvp.lua).
+         local pvpMoves = priest and priest.pvp
+         if pvpMoves and pvpMoves.manaEstimate then
+            row("mana estimate", ("about %d%%"):format(pvpMoves.manaEstimate({
+               target = r.target, mana = mana, afflictions = afflictions })))
          end
       end
       local active = emunah.class.active
